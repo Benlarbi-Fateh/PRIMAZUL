@@ -12,3 +12,4 @@ npm-debug.log.*
 
 # Fichiers sensibles (Secrets)
 .env
+.env.local
