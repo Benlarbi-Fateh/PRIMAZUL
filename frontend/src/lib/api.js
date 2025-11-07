@@ -1,8 +1,67 @@
-import axios from "axios";
+// frontend/src/lib/api.js
+import axios from 'axios';
+
+// Utilise une variable d'environnement pour l'URL de l'API
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
-  withCredentials: true,
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
+
+// Ajouter le token automatiquement
+api.interceptors.request.use(
+  (config) => {
+    // Next.js : vérifier que nous sommes côté client
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Intercepteur pour gérer les erreurs
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expiré ou invalide
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ============================================
+// 🆕 FONCTIONS D'API
+// ============================================
+
+// AUTH
+export const register = (data) => api.post('/auth/register', data);
+export const login = (data) => api.post('/auth/login', data);
+
+// 🆕 RECHERCHE D'UTILISATEURS
+export const searchUsers = (query) => api.get(`/auth/search?query=${query}`);
+
+// CONVERSATIONS
+export const getConversations = () => api.get('/conversations');
+export const createConversation = (participantId) => api.post('/conversations/get-or-create', { contactId: participantId }); // 🔧 CORRIGÉ
+export const getConversation = (id) => api.get(`/conversations/${id}`); // ✅ Déjà présent
+
+// MESSAGES
+export const getMessages = (conversationId) => api.get(`/messages/${conversationId}`);
+export const sendMessage = (data) => api.post('/messages', data);
 
 export default api;

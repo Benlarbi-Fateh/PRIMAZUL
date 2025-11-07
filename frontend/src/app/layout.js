@@ -1,10 +1,18 @@
-export default function Layout({ children }) {
+import { AuthProvider } from '@/context/AuthProvider';
+import './globals.css';
+
+export const metadata = {
+  title: 'WhatsApp Clone',
+  description: 'Messagerie instantanée',
+};
+
+export default function RootLayout({ children }) {
   return (
     <html lang="fr">
       <body>
-        <header>PrimAzul</header>
-        {children}
-        <footer>© 2025 PrimAzul</footer>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
