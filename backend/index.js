@@ -4,14 +4,17 @@ const mongoose = require("mongoose"); // importer mongoose pour interagir avec l
 const cors = require("cors"); // importer cors pour autoriser les requetes entre front et back
 require("dotenv").config(); // recuperer les informations sensibles depuis le fichier .env
 
+const authRoutes = require('./routes/auth'); // importer les routes d'authentification
 const app = express(); // initialiser l'application express
-app.use(cors()); // activer cors pour toutes les routes
-app.use(express.json()); // parser le corps des requetes en json
 // Middleware CORS
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
+app.use(cors()); // activer cors pour toutes les routes
+app.use(express.json()); // parser le corps des requetes en json
+
+app.use('/api/auth',authRoutes);
 const PORT = process.env.PORT || 5000; // definir le port du serveur
 
 // Default route
