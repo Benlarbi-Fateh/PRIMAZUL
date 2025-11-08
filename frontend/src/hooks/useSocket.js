@@ -10,10 +10,20 @@ export const useSocket = () => {
 
   useEffect(() => {
     if (user && !isInitialized.current) {
-      const userId = user._id || user.id; 
+      const userId = user._id || user.id;
       console.log('🔌 Initialisation du socket pour user:', userId);
+      
+      // 🆕 initSocket gère maintenant tout automatiquement
       initSocket(userId);
       isInitialized.current = true;
     }
+
+    // 🆕 Cleanup si l'utilisateur se déconnecte
+    return () => {
+      if (!user && isInitialized.current) {
+        console.log('🧹 User déconnecté, reset du socket');
+        isInitialized.current = false;
+      }
+    };
   }, [user]);
 };

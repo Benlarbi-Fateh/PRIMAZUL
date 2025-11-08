@@ -50,19 +50,23 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: error.message });
 });
 
-// 🆕 SOCKET.IO EVENTS
+// 🆕 SOCKET.IO EVENTS - CORRIGÉ
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log('✅ Socket connecté:', socket.id);
 
-  // 🆕 User se connecte
+  // 🆕 User se connecte - CORRIGÉ
   socket.on('user-online', (userId) => {
     onlineUsers.set(userId, socket.id);
     socket.userId = userId;
-    socket.join(userId); // Rejoindre sa propre room
-    io.emit('user-status', { userId, isOnline: true });
+    socket.join(userId);
+    
     console.log(`👤 User ${userId} est en ligne`);
+    console.log(`📋 Utilisateurs actuellement en ligne:`, Array.from(onlineUsers.keys()));
+    
+    // 🆕 ENVOYER LA LISTE COMPLÈTE À TOUS LES CLIENTS
+    io.emit('online-users-update', Array.from(onlineUsers.keys()));
   });
 
   // Rejoindre une conversation
@@ -85,8 +89,12 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     if (socket.userId) {
       onlineUsers.delete(socket.userId);
-      io.emit('user-status', { userId: socket.userId, isOnline: false });
+      
       console.log(`❌ User ${socket.userId} déconnecté`);
+      console.log(`📋 Utilisateurs restants en ligne:`, Array.from(onlineUsers.keys()));
+      
+      // 🆕 ENVOYER LA LISTE COMPLÈTE À TOUS LES CLIENTS
+      io.emit('online-users-update', Array.from(onlineUsers.keys()));
     }
   });
 });

@@ -2,32 +2,42 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 
 const initSocket = (io) => {
-  const onlineUsers = new Map();
+  const onlineUsers = new Map(); // userId -> socketId
 
   io.on('connection', (socket) => {
     console.log('✅ User connected:', socket.id);
 
+    // 🆕 Événement pour marquer un utilisateur en ligne
     socket.on('user-online', (userId) => {
       onlineUsers.set(userId, socket.id);
       socket.userId = userId;
-      io.emit('user-status', { userId, isOnline: true });
-      console.log(`👤 User ${userId} est en ligne`);
+      
+      // 🆕 AJOUTER CES LOGS POUR VÉRIFIER
+      console.log(`📤 Émission user-online à tous les clients: ${userId}`);
+      io.emit('user-online', userId);
+      
+      console.log(`📤 Émission online-users au socket:`, Array.from(onlineUsers.keys()));
+      socket.emit('online-users', Array.from(onlineUsers.keys()));
+      
+      console.log(`👤 User ${userId} est en ligne (Total en ligne: ${onlineUsers.size})`);
     });
 
+    // Rejoindre une conversation
     socket.on('join-conversation', (conversationId) => {
       socket.join(conversationId);
       console.log(`📥 Socket ${socket.id} a rejoint la conversation ${conversationId}`);
     });
 
+    // Envoyer un message
     socket.on('send-message', async (data) => {
       try {
         console.log('📤 Réception send-message:', data);
         const { conversationId, sender, content, type, fileUrl, fileName, fileSize } = data;
 
-        // 🚀 CORRECTION : Créer le message en base de données
+        // Créer le message en base de données
         const message = new Message({
           conversationId,
-          sender, // 🚀 Utiliser le sender du socket
+          sender,
           content: content || '',
           type: type || 'text',
           fileUrl: fileUrl || '',
@@ -37,10 +47,10 @@ const initSocket = (io) => {
 
         await message.save();
         
-        // 🚀 CORRECTION : Populate le sender AVANT d'émettre
+        // Populate le sender AVANT d'émettre
         await message.populate('sender', 'name profilePicture');
 
-        // 🚀 CORRECTION : Mettre à jour la conversation
+        // Mettre à jour la conversation
         const updatedConversation = await Conversation.findByIdAndUpdate(
           conversationId,
           {
@@ -57,17 +67,15 @@ const initSocket = (io) => {
 
         console.log('💾 Message sauvegardé en base:', message._id);
 
-        // 🚀 CORRECTION : Émettre le message à TOUS les participants
+        // Émettre le message à TOUS les participants de la conversation
         io.to(conversationId).emit('receive-message', {
           ...message.toObject(),
-          // S'assurer que toutes les données sont présentes
           conversationId,
           sender: message.sender
         });
 
-        // 🚀 CORRECTION : Émettre la mise à jour de la conversation
+        // Émettre la mise à jour de la conversation
         if (updatedConversation) {
-          // Émettre à tous les participants en ligne
           updatedConversation.participants.forEach(participant => {
             const participantId = participant._id.toString();
             if (onlineUsers.has(participantId)) {
@@ -83,6 +91,7 @@ const initSocket = (io) => {
       }
     });
 
+    // Événement typing
     socket.on('typing', (data) => {
       socket.to(data.conversationId).emit('user-typing', {
         userId: data.userId,
@@ -90,6 +99,7 @@ const initSocket = (io) => {
       });
     });
 
+    // Événement stop-typing
     socket.on('stop-typing', (data) => {
       socket.to(data.conversationId).emit('user-stopped-typing', {
         userId: data.userId,
@@ -97,11 +107,18 @@ const initSocket = (io) => {
       });
     });
 
+    // 🆕 Déconnexion améliorée
     socket.on('disconnect', () => {
       if (socket.userId) {
         onlineUsers.delete(socket.userId);
-        io.emit('user-status', { userId: socket.userId, isOnline: false });
-        console.log(`❌ User ${socket.userId} déconnecté`);
+        
+        // 🆕 AJOUTER LES LOGS POUR LA DÉCONNEXION
+        console.log(`📤 Émission user-offline à tous les clients: ${socket.userId}`);
+        io.emit('user-offline', socket.userId);
+        
+        console.log(`❌ User ${socket.userId} déconnecté (Total en ligne: ${onlineUsers.size})`);
+      } else {
+        console.log(`❌ Socket ${socket.id} déconnecté (non authentifié)`);
       }
     });
   });

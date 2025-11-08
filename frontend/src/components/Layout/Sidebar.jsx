@@ -20,6 +20,9 @@ export default function Sidebar({ activeConversationId }) {
   const [showUsers, setShowUsers] = useState(false);
   const [menuOpen, setMenuOpen] = useState(null);
   
+  // 🆕 État pour tracker les utilisateurs en ligne
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  
   const searchTimeoutRef = useRef(null);
 
   // Calcul des utilisateurs à afficher basé sur l'état actuel
@@ -29,6 +32,25 @@ export default function Sidebar({ activeConversationId }) {
     }
     return searchResults;
   }, [showUsers, searchTerm, searchResults]);
+
+  // 🆕 Écouter les événements de statut en ligne - CORRIGÉ
+  useEffect(() => {
+    const socket = getSocket();
+    
+    if (socket && user) {
+      console.log('👥 Sidebar écoute les statuts en ligne');
+      
+      // 🆕 MODIFICATION : Utiliser online-users-update pour recevoir la liste complète
+      socket.on('online-users-update', (userIds) => {
+        console.log('📡 Liste complète des utilisateurs en ligne reçue:', userIds);
+        setOnlineUsers(new Set(userIds));
+      });
+
+      return () => {
+        socket.off('online-users-update');
+      };
+    }
+  }, [user]);
 
   // Charger les conversations
   useEffect(() => {
@@ -165,6 +187,11 @@ export default function Sidebar({ activeConversationId }) {
     return conv.participants?.find(p => p._id !== userId);
   };
 
+  // 🆕 Fonction pour vérifier si un utilisateur est en ligne
+  const isUserOnline = (userId) => {
+    return onlineUsers.has(userId);
+  };
+
   const getLastMessagePreview = (conv) => {
     if (!conv.lastMessage) return 'Démarrer la conversation';
     
@@ -208,12 +235,10 @@ export default function Sidebar({ activeConversationId }) {
   const handleDeleteConversation = async (conversationId) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
       try {
-        // Implémentez ici votre logique de suppression
         console.log('Suppression de la conversation:', conversationId);
         setConversations(prev => prev.filter(conv => conv._id !== conversationId));
         setMenuOpen(null);
         
-        // Rediriger si la conversation active est supprimée
         if (activeConversationId === conversationId) {
           router.push('/chat');
         }
@@ -334,8 +359,9 @@ export default function Sidebar({ activeConversationId }) {
                           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=0ea5e9&color=fff`;
                         }}
                       />
-                      {contact.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full"></span>
+                      {/* 🆕 Bulle conditionnelle basée sur le statut réel */}
+                      {isUserOnline(contact._id) && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>
                       )}
                     </div>
                     <div className="flex-1 text-left">
@@ -404,8 +430,9 @@ export default function Sidebar({ activeConversationId }) {
                               e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`;
                             }}
                           />
-                          {contact?.isOnline && (
-                            <span className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 border-2 border-white rounded-full"></span>
+                          {/* 🆕 Bulle conditionnelle basée sur le statut réel */}
+                          {isUserOnline(contact?._id) && (
+                            <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
                           )}
                         </div>
                         

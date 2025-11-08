@@ -3,14 +3,21 @@ import { io } from 'socket.io-client';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
 let socket = null;
+let currentUserId = null; // 🆕 Stocker l'userId actuel
 
 export const initSocket = (userId) => {
   if (typeof window === 'undefined') {
     return null;
   }
 
+  // 🆕 Stocker l'userId
+  currentUserId = userId;
+
   if (socket?.connected) {
     console.log('✅ Socket déjà connecté');
+    // 🆕 Ré-émettre user-online même si déjà connecté
+    console.log('🔄 Ré-émission de user-online pour:', userId);
+    socket.emit('user-online', userId);
     return socket;
   }
 
@@ -23,8 +30,18 @@ export const initSocket = (userId) => {
 
   socket.on('connect', () => {
     console.log('✅ Socket connecté:', socket.id);
-    if (userId) {
-      socket.emit('user-online', userId);
+    if (currentUserId) {
+      console.log('📤 Émission user-online pour:', currentUserId);
+      socket.emit('user-online', currentUserId);
+    }
+  });
+
+  // 🆕 Gérer la reconnexion
+  socket.on('reconnect', () => {
+    console.log('🔄 Socket reconnecté:', socket.id);
+    if (currentUserId) {
+      console.log('📤 Ré-émission user-online après reconnexion:', currentUserId);
+      socket.emit('user-online', currentUserId);
     }
   });
 
@@ -123,6 +140,7 @@ export const disconnectSocket = () => {
     console.log('🔌 Déconnexion du socket');
     socket.disconnect();
     socket = null;
+    currentUserId = null; // 🆕 Reset l'userId
   }
 };
 
