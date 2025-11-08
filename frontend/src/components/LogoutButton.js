@@ -3,7 +3,7 @@
 import React from "react";
 import { useAuth } from "../context/authContext";
 
-export default function Header() {
+export default function LogoutButton() {
   const { user, logout } = useAuth();
 
   return (

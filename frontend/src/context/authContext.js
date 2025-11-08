@@ -2,7 +2,7 @@
 // Permet à toute ton application d’accéder à user, login() et logout()
 // Sauvegarde le token et les infos utilisateur dans le localStorage pour maintenir la session
 
-"use client"; //dique à Next.js que ce fichier s’exécute dans le navigateur.
+"use client"; //indique à Next.js que ce fichier s’exécute dans le navigateur.
 
 //Sans cette ligne, Next essaie de l’exécuter côté serveur → ce qui provoque ton erreur
 
