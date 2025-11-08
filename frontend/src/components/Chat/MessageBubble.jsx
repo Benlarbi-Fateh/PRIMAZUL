@@ -55,7 +55,7 @@ export default function MessageBubble({ message, isMine }) {
     if (fileType === 'image') {
       return (
         <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-blue-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src={message.fileUrl} 
@@ -64,12 +64,12 @@ export default function MessageBubble({ message, isMine }) {
               onClick={handleOpenFile}
             />
             {message.content && (
-              <div className="p-3 border-t border-gray-100">
-                <p className="text-sm text-gray-700">{message.content}</p>
+              <div className="p-3 border-t border-blue-100">
+                <p className="text-sm text-blue-900">{message.content}</p>
               </div>
             )}
           </div>
-          <span className={`text-xs mt-1 block ${isMine ? 'text-right text-green-100' : 'text-gray-500'}`}>
+          <span className={`text-xs mt-1 block ${isMine ? 'text-right text-blue-300' : 'text-blue-600'}`}>
             {formatTime(message.createdAt)}
           </span>
         </div>
@@ -80,7 +80,9 @@ export default function MessageBubble({ message, isMine }) {
     return (
       <div className={`max-w-xs ${isMine ? 'ml-auto' : 'mr-auto'}`}>
         <div className={`p-4 rounded-2xl flex items-center gap-3 ${
-          isMine ? 'bg-green-500 text-white' : 'bg-white text-gray-900 shadow-sm'
+          isMine 
+            ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white' 
+            : 'bg-white text-blue-900 shadow-sm border border-blue-200'
         }`}>
           <div className="shrink-0">
             {fileType === 'audio' ? (
@@ -109,8 +111,8 @@ export default function MessageBubble({ message, isMine }) {
               onClick={handleOpenFile}
               className={`p-2 rounded-full transition transform hover:scale-110 ${
                 isMine 
-                  ? 'bg-green-600 hover:bg-green-700 text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  ? 'bg-blue-700 hover:bg-blue-800 text-white' 
+                  : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
               }`}
               title="Ouvrir le fichier"
             >
@@ -122,8 +124,8 @@ export default function MessageBubble({ message, isMine }) {
               onClick={handleDownload}
               className={`p-2 rounded-full transition transform hover:scale-110 ${
                 isMine 
-                  ? 'bg-green-600 hover:bg-green-700 text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  ? 'bg-blue-700 hover:bg-blue-800 text-white' 
+                  : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
               }`}
               title="Télécharger le fichier"
             >
@@ -131,7 +133,7 @@ export default function MessageBubble({ message, isMine }) {
             </button>
           </div>
         </div>
-        <span className={`text-xs mt-2 block ${isMine ? 'text-right text-green-100' : 'text-gray-500'}`}>
+        <span className={`text-xs mt-2 block ${isMine ? 'text-right text-blue-300' : 'text-blue-600'}`}>
           {formatTime(message.createdAt)}
         </span>
       </div>
@@ -144,11 +146,11 @@ export default function MessageBubble({ message, isMine }) {
         {!isMine && (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=10b981&color=fff`}
+            src={message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=0ea5e9&color=fff`}
             alt={message.sender?.name}
             className="w-8 h-8 rounded-full object-cover shrink-0"
             onError={(e) => {
-              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=10b981&color=fff`;
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=0ea5e9&color=fff`;
             }}
           />
         )}
@@ -156,14 +158,14 @@ export default function MessageBubble({ message, isMine }) {
         <div
           className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-2xl ${
             isMine
-              ? 'bg-green-500 text-white rounded-br-none'
-              : 'bg-white text-gray-900 rounded-bl-none shadow-sm'
+              ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white rounded-br-none'
+              : 'bg-white text-blue-900 rounded-bl-none shadow-sm border border-blue-200'
           }`}
         >
           <p className="text-sm wrap-break-word">{message.content}</p>
           <span
             className={`text-xs mt-1 block ${
-              isMine ? 'text-green-100' : 'text-gray-500'
+              isMine ? 'text-blue-200' : 'text-blue-600'
             }`}
           >
             {formatTime(message.createdAt)}

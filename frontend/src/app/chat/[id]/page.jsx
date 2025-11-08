@@ -12,7 +12,7 @@ import MobileHeader from '@/components/Layout/MobileHeader';
 import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
-import { MessageCircle } from 'lucide-react';
+import { Plane } from 'lucide-react';
 
 export default function ChatPage() {
   const params = useParams();
@@ -180,13 +180,13 @@ export default function ChatPage() {
   if (loading) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="flex h-screen items-center justify-center bg-blue-50">
           <div className="text-center">
             <div className="relative inline-block">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-green-500"></div>
-              <MessageCircle className="w-8 h-8 text-green-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"></div>
+              <Plane className="w-8 h-8 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-45" />
             </div>
-            <p className="mt-4 text-gray-600 font-medium">Chargement de la conversation...</p>
+            <p className="mt-4 text-blue-800 font-medium">Chargement de la conversation...</p>
           </div>
         </div>
       </ProtectedRoute>
@@ -196,16 +196,16 @@ export default function ChatPage() {
   if (!conversation || !contact) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="flex h-screen items-center justify-center bg-blue-50">
           <div className="text-center max-w-md">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageCircle className="w-10 h-10 text-red-500" />
+              <Plane className="w-10 h-10 text-red-500 -rotate-45" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Conversation introuvable</h2>
-            <p className="text-gray-600 mb-6">Cette conversation n&apos;existe pas ou a été supprimée</p>
+            <h2 className="text-xl font-bold text-blue-900 mb-2">Conversation introuvable</h2>
+            <p className="text-blue-700 mb-6">Cette conversation n&apos;existe pas ou a été supprimée</p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium transition-all transform hover:scale-105"
+              className="px-6 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
             >
               Retour à l&apos;accueil
             </button>
@@ -217,7 +217,7 @@ export default function ChatPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex h-screen bg-blue-100">
         {/* Sidebar - cachée sur mobile */}
         <div className="hidden lg:block">
           <Sidebar activeConversationId={conversationId} />
@@ -232,15 +232,15 @@ export default function ChatPage() {
           />
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#efeae2]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-linear-to-b from-blue-50 to-cyan-50">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-sm">
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                    <MessageCircle className="w-10 h-10 text-green-500" />
+                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-blue-200">
+                    <Plane className="w-10 h-10 text-blue-600 -rotate-45" />
                   </div>
-                  <p className="text-gray-600 font-medium">Aucun message pour l&apos;instant</p>
-                  <p className="text-sm text-gray-500 mt-2">Envoyez votre premier message à {contact.name}</p>
+                  <p className="text-blue-800 font-medium">Aucun message pour l&apos;instant</p>
+                  <p className="text-sm text-blue-600 mt-2">Envoyez votre premier message à {contact.name}</p>
                 </div>
               </div>
             ) : (

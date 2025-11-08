@@ -200,8 +200,8 @@ export default function Sidebar({ activeConversationId }) {
 
   const renderStatusIcon = (status) => {
     if (status === 'read') return <CheckCheck className="w-4 h-4 text-blue-500" />;
-    if (status === 'delivered') return <CheckCheck className="w-4 h-4 text-gray-400" />;
-    if (status === 'sent') return <Check className="w-4 h-4 text-gray-400" />;
+    if (status === 'delivered') return <CheckCheck className="w-4 h-4 text-blue-400" />;
+    if (status === 'sent') return <Check className="w-4 h-4 text-blue-400" />;
     return null;
   };
 
@@ -224,22 +224,22 @@ export default function Sidebar({ activeConversationId }) {
   };
 
   return (
-    <div className="w-full lg:w-96 bg-gradient-to-b from-white to-gray-50 border-r border-gray-200 flex flex-col h-screen">
+    <div className="w-full lg:w-96 bg-linear-to-b from-white to-blue-50 border-r border-blue-200 flex flex-col h-screen">
       {/* Header */}
-      <div className="p-4 bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-10">
+      <div className="p-4 bg-white/80 backdrop-blur-md border-b border-blue-200 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
+            <div className="w-10 h-10 bg-linear-to-br from-blue-500 to-cyan-400 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Messages</h1>
-              <p className="text-xs text-gray-500">{user?.name || 'Utilisateur'}</p>
+              <h1 className="text-xl font-bold text-blue-900">Messages</h1>
+              <p className="text-xs text-blue-600">{user?.name || 'Utilisateur'}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-full transition-all transform hover:scale-110"
+            className="p-2 hover:bg-red-50 text-blue-600 hover:text-red-600 rounded-full transition-all transform hover:scale-110"
             title="Déconnexion"
           >
             <LogOut className="w-5 h-5" />
@@ -247,13 +247,13 @@ export default function Sidebar({ activeConversationId }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-xl">
+        <div className="flex gap-2 mb-4 bg-blue-100 p-1 rounded-xl">
           <button
             onClick={() => handleTabChange(false)}
             className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all flex items-center justify-center ${
               !showUsers
-                ? 'bg-white text-green-600 shadow-md transform scale-105'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-blue-600 shadow-md transform scale-105'
+                : 'text-blue-700 hover:text-blue-900'
             }`}
           >
             <MessageCircle className="w-4 h-4 inline mr-2" />
@@ -263,8 +263,8 @@ export default function Sidebar({ activeConversationId }) {
             onClick={() => handleTabChange(true)}
             className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all flex items-center justify-center ${
               showUsers
-                ? 'bg-white text-green-600 shadow-md transform scale-105'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-blue-600 shadow-md transform scale-105'
+                : 'text-blue-700 hover:text-blue-900'
             }`}
           >
             <Users className="w-4 h-4 inline mr-2" />
@@ -275,45 +275,45 @@ export default function Sidebar({ activeConversationId }) {
         {/* Search Bar */}
         {showUsers && (
           <div className="relative group">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-green-500 transition-colors" />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-400 group-focus-within:text-blue-600 transition-colors" />
             <input
               type="text"
               placeholder="Rechercher..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-blue-900 placeholder-blue-400"
             />
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <div className="relative">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-green-500"></div>
-              <MessageCircle className="w-6 h-6 text-green-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
+              <MessageCircle className="w-6 h-6 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <p className="mt-4 text-sm text-gray-500">Chargement...</p>
+            <p className="mt-4 text-sm text-blue-600">Chargement...</p>
           </div>
         ) : showUsers ? (
           // Onglet Contacts
           <div>
             {!searchTerm.trim() ? (
-              <div className="p-12 text-center text-gray-500">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="w-10 h-10 text-gray-300" />
+              <div className="p-12 text-center text-blue-600">
+                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-10 h-10 text-blue-300" />
                 </div>
-                <p className="font-medium text-gray-700">Rechercher des contacts</p>
+                <p className="font-medium text-blue-800">Rechercher des contacts</p>
                 <p className="text-sm mt-2">Tapez un nom ou email</p>
               </div>
             ) : usersToDisplay.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-10 h-10 text-gray-300" />
+              <div className="p-12 text-center text-blue-600">
+                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-10 h-10 text-blue-300" />
                 </div>
-                <p className="font-medium text-gray-700">Aucun résultat</p>
+                <p className="font-medium text-blue-800">Aucun résultat</p>
                 <p className="text-sm mt-2">Essayez un autre terme</p>
               </div>
             ) : (
@@ -322,29 +322,29 @@ export default function Sidebar({ activeConversationId }) {
                   <button
                     key={contact._id}
                     onClick={() => handleCreateConversation(contact._id)}
-                    className="w-full p-3 hover:bg-white rounded-xl transition-all flex items-center gap-3 group"
+                    className="w-full p-3 hover:bg-white rounded-xl transition-all flex items-center gap-3 group border border-transparent hover:border-blue-200"
                   >
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={contact.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=10b981&color=fff`}
+                        src={contact.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=0ea5e9&color=fff`}
                         alt={contact.name}
-                        className="w-12 h-12 rounded-full object-cover ring-2 ring-gray-100 group-hover:ring-green-500 transition-all"
+                        className="w-12 h-12 rounded-full object-cover ring-2 ring-blue-100 group-hover:ring-blue-500 transition-all"
                         onError={(e) => {
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=10b981&color=fff`;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=0ea5e9&color=fff`;
                         }}
                       />
                       {contact.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-blue-500 border-2 border-white rounded-full"></span>
                       )}
                     </div>
                     <div className="flex-1 text-left">
-                      <h3 className="font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
+                      <h3 className="font-semibold text-blue-900 group-hover:text-blue-600 transition-colors">
                         {contact.name}
                       </h3>
-                      <p className="text-sm text-gray-500">{contact.email}</p>
+                      <p className="text-sm text-blue-600">{contact.email}</p>
                     </div>
-                    <MessageCircle className="w-5 h-5 text-gray-300 group-hover:text-green-500 transition-colors" />
+                    <MessageCircle className="w-5 h-5 text-blue-300 group-hover:text-blue-500 transition-colors" />
                   </button>
                 ))}
               </div>
@@ -354,15 +354,15 @@ export default function Sidebar({ activeConversationId }) {
           // Onglet Conversations
           <div>
             {conversations.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                <div className="w-20 h-20 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle className="w-10 h-10 text-green-600" />
+              <div className="p-12 text-center text-blue-600">
+                <div className="w-20 h-20 bg-linear-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageCircle className="w-10 h-10 text-blue-600" />
                 </div>
-                <p className="font-medium text-gray-700 mb-2">Aucune conversation</p>
-                <p className="text-sm text-gray-500 mb-4">Commencez à discuter avec vos contacts</p>
+                <p className="font-medium text-blue-800 mb-2">Aucune conversation</p>
+                <p className="text-sm text-blue-600 mb-4">Commencez à discuter avec vos contacts</p>
                 <button
                   onClick={() => handleTabChange(true)}
-                  className="px-6 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
+                  className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   Rechercher des contacts
                 </button>
@@ -390,32 +390,32 @@ export default function Sidebar({ activeConversationId }) {
                         onClick={() => router.push(`/chat/${conv._id}`)}
                         className={`w-full p-3 rounded-xl transition-all flex items-center gap-3 ${
                           isActive 
-                            ? 'bg-white shadow-md ring-2 ring-green-500' 
-                            : 'hover:bg-white hover:shadow-sm'
+                            ? 'bg-white shadow-md ring-2 ring-blue-500' 
+                            : 'hover:bg-white hover:shadow-sm border border-transparent hover:border-blue-200'
                         }`}
                       >
                         <div className="relative shrink-0">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={contact?.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=10b981&color=fff`}
+                            src={contact?.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`}
                             alt={contact?.name}
-                            className="w-14 h-14 rounded-full object-cover ring-2 ring-gray-100"
+                            className="w-14 h-14 rounded-full object-cover ring-2 ring-blue-100"
                             onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=10b981&color=fff`;
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`;
                             }}
                           />
                           {contact?.isOnline && (
-                            <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
+                            <span className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 border-2 border-white rounded-full"></span>
                           )}
                         </div>
                         
                         <div className="flex-1 text-left min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-gray-900 truncate pr-2">
+                            <h3 className="font-semibold text-blue-900 truncate pr-2">
                               {contact?.name}
                             </h3>
                             {lastMessageTime && (
-                              <span className="text-xs text-gray-400 shrink-0">
+                              <span className="text-xs text-blue-500 shrink-0">
                                 {lastMessageTime}
                               </span>
                             )}
@@ -425,8 +425,8 @@ export default function Sidebar({ activeConversationId }) {
                             {messageStatus && renderStatusIcon(messageStatus)}
                             <p className={`text-sm truncate ${
                               conv.unreadCount > 0 
-                                ? 'font-semibold text-gray-900' 
-                                : 'text-gray-500'
+                                ? 'font-semibold text-blue-900' 
+                                : 'text-blue-600'
                             }`}>
                               {getLastMessagePreview(conv)}
                             </p>
@@ -434,7 +434,7 @@ export default function Sidebar({ activeConversationId }) {
                         </div>
 
                         {conv.unreadCount > 0 && (
-                          <span className="shrink-0 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-5 text-center">
+                          <span className="shrink-0 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-5 text-center">
                             {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
                           </span>
                         )}
@@ -445,22 +445,22 @@ export default function Sidebar({ activeConversationId }) {
                           e.stopPropagation();
                           setMenuOpen(menuOpen === conv._id ? null : conv._id);
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-blue-100 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <MoreVertical className="w-4 h-4 text-gray-500" />
+                        <MoreVertical className="w-4 h-4 text-blue-500" />
                       </button>
 
                       {menuOpen === conv._id && (
-                        <div className="absolute right-2 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-20 w-48">
-                          <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
-                            <Pin className="w-4 h-4 text-gray-500" />
+                        <div className="absolute right-2 top-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200 py-1 z-20 w-48">
+                          <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900">
+                            <Pin className="w-4 h-4 text-blue-500" />
                             Épingler
                           </button>
-                          <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2">
-                            <Archive className="w-4 h-4 text-gray-500" />
+                          <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900">
+                            <Archive className="w-4 h-4 text-blue-500" />
                             Archiver
                           </button>
-                          <hr className="my-1" />
+                          <hr className="my-1 border-blue-200" />
                           <button 
                             onClick={() => handleDeleteConversation(conv._id)}
                             className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
