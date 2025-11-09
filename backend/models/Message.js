@@ -1,50 +1,31 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
-const ConversationSchema = new mongoose.Schema(
-  {
-    type: {
-      type: String,
-      enum: ["private", "public"],
-      default: "private",
-    },
-    members: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Users",
-        required: true,
-      },
-    ],
-    lastMessageId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-    },
-    pinnedMessageId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-    },
-    adminId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Users",
-    },
-  },
-  { timestamps: true }
-);
-
-// Tri des membres pour éviter les doublons
-ConversationSchema.pre("save", function (next) {
-  if (this.members && this.members.length > 1) {
-    this.members.sort();
-  }
-  next();
+const messageSchema = new mongoose.Schema
+({
+senderId: { type: mongoose.Schema.Types.ObjectId, 
+              ref: "Users", 
+              required: true },
+conversationId: { type: mongoose.Schema.Types.ObjectId, 
+                  ref: "Conversation", 
+                  required: true },
+  content: { type: String, 
+                  required: true },
+timeSend: { type: Date, 
+              default: Date.now },
+timeView: { type: Date },
+type: { type: String, 
+        enum: ["text", "call"], 
+        default: "text" },
+status: { type: String, 
+        enum: ["read", "noRead"], 
+        default: "noRead" },
+deleteMessage: { type: String, 
+        enum: ["pour moi", "pour tout le monde"], 
+        default: "pour moi" },
+mediaType: { type: String, 
+        enum: ["audio", "video", "fichier", "image"], 
+        default: "text" }
 });
-
-// Index pour recherche rapide
-ConversationSchema.index({ members: 1, createdAt: -1 });
-
-// Empêcher doublons dans les conversations privées
-ConversationSchema.index(
-  { members: 1 },
-  { unique: true, partialFilterExpression: { type: "private" } }
-);
-
-export default mongoose.model("Conversation", ConversationSchema);
+// Index pour retrouver rapidement les messages par conversation
+messageSchema.index({ conversationId: 1, timeSend: 1 });
+module.exports = mongoose.model("Message", messageSchema);
