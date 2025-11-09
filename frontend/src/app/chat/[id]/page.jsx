@@ -4,6 +4,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
 import { getConversation, getMessages, sendMessage } from '@/lib/api';
+import api from '@/lib/api'; // 🆕 Pour l'upload audio
 import { getSocket, joinConversation, onReceiveMessage, emitTyping, emitStopTyping, onUserTyping, onUserStoppedTyping } from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
@@ -28,10 +29,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
-  // Initialiser le socket
   useSocket();
 
-  // Charger la conversation et les messages
   useEffect(() => {
     if (!conversationId || !user) return;
 
@@ -60,7 +59,6 @@ export default function ChatPage() {
     loadConversation();
   }, [conversationId, user]);
 
-  // Écouter les nouveaux messages via socket
   useEffect(() => {
     const socket = getSocket();
     
@@ -70,7 +68,6 @@ export default function ChatPage() {
         
         if (message.conversationId === conversationId) {
           setMessages((prev) => {
-            // Éviter les doublons
             const exists = prev.some(m => m._id === message._id);
             if (exists) return prev;
             return [...prev, message];
@@ -101,17 +98,38 @@ export default function ChatPage() {
     }
   }, [conversationId, user]);
 
-  // Scroll automatique vers le bas
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
-  // 🚀 CORRECTION SIMPLE : Gestion de l'envoi de message
+  // 🆕 GESTION DE L'ENVOI DE MESSAGE (AVEC SUPPORT VOCAL)
   const handleSendMessage = async (content) => {
     try {
       let messageData;
 
-      // Si c'est un objet (fichier), utiliser les données du fichier
+      // 🆕 SI C'EST UN MESSAGE VOCAL
+      if (typeof content === 'object' && content.isVoiceMessage) {
+        console.log('🎤 Envoi d\'un message vocal');
+        
+        // Upload l'audio vers le backend
+        const formData = new FormData();
+        formData.append('audio', content.audioBlob, 'voice-message.webm');
+        formData.append('conversationId', conversationId);
+        formData.append('duration', content.duration);
+
+        const response = await api.post('/audio', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+
+        console.log('✅ Message vocal envoyé:', response.data);
+        
+        // Le message sera ajouté automatiquement via socket
+        return;
+      }
+
+      // SI C'EST UN FICHIER (image, document, etc.)
       if (typeof content === 'object') {
         messageData = {
           conversationId,
@@ -122,7 +140,7 @@ export default function ChatPage() {
           content: content.content || ''
         };
       } else {
-        // Si c'est une string (texte normal)
+        // SI C'EST UN TEXTE NORMAL
         messageData = {
           conversationId,
           content: content.trim(),
@@ -132,12 +150,8 @@ export default function ChatPage() {
 
       console.log('📤 Envoi message:', messageData);
       
-      // Envoyer via l'API normale (comme avant)
       await sendMessage(messageData);
       
-      // La mise à jour se fera via le socket automatiquement
-      
-      // Arrêter l'indicateur de frappe
       if (user) {
         const userId = user._id || user.id;
         emitStopTyping(conversationId, userId);
@@ -149,7 +163,6 @@ export default function ChatPage() {
     }
   };
 
-  // Gestion de l'indicateur "en train d'écrire"
   const handleTyping = () => {
     if (!user) return;
     const userId = user._id || user.id;
@@ -168,7 +181,6 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
-  // Obtenir l'autre participant
   const getOtherParticipant = () => {
     if (!conversation || !user) return null;
     const userId = user._id || user.id;
@@ -205,7 +217,7 @@ export default function ChatPage() {
             <p className="text-blue-700 mb-6">Cette conversation n&apos;existe pas ou a été supprimée</p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
             >
               Retour à l&apos;accueil
             </button>
@@ -218,21 +230,17 @@ export default function ChatPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen bg-blue-100">
-        {/* Sidebar - cachée sur mobile */}
         <div className="hidden lg:block">
           <Sidebar activeConversationId={conversationId} />
         </div>
 
-        {/* Zone de chat */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
           <MobileHeader 
             contact={contact} 
             onBack={() => router.push('/')} 
           />
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-linear-to-b from-blue-50 to-cyan-50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-blue-50 to-cyan-50">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-sm">
@@ -256,7 +264,6 @@ export default function ChatPage() {
                   );
                 })}
                 
-                {/* INDICATEUR DE FRAPPE */}
                 {typingUsers.length > 0 && (
                   <TypingIndicator contactName={contact.name} />
                 )}
@@ -266,7 +273,6 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Input de message - SIMPLE */}
           <MessageInput
             onSendMessage={handleSendMessage}
             onTyping={handleTyping}

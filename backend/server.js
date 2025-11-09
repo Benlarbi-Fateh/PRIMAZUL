@@ -44,19 +44,20 @@ app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/audio', require('./routes/audioRoutes')); // 🆕 NOUVELLE ROUTE AUDIO
 
 app.use((error, req, res, next) => {
   console.log('🚨 ERREUR SERVEUR:', error);
   res.status(500).json({ error: error.message });
 });
 
-// 🆕 SOCKET.IO EVENTS - CORRIGÉ
+// 🆕 SOCKET.IO EVENTS
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log('✅ Socket connecté:', socket.id);
 
-  // 🆕 User se connecte - CORRIGÉ
+  // 🆕 User se connecte
   socket.on('user-online', (userId) => {
     onlineUsers.set(userId, socket.id);
     socket.userId = userId;
@@ -65,7 +66,6 @@ io.on('connection', (socket) => {
     console.log(`👤 User ${userId} est en ligne`);
     console.log(`📋 Utilisateurs actuellement en ligne:`, Array.from(onlineUsers.keys()));
     
-    // 🆕 ENVOYER LA LISTE COMPLÈTE À TOUS LES CLIENTS
     io.emit('online-users-update', Array.from(onlineUsers.keys()));
   });
 
@@ -93,7 +93,6 @@ io.on('connection', (socket) => {
       console.log(`❌ User ${socket.userId} déconnecté`);
       console.log(`📋 Utilisateurs restants en ligne:`, Array.from(onlineUsers.keys()));
       
-      // 🆕 ENVOYER LA LISTE COMPLÈTE À TOUS LES CLIENTS
       io.emit('online-users-update', Array.from(onlineUsers.keys()));
     }
   });

@@ -199,7 +199,7 @@ export default function Sidebar({ activeConversationId }) {
     
     if (lastMsg.type === 'image') return '🖼️ Image';
     if (lastMsg.type === 'file') return `📄 ${lastMsg.fileName || 'Fichier'}`;
-    if (lastMsg.type === 'audio') return '🎤 Message vocal';
+    if (lastMsg.type === 'voice') return '🎤 Message vocal';
     
     const preview = lastMsg.content || '';
     return preview.length > 40 ? preview.substring(0, 40) + '...' : preview;

@@ -3,6 +3,7 @@
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Image, File, Mic, Download, ExternalLink } from 'lucide-react';
+import VoiceMessage from './VoiceMessage'; // 🆕 IMPORT
 
 export default function MessageBubble({ message, isMine }) {
   const formatTime = (date) => {
@@ -17,6 +18,7 @@ export default function MessageBubble({ message, isMine }) {
     if (message.type === 'image') return 'image';
     if (message.type === 'audio') return 'audio';
     if (message.type === 'file') return 'file';
+    if (message.type === 'voice') return 'voice'; // 🆕
     return 'text';
   };
 
@@ -27,7 +29,6 @@ export default function MessageBubble({ message, isMine }) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  // 🚀 OUVRIR LE FICHIER
   const handleOpenFile = () => {
     console.log('📂 Ouverture du fichier:', message.fileName);
     if (message.fileUrl) {
@@ -35,7 +36,6 @@ export default function MessageBubble({ message, isMine }) {
     }
   };
 
-  // 🚀 TÉLÉCHARGER LE FICHIER
   const handleDownload = () => {
     console.log('📥 Téléchargement:', message.fileName);
     
@@ -47,6 +47,24 @@ export default function MessageBubble({ message, isMine }) {
       link.click();
       document.body.removeChild(link);
     }
+  };
+
+  // 🆕 RENDRE LE MESSAGE VOCAL
+  const renderVoiceMessage = () => {
+    return (
+      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+        <div className="flex flex-col">
+          <VoiceMessage
+            voiceUrl={message.voiceUrl}
+            voiceDuration={message.voiceDuration}
+            isMine={isMine}
+          />
+          <span className={`text-xs mt-1 ${isMine ? 'text-right text-blue-300' : 'text-blue-600'}`}>
+            {formatTime(message.createdAt)}
+          </span>
+        </div>
+      </div>
+    );
   };
 
   const renderFileMessage = () => {
@@ -76,12 +94,11 @@ export default function MessageBubble({ message, isMine }) {
       );
     }
 
-    // POUR LES FICHIERS (PDF, DOC, etc.)
     return (
       <div className={`max-w-xs ${isMine ? 'ml-auto' : 'mr-auto'}`}>
         <div className={`p-4 rounded-2xl flex items-center gap-3 ${
           isMine 
-            ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white' 
+            ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white' 
             : 'bg-white text-blue-900 shadow-sm border border-blue-200'
         }`}>
           <div className="shrink-0">
@@ -104,9 +121,7 @@ export default function MessageBubble({ message, isMine }) {
             )}
           </div>
           
-          {/* BOUTONS ACTION FICHIER */}
           <div className="flex gap-1">
-            {/* BOUTON OUVRIR */}
             <button
               onClick={handleOpenFile}
               className={`p-2 rounded-full transition transform hover:scale-110 ${
@@ -119,7 +134,6 @@ export default function MessageBubble({ message, isMine }) {
               <ExternalLink className="w-4 h-4" />
             </button>
             
-            {/* BOUTON TÉLÉCHARGER */}
             <button
               onClick={handleDownload}
               className={`p-2 rounded-full transition transform hover:scale-110 ${
@@ -158,7 +172,7 @@ export default function MessageBubble({ message, isMine }) {
         <div
           className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-2xl ${
             isMine
-              ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white rounded-br-none'
+              ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-br-none'
               : 'bg-white text-blue-900 rounded-bl-none shadow-sm border border-blue-200'
           }`}
         >
@@ -175,7 +189,14 @@ export default function MessageBubble({ message, isMine }) {
     );
   };
 
-  if (getFileType() !== 'text') {
+  // 🆕 VÉRIFIER SI C'EST UN MESSAGE VOCAL
+  const fileType = getFileType();
+  
+  if (fileType === 'voice') {
+    return renderVoiceMessage();
+  }
+  
+  if (fileType !== 'text') {
     return renderFileMessage();
   }
 

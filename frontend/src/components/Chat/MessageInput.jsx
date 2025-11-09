@@ -3,12 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Smile, Paperclip, Mic, X, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
+import VoiceRecorder from './VoiceRecorder';
 
 export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -81,13 +84,12 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
       const fileType = getFileType(file.type);
 
-      // 🚀 CORRECTION SIMPLE : Envoyer l'objet fichier
       onSendMessage({
         type: fileType,
         fileUrl: response.data.fileUrl,
         fileName: response.data.fileName,
         fileSize: response.data.fileSize,
-        content: message.trim() // Le texte saisi par l'utilisateur
+        content: message.trim()
       });
 
       setMessage('');
@@ -109,6 +111,25 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     return 'file';
   };
 
+  const handleSendVoice = async (audioBlob, duration) => {
+    try {
+      console.log('🎤 Envoi du message vocal...');
+      
+      onSendMessage({
+        type: 'voice',
+        audioBlob,
+        duration,
+        isVoiceMessage: true
+      });
+      
+      setShowVoiceRecorder(false);
+      
+    } catch (error) {
+      console.error('❌ Erreur envoi vocal:', error);
+      alert('Erreur lors de l\'envoi du message vocal');
+    }
+  };
+
   const handleEmojiClick = (emoji) => {
     setMessage(prev => prev + emoji);
     textareaRef.current?.focus();
@@ -116,6 +137,17 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
   const frequentEmojis = ['😊', '😂', '❤️', '👍', '🙏', '🔥', '✨', '💯', '🎉', '👏'];
 
+  // SI L'ENREGISTREUR VOCAL EST AFFICHÉ
+  if (showVoiceRecorder) {
+    return (
+      <VoiceRecorder
+        onSendVoice={handleSendVoice}
+        onCancel={() => setShowVoiceRecorder(false)}
+      />
+    );
+  }
+
+  // AFFICHER L'INPUT NORMAL
   return (
     <div className="bg-white border-t border-blue-200">
       {showEmojiPicker && (
@@ -223,8 +255,9 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
           ) : (
             <button
               type="button"
-              className="shrink-0 p-2 rounded-full text-blue-500 hover:text-blue-600 hover:bg-blue-100 transition-all transform hover:scale-110"
-              title="Message vocal"
+              onClick={() => setShowVoiceRecorder(true)}
+              className="shrink-0 p-3 rounded-full bg-linear-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white transition-all transform hover:scale-110 shadow-md hover:shadow-lg"
+              title="Enregistrer un message vocal"
               disabled={uploading}
             >
               <Mic className="w-5 h-5" />
@@ -241,7 +274,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
         {uploading && (
           <p className="text-xs text-blue-600 mt-2 text-center animate-pulse">
-            📤 Upload du fichier en cours...
+            📤 Upload en cours...
           </p>
         )}
       </form>

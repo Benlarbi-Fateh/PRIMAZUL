@@ -6,12 +6,18 @@ const messageSchema = new mongoose.Schema({
   content: { type: String, default: '' },
   type: { 
     type: String, 
-    enum: ['text', 'image', 'file', 'audio'], 
+    enum: ['text', 'image', 'file', 'audio', 'voice'], // 🆕 Ajout de 'voice'
     default: 'text' 
   },
   fileUrl: { type: String, default: '' },
   fileName: { type: String, default: '' },
   fileSize: { type: Number, default: 0 },
+  
+  // 🆕 NOUVEAUX CHAMPS POUR LES MESSAGES VOCAUX
+  voiceUrl: { type: String, default: '' },
+  voiceDuration: { type: Number, default: 0 }, // Durée en secondes
+  cloudinaryId: { type: String, default: '' }, // Pour pouvoir supprimer le fichier si besoin
+  
   status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' }
 }, { timestamps: true });
 
