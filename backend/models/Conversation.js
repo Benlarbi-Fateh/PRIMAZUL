@@ -1,42 +1,23 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
-const ConversationSchema = new mongoose.Schema(
-  {
-    type: {
-      type: String,
-      enum: ["private", "public"],
-      default: "private",
-    },
-    members: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Users",
-        required: true,
-      },
-    ],
-    lastMessageId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-    },
-    pinnedMessageId: { // ancien "messageId"
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-    },
-    adminId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Users",
-    },
-  },
-  { timestamps: true }
-);
+const ConversationSchema = new mongoose.Schema({
+  type: { type: String, 
+    enum: ["private", "public"], 
+    default: "private" },
+  members: [{ type: mongoose.Schema.Types.ObjectId, 
+    ref: "Users",
+     required: true }],
+  createdAt: { type: Date, 
+    default: Date.now },
+  lastMessageId: { type: mongoose.Schema.Types.ObjectId, 
+    ref: "Message" },
+  messageId: { type: mongoose.Schema.Types.ObjectId, 
+    ref: "Message" }, // si tu veux stocker un message spécifique
+  adminId: { type: mongoose.Schema.Types.ObjectId, 
+    ref: "Users" }
+});
 
-// Index pour recherche rapide
+// Index pour retrouver rapidement les conversations par membres
 ConversationSchema.index({ members: 1, createdAt: -1 });
 
-// Empêcher doublons dans les conversations privées
-ConversationSchema.index(
-  { members: 1 },
-  { unique: true, partialFilterExpression: { type: "private" } }
-);
-
-export default mongoose.model("Conversation", ConversationSchema);
+module.exports = mongoose.model("Conversation", ConversationSchema);

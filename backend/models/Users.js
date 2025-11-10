@@ -1,5 +1,4 @@
-import mongoose from "mongoose";
-
+const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   username: { type: String, 
               required: true },
@@ -20,7 +19,6 @@ const userSchema = new mongoose.Schema({
   dateInscription: { type: Date, 
             default: Date.now } 
 });
-
 // Avant de sauvegarder l’utilisateur, hasher le mot de passe
 userSchema.pre("save", async function(next) 
 {
@@ -31,4 +29,4 @@ userSchema.pre("save", async function(next)
   next();
 });
 
-export default mongoose.model("Users", userSchema);
+module.exports = mongoose.model("Users", userSchema);

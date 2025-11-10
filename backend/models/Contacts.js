@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const ContactSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, 
@@ -16,4 +16,4 @@ const ContactSchema = new mongoose.Schema({
 ContactSchema.index({ ownerId: 1, contactUserId: 1 }, 
 { unique: true });
 
-export default mongoose.model("Contact", ContactSchema);
+module.exports = mongoose.model("Contacts", ContactSchema);

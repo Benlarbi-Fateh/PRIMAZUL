@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const CallSchema = new mongoose.Schema({
   callerId: { type: mongoose.Schema.Types.ObjectId, ref: "Users", required: true }, // utilisateur qui initie l'appel
@@ -11,4 +11,4 @@ const CallSchema = new mongoose.Schema({
   duration: { type: Number, default: 0 } // durée en secondes ou minutes
 });
 
-export default mongoose.model("Call", CallSchema);
+module.exports = mongoose.model("Call", CallSchema);
