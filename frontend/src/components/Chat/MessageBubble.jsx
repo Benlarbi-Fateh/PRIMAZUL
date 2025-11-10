@@ -117,7 +117,7 @@ export default function MessageBubble({ message, isMine }) {
       <div className={`max-w-xs ${isMine ? 'ml-auto' : 'mr-auto'}`}>
         <div className={`p-4 rounded-2xl flex items-center gap-3 ${
           isMine 
-            ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white' 
+            ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white' 
             : 'bg-white text-blue-900 shadow-sm border border-blue-200'
         }`}>
           <div className="shrink-0">
@@ -192,7 +192,7 @@ export default function MessageBubble({ message, isMine }) {
         <div
           className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-2xl ${
             isMine
-              ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-br-none'
+              ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white rounded-br-none'
               : 'bg-white text-blue-900 rounded-bl-none shadow-sm border border-blue-200'
           }`}
         >

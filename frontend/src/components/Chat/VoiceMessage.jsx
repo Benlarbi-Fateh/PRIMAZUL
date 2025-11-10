@@ -67,7 +67,7 @@ export default function VoiceMessage({ voiceUrl, voiceDuration, isMine }) {
   return (
     <div className={`flex items-center gap-3 p-4 rounded-2xl max-w-xs ${
       isMine 
-        ? 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white ml-auto' 
+        ? 'bg-linear-to-r from-blue-600 to-cyan-500 text-white ml-auto' 
         : 'bg-white text-blue-900 shadow-sm border border-blue-200'
     }`}>
       <audio 
@@ -83,7 +83,7 @@ export default function VoiceMessage({ voiceUrl, voiceDuration, isMine }) {
         className={`shrink-0 p-3 rounded-full transition-all transform hover:scale-105 ${
           isMine
             ? 'bg-blue-700 hover:bg-blue-800'
-            : 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
+            : 'bg-linear-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
         } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
         title={loading ? 'Chargement...' : isPlaying ? 'Pause' : 'Lecture'}
       >
@@ -111,7 +111,7 @@ export default function VoiceMessage({ voiceUrl, voiceDuration, isMine }) {
         }`}>
           <div 
             className={`h-full rounded-full transition-all ${
-              isMine ? 'bg-white' : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+              isMine ? 'bg-white' : 'bg-linear-to-r from-blue-500 to-cyan-500'
             }`}
             style={{ width: `${progress}%` }}
           />
