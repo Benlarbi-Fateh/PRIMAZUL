@@ -8,11 +8,13 @@ const authRoutes = require('./routes/auth');
 const app = express();
 
 // MIDDLEWARES
-
 app.use(cors({
-  origin: '*'
+  origin: 'http://localhost:3000', // Autoriser le frontend
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
- 
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
