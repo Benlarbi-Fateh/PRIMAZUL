@@ -4,7 +4,7 @@ import { useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
 import { getConversations, searchUsers, createConversation } from '@/lib/api';
-import { getSocket } from '@/services/socket';
+import { getSocket, onShouldRefreshConversations, requestOnlineUsers } from '@/services/socket';
 import { LogOut, Search, MessageCircle, Users, MoreVertical, Archive, Trash2, Pin, Check, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -19,13 +19,11 @@ export default function Sidebar({ activeConversationId }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showUsers, setShowUsers] = useState(false);
   const [menuOpen, setMenuOpen] = useState(null);
-  
-  // 🆕 État pour tracker les utilisateurs en ligne
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   
   const searchTimeoutRef = useRef(null);
+  const refreshTimeoutRef = useRef(null);
 
-  // Calcul des utilisateurs à afficher basé sur l'état actuel
   const usersToDisplay = useMemo(() => {
     if (!showUsers || !searchTerm.trim()) {
       return [];
@@ -33,46 +31,79 @@ export default function Sidebar({ activeConversationId }) {
     return searchResults;
   }, [showUsers, searchTerm, searchResults]);
 
-  // 🆕 Écouter les événements de statut en ligne - CORRIGÉ
+  const fetchConversations = async () => {
+    try {
+      const response = await getConversations();
+      setConversations(response.data.conversations || []);
+      setLoading(false);
+      console.log('✅ Conversations chargées:', response.data.conversations?.length);
+    } catch (error) {
+      console.error('Erreur lors du chargement des conversations:', error);
+      setLoading(false);
+    }
+  };
+
+  // Demander la liste des utilisateurs en ligne quand le Sidebar est visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👀 Page visible, demande de mise à jour des utilisateurs en ligne');
+        requestOnlineUsers();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('🔍 Fenêtre en focus, demande de mise à jour des utilisateurs en ligne');
+      requestOnlineUsers();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
   useEffect(() => {
     const socket = getSocket();
     
     if (socket && user) {
       console.log('👥 Sidebar écoute les statuts en ligne');
       
-      // 🆕 MODIFICATION : Utiliser online-users-update pour recevoir la liste complète
       socket.on('online-users-update', (userIds) => {
-        console.log('📡 Liste complète des utilisateurs en ligne reçue:', userIds);
+        console.log('📡 Liste des utilisateurs en ligne reçue:', userIds);
         setOnlineUsers(new Set(userIds));
       });
 
+      onShouldRefreshConversations(() => {
+        console.log('🔄 Refresh des conversations demandé');
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = setTimeout(() => {
+          fetchConversations();
+        }, 300);
+      });
+
+      // Demander immédiatement la liste
+      requestOnlineUsers();
+
       return () => {
         socket.off('online-users-update');
+        socket.off('should-refresh-conversations');
+        clearTimeout(refreshTimeoutRef.current);
       };
     }
   }, [user]);
 
-  // Charger les conversations
   useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const response = await getConversations();
-        setConversations(response.data.conversations || []);
-        setLoading(false);
-      } catch (error) {
-        console.error('Erreur lors du chargement des conversations:', error);
-        setLoading(false);
-      }
-    };
-
     if (user) {
       fetchConversations();
-      const interval = setInterval(fetchConversations, 30000);
+      const interval = setInterval(fetchConversations, 60000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
-  // Écouter les mises à jour en temps réel
   useEffect(() => {
     const socket = getSocket();
     
@@ -187,7 +218,6 @@ export default function Sidebar({ activeConversationId }) {
     return conv.participants?.find(p => p._id !== userId);
   };
 
-  // 🆕 Fonction pour vérifier si un utilisateur est en ligne
   const isUserOnline = (userId) => {
     return onlineUsers.has(userId);
   };
@@ -227,8 +257,8 @@ export default function Sidebar({ activeConversationId }) {
 
   const renderStatusIcon = (status) => {
     if (status === 'read') return <CheckCheck className="w-4 h-4 text-blue-500" />;
-    if (status === 'delivered') return <CheckCheck className="w-4 h-4 text-blue-400" />;
-    if (status === 'sent') return <Check className="w-4 h-4 text-blue-400" />;
+    if (status === 'delivered') return <CheckCheck className="w-4 h-4 text-gray-400" />;
+    if (status === 'sent') return <Check className="w-4 h-4 text-gray-400" />;
     return null;
   };
 
@@ -240,7 +270,7 @@ export default function Sidebar({ activeConversationId }) {
         setMenuOpen(null);
         
         if (activeConversationId === conversationId) {
-          router.push('/chat');
+          router.push('/');
         }
       } catch (error) {
         console.error('Erreur lors de la suppression:', error);
@@ -359,7 +389,6 @@ export default function Sidebar({ activeConversationId }) {
                           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=0ea5e9&color=fff`;
                         }}
                       />
-                      {/* 🆕 Bulle conditionnelle basée sur le statut réel */}
                       {isUserOnline(contact._id) && (
                         <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>
                       )}
@@ -400,9 +429,9 @@ export default function Sidebar({ activeConversationId }) {
                   const isActive = conv._id === activeConversationId;
                   const messageStatus = getMessageStatus(conv);
                   const lastMessageTime = formatMessageTime(conv.updatedAt);
+                  const unreadCount = conv.unreadCount || 0;
 
                   if (!contact) {
-                    console.warn('⚠️ Conversation sans contact valide:', conv._id);
                     return null;
                   }
 
@@ -430,7 +459,6 @@ export default function Sidebar({ activeConversationId }) {
                               e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`;
                             }}
                           />
-                          {/* 🆕 Bulle conditionnelle basée sur le statut réel */}
                           {isUserOnline(contact?._id) && (
                             <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
                           )}
@@ -438,11 +466,15 @@ export default function Sidebar({ activeConversationId }) {
                         
                         <div className="flex-1 text-left min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <h3 className="font-semibold text-blue-900 truncate pr-2">
+                            <h3 className={`font-semibold truncate pr-2 ${
+                              unreadCount > 0 ? 'text-blue-900' : 'text-blue-800'
+                            }`}>
                               {contact?.name}
                             </h3>
                             {lastMessageTime && (
-                              <span className="text-xs text-blue-500 shrink-0">
+                              <span className={`text-xs shrink-0 ${
+                                unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-blue-500'
+                              }`}>
                                 {lastMessageTime}
                               </span>
                             )}
@@ -451,7 +483,7 @@ export default function Sidebar({ activeConversationId }) {
                           <div className="flex items-center gap-1">
                             {messageStatus && renderStatusIcon(messageStatus)}
                             <p className={`text-sm truncate ${
-                              conv.unreadCount > 0 
+                              unreadCount > 0 
                                 ? 'font-semibold text-blue-900' 
                                 : 'text-blue-600'
                             }`}>
@@ -460,9 +492,9 @@ export default function Sidebar({ activeConversationId }) {
                           </div>
                         </div>
 
-                        {conv.unreadCount > 0 && (
-                          <span className="shrink-0 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-5 text-center">
-                            {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+                        {unreadCount > 0 && (
+                          <span className="shrink-0 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-full min-w-5 text-center shadow-md">
+                            {unreadCount > 99 ? '99+' : unreadCount}
                           </span>
                         )}
                       </button>

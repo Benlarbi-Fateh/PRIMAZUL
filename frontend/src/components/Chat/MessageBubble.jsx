@@ -2,8 +2,8 @@
 
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Image, File, Mic, Download, ExternalLink } from 'lucide-react';
-import VoiceMessage from './VoiceMessage'; // 🆕 IMPORT
+import { Image, File, Mic, Download, ExternalLink, Check, CheckCheck } from 'lucide-react'; // 🆕 Import Check et CheckCheck
+import VoiceMessage from './VoiceMessage';
 
 export default function MessageBubble({ message, isMine }) {
   const formatTime = (date) => {
@@ -14,11 +14,29 @@ export default function MessageBubble({ message, isMine }) {
     }
   };
 
+  // 🆕 FONCTION POUR AFFICHER LE STATUT
+  const renderStatus = () => {
+    if (!isMine) return null; // Ne pas afficher le statut pour les messages reçus
+
+    const status = message.status || 'sent';
+
+    if (status === 'read') {
+      return <CheckCheck className="w-4 h-4 text-blue-400 inline ml-1" />;
+    }
+    if (status === 'delivered') {
+      return <CheckCheck className="w-4 h-4 text-gray-400 inline ml-1" />;
+    }
+    if (status === 'sent') {
+      return <Check className="w-4 h-4 text-gray-400 inline ml-1" />;
+    }
+    return null;
+  };
+
   const getFileType = () => {
     if (message.type === 'image') return 'image';
     if (message.type === 'audio') return 'audio';
     if (message.type === 'file') return 'file';
-    if (message.type === 'voice') return 'voice'; // 🆕
+    if (message.type === 'voice') return 'voice';
     return 'text';
   };
 
@@ -49,7 +67,6 @@ export default function MessageBubble({ message, isMine }) {
     }
   };
 
-  // 🆕 RENDRE LE MESSAGE VOCAL
   const renderVoiceMessage = () => {
     return (
       <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
@@ -59,8 +76,9 @@ export default function MessageBubble({ message, isMine }) {
             voiceDuration={message.voiceDuration}
             isMine={isMine}
           />
-          <span className={`text-xs mt-1 ${isMine ? 'text-right text-blue-300' : 'text-blue-600'}`}>
+          <span className={`text-xs mt-1 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-blue-600'}`}>
             {formatTime(message.createdAt)}
+            {renderStatus()} {/* 🆕 Affichage du statut */}
           </span>
         </div>
       </div>
@@ -87,8 +105,9 @@ export default function MessageBubble({ message, isMine }) {
               </div>
             )}
           </div>
-          <span className={`text-xs mt-1 block ${isMine ? 'text-right text-blue-300' : 'text-blue-600'}`}>
+          <span className={`text-xs mt-1 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-blue-600'}`}>
             {formatTime(message.createdAt)}
+            {renderStatus()} {/* 🆕 Affichage du statut */}
           </span>
         </div>
       );
@@ -147,8 +166,9 @@ export default function MessageBubble({ message, isMine }) {
             </button>
           </div>
         </div>
-        <span className={`text-xs mt-2 block ${isMine ? 'text-right text-blue-300' : 'text-blue-600'}`}>
+        <span className={`text-xs mt-2 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-blue-600'}`}>
           {formatTime(message.createdAt)}
+          {renderStatus()} {/* 🆕 Affichage du statut */}
         </span>
       </div>
     );
@@ -178,18 +198,18 @@ export default function MessageBubble({ message, isMine }) {
         >
           <p className="text-sm wrap-break-word">{message.content}</p>
           <span
-            className={`text-xs mt-1 block ${
-              isMine ? 'text-blue-200' : 'text-blue-600'
+            className={`text-xs mt-1 flex items-center ${
+              isMine ? 'text-blue-200 justify-end' : 'text-blue-600'
             }`}
           >
             {formatTime(message.createdAt)}
+            {renderStatus()} {/* 🆕 Affichage du statut */}
           </span>
         </div>
       </div>
     );
   };
 
-  // 🆕 VÉRIFIER SI C'EST UN MESSAGE VOCAL
   const fileType = getFileType();
   
   if (fileType === 'voice') {

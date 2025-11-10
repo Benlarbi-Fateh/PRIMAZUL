@@ -64,4 +64,15 @@ export const getConversation = (id) => api.get(`/conversations/${id}`); // ✅ D
 export const getMessages = (conversationId) => api.get(`/messages/${conversationId}`);
 export const sendMessage = (data) => api.post('/messages', data);
 
+
+// 🆕 FONCTIONS POUR LES STATUTS
+export const markMessagesAsDelivered = (messageIds) => 
+  api.post('/messages/mark-delivered', { messageIds });
+
+export const markConversationAsRead = (conversationId) => 
+  api.post('/messages/mark-read', { conversationId });
+
+export const getUnreadCount = () => 
+  api.get('/messages/unread/count');
+
 export default api;

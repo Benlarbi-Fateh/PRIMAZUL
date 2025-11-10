@@ -1,9 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const { getMessages, sendMessage } = require('../controllers/messageController');
+const { 
+  getMessages, 
+  sendMessage, 
+  markAsDelivered, // 🆕
+  markAsRead,      // 🆕
+  getUnreadCount   // 🆕
+} = require('../controllers/messageController');
 
 router.get('/:conversationId', authMiddleware, getMessages);
 router.post('/', authMiddleware, sendMessage);
+
+// 🆕 NOUVELLES ROUTES POUR LES STATUTS
+router.post('/mark-delivered', authMiddleware, markAsDelivered);
+router.post('/mark-read', authMiddleware, markAsRead);
+router.get('/unread/count', authMiddleware, getUnreadCount);
 
 module.exports = router;

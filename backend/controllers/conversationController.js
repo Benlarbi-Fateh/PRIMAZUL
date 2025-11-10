@@ -1,10 +1,14 @@
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
+const Message = require('../models/Message');
 
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
-    const conversations = await Conversation.find({ participants: userId })
+
+    const conversations = await Conversation.find({
+      participants: userId
+    })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
       .populate({
         path: 'lastMessage',
@@ -12,8 +16,28 @@ exports.getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    res.json({ success: true, conversations });
+    // 🆕 CALCULER LE NOMBRE DE MESSAGES NON LUS POUR CHAQUE CONVERSATION
+    const conversationsWithUnread = await Promise.all(
+      conversations.map(async (conv) => {
+        const unreadCount = await Message.countDocuments({
+          conversationId: conv._id,
+          sender: { $ne: userId },
+          status: { $ne: 'read' }
+        });
+
+        return {
+          ...conv.toObject(),
+          unreadCount
+        };
+      })
+    );
+
+    res.json({ 
+      success: true, 
+      conversations: conversationsWithUnread 
+    });
   } catch (error) {
+    console.error('❌ Erreur getConversations:', error);
     res.status(500).json({ error: error.message });
   }
 };

@@ -3,9 +3,20 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
-import { getConversation, getMessages, sendMessage } from '@/lib/api';
-import api from '@/lib/api'; // 🆕 Pour l'upload audio
-import { getSocket, joinConversation, onReceiveMessage, emitTyping, emitStopTyping, onUserTyping, onUserStoppedTyping } from '@/services/socket';
+import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
+import api from '@/lib/api';
+import { 
+  getSocket, 
+  joinConversation,
+  leaveConversation,
+  onReceiveMessage, 
+  emitTyping, 
+  emitStopTyping, 
+  onUserTyping, 
+  onUserStoppedTyping, 
+  onMessageStatusUpdated,
+  onConversationStatusUpdated
+} from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar';
@@ -28,8 +39,19 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const isMarkingAsReadRef = useRef(false);
 
   useSocket();
+
+  // Cleanup : Quitter la conversation quand on quitte la page
+  useEffect(() => {
+    return () => {
+      if (conversationId) {
+        console.log('🚪 Quitter la conversation:', conversationId);
+        leaveConversation(conversationId);
+      }
+    };
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId || !user) return;
@@ -42,7 +64,8 @@ export default function ChatPage() {
         setConversation(convResponse.data.conversation);
         
         const messagesResponse = await getMessages(conversationId);
-        setMessages(messagesResponse.data.messages || []);
+        const loadedMessages = messagesResponse.data.messages || [];
+        setMessages(loadedMessages);
         
         setLoading(false);
         
@@ -50,6 +73,28 @@ export default function ChatPage() {
         if (socket) {
           joinConversation(conversationId);
         }
+
+        setTimeout(async () => {
+          if (isMarkingAsReadRef.current) return;
+          isMarkingAsReadRef.current = true;
+
+          try {
+            const receivedMessageIds = loadedMessages
+              .filter(msg => msg.sender._id !== (user._id || user.id) && msg.status === 'sent')
+              .map(msg => msg._id);
+            
+            if (receivedMessageIds.length > 0) {
+              await markMessagesAsDelivered(receivedMessageIds);
+            }
+
+            await markConversationAsRead(conversationId);
+          } catch (error) {
+            console.error('❌ Erreur marquage:', error);
+          } finally {
+            isMarkingAsReadRef.current = false;
+          }
+        }, 500);
+        
       } catch (error) {
         console.error('Erreur chargement conversation:', error);
         setLoading(false);
@@ -57,6 +102,10 @@ export default function ChatPage() {
     };
 
     loadConversation();
+
+    return () => {
+      isMarkingAsReadRef.current = false;
+    };
   }, [conversationId, user]);
 
   useEffect(() => {
@@ -64,21 +113,39 @@ export default function ChatPage() {
     
     if (socket && conversationId && user) {
       onReceiveMessage((message) => {
-        console.log('📩 Nouveau message reçu:', message);
-        
         if (message.conversationId === conversationId) {
           setMessages((prev) => {
             const exists = prev.some(m => m._id === message._id);
             if (exists) return prev;
             return [...prev, message];
           });
+
+          const userId = user._id || user.id;
+          if (message.sender._id !== userId) {
+            markMessagesAsDelivered([message._id])
+              .then(() => markConversationAsRead(conversationId))
+              .catch(err => console.error('❌ Erreur marquage:', err));
+          }
         }
+      });
+
+      onMessageStatusUpdated(({ messageIds, status }) => {
+        setMessages((prevMessages) => 
+          prevMessages.map(msg => 
+            messageIds.includes(msg._id) 
+              ? { ...msg, status } 
+              : msg
+          )
+        );
+      });
+
+      onConversationStatusUpdated(({ conversationId: updatedConvId, status }) => {
+        console.log('📊 Statut conversation mis à jour:', { conversationId: updatedConvId, status });
       });
 
       onUserTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
-          console.log('✍️ User en train d\'écrire:', userId);
           setTypingUsers((prev) => {
             if (!prev.includes(userId)) {
               return [...prev, userId];
@@ -91,7 +158,6 @@ export default function ChatPage() {
       onUserStoppedTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
-          console.log('✅ User a arrêté d\'écrire:', userId);
           setTypingUsers((prev) => prev.filter((id) => id !== userId));
         }
       });
@@ -102,34 +168,25 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
-  // 🆕 GESTION DE L'ENVOI DE MESSAGE (AVEC SUPPORT VOCAL)
   const handleSendMessage = async (content) => {
     try {
       let messageData;
 
-      // 🆕 SI C'EST UN MESSAGE VOCAL
       if (typeof content === 'object' && content.isVoiceMessage) {
-        console.log('🎤 Envoi d\'un message vocal');
-        
-        // Upload l'audio vers le backend
         const formData = new FormData();
         formData.append('audio', content.audioBlob, 'voice-message.webm');
         formData.append('conversationId', conversationId);
         formData.append('duration', content.duration);
 
-        const response = await api.post('/audio', formData, {
+        await api.post('/audio', formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
 
-        console.log('✅ Message vocal envoyé:', response.data);
-        
-        // Le message sera ajouté automatiquement via socket
         return;
       }
 
-      // SI C'EST UN FICHIER (image, document, etc.)
       if (typeof content === 'object') {
         messageData = {
           conversationId,
@@ -140,15 +197,12 @@ export default function ChatPage() {
           content: content.content || ''
         };
       } else {
-        // SI C'EST UN TEXTE NORMAL
         messageData = {
           conversationId,
           content: content.trim(),
           type: 'text'
         };
       }
-
-      console.log('📤 Envoi message:', messageData);
       
       await sendMessage(messageData);
       
@@ -217,7 +271,7 @@ export default function ChatPage() {
             <p className="text-blue-700 mb-6">Cette conversation n&apos;existe pas ou a été supprimée</p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
+              className="px-6 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
             >
               Retour à l&apos;accueil
             </button>
@@ -240,7 +294,7 @@ export default function ChatPage() {
             onBack={() => router.push('/')} 
           />
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-blue-50 to-cyan-50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-linear-to-b from-blue-50 to-cyan-50">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-sm">

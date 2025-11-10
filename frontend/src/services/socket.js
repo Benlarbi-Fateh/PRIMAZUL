@@ -1,23 +1,21 @@
-// frontend/src/services/socket.js
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
 let socket = null;
-let currentUserId = null; // 🆕 Stocker l'userId actuel
+let currentUserId = null;
+let onlineUsersCache = [];
 
 export const initSocket = (userId) => {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  // 🆕 Stocker l'userId
   currentUserId = userId;
 
   if (socket?.connected) {
     console.log('✅ Socket déjà connecté');
-    // 🆕 Ré-émettre user-online même si déjà connecté
-    console.log('🔄 Ré-émission de user-online pour:', userId);
     socket.emit('user-online', userId);
+    socket.emit('request-online-users');
     return socket;
   }
 
@@ -25,23 +23,33 @@ export const initSocket = (userId) => {
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5
+    reconnectionAttempts: 5,
+    timeout: 10000
   });
 
   socket.on('connect', () => {
     console.log('✅ Socket connecté:', socket.id);
     if (currentUserId) {
-      console.log('📤 Émission user-online pour:', currentUserId);
       socket.emit('user-online', currentUserId);
+      socket.emit('request-online-users');
     }
   });
 
-  // 🆕 Gérer la reconnexion
+  socket.on('connection-confirmed', ({ userId, onlineUsers }) => {
+    console.log('✅ Connexion confirmée pour:', userId);
+    console.log('👥 Utilisateurs en ligne:', onlineUsers);
+    onlineUsersCache = onlineUsers;
+  });
+
+  socket.on('conversation-joined', ({ conversationId }) => {
+    console.log('✅ Conversation rejointe:', conversationId);
+  });
+
   socket.on('reconnect', () => {
-    console.log('🔄 Socket reconnecté:', socket.id);
+    console.log('🔄 Socket reconnecté');
     if (currentUserId) {
-      console.log('📤 Ré-émission user-online après reconnexion:', currentUserId);
       socket.emit('user-online', currentUserId);
+      socket.emit('request-online-users');
     }
   });
 
@@ -88,10 +96,25 @@ export const joinConversation = (conversationId) => {
     });
 };
 
+export const leaveConversation = (conversationId) => {
+  if (socket?.connected) {
+    console.log('📤 Quitter conversation:', conversationId);
+    socket.emit('leave-conversation', conversationId);
+  }
+};
+
+export const requestOnlineUsers = () => {
+  if (socket?.connected) {
+    console.log('📤 Demande de liste des utilisateurs en ligne');
+    socket.emit('request-online-users');
+  }
+};
+
+export const getOnlineUsersCache = () => onlineUsersCache;
+
 export const sendMessage = (messageData) => {
   waitForConnection()
     .then(() => {
-      console.log('📤 Envoi message:', messageData);
       socket.emit('send-message', messageData);
     })
     .catch((error) => {
@@ -105,6 +128,36 @@ export const onReceiveMessage = (callback) => {
     socket.on('receive-message', (message) => {
       console.log('📩 Message reçu:', message);
       callback(message);
+    });
+  }
+};
+
+export const onMessageStatusUpdated = (callback) => {
+  if (socket) {
+    socket.off('message-status-updated');
+    socket.on('message-status-updated', (data) => {
+      console.log('📊 Statut mis à jour:', data);
+      callback(data);
+    });
+  }
+};
+
+export const onShouldRefreshConversations = (callback) => {
+  if (socket) {
+    socket.off('should-refresh-conversations');
+    socket.on('should-refresh-conversations', () => {
+      console.log('🔄 Demande de refresh des conversations');
+      callback();
+    });
+  }
+};
+
+export const onConversationStatusUpdated = (callback) => {
+  if (socket) {
+    socket.off('conversation-status-updated');
+    socket.on('conversation-status-updated', (data) => {
+      console.log('📊 Statut conversation mis à jour:', data);
+      callback(data);
     });
   }
 };
@@ -140,7 +193,8 @@ export const disconnectSocket = () => {
     console.log('🔌 Déconnexion du socket');
     socket.disconnect();
     socket = null;
-    currentUserId = null; // 🆕 Reset l'userId
+    currentUserId = null;
+    onlineUsersCache = [];
   }
 };
 
