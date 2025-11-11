@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
 import { getConversations, searchUsers, createConversation } from '@/lib/api';
 import { getSocket, onShouldRefreshConversations, requestOnlineUsers } from '@/services/socket';
-import { LogOut, Search, MessageCircle, Users, MoreVertical, Archive, Trash2, Pin, Check, CheckCheck } from 'lucide-react';
+import { LogOut, Search, MessageCircle, Users, MoreVertical, Archive, Trash2, Pin, Check, CheckCheck, Plus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -43,7 +43,6 @@ export default function Sidebar({ activeConversationId }) {
     }
   };
 
-  // Demander la liste des utilisateurs en ligne quand le Sidebar est visible
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -85,7 +84,6 @@ export default function Sidebar({ activeConversationId }) {
         }, 300);
       });
 
-      // Demander immédiatement la liste
       requestOnlineUsers();
 
       return () => {
@@ -130,13 +128,25 @@ export default function Sidebar({ activeConversationId }) {
         });
       });
 
+      // 🆕 ÉCOUTER L'ÉVÉNEMENT group-created
+      socket.on('group-created', (group) => {
+        console.log('👥 Nouveau groupe créé:', group._id);
+        setConversations((prevConversations) => {
+          const exists = prevConversations.some(conv => conv._id === group._id);
+          if (!exists) {
+            return [group, ...prevConversations];
+          }
+          return prevConversations;
+        });
+      });
+
       return () => {
         socket.off('conversation-updated');
+        socket.off('group-created');
       };
     }
   }, [user]);
 
-  // Recherche d'utilisateurs (debounce)
   useEffect(() => {
     if (!showUsers || !searchTerm.trim()) {
       return;
@@ -211,6 +221,24 @@ export default function Sidebar({ activeConversationId }) {
   const handleLogout = () => {
     logout();
     router.push('/login');
+  };
+
+  // 🆕 FONCTION POUR OBTENIR LE NOM D'AFFICHAGE
+  const getDisplayName = (conv) => {
+    if (conv.isGroup) {
+      return conv.groupName || 'Groupe sans nom';
+    }
+    const contact = getOtherParticipant(conv);
+    return contact?.name || 'Utilisateur';
+  };
+
+  // 🆕 FONCTION POUR OBTENIR L'IMAGE D'AFFICHAGE
+  const getDisplayImage = (conv) => {
+    if (conv.isGroup) {
+      return conv.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.groupName || 'Groupe')}&background=6366f1&color=fff`;
+    }
+    const contact = getOtherParticipant(conv);
+    return contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`;
   };
 
   const getOtherParticipant = (conv) => {
@@ -407,131 +435,153 @@ export default function Sidebar({ activeConversationId }) {
           </div>
         ) : (
           // Onglet Conversations
-          <div>
-            {conversations.length === 0 ? (
-              <div className="p-12 text-center text-blue-600">
-                <div className="w-20 h-20 bg-linear-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageCircle className="w-10 h-10 text-blue-600" />
+          <div className="flex flex-col h-full">
+            <div className="flex-1">
+              {conversations.length === 0 ? (
+                <div className="p-12 text-center text-blue-600">
+                  <div className="w-20 h-20 bg-linear-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageCircle className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <p className="font-medium text-blue-800 mb-2">Aucune conversation</p>
+                  <p className="text-sm text-blue-600 mb-4">Commencez à discuter avec vos contacts</p>
+                  <button
+                    onClick={() => handleTabChange(true)}
+                    className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
+                  >
+                    Rechercher des contacts
+                  </button>
                 </div>
-                <p className="font-medium text-blue-800 mb-2">Aucune conversation</p>
-                <p className="text-sm text-blue-600 mb-4">Commencez à discuter avec vos contacts</p>
-                <button
-                  onClick={() => handleTabChange(true)}
-                  className="px-6 py-2.5 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-md hover:shadow-lg"
-                >
-                  Rechercher des contacts
-                </button>
-              </div>
-            ) : (
-              <div className="p-2">
-                {conversations.map((conv) => {
-                  const contact = getOtherParticipant(conv);
-                  const isActive = conv._id === activeConversationId;
-                  const messageStatus = getMessageStatus(conv);
-                  const lastMessageTime = formatMessageTime(conv.updatedAt);
-                  const unreadCount = conv.unreadCount || 0;
+              ) : (
+                <div className="p-2">
+                  {conversations.map((conv) => {
+                    const isActive = conv._id === activeConversationId;
+                    const messageStatus = getMessageStatus(conv);
+                    const lastMessageTime = formatMessageTime(conv.updatedAt);
+                    const unreadCount = conv.unreadCount || 0;
+                    
+                    // 🆕 UTILISER LES NOUVELLES FONCTIONS
+                    const displayName = getDisplayName(conv);
+                    const displayImage = getDisplayImage(conv);
+                    const contact = getOtherParticipant(conv);
 
-                  if (!contact) {
-                    return null;
-                  }
-
-                  return (
-                    <div
-                      key={conv._id}
-                      className="relative group mb-1"
-                      onMouseLeave={() => setMenuOpen(null)}
-                    >
-                      <button
-                        onClick={() => router.push(`/chat/${conv._id}`)}
-                        className={`w-full p-3 rounded-xl transition-all flex items-center gap-3 ${
-                          isActive 
-                            ? 'bg-white shadow-md ring-2 ring-blue-500' 
-                            : 'hover:bg-white hover:shadow-sm border border-transparent hover:border-blue-200'
-                        }`}
+                    return (
+                      <div
+                        key={conv._id}
+                        className="relative group mb-1"
+                        onMouseLeave={() => setMenuOpen(null)}
                       >
-                        <div className="relative shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={contact?.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`}
-                            alt={contact?.name}
-                            className="w-14 h-14 rounded-full object-cover ring-2 ring-blue-100"
-                            onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=0ea5e9&color=fff`;
-                            }}
-                          />
-                          {isUserOnline(contact?._id) && (
-                            <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 text-left min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h3 className={`font-semibold truncate pr-2 ${
-                              unreadCount > 0 ? 'text-blue-900' : 'text-blue-800'
-                            }`}>
-                              {contact?.name}
-                            </h3>
-                            {lastMessageTime && (
-                              <span className={`text-xs shrink-0 ${
-                                unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-blue-500'
-                              }`}>
-                                {lastMessageTime}
+                        <button
+                          onClick={() => router.push(`/chat/${conv._id}`)}
+                          className={`w-full p-3 rounded-xl transition-all flex items-center gap-3 ${
+                            isActive 
+                              ? 'bg-white shadow-md ring-2 ring-blue-500' 
+                              : 'hover:bg-white hover:shadow-sm border border-transparent hover:border-blue-200'
+                          }`}
+                        >
+                          <div className="relative shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={displayImage}
+                              alt={displayName}
+                              className="w-14 h-14 rounded-full object-cover ring-2 ring-blue-100"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0ea5e9&color=fff`;
+                              }}
+                            />
+                            {/* 🆕 AFFICHER ONLINE SEULEMENT POUR LES CONVERSATIONS 1-1 */}
+                            {!conv.isGroup && contact && isUserOnline(contact._id) && (
+                              <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
+                            )}
+                            {/* 🆕 BADGE GROUPE */}
+                            {conv.isGroup && (
+                              <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-white rounded-full flex items-center justify-center">
+                                <Users className="w-3 h-3 text-white" />
                               </span>
                             )}
                           </div>
                           
-                          <div className="flex items-center gap-1">
-                            {messageStatus && renderStatusIcon(messageStatus)}
-                            <p className={`text-sm truncate ${
-                              unreadCount > 0 
-                                ? 'font-semibold text-blue-900' 
-                                : 'text-blue-600'
-                            }`}>
-                              {getLastMessagePreview(conv)}
-                            </p>
+                          <div className="flex-1 text-left min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className={`font-semibold truncate pr-2 ${
+                                unreadCount > 0 ? 'text-blue-900' : 'text-blue-800'
+                              }`}>
+                                {displayName}
+                              </h3>
+                              {lastMessageTime && (
+                                <span className={`text-xs shrink-0 ${
+                                  unreadCount > 0 ? 'text-blue-600 font-semibold' : 'text-blue-500'
+                                }`}>
+                                  {lastMessageTime}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              {messageStatus && renderStatusIcon(messageStatus)}
+                              <p className={`text-sm truncate ${
+                                unreadCount > 0 
+                                  ? 'font-semibold text-blue-900' 
+                                  : 'text-blue-600'
+                              }`}>
+                                {getLastMessagePreview(conv)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
 
-                        {unreadCount > 0 && (
-                          <span className="shrink-0 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-full min-w-5 text-center shadow-md">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                          </span>
+                          {unreadCount > 0 && (
+                            <span className="shrink-0 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-full min-w-5 text-center shadow-md">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpen(menuOpen === conv._id ? null : conv._id);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-blue-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="w-4 h-4 text-blue-500" />
+                        </button>
+
+                        {menuOpen === conv._id && (
+                          <div className="absolute right-2 top-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200 py-1 z-20 w-48">
+                            <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900">
+                              <Pin className="w-4 h-4 text-blue-500" />
+                              Épingler
+                            </button>
+                            <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900">
+                              <Archive className="w-4 h-4 text-blue-500" />
+                              Archiver
+                            </button>
+                            <hr className="my-1 border-blue-200" />
+                            <button 
+                              onClick={() => handleDeleteConversation(conv._id)}
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Supprimer
+                            </button>
+                          </div>
                         )}
-                      </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setMenuOpen(menuOpen === conv._id ? null : conv._id);
-                        }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-blue-100 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreVertical className="w-4 h-4 text-blue-500" />
-                      </button>
-
-                      {menuOpen === conv._id && (
-                        <div className="absolute right-2 top-full mt-1 bg-white rounded-lg shadow-xl border border-blue-200 py-1 z-20 w-48">
-                          <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900">
-                            <Pin className="w-4 h-4 text-blue-500" />
-                            Épingler
-                          </button>
-                          <button className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-900">
-                            <Archive className="w-4 h-4 text-blue-500" />
-                            Archiver
-                          </button>
-                          <hr className="my-1 border-blue-200" />
-                          <button 
-                            onClick={() => handleDeleteConversation(conv._id)}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+            {/* 🆕 BOUTON CRÉER UN GROUPE - EN BAS DE LA LISTE */}
+            {!showUsers && (
+              <div className="p-4 border-t border-blue-200 bg-white/50 backdrop-blur-sm">
+                <button
+                  onClick={() => router.push('/group/create')}
+                  className="w-full p-4 bg-linear-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 font-medium"
+                >
+                  <Plus className="w-5 h-5" />
+                  Créer un groupe
+                </button>
               </div>
             )}
           </div>

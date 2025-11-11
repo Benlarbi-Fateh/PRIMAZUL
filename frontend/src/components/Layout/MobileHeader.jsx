@@ -3,17 +3,17 @@
 import { useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
-import { ArrowLeft, MoreVertical, Phone, Video } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react'; // 🆕 AJOUT Users
 import { formatMessageDate } from '@/utils/dateFormatter';
 
-export default function MobileHeader({ contact, onBack }) {
+export default function MobileHeader({ contact, conversation, onBack }) { // 🆕 AJOUT conversation
   const { user } = useContext(AuthContext);
   const router = useRouter();
 
   // ============================
   // Header pour la page d'accueil
   // ============================
-  if (!contact) {
+  if (!contact && !conversation) {
     return (
       <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 to-cyan-500">
         {/* Lueur douce en haut à droite */}
@@ -51,6 +51,18 @@ export default function MobileHeader({ contact, onBack }) {
     );
   }
 
+  // 🆕 VÉRIFIER SI C'EST UN GROUPE
+  const isGroup = conversation?.isGroup || false;
+  const displayName = isGroup 
+    ? (conversation?.groupName || 'Groupe sans nom')
+    : (contact?.name || 'Utilisateur');
+  
+  const displayImage = isGroup
+    ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=6366f1&color=fff&bold=true&size=128`)
+    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=fff&color=0ea5e9&bold=true&size=128`);
+
+  const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
+
   // ============================
   // Header pour une conversation
   // ============================
@@ -65,7 +77,7 @@ export default function MobileHeader({ contact, onBack }) {
       ></div>
 
       <div className="relative p-3 sm:p-4 flex items-center justify-between gap-2 sm:gap-3">
-        {/* Bouton retour + Info contact */}
+        {/* Bouton retour + Info contact/groupe */}
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <button
             onClick={onBack || (() => router.push('/'))}
@@ -74,25 +86,27 @@ export default function MobileHeader({ contact, onBack }) {
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
-          {/* Photo de profil */}
+          {/* Photo de profil ou icône groupe */}
           <div className="relative shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={
-                contact.profilePicture ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                  contact.name || 'User'
-                )}&background=fff&color=0ea5e9&bold=true&size=128`
-              }
-              alt={contact.name}
+              src={displayImage}
+              alt={displayName}
               className="w-9 h-9 sm:w-11 sm:h-11 rounded-full ring-2 ring-white/60 shadow-lg object-cover"
               onError={(e) => {
-                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                  contact.name || 'User'
-                )}&background=fff&color=0ea5e9&bold=true&size=128`;
+                e.target.src = isGroup
+                  ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`
+                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=0ea5e9&bold=true&size=128`;
               }}
             />
-            {contact.isOnline && (
+            {/* 🆕 BADGE GROUPE */}
+            {isGroup && (
+              <div className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 bg-linear-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
+                <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+              </div>
+            )}
+            {/* Point vert en ligne (seulement pour conversations 1-1) */}
+            {!isGroup && contact?.isOnline && (
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-400 rounded-full border-[1.5px] border-white shadow-sm">
                 <div className="w-full h-full bg-green-400 rounded-full animate-ping opacity-75"></div>
               </div>
@@ -102,40 +116,54 @@ export default function MobileHeader({ contact, onBack }) {
           {/* Nom et statut */}
           <div className="text-white flex-1 min-w-0">
             <h2 className="font-bold text-sm sm:text-base drop-shadow-md truncate">
-              {contact.name}
+              {displayName}
             </h2>
             <div className="flex items-center gap-1.5 mt-0.5">
-              {contact.isOnline ? (
-                <>
-                  <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse shadow-sm shrink-0"></div>
-                  <p className="text-xs text-blue-50/90 font-medium truncate">
-                    En ligne
-                  </p>
-                </>
-              ) : (
-                <p className="text-xs text-blue-50/80 truncate">
-                  {contact.lastSeen ? `Vu ${formatMessageDate(contact.lastSeen)}` : 'Hors ligne'}
+              {isGroup ? (
+                // 🆕 AFFICHAGE POUR LES GROUPES
+                <p className="text-xs text-blue-50/90 font-medium truncate">
+                  {participantsCount} participant{participantsCount > 1 ? 's' : ''}
                 </p>
+              ) : (
+                // AFFICHAGE POUR LES CONVERSATIONS 1-1
+                <>
+                  {contact?.isOnline ? (
+                    <>
+                      <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse shadow-sm shrink-0"></div>
+                      <p className="text-xs text-blue-50/90 font-medium truncate">
+                        En ligne
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-blue-50/80 truncate">
+                      {contact?.lastSeen ? `Vu ${formatMessageDate(contact.lastSeen)}` : 'Hors ligne'}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Actions (Appel / Vidéo / Menu) */}
+        {/* Actions (Appel / Vidéo / Menu) - 🆕 MASQUER POUR LES GROUPES */}
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-          <button
-            className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
-            title="Appel audio"
-          >
-            <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+          {!isGroup && (
+            <>
+              <button
+                className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
+                title="Appel audio"
+              >
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
 
-          <button
-            className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
-            title="Appel vidéo"
-          >
-            <Video className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+              <button
+                className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
+                title="Appel vidéo"
+              >
+                <Video className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </>
+          )}
 
           <button
             className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"

@@ -1,4 +1,3 @@
-// frontend/src/lib/api.js
 import axios from 'axios';
 
 // Utilise une variable d'environnement pour l'URL de l'API
@@ -45,27 +44,36 @@ api.interceptors.response.use(
 );
 
 // ============================================
-// 🆕 FONCTIONS D'API
+// 🔐 AUTH
 // ============================================
-
-// AUTH
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
 
-// 🆕 RECHERCHE D'UTILISATEURS
+// 🔍 RECHERCHE D'UTILISATEURS
 export const searchUsers = (query) => api.get(`/auth/search?query=${query}`);
 
-// CONVERSATIONS
+// ============================================
+// 💬 CONVERSATIONS
+// ============================================
 export const getConversations = () => api.get('/conversations');
-export const createConversation = (participantId) => api.post('/conversations/get-or-create', { contactId: participantId }); // 🔧 CORRIGÉ
-export const getConversation = (id) => api.get(`/conversations/${id}`); // ✅ Déjà présent
+export const createConversation = (participantId) => api.post('/conversations/get-or-create', { contactId: participantId });
+export const getConversation = (id) => api.get(`/conversations/${id}`);
 
-// MESSAGES
+// ============================================
+// 👥 GROUPES (🆕 AJOUTÉ)
+// ============================================
+export const createGroup = (data) => api.post('/groups/create', data);
+export const getGroup = (id) => api.get(`/groups/${id}`);
+export const addParticipantsToGroup = (data) => api.post('/groups/add-participants', data);
+export const leaveGroup = (groupId) => api.delete(`/groups/${groupId}/leave`);
+
+// ============================================
+// 📨 MESSAGES
+// ============================================
 export const getMessages = (conversationId) => api.get(`/messages/${conversationId}`);
 export const sendMessage = (data) => api.post('/messages', data);
 
-
-// 🆕 FONCTIONS POUR LES STATUTS
+// 📊 STATUTS DES MESSAGES
 export const markMessagesAsDelivered = (messageIds) => 
   api.post('/messages/mark-delivered', { messageIds });
 

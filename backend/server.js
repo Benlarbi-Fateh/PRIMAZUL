@@ -44,6 +44,7 @@ console.log('🔍 Chargement des routes...');
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/conversations', require('./routes/conversationRoutes'));
+app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/audio', require('./routes/audioRoutes'));
 

@@ -10,6 +10,7 @@ exports.getConversations = async (req, res) => {
       participants: userId
     })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
+      .populate('groupAdmin', 'name email profilePicture') // 🆕 AJOUTÉ
       .populate({
         path: 'lastMessage',
         populate: { path: 'sender', select: 'name' }
@@ -58,13 +59,16 @@ exports.getOrCreateConversation = async (req, res) => {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
 
+    // 🆕 VÉRIFIER QUE CE N'EST PAS UN GROUPE (chercher conversations 1-1 uniquement)
     let conversation = await Conversation.findOne({
-      participants: { $all: [userId, contactId] }
+      participants: { $all: [userId, contactId], $size: 2 },
+      isGroup: false // 🆕 AJOUTÉ
     }).populate('participants', 'name email profilePicture isOnline lastSeen');
 
     if (!conversation) {
       conversation = new Conversation({
-        participants: [userId, contactId]
+        participants: [userId, contactId],
+        isGroup: false // 🆕 AJOUTÉ
       });
       await conversation.save();
       
@@ -85,7 +89,6 @@ exports.getOrCreateConversation = async (req, res) => {
   }
 };
 
-// 🆕 NOUVELLE FONCTION AJOUTÉE
 exports.getConversationById = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -93,6 +96,7 @@ exports.getConversationById = async (req, res) => {
 
     const conversation = await Conversation.findById(id)
       .populate('participants', 'name email profilePicture isOnline lastSeen')
+      .populate('groupAdmin', 'name email profilePicture') // 🆕 AJOUTÉ
       .populate({
         path: 'lastMessage',
         populate: { path: 'sender', select: 'name' }

@@ -24,7 +24,7 @@ import MobileHeader from '@/components/Layout/MobileHeader';
 import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
-import { Plane } from 'lucide-react';
+import { Plane, Users } from 'lucide-react';
 
 export default function ChatPage() {
   const params = useParams();
@@ -241,6 +241,16 @@ export default function ChatPage() {
     return conversation.participants?.find(p => p._id !== userId);
   };
 
+  // 🆕 FONCTION POUR OBTENIR LE NOM D'AFFICHAGE (GROUPE OU CONTACT)
+  const getDisplayName = () => {
+    if (!conversation) return 'Chargement...';
+    if (conversation.isGroup) {
+      return conversation.groupName || 'Groupe sans nom';
+    }
+    const contact = getOtherParticipant();
+    return contact?.name || 'Utilisateur';
+  };
+
   const contact = getOtherParticipant();
 
   if (loading) {
@@ -259,7 +269,8 @@ export default function ChatPage() {
     );
   }
 
-  if (!conversation || !contact) {
+  // 🆕 MODIFICATION : Vérifier différemment pour les groupes
+  if (!conversation || (!conversation.isGroup && !contact)) {
     return (
       <ProtectedRoute>
         <div className="flex h-screen items-center justify-center bg-blue-50">
@@ -289,8 +300,10 @@ export default function ChatPage() {
         </div>
 
         <div className="flex-1 flex flex-col">
+          {/* 🆕 MODIFICATION CRITIQUE ICI */}
           <MobileHeader 
-            contact={contact} 
+            contact={contact}
+            conversation={conversation}
             onBack={() => router.push('/')} 
           />
 
@@ -299,10 +312,19 @@ export default function ChatPage() {
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-sm">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-blue-200">
-                    <Plane className="w-10 h-10 text-blue-600 -rotate-45" />
+                    {conversation.isGroup ? (
+                      <Users className="w-10 h-10 text-purple-600" />
+                    ) : (
+                      <Plane className="w-10 h-10 text-blue-600 -rotate-45" />
+                    )}
                   </div>
                   <p className="text-blue-800 font-medium">Aucun message pour l&apos;instant</p>
-                  <p className="text-sm text-blue-600 mt-2">Envoyez votre premier message à {contact.name}</p>
+                  <p className="text-sm text-blue-600 mt-2">
+                    {conversation.isGroup 
+                      ? `Commencez la discussion dans ${conversation.groupName || 'ce groupe'}`
+                      : `Envoyez votre premier message à ${contact?.name || 'cet utilisateur'}`
+                    }
+                  </p>
                 </div>
               </div>
             ) : (
@@ -314,12 +336,13 @@ export default function ChatPage() {
                       key={message._id}
                       message={message}
                       isMine={message.sender?._id === userId}
+                      isGroup={conversation?.isGroup || false}
                     />
                   );
                 })}
                 
                 {typingUsers.length > 0 && (
-                  <TypingIndicator contactName={contact.name} />
+                  <TypingIndicator contactName={contact?.name || 'Quelqu\'un'} />
                 )}
                 
                 <div ref={messagesEndRef} />
