@@ -9,11 +9,7 @@ const { verifyToken } = require("./middleware/authMiddleware"); //zaina: sert à
 require("dotenv").config(); // recuperer les informations sensibles depuis le fichier .env
 
 const app = express(); // initialiser l'application express
-app.use(cors()); // activer cors pour toutes les routes
-//zaina
-const testRoutes = require("./routes/test");
-app.use("/api/test", testRoutes);
-//fini
+//ceapp.use(cors()); // activer cors pour toutes les routes
 
 app.use(express.json()); // parser le corps des requetes en json
 // Middleware CORS

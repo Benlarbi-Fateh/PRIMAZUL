@@ -2,43 +2,34 @@
 "use client";
 import React from "react";
 import { useAuth } from "../context/authContext";
-
+import { useRouter } from "next/navigation"; //pour la redirection vers login  ça permet de naviguer entre les pages
 export default function LogoutButton() {
   const { user, logout } = useAuth();
+  const router = useRouter(); //sert à créer une variable router qui te donne l’accès complet aux fonctions de navigation de Next.js.
+  //
+  const handleLogout = () => {
+    logout(); // supprime le token + user du localStorage
+    router.push("/login"); // redirige vers la page login
+  };
+  //
+
+  // redirige vers la page login
+  // Si l'utilisateur n'est pas connecté, on ne montre rien
+  if (!user) return null;
 
   return (
-    <header
+    <button
+      onClick={handleLogout}
       style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "10px 20px",
-        backgroundColor: "#f0f0f0",
-        borderBottom: "1px solid #ddd",
+        backgroundColor: "#4f8bd9ff",
+        color: "white",
+        border: "none",
+        borderRadius: "5px",
+        padding: "8px 12px",
+        cursor: "pointer",
       }}
     >
-      <h2>PrimAzul</h2>
-
-      {user ? (
-        <>
-          <span style={{ marginRight: "10px" }}>Connecté ✅</span>
-          <button
-            onClick={logout}
-            style={{
-              backgroundColor: "#d9534f",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              padding: "8px 12px",
-              cursor: "pointer",
-            }}
-          >
-            Se déconnecter
-          </button>
-        </>
-      ) : (
-        <span>Non connecté </span>
-      )}
-    </header>
+      Se déconnecter
+    </button>
   );
 }

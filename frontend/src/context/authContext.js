@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  //  Fonction de connexion (sauvegarde token et infos user)
+  //  Fonction de connexion (sauvegarde token et infos user )
   const login = (userData, token) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
