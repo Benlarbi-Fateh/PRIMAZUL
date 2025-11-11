@@ -81,7 +81,7 @@ exports.resetPassword = async (req, res) => {
 
 
 // Inscription
-
+/*
 exports.register = async (req, res) => {
   try {
     const { email, phoneNumber, password, username } = req.body;
@@ -99,7 +99,7 @@ exports.register = async (req, res) => {
   }
 };
 
-
+*/
 // Connexion (email OU téléphone)
 
 exports.login = async (req, res) => {
