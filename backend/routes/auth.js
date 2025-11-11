@@ -1,132 +1,117 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const nodemailer = require('nodemailer');
+const User = require('../models/Users');
+
+const verificationCodes = new Map();
+
+// Transporter email
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Générer code 6 chiffres
+const generateVerificationCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// Envoyer email
+const sendVerificationEmail = async (email, username, code) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: '🔐 Code de vérification - PRIMAZUL',
+    html: `<h2>Bonjour ${username},</h2><p>Votre code : <b>${code}</b></p><p>Valide 15 minutes</p>`
+  };
+  await transporter.sendMail(mailOptions);
+};
 
 // ============================================
-// POST /api/register - Inscription
+// Route register
 // ============================================
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, phoneNumber } = req.body;
+    const { username, email, phoneNumber, password } = req.body;
+    if (!username || !email || !phoneNumber || !password)
+      return res.status(400).json({ success: false, message: 'Tous les champs sont requis' });
 
-    //  Validation des champs requis
-    if (!username || !email || !password || !phoneNumber) {
-      return res.status(400).json({
-        success: false,
-        message: 'Veuillez remplir tous les champs obligatoires (username, email, password,phoneNumber)'
-      });
-    }
+    // Vérifier si email existe
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) return res.status(400).json({ success: false, message: 'Email déjà utilisé' });
 
-    //  Validation du format email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Format d\'email invalide'
-      });
-    }
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    //  Validation de la longueur du username
-    if (username.length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le nom d\'utilisateur doit contenir au moins 3 caractères'
-      });
-    }
+    // Générer code
+    const code = generateVerificationCode();
+    const expiresAt = Date.now() + 15 * 60 * 1000;
 
-    //  Validation de la force du mot de passe
-    if (password.length < 8) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le mot de passe doit contenir au moins 8 caractères'
-      });
-    }
-
-    //  Vérifier si l'email existe déjà
-    const existingEmail = await User.findOne({ email: email.toLowerCase() });
-    if (existingEmail) {
-      return res.status(409).json({
-        success: false,
-        message: 'Un compte existe déjà avec cet email'
-      });
-    }
-
-    // verifier si username exist deja 
-    const existingUsername = await User.findOne({ username: username.trim() });
-    if (existingUsername) {
-      return res.status(409).json({
-        success: false,
-        message: 'Ce nom d\'utilisateur est déjà pris'
-      });
-    }
-     // verifier si le numer de telephone existe deja
-     const existingPhone = await User.findOne({ phoneNumber: phoneNumber.trim() });
-     if (existingPhone) {
-       return res.status(409).json({
-          success: false,
-            message: 'Ce numéro de téléphone est déjà utilisé'
-       });
-    }
-    //  Hacher le mot de passe avec Bcrypt
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    //  Créer le nouvel utilisateur
-    const newUser = await User.create({
-      username: username.trim(),
-      email: email.toLowerCase().trim(),
-      password: hashedPassword,
-      phoneNumber: phoneNumber.trim()
-    
+    verificationCodes.set(email.toLowerCase(), {
+      code,
+      userData: { username, email: email.toLowerCase(), phoneNumber, password: hashedPassword },
+      expiresAt
     });
 
-    // 9. Générer un token JWT
-    const token = jwt.sign(
-      { 
-        userId: newUser._id,
-        username: newUser.username,
-        email: newUser.email 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    await sendVerificationEmail(email, username, code);
 
-    // 10. Retourner la réponse (SANS le mot de passe!)
-    res.status(201).json({
-      success: true,
-      message: 'Inscription réussie',
-      data: {
-        user: {
-          id: newUser._id,
-          username: newUser.username,
-          email: newUser.email,
-           phoneNumber: newUser.phoneNumber,
-   
-        },
-        token
-      }
-    });
+    res.status(200).json({ success: true, message: 'Code envoyé', email: email.toLowerCase() });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: err.message });
+  }
+});
 
-  } catch (error) {
-    console.error('❌ Erreur lors de l\'inscription:', error);
-    
-    // Gestion des erreurs de duplication MongoDB
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      return res.status(409).json({
-        success: false,
-        message: `Ce ${field} est déjà utilisé`
-      });
+// ============================================
+// Route verify-code
+// ============================================
+router.post('/verify-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ success: false, message: 'Email et code requis' });
+
+    const verificationData = verificationCodes.get(email.toLowerCase());
+    if (!verificationData) return res.status(400).json({ success: false, message: 'Code non trouvé ou expiré' });
+    if (Date.now() > verificationData.expiresAt) {
+      verificationCodes.delete(email.toLowerCase());
+      return res.status(400).json({ success: false, message: 'Code expiré' });
     }
+    if (code !== verificationData.code) return res.status(400).json({ success: false, message: 'Code incorrect' });
 
-    res.status(500).json({
-      success: false,
-      message: 'Erreur serveur lors de l\'inscription',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    // Créer utilisateur
+    const { username, email: userEmail, phoneNumber, password } = verificationData.userData;
+    const newUser = new User({ username, email: userEmail, phoneNumber, password });
+    await newUser.save();
+
+    verificationCodes.delete(email.toLowerCase());
+    res.status(201).json({ success: true, message: 'Compte créé avec succès', user: { id: newUser._id, username, email: userEmail, phoneNumber } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: err.message });
+  }
+});
+
+// ============================================
+// Route resend-code
+// ============================================
+router.post('/resend-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const verificationData = verificationCodes.get(email.toLowerCase());
+    if (!verificationData) return res.status(400).json({ success: false, message: 'Aucune inscription en attente' });
+
+    const newCode = generateVerificationCode();
+    verificationData.code = newCode;
+    verificationData.expiresAt = Date.now() + 15 * 60 * 1000;
+    verificationCodes.set(email.toLowerCase(), verificationData);
+
+    await sendVerificationEmail(email, verificationData.userData.username, newCode);
+    res.status(200).json({ success: true, message: 'Nouveau code envoyé' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Erreur serveur', error: err.message });
   }
 });
 
