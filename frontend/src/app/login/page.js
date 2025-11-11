@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from "next/navigation";
 import api from '../../lib/api';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -54,6 +55,13 @@ export default function LoginPage() {
         />
 
         <button type="submit">Se connecter</button>
+        <p style={{ marginTop: '10px' }}>
+   <Link href="/forgot-password" style={{ color: 'blue', textDecoration: 'underline' }}>
+    Mot de passe oublié ?
+  </Link>
+  
+
+</p>
       </form>
       {message && <p style={{ color: 'red', marginTop: '10px' }}>{message}</p>}
     </div>

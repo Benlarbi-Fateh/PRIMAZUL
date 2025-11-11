@@ -1,0 +1,23 @@
+[33mcommit c84f94577f24ca7b29bee5689192a25ea695c890[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mchahinaz[m[33m)[m
+Author: Chahinazgithub <chahinaz.hocine@fgei.ummto.dz>
+Date:   Mon Nov 10 00:19:09 2025 +0100
+
+    login + verifiation email
+
+[33mcommit da58d2e47c99be051729f659e437170d13cf8c07[m
+Author: Chahinazgithub <chahinaz.hocine@fgei.ummto.dz>
+Date:   Fri Nov 7 01:24:34 2025 +0100
+
+    login seule
+
+[33mcommit 047542c4487dc1d71a2d5276b569916c511779bd[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/ghiles[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mdevelop[m[33m)[m
+Author: Fateh <Fateh.benlarbi@fgei.ummto.dz>
+Date:   Wed Nov 5 20:39:46 2025 +0100
+
+    Refonte du frontend en JavaScript + structure de base
+
+[33mcommit 54fdae188d02b6099155541f56d64c9a73781842[m[33m ([m[1;31morigin/nady[m[33m, [m[1;31morigin/dania[m[33m, [m[1;31morigin/chahinaz[m[33m, [m[1;31morigin/Yasmine[m[33m, [m[1;32mmain[m[33m)[m
+Author: Fateh <Fateh.benlarbi@fgei.ummto.dz>
+Date:   Fri Oct 31 16:16:26 2025 +0100
+
+    premier commit : Initialisation du projet
