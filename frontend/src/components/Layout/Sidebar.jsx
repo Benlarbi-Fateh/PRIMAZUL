@@ -128,7 +128,6 @@ export default function Sidebar({ activeConversationId }) {
         });
       });
 
-      // 🆕 ÉCOUTER L'ÉVÉNEMENT group-created
       socket.on('group-created', (group) => {
         console.log('👥 Nouveau groupe créé:', group._id);
         setConversations((prevConversations) => {
@@ -140,9 +139,22 @@ export default function Sidebar({ activeConversationId }) {
         });
       });
 
+      // 🆕 ÉVÉNEMENT CRITIQUE : Réinitialiser le compteur instantanément
+      socket.on('conversation-read', ({ conversationId }) => {
+        console.log('✅ Conversation marquée comme lue:', conversationId);
+        setConversations((prevConversations) =>
+          prevConversations.map((conv) =>
+            conv._id === conversationId
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          )
+        );
+      });
+
       return () => {
         socket.off('conversation-updated');
         socket.off('group-created');
+        socket.off('conversation-read');
       };
     }
   }, [user]);
@@ -223,7 +235,6 @@ export default function Sidebar({ activeConversationId }) {
     router.push('/login');
   };
 
-  // 🆕 FONCTION POUR OBTENIR LE NOM D'AFFICHAGE
   const getDisplayName = (conv) => {
     if (conv.isGroup) {
       return conv.groupName || 'Groupe sans nom';
@@ -232,7 +243,6 @@ export default function Sidebar({ activeConversationId }) {
     return contact?.name || 'Utilisateur';
   };
 
-  // 🆕 FONCTION POUR OBTENIR L'IMAGE D'AFFICHAGE
   const getDisplayImage = (conv) => {
     if (conv.isGroup) {
       return conv.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.groupName || 'Groupe')}&background=6366f1&color=fff`;
@@ -459,7 +469,6 @@ export default function Sidebar({ activeConversationId }) {
                     const lastMessageTime = formatMessageTime(conv.updatedAt);
                     const unreadCount = conv.unreadCount || 0;
                     
-                    // 🆕 UTILISER LES NOUVELLES FONCTIONS
                     const displayName = getDisplayName(conv);
                     const displayImage = getDisplayImage(conv);
                     const contact = getOtherParticipant(conv);
@@ -488,11 +497,9 @@ export default function Sidebar({ activeConversationId }) {
                                 e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0ea5e9&color=fff`;
                               }}
                             />
-                            {/* 🆕 AFFICHER ONLINE SEULEMENT POUR LES CONVERSATIONS 1-1 */}
                             {!conv.isGroup && contact && isUserOnline(contact._id) && (
                               <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></span>
                             )}
-                            {/* 🆕 BADGE GROUPE */}
                             {conv.isGroup && (
                               <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-white rounded-full flex items-center justify-center">
                                 <Users className="w-3 h-3 text-white" />
@@ -572,7 +579,6 @@ export default function Sidebar({ activeConversationId }) {
               )}
             </div>
 
-            {/* 🆕 BOUTON CRÉER UN GROUPE - EN BAS DE LA LISTE */}
             {!showUsers && (
               <div className="p-4 border-t border-blue-200 bg-white/50 backdrop-blur-sm">
                 <button

@@ -178,6 +178,20 @@ exports.markAsRead = async (req, res) => {
         conversationId,
         status: 'read'
       });
+
+      // 🆕 ÉVÉNEMENT CRITIQUE : Notifier immédiatement TOUS les participants
+      // que cette conversation a été lue par userId
+      const conversation = await Conversation.findById(conversationId)
+        .select('participants')
+        .lean();
+      
+      if (conversation) {
+        conversation.participants.forEach(participantId => {
+          const pId = participantId.toString();
+          io.to(pId).emit('conversation-read', { conversationId });
+          console.log(`✅ Émission conversation-read à ${pId}`);
+        });
+      }
     }
 
     res.json({ success: true, modifiedCount: result.modifiedCount });
