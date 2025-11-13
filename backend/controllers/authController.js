@@ -1,25 +1,98 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const generateToken = require('../utils/generateToken');
+const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
 
+// 🆕 INSCRIPTION - Envoie le code de vérification
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'Cet email est déjà utilisé' });
     }
 
+    // Hasher le mot de passe
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = new User({ name, email, password: hashedPassword });
+    // Générer le code de vérification
+    const verificationCode = generateVerificationCode();
+    const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Créer l'utilisateur NON vérifié
+    const user = new User({ 
+      name, 
+      email, 
+      password: hashedPassword,
+      isVerified: false,
+      verificationCode,
+      verificationCodeExpiry,
+      verificationCodeType: 'registration'
+    });
+    
     await user.save();
 
-    const token = generateToken(user._id);
+    // Envoyer l'email avec le code
+    await sendVerificationEmail(email, name, verificationCode, 'registration');
+
+    console.log('✅ Utilisateur créé, code envoyé:', email);
 
     res.status(201).json({
       success: true,
+      message: 'Code de vérification envoyé à votre email',
+      userId: user._id,
+      email: user.email,
+      requiresVerification: true
+    });
+  } catch (error) {
+    console.error('❌ Erreur registration:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 VÉRIFIER LE CODE (INSCRIPTION)
+exports.verifyRegistration = async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+
+    // Trouver l'utilisateur
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    // Vérifier si déjà vérifié
+    if (user.isVerified) {
+      return res.status(400).json({ error: 'Compte déjà vérifié' });
+    }
+
+    // Vérifier le code et l'expiration
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Code de vérification incorrect' });
+    }
+
+    if (user.verificationCodeExpiry < Date.now()) {
+      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+    }
+
+    // Vérifier le compte
+    user.isVerified = true;
+    user.verificationCode = undefined;
+    user.verificationCodeExpiry = undefined;
+    user.verificationCodeType = undefined;
+    user.isOnline = true;
+    await user.save();
+
+    // Générer le token
+    const token = generateToken(user._id);
+
+    console.log('✅ Compte vérifié:', user.email);
+
+    res.json({
+      success: true,
+      message: 'Compte vérifié avec succès !',
       token,
       user: { 
         id: user._id, 
@@ -29,31 +102,134 @@ exports.register = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Erreur verification:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
+// 🆕 RENVOYER UN CODE
+exports.resendCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    // Générer un nouveau code
+    const verificationCode = generateVerificationCode();
+    const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpiry = verificationCodeExpiry;
+    await user.save();
+
+    // Envoyer l'email
+    const type = user.isVerified ? 'login' : 'registration';
+    await sendVerificationEmail(email, user.name, verificationCode, type);
+
+    console.log('✅ Nouveau code envoyé:', email);
+
+    res.json({
+      success: true,
+      message: 'Nouveau code envoyé à votre email'
+    });
+  } catch (error) {
+    console.error('❌ Erreur resend code:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 CONNEXION - Envoie le code de vérification
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Trouver l'utilisateur
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
+    // Vérifier le mot de passe
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
-    user.isOnline = true;
+    // Vérifier si le compte est vérifié
+    if (!user.isVerified) {
+      return res.status(403).json({ 
+        error: 'Compte non vérifié. Veuillez vérifier votre email.',
+        requiresVerification: true,
+        userId: user._id,
+        email: user.email
+      });
+    }
+
+    // Générer le code de vérification pour la connexion
+    const verificationCode = generateVerificationCode();
+    const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpiry = verificationCodeExpiry;
+    user.verificationCodeType = 'login';
     await user.save();
 
-    const token = generateToken(user._id);
+    // Envoyer l'email avec le code
+    await sendVerificationEmail(email, user.name, verificationCode, 'login');
+
+    console.log('✅ Code de connexion envoyé:', email);
 
     res.json({
       success: true,
+      message: 'Code de vérification envoyé à votre email',
+      userId: user._id,
+      email: user.email,
+      requiresVerification: true
+    });
+  } catch (error) {
+    console.error('❌ Erreur login:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 VÉRIFIER LE CODE (CONNEXION)
+exports.verifyLogin = async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+
+    // Trouver l'utilisateur
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    // Vérifier le code et l'expiration
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Code de vérification incorrect' });
+    }
+
+    if (user.verificationCodeExpiry < Date.now()) {
+      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+    }
+
+    // Connexion réussie
+    user.verificationCode = undefined;
+    user.verificationCodeExpiry = undefined;
+    user.verificationCodeType = undefined;
+    user.isOnline = true;
+    await user.save();
+
+    // Générer le token
+    const token = generateToken(user._id);
+
+    console.log('✅ Connexion vérifiée:', user.email);
+
+    res.json({
+      success: true,
+      message: 'Connexion réussie !',
       token,
       user: { 
         id: user._id, 
@@ -63,11 +239,12 @@ exports.login = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('❌ Erreur verify login:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// 🆕 FONCTION DE RECHERCHE D'UTILISATEURS
+// FONCTION DE RECHERCHE D'UTILISATEURS
 exports.searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
@@ -83,6 +260,7 @@ exports.searchUsers = async (req, res) => {
     const users = await User.find({
       $and: [
         { _id: { $ne: currentUserId } },
+        { isVerified: true }, // 🆕 Seulement les utilisateurs vérifiés
         {
           $or: [
             { name: { $regex: query, $options: 'i' } },
@@ -110,7 +288,10 @@ exports.searchUsers = async (req, res) => {
 // Récupérer tous les utilisateurs (sauf soi-même)
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.user._id } })
+    const users = await User.find({ 
+      _id: { $ne: req.user._id },
+      isVerified: true // 🆕 Seulement les utilisateurs vérifiés
+    })
       .select('-password')
       .sort({ name: 1 });
 
