@@ -104,7 +104,7 @@ router.post('/resend-code', async (req, res) => {
 
     const newCode = generateVerificationCode();
     verificationData.code = newCode;
-    verificationData.expiresAt = Date.now() + 15 * 60 * 1000;
+    verificationData.expiresAt = Date.now() + 3 * 60 * 1000;
     verificationCodes.set(email.toLowerCase(), verificationData);
 
     await sendVerificationEmail(email, verificationData.userData.username, newCode);

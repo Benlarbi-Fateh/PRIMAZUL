@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, UserPlus, AlertCircle, CheckCircle, Phone, Mail, User, Lock } from 'lucide-react';
+import api from '@/lib/api'; 
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -68,60 +69,72 @@ export default function Register() {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setMessage({ type: '', text: '' });
+  //  VERSION CORRIGÉE avec Axios
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage({ type: '', text: '' });
 
-  if (!validateForm()) {
-    setMessage({ type: 'error', text: 'Veuillez corriger les erreurs' });
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    console.log('Envoi des données:', formData); // Debug
-
-    const response = await fetch('http://localhost:5000/api/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData)
-    });
-
-    const data = await response.json();
-    console.log('Réponse du serveur:', data); // Debug
-
-    if (response.ok && data.success) {
-      // Stocker l'email pour la page de vérification
-      localStorage.setItem('verificationEmail', data.email);
-      console.log('Email stocké dans localStorage:', data.email); // Debug
-      
-      setMessage({ 
-        type: 'success', 
-        text: '✅ Code envoyé ! Vérifiez votre email...' 
-      });
-      
-      setTimeout(() => {
-        window.location.href = '/verify';
-      }, 1500);
-    } else {
-      setMessage({ 
-        type: 'error', 
-        text: data.message || "Erreur lors de l'inscription" 
-      });
+    if (!validateForm()) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les erreurs' });
+      return;
     }
-  } catch (error) {
-    console.error('Erreur complète:', error);
-    setMessage({ 
-      type: 'error', 
-      text: 'Erreur de connexion au serveur' 
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+
+    setLoading(true);
+
+    try {
+      console.log('📤 Envoi des données:', formData);
+      
+      //  Utilisation d'Axios au lieu de fetch
+      const response = await api.post('/register', formData);
+
+      console.log('📥 Réponse du serveur:', response.data);
+
+      if (response.data.success) {
+        localStorage.setItem('verificationEmail', response.data.email);
+        console.log(' Email stocké:', response.data.email);
+        
+        setMessage({ 
+          type: 'success', 
+          text: ' Code envoyé ! Vérifiez votre email...' 
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/verify';
+        }, 1500);
+      } else {
+        setMessage({ 
+          type: 'error', 
+          text: response.data.message || "Erreur lors de l'inscription" 
+        });
+      }
+    } catch (error) {
+      console.error(' Erreur complète:', error);
+      
+      // Gestion des erreurs Axios
+      if (error.response) {
+        // Le serveur a répondu avec un code d'erreur
+        setMessage({ 
+          type: 'error', 
+          text: error.response.data.message || 'Erreur du serveur' 
+        });
+      } else if (error.request) {
+        // La requête a été envoyée mais pas de réponse
+        setMessage({ 
+          type: 'error', 
+          text: ' Impossible de contacter le serveur. Vérifiez que le backend est démarré.' 
+        });
+      } else {
+        // Autre erreur
+        setMessage({ 
+          type: 'error', 
+          text: 'Erreur: ' + error.message 
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">

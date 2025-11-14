@@ -10,10 +10,11 @@ const app = express();
 
 // MIDDLEWARES
 app.use(cors({
-  origin: 'http://localhost:3000', // Autoriser le frontend
-  credentials: true,
- 
+  origin: 'http://localhost:3000',
+  credentials: true
 }));
+ 
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

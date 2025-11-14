@@ -126,7 +126,7 @@ export default function VerifyEmail() {
     .then(data => {
       console.log('Réponse renvoi:', data);
       if (data.success) {
-        alert('✅ Un nouveau code a été envoyé à votre email');
+        alert(' Un nouveau code a été envoyé à votre email');
         setCode(['', '', '', '', '', '']);
         const firstInput = document.getElementById('code-0');
         if (firstInput) firstInput.focus();
