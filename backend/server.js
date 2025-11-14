@@ -41,6 +41,16 @@ connectDB();
 
 // Routes
 console.log('🔍 Chargement des routes...');
+
+// 🆕 ROUTE DE SANTÉ - À AJOUTER
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/conversations', require('./routes/conversationRoutes'));
@@ -48,121 +58,76 @@ app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/audio', require('./routes/audioRoutes'));
 
+// 🆕 AJOUT DES ROUTES D'INVITATION - APRÈS LES AUTRES ROUTES
+app.use('/api/invitations', require('./routes/invitationRoutes'));
+
 app.use((error, req, res, next) => {
   console.log('🚨 ERREUR SERVEUR:', error);
   res.status(500).json({ error: error.message });
 });
 
-// 🆕 SOCKET.IO EVENTS - VERSION CORRIGÉE
-const onlineUsers = new Map(); // userId -> { socketId, lastSeen }
+// ============================================
+// 🔥 IMPORT DU SOCKET HANDLER
+// ============================================
+const initSocket = require('./socket/socketHandler');
+initSocket(io);
 
-io.on('connection', (socket) => {
-  console.log('✅ Socket connecté:', socket.id);
+// ============================================
+// 🎯 ÉVÉNEMENTS SOCKET SUPPLEMENTAIRES (si besoin)
+// ============================================
 
-  // User se connecte
-  socket.on('user-online', (userId) => {
-    onlineUsers.set(userId, {
-      socketId: socket.id,
-      lastSeen: Date.now()
-    });
-    socket.userId = userId;
-    socket.join(userId);
-    
-    console.log(`👤 User ${userId} est en ligne`);
-    console.log(`📋 Total utilisateurs en ligne:`, onlineUsers.size);
-    
-    const onlineUserIds = Array.from(onlineUsers.keys());
-    
-    // Émettre à tous
-    io.emit('online-users-update', onlineUserIds);
-    
-    // Confirmer individuellement à chaque utilisateur en ligne
-    onlineUserIds.forEach(uid => {
-      io.to(uid).emit('online-users-update', onlineUserIds);
-    });
-    
-    socket.emit('connection-confirmed', { 
-      userId,
-      onlineUsers: onlineUserIds
-    });
-  });
-
-  // Demander la liste des utilisateurs en ligne
-  socket.on('request-online-users', () => {
-    const onlineUserIds = Array.from(onlineUsers.keys());
-    socket.emit('online-users-update', onlineUserIds);
-    console.log('📤 Liste des utilisateurs en ligne envoyée:', onlineUserIds);
-  });
-
-  // Rejoindre une conversation
-  socket.on('join-conversation', (conversationId) => {
-    socket.join(conversationId);
-    socket.currentConversation = conversationId;
-    console.log(`📥 Socket ${socket.id} a rejoint la conversation ${conversationId}`);
-    socket.emit('conversation-joined', { conversationId });
-  });
-
-  // Quitter une conversation
-  socket.on('leave-conversation', (conversationId) => {
-    socket.leave(conversationId);
-    socket.currentConversation = null;
-    console.log(`📤 Socket ${socket.id} a quitté la conversation ${conversationId}`);
-  });
-
-  // Typing indicators
-  socket.on('typing', ({ conversationId, userId }) => {
-    socket.to(conversationId).emit('user-typing', { conversationId, userId });
-  });
-
-  socket.on('stop-typing', ({ conversationId, userId }) => {
-    socket.to(conversationId).emit('user-stopped-typing', { conversationId, userId });
-  });
-
-  // Refresh conversations
-  socket.on('refresh-conversations', (userId) => {
-    console.log(`🔄 Demande de refresh conversations pour ${userId}`);
-    socket.emit('should-refresh-conversations');
-  });
-
-  socket.on('disconnect', () => {
-    if (socket.userId) {
-      onlineUsers.delete(socket.userId);
-      
-      console.log(`❌ User ${socket.userId} déconnecté`);
-      console.log(`📋 Utilisateurs restants:`, onlineUsers.size);
-      
-      const onlineUserIds = Array.from(onlineUsers.keys());
-      
-      // Émettre à tous
-      io.emit('online-users-update', onlineUserIds);
-      io.emit('user-disconnected', socket.userId);
-      
-      // Confirmer individuellement
-      onlineUserIds.forEach(uid => {
-        io.to(uid).emit('online-users-update', onlineUserIds);
-      });
-    }
-  });
-});
-
-// Heartbeat : Nettoyer les utilisateurs inactifs
+// Heartbeat global pour nettoyer les connexions
 setInterval(() => {
   const now = Date.now();
   const TIMEOUT = 60000; // 60 secondes
   
-  onlineUsers.forEach((data, userId) => {
-    if (now - data.lastSeen > TIMEOUT) {
-      console.log(`⏰ Timeout pour user ${userId}`);
-      onlineUsers.delete(userId);
-      
-      const onlineUserIds = Array.from(onlineUsers.keys());
-      io.emit('online-users-update', onlineUserIds);
-    }
-  });
+  // Cette logique est maintenant dans socketHandler.js
+  // Mais on garde un heartbeat global au cas où
+  console.log('💓 Heartbeat serveur - ' + new Date().toISOString());
 }, 30000);
 
+// Gestion des erreurs globales Socket.io
+io.engine.on("connection_error", (err) => {
+  console.log('🚨 Erreur de connexion Socket.io:', err);
+});
+
+// Middleware pour logger les événements Socket.io
+io.use((socket, next) => {
+  console.log(`🔌 Middleware Socket.io - Connexion de: ${socket.id}`);
+  next();
+});
+
+// Événement quand le serveur Socket.io est prêt
+io.on("ready", () => {
+  console.log('🚀 Socket.IO server ready');
+});
+
+// Gestion de la mémoire et nettoyage
+process.on('SIGINT', () => {
+  console.log('🛑 Arrêt du serveur...');
+  io.disconnectSockets();
+  server.close(() => {
+    console.log('✅ Serveur arrêté proprement');
+    process.exit(0);
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('🚨 Exception non capturée:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Rejet non géré:', reason);
+});
+
 const PORT = process.env.PORT || 5001;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
   console.log(`✅ MongoDB connecté`);
+  console.log(`🌐 Health check disponible sur: http://localhost:${PORT}/api/health`);
+  console.log(`🔌 Socket.IO disponible sur: http://localhost:${PORT}`);
+  console.log(`📡 CORS autorisé pour: http://localhost:3000, http://192.168.1.7:3000`);
 });
+
+// Export pour les tests
+module.exports = { app, server, io };

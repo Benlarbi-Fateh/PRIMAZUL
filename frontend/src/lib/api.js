@@ -68,6 +68,16 @@ export const addParticipantsToGroup = (data) => api.post('/groups/add-participan
 export const leaveGroup = (groupId) => api.delete(`/groups/${groupId}/leave`);
 
 // ============================================
+// 📨 INVITATIONS (🆕 AJOUTÉ)
+// ============================================
+export const sendInvitation = (data) => api.post('/invitations/send', data);
+export const getReceivedInvitations = () => api.get('/invitations/received');
+export const getSentInvitations = () => api.get('/invitations/sent');
+export const acceptInvitation = (invitationId) => api.post(`/invitations/${invitationId}/accept`);
+export const rejectInvitation = (invitationId) => api.post(`/invitations/${invitationId}/reject`);
+export const cancelInvitation = (invitationId) => api.delete(`/invitations/${invitationId}/cancel`);
+
+// ============================================
 // 📨 MESSAGES
 // ============================================
 export const getMessages = (conversationId) => api.get(`/messages/${conversationId}`);

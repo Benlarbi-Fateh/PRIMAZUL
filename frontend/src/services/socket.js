@@ -188,6 +188,102 @@ export const onUserStoppedTyping = (callback) => {
   }
 };
 
+// ============================================
+// 📨 INVITATIONS - FONCTIONS AJOUTÉES
+// ============================================
+
+// Écouter les nouvelles invitations reçues
+export const onInvitationReceived = (callback) => {
+  if (socket) {
+    socket.off('invitation-received');
+    socket.on('invitation-received', (invitation) => {
+      console.log('📨 Nouvelle invitation reçue:', invitation);
+      callback(invitation);
+    });
+  }
+};
+
+// Écouter les invitations acceptées
+export const onInvitationAccepted = (callback) => {
+  if (socket) {
+    socket.off('invitation-accepted-notification');
+    socket.on('invitation-accepted-notification', (data) => {
+      console.log('✅ Invitation acceptée par le destinataire:', data);
+      callback(data);
+    });
+  }
+};
+
+// Écouter les invitations refusées
+export const onInvitationRejected = (callback) => {
+  if (socket) {
+    socket.off('invitation-rejected-notification');
+    socket.on('invitation-rejected-notification', (invitation) => {
+      console.log('❌ Invitation refusée par le destinataire:', invitation);
+      callback(invitation);
+    });
+  }
+};
+
+// Écouter les invitations annulées
+export const onInvitationCancelled = (callback) => {
+  if (socket) {
+    socket.off('invitation-cancelled-notification');
+    socket.on('invitation-cancelled-notification', (invitationId) => {
+      console.log('🗑️ Invitation annulée par l\'expéditeur:', invitationId);
+      callback(invitationId);
+    });
+  }
+};
+
+// Émettre un événement d'invitation envoyée
+export const emitInvitationSent = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('📨 Émission invitation envoyée:', data);
+      socket.emit('invitation-sent', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre invitation:', error);
+    });
+};
+
+// Émettre un événement d'invitation acceptée
+export const emitInvitationAccepted = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('✅ Émission invitation acceptée:', data);
+      socket.emit('invitation-accepted', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre acceptation:', error);
+    });
+};
+
+// Émettre un événement d'invitation refusée
+export const emitInvitationRejected = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('❌ Émission invitation refusée:', data);
+      socket.emit('invitation-rejected', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre refus:', error);
+    });
+};
+
+// Émettre un événement d'invitation annulée
+export const emitInvitationCancelled = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('🗑️ Émission invitation annulée:', data);
+      socket.emit('invitation-cancelled', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre annulation:', error);
+    });
+};
+
 export const disconnectSocket = () => {
   if (socket) {
     console.log('🔌 Déconnexion du socket');
