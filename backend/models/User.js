@@ -15,9 +15,13 @@ const userSchema = new mongoose.Schema(
     verificationCodeExpiry: { type: Date }, // Expiration du code (10 min)
     verificationCodeType: { 
       type: String, 
-      enum: ['registration', 'login'], 
+      enum: ['registration', 'login', 'password-reset'], // 🆕 Ajouté password-reset
       default: 'registration' 
     }, // Type de vérification
+    
+    // 🆕 CHAMPS POUR LA RÉINITIALISATION DU MOT DE PASSE
+    resetPasswordCode: { type: String }, // Code de réinitialisation
+    resetPasswordExpires: { type: Date }, // Expiration du code (15 min)
   },
   { timestamps: true }
 );

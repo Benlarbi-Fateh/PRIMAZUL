@@ -260,7 +260,7 @@ exports.searchUsers = async (req, res) => {
     const users = await User.find({
       $and: [
         { _id: { $ne: currentUserId } },
-        { isVerified: true }, // 🆕 Seulement les utilisateurs vérifiés
+        { isVerified: true },
         {
           $or: [
             { name: { $regex: query, $options: 'i' } },
@@ -290,13 +290,122 @@ exports.getUsers = async (req, res) => {
   try {
     const users = await User.find({ 
       _id: { $ne: req.user._id },
-      isVerified: true // 🆕 Seulement les utilisateurs vérifiés
+      isVerified: true
     })
       .select('-password')
       .sort({ name: 1 });
 
     res.json({ success: true, users });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 DEMANDER LA RÉINITIALISATION DU MOT DE PASSE
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'Si cet email existe, un code de réinitialisation a été envoyé'
+      });
+    }
+
+    const verificationCode = generateVerificationCode();
+    const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpiry = verificationCodeExpiry;
+    user.verificationCodeType = 'password-reset';
+    await user.save();
+
+    await sendVerificationEmail(email, user.name, verificationCode, 'password-reset');
+
+    console.log('✅ Code de réinitialisation envoyé:', email);
+
+    res.json({
+      success: true,
+      message: 'Code de réinitialisation envoyé à votre email',
+      email: user.email
+    });
+  } catch (error) {
+    console.error('❌ Erreur forgot password:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 VÉRIFIER LE CODE DE RÉINITIALISATION
+exports.verifyResetCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Code de vérification incorrect' });
+    }
+
+    if (user.verificationCodeExpiry < Date.now()) {
+      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+    }
+
+    if (user.verificationCodeType !== 'password-reset') {
+      return res.status(400).json({ error: 'Code invalide pour cette opération' });
+    }
+
+    console.log('✅ Code de réinitialisation vérifié:', email);
+
+    res.json({
+      success: true,
+      message: 'Code vérifié. Vous pouvez maintenant réinitialiser votre mot de passe.',
+      email: user.email
+    });
+  } catch (error) {
+    console.error('❌ Erreur verify reset code:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 RÉINITIALISER LE MOT DE PASSE
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ error: 'Code de vérification incorrect' });
+    }
+
+    if (user.verificationCodeExpiry < Date.now()) {
+      return res.status(400).json({ error: 'Code expiré' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    user.verificationCode = undefined;
+    user.verificationCodeExpiry = undefined;
+    user.verificationCodeType = undefined;
+    await user.save();
+
+    console.log('✅ Mot de passe réinitialisé:', email);
+
+    res.json({
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.'
+    });
+  } catch (error) {
+    console.error('❌ Erreur reset password:', error);
     res.status(500).json({ error: error.message });
   }
 };

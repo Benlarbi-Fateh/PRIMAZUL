@@ -6,7 +6,7 @@ import { AuthContext } from '@/context/AuthContext';
 import api from '@/lib/api';
 import Link from 'next/link';
 import VerifyCode from '@/components/Auth/VerifyCode';
-import { Mail, Lock, Eye, EyeOff, MessageCircle, Sparkles, Zap, Shield } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, MessageCircle, Sparkles, Zap, Shield, KeyRound } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -244,8 +244,19 @@ export default function LoginPage() {
                 </button>
               </form>
 
+              {/* 🆕 Mot de passe oublié */}
+              <div className="mt-6 text-center">
+                <Link 
+                  href="/forgot-password" 
+                  className="text-blue-200/80 text-sm hover:text-blue-300 transition-all duration-300 hover:underline hover:underline-offset-2 flex items-center justify-center gap-2"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+
               {/* Lien d'inscription */}
-              <div className="mt-8 text-center">
+              <div className="mt-6 text-center">
                 <p className="text-blue-200/80">
                   Nouveau sur PrimAzul ?{' '}
                   <Link 
