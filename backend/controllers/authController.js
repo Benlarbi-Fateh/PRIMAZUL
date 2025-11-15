@@ -1,7 +1,10 @@
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const generateToken = require('../utils/generateToken');
-const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const generateToken = require("../utils/generateToken");
+const {
+  generateVerificationCode,
+  sendVerificationEmail,
+} = require("../utils/emailService");
 
 // 🆕 INSCRIPTION - Envoie le code de vérification
 exports.register = async (req, res) => {
@@ -11,7 +14,7 @@ exports.register = async (req, res) => {
     // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+      return res.status(400).json({ error: "Cet email est déjà utilisé" });
     }
 
     // Hasher le mot de passe
@@ -22,32 +25,32 @@ exports.register = async (req, res) => {
     const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Créer l'utilisateur NON vérifié
-    const user = new User({ 
-      name, 
-      email, 
+    const user = new User({
+      name,
+      email,
       password: hashedPassword,
       isVerified: false,
       verificationCode,
       verificationCodeExpiry,
-      verificationCodeType: 'registration'
+      verificationCodeType: "registration",
     });
-    
+
     await user.save();
 
     // Envoyer l'email avec le code
-    await sendVerificationEmail(email, name, verificationCode, 'registration');
+    await sendVerificationEmail(email, name, verificationCode, "registration");
 
-    console.log('✅ Utilisateur créé, code envoyé:', email);
+    console.log("✅ Utilisateur créé, code envoyé:", email);
 
     res.status(201).json({
       success: true,
-      message: 'Code de vérification envoyé à votre email',
+      message: "Code de vérification envoyé à votre email",
       userId: user._id,
       email: user.email,
-      requiresVerification: true
+      requiresVerification: true,
     });
   } catch (error) {
-    console.error('❌ Erreur registration:', error);
+    console.error("❌ Erreur registration:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -60,21 +63,23 @@ exports.verifyRegistration = async (req, res) => {
     // Trouver l'utilisateur
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     // Vérifier si déjà vérifié
     if (user.isVerified) {
-      return res.status(400).json({ error: 'Compte déjà vérifié' });
+      return res.status(400).json({ error: "Compte déjà vérifié" });
     }
 
     // Vérifier le code et l'expiration
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+      return res
+        .status(400)
+        .json({ error: "Code expiré. Demandez un nouveau code." });
     }
 
     // Vérifier le compte
@@ -88,21 +93,21 @@ exports.verifyRegistration = async (req, res) => {
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Compte vérifié:', user.email);
+    console.log("✅ Compte vérifié:", user.email);
 
     res.json({
       success: true,
-      message: 'Compte vérifié avec succès !',
+      message: "Compte vérifié avec succès !",
       token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        profilePicture: user.profilePicture 
-      }
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture,
+      },
     });
   } catch (error) {
-    console.error('❌ Erreur verification:', error);
+    console.error("❌ Erreur verification:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -114,7 +119,7 @@ exports.resendCode = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     // Générer un nouveau code
@@ -126,17 +131,17 @@ exports.resendCode = async (req, res) => {
     await user.save();
 
     // Envoyer l'email
-    const type = user.isVerified ? 'login' : 'registration';
+    const type = user.isVerified ? "login" : "registration";
     await sendVerificationEmail(email, user.name, verificationCode, type);
 
-    console.log('✅ Nouveau code envoyé:', email);
+    console.log("✅ Nouveau code envoyé:", email);
 
     res.json({
       success: true,
-      message: 'Nouveau code envoyé à votre email'
+      message: "Nouveau code envoyé à votre email",
     });
   } catch (error) {
-    console.error('❌ Erreur resend code:', error);
+    console.error("❌ Erreur resend code:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -149,22 +154,24 @@ exports.login = async (req, res) => {
     // Trouver l'utilisateur
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+      return res
+        .status(404)
+        .json({ error: "Aucun compte associé à cet email" });
     }
 
     // Vérifier le mot de passe
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+      return res.status(401).json({ error: "Email ou mot de passe incorrect" });
     }
 
     // Vérifier si le compte est vérifié
     if (!user.isVerified) {
-      return res.status(403).json({ 
-        error: 'Compte non vérifié. Veuillez vérifier votre email.',
+      return res.status(403).json({
+        error: "Compte non vérifié. Veuillez vérifier votre email.",
         requiresVerification: true,
         userId: user._id,
-        email: user.email
+        email: user.email,
       });
     }
 
@@ -174,23 +181,23 @@ exports.login = async (req, res) => {
 
     user.verificationCode = verificationCode;
     user.verificationCodeExpiry = verificationCodeExpiry;
-    user.verificationCodeType = 'login';
+    user.verificationCodeType = "login";
     await user.save();
 
     // Envoyer l'email avec le code
-    await sendVerificationEmail(email, user.name, verificationCode, 'login');
+    await sendVerificationEmail(email, user.name, verificationCode, "login");
 
-    console.log('✅ Code de connexion envoyé:', email);
+    console.log("✅ Code de connexion envoyé:", email);
 
     res.json({
       success: true,
-      message: 'Code de vérification envoyé à votre email',
+      message: "Code de vérification envoyé à votre email",
       userId: user._id,
       email: user.email,
-      requiresVerification: true
+      requiresVerification: true,
     });
   } catch (error) {
-    console.error('❌ Erreur login:', error);
+    console.error("❌ Erreur login:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -203,16 +210,18 @@ exports.verifyLogin = async (req, res) => {
     // Trouver l'utilisateur
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     // Vérifier le code et l'expiration
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+      return res
+        .status(400)
+        .json({ error: "Code expiré. Demandez un nouveau code." });
     }
 
     // Connexion réussie
@@ -225,21 +234,21 @@ exports.verifyLogin = async (req, res) => {
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Connexion vérifiée:', user.email);
+    console.log("✅ Connexion vérifiée:", user.email);
 
     res.json({
       success: true,
-      message: 'Connexion réussie !',
+      message: "Connexion réussie !",
       token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        profilePicture: user.profilePicture 
-      }
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture,
+      },
     });
   } catch (error) {
-    console.error('❌ Erreur verify login:', error);
+    console.error("❌ Erreur verify login:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -250,10 +259,10 @@ exports.searchUsers = async (req, res) => {
     const { query } = req.query;
     const currentUserId = req.user._id;
 
-    if (!query || query.trim() === '') {
-      return res.status(400).json({ 
-        success: false, 
-        error: "La recherche ne peut pas être vide" 
+    if (!query || query.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        error: "La recherche ne peut pas être vide",
       });
     }
 
@@ -263,24 +272,24 @@ exports.searchUsers = async (req, res) => {
         { isVerified: true },
         {
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { email: { $regex: query, $options: 'i' } }
-          ]
-        }
-      ]
+            { name: { $regex: query, $options: "i" } },
+            { email: { $regex: query, $options: "i" } },
+          ],
+        },
+      ],
     })
-    .select('name email profilePicture status isOnline')
-    .limit(20);
+      .select("name email profilePicture status isOnline")
+      .limit(20);
 
-    res.status(200).json({ 
-      success: true, 
-      users 
+    res.status(200).json({
+      success: true,
+      users,
     });
   } catch (error) {
     console.error("Erreur lors de la recherche:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: "Erreur serveur lors de la recherche" 
+    res.status(500).json({
+      success: false,
+      error: "Erreur serveur lors de la recherche",
     });
   }
 };
@@ -288,11 +297,11 @@ exports.searchUsers = async (req, res) => {
 // Récupérer tous les utilisateurs (sauf soi-même)
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({ 
+    const users = await User.find({
       _id: { $ne: req.user._id },
-      isVerified: true
+      isVerified: true,
     })
-      .select('-password')
+      .select("-password")
       .sort({ name: 1 });
 
     res.json({ success: true, users });
@@ -310,7 +319,8 @@ exports.forgotPassword = async (req, res) => {
     if (!user) {
       return res.json({
         success: true,
-        message: 'Si cet email existe, un code de réinitialisation a été envoyé'
+        message:
+          "Si cet email existe, un code de réinitialisation a été envoyé",
       });
     }
 
@@ -319,20 +329,25 @@ exports.forgotPassword = async (req, res) => {
 
     user.verificationCode = verificationCode;
     user.verificationCodeExpiry = verificationCodeExpiry;
-    user.verificationCodeType = 'password-reset';
+    user.verificationCodeType = "password-reset";
     await user.save();
 
-    await sendVerificationEmail(email, user.name, verificationCode, 'password-reset');
+    await sendVerificationEmail(
+      email,
+      user.name,
+      verificationCode,
+      "password-reset"
+    );
 
-    console.log('✅ Code de réinitialisation envoyé:', email);
+    console.log("✅ Code de réinitialisation envoyé:", email);
 
     res.json({
       success: true,
-      message: 'Code de réinitialisation envoyé à votre email',
-      email: user.email
+      message: "Code de réinitialisation envoyé à votre email",
+      email: user.email,
     });
   } catch (error) {
-    console.error('❌ Erreur forgot password:', error);
+    console.error("❌ Erreur forgot password:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -344,30 +359,35 @@ exports.verifyResetCode = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+      return res
+        .status(400)
+        .json({ error: "Code expiré. Demandez un nouveau code." });
     }
 
-    if (user.verificationCodeType !== 'password-reset') {
-      return res.status(400).json({ error: 'Code invalide pour cette opération' });
+    if (user.verificationCodeType !== "password-reset") {
+      return res
+        .status(400)
+        .json({ error: "Code invalide pour cette opération" });
     }
 
-    console.log('✅ Code de réinitialisation vérifié:', email);
+    console.log("✅ Code de réinitialisation vérifié:", email);
 
     res.json({
       success: true,
-      message: 'Code vérifié. Vous pouvez maintenant réinitialiser votre mot de passe.',
-      email: user.email
+      message:
+        "Code vérifié. Vous pouvez maintenant réinitialiser votre mot de passe.",
+      email: user.email,
     });
   } catch (error) {
-    console.error('❌ Erreur verify reset code:', error);
+    console.error("❌ Erreur verify reset code:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -379,15 +399,15 @@ exports.resetPassword = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré' });
+      return res.status(400).json({ error: "Code expiré" });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -398,14 +418,15 @@ exports.resetPassword = async (req, res) => {
     user.verificationCodeType = undefined;
     await user.save();
 
-    console.log('✅ Mot de passe réinitialisé:', email);
+    console.log("✅ Mot de passe réinitialisé:", email);
 
     res.json({
       success: true,
-      message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.'
+      message:
+        "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.",
     });
   } catch (error) {
-    console.error('❌ Erreur reset password:', error);
+    console.error("❌ Erreur reset password:", error);
     res.status(500).json({ error: error.message });
   }
 };
