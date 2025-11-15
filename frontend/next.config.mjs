@@ -1,7 +1,9 @@
-/** @type {import('next').NextConfig} */ // ce fichier utilise la syntaxe ES module
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  reactStrictMode: true,
+  experimental: {
+    allowedDevOrigins: ['http://localhost:3000', 'http://192.168.176.1:3000'],
+  },
 };
 
 export default nextConfig;

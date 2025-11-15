@@ -1,5 +1,128 @@
-body {
-  margin: 0;
-  font-family: sans-serif;
-  background-color: #f9f9f9;
+
+
+/* app/styles/form.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities; */
+
+/* Typos & reset minimes */
+:root{
+  --bg: #f6f7fb;
+  --card-bg: #ffffff;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #2563eb; /* bleu */
+}
+
+*{box-sizing:border-box;}
+html,body,#__next{height:100%;}
+body{
+  margin:0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background:var(--bg);
+  color:#111827;
+}
+
+/* Centre la page */
+.page-center{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+/* Carte du formulaire */
+.form-card{
+  width:100%;
+  max-width:420px;      /* largeur comme l'image */
+  background:var(--card-bg);
+  border-radius:12px;
+  padding:28px;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.06);
+  border:1px solid rgba(0,0,0,0.03);
+}
+
+/* Titre */
+.form-title{
+  margin:0 0 18px 0;
+  font-size:22px;
+  font-weight:700;
+  text-align:left;
+  color:#0f172a;
+  letter-spacing:-0.2px;
+}
+
+/* Layout champs */
+.form-group{
+  display:flex;
+  flex-direction:column;
+  margin-bottom:14px;   /* espace entre les champs */
+}
+
+/* Label */
+.form-label{
+  font-size:13px;
+  font-weight:700;      /* label en gras */
+  color:var(--muted);
+  margin-bottom:8px;
+}
+
+/* Input/textarea commun */
+.form-input{
+  border:1px solid var(--border);
+  padding:12px 14px;
+  border-radius:6px;
+  font-size:15px;
+  color:#0f172a;
+  background:transparent;
+  outline:none;
+  transition: box-shadow .15s ease, border-color .15s ease, transform .05s;
+  -webkit-appearance:none;
+}
+
+/* Focus */
+.form-input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(37,99,235,0.08);
+}
+
+/* Bouton */
+.form-btn{
+  display:inline-block;
+  width:100%;
+  padding:12px 14px;
+  font-size:15px;
+  font-weight:700;
+  color:#fff;
+  background:var(--accent);
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  margin-top:10px;
+  transition: transform .06s ease, background .12s;
+}
+.form-btn:hover{ background:#1e40af; transform: translateY(-1px); }
+
+/* Message d'erreur */
+.form-error{
+  color:#dc2626;
+  font-size:13px;
+  margin-top:12px;
+  text-align:center;
+}
+
+/* Petit texte / liens */
+.form-footer{
+  margin-top:12px;
+  font-size:13px;
+  color:var(--muted);
+  text-align:center;
+}
+
+/* Responsive small screens */
+@media (max-width:480px){
+  .form-card{ padding:20px; max-width:380px; }
+  .form-title{ font-size:20px; }
+  .form-input{ font-size:14px; padding:10px 12px; }
 }

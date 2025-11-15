@@ -1,8 +1,7 @@
-import express from "express";
-import Message from "../models/Message.js";
-import { verifyToken } from "../middleware/auth.js";
-
+const express = require("express");
 const router = express.Router();
+const Message = require("../models/Message");
+const verifyToken = require("../middleware/auth");
 
 // Envoyer un message
 router.post("/", verifyToken, async (req, res) => {
@@ -10,8 +9,8 @@ router.post("/", verifyToken, async (req, res) => {
     const { conversationId, text } = req.body;
     const newMessage = await Message.create({
       conversationId,
-      sender: req.userId,
-      text
+      sender: req.user.id,
+      text,
     });
     res.status(201).json(newMessage);
   } catch (err) {
@@ -29,4 +28,4 @@ router.get("/:conversationId", verifyToken, async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;

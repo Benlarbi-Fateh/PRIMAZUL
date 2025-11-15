@@ -1,23 +1,19 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
-const ConversationSchema = new mongoose.Schema({
-  type: { type: String, 
-    enum: ["private", "public"], 
-    default: "private" },
-  members: [{ type: mongoose.Schema.Types.ObjectId, 
-    ref: "Users",
-     required: true }],
-  createdAt: { type: Date, 
-    default: Date.now },
-  lastMessageId: { type: mongoose.Schema.Types.ObjectId, 
-    ref: "Message" },
-  messageId: { type: mongoose.Schema.Types.ObjectId, 
-    ref: "Message" }, // si tu veux stocker un message spécifique
-  adminId: { type: mongoose.Schema.Types.ObjectId, 
-    ref: "Users" }
+const ContactSchema = new mongoose.Schema({
+  ownerId: { type: mongoose.Schema.Types.ObjectId, 
+    ref: "Users", 
+    required: true }, // le propriétaire du contact
+  contactUserId: { type: mongoose.Schema.Types.ObjectId, 
+    ref: "Users", 
+    required: true }, // l'utilisateur contact
+  nickname: { type: String, 
+    default: "" }, // surnom donné au contact
+  createdAt: { type: Date, default: Date.now }
 });
 
-// Index pour retrouver rapidement les conversations par membres
-ConversationSchema.index({ members: 1, createdAt: -1 });
+// pour éviter les doublons (un contact ne peut pas apparaître deux fois pour le même owner)
+ContactSchema.index({ ownerId: 1, contactUserId: 1 }, 
+{ unique: true });
 
-export default mongoose.model("Conversation", ConversationSchema);
+module.exports = mongoose.model("Contacts", ContactSchema);

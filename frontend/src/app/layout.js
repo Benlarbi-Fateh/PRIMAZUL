@@ -1,10 +1,15 @@
-export default function Layout({ children }) {
+"use client";
+
+import { UserProvider } from '../context/UserContext';
+import './globals.css';
+
+export default function RootLayout({ children }) {
   return (
     <html lang="fr">
       <body>
-        <header>PrimAzul</header>
-        {children}
-        <footer>© 2025 PrimAzul</footer>
+        <UserProvider>
+          {children}
+        </UserProvider>
       </body>
     </html>
   );
