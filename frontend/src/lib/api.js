@@ -7,4 +7,13 @@ const api = axios.create({
   }
 });
 
+//  zaina: Intercepteur pour ajouter automatiquement le token à chaque requête
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export default api;

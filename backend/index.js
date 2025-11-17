@@ -1,31 +1,40 @@
 // server/index.js
-const express = require("express"); // importer express est créer serveur http
-const mongoose = require("mongoose"); // importer mongoose pour interagir avec la bda avec les modeles
-const cors = require("cors"); // importer cors pour autoriser les requetes entre front et back
-require("dotenv").config(); // recuperer les informations sensibles depuis le fichier .env
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 
-const authRoutes = require('./routes/auth'); // importer les routes d'authentification
-const app = express(); // initialiser l'application express
-// Middleware CORS
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true
-}));
-app.use(cors()); // activer cors pour toutes les routes
-app.use(express.json()); // parser le corps des requetes en json
+const { verifyToken } = require("./middleware/authMiddleware");
 
-app.use('/api/auth',authRoutes);
-const PORT = process.env.PORT || 5000; // definir le port du serveur
+require("dotenv").config();
 
-// Default route
+const authRoutes = require("./routes/auth");
+const app = express();
+
+// Middleware CORS (version propre)
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+
+// Routes
+app.use("/api/auth", authRoutes);
+
+const PORT = process.env.PORT || 5000;
+
+// Default routes
 app.get("/", (req, res) => {
-  res.send("PrimAzul backend is running"); // route de test pour verifier que le serveur fonctionne
-});
-app.get('/api/ping', (req, res) => {
-  res.json({ message: 'Connexion OK ✅' });
+  res.send("PrimAzul backend is running");
 });
 
-// Connecter à MongoDB Atlas et démarrer le serveur
+app.get("/api/ping", (req, res) => {
+  res.json({ message: "Connexion OK ✅" });
+});
+
+// Connection to MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
