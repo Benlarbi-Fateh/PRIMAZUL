@@ -61,6 +61,7 @@ export default function Register() {
       ...prev,
       [name]: value
     }));
+    // effcer l'erreur du champ modifie
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -82,12 +83,12 @@ export default function Register() {
     setLoading(true);
 
     try {
-      console.log('📤 Envoi des données:', formData);
+      console.log(' Envoi des données:', formData);
       
       //  Utilisation d'Axios au lieu de fetch
       const response = await api.post('/register', formData);
 
-      console.log('📥 Réponse du serveur:', response.data);
+      console.log(' Réponse du serveur:', response.data);
 
       if (response.data.success) {
         localStorage.setItem('verificationEmail', response.data.email);

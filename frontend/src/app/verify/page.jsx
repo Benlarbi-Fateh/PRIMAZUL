@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mail, CheckCircle, AlertCircle, Loader, ArrowLeft } from 'lucide-react';
+import api from '@/lib/api';
 
 export default function VerifyEmail() {
   const [email, setEmail] = useState('');
@@ -32,7 +33,7 @@ export default function VerifyEmail() {
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
-
+// auto-focus sur le champ suivant
     if (value && index < 5) {
       const nextInput = document.getElementById(`code-${index + 1}`);
       if (nextInput) nextInput.focus();
@@ -60,7 +61,7 @@ export default function VerifyEmail() {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async() => {
     setError('');
 
     const codeString = code.join('');
@@ -76,38 +77,50 @@ export default function VerifyEmail() {
 
     setLoading(true);
     console.log('Envoi de la vérification pour:', email, 'avec code:', codeString);
+     try {
+      const response = await api.post('/verify-code', { 
+        email, 
+        code: codeString 
+      });
 
-    fetch('http://localhost:5000/api/verify-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code: codeString })
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Réponse vérification:', data);
-      if (data.success) {
+      console.log(' Réponse vérification:', response.data);
+
+   
+      if (response.data.success) {
         setSuccess(true);
         localStorage.removeItem('verificationEmail');
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
       } else {
-        setError(data.message || 'Code incorrect');
+        setError(response.data.message || 'Code incorrect');
         setCode(['', '', '', '', '', '']);
         const firstInput = document.getElementById('code-0');
         if (firstInput) firstInput.focus();
       }
-    })
-    .catch(error => {
+    }
+      catch(error ) {
       console.error('Erreur:', error);
-      setError('Erreur de connexion au serveur');
-    })
-    .finally(() => {
+    
+      if (error.response) {
+        setError(error.response.data.message || 'Code incorrect');
+      } else if (error.request) {
+        setError(' Impossible de contacter le serveur');
+      } else {
+        setError('Erreur: ' + error.message);
+      }
+      
+      setCode(['', '', '', '', '', '']);
+      const firstInput = document.getElementById('code-0');
+      if (firstInput) firstInput.focus();
+    } finally {
       setLoading(false);
-    });
+    }
   };
+    
+    
 
-  const handleResendCode = () => {
+  const handleResendCode = async() => {
     if (!email || email === 'undefined') {
       setError('Email invalide. Veuillez vous réinscrire.');
       return;
@@ -116,33 +129,34 @@ export default function VerifyEmail() {
     setError('');
     setLoading(true);
     console.log('Renvoi du code pour:', email);
+ try {
+      const response = await api.post('/resend-code', { email });
 
-    fetch('http://localhost:5000/api/resend-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Réponse renvoi:', data);
-      if (data.success) {
+      console.log(' Réponse renvoi:', response.data);
+
+      if (response.data.success) {
         alert(' Un nouveau code a été envoyé à votre email');
         setCode(['', '', '', '', '', '']);
         const firstInput = document.getElementById('code-0');
         if (firstInput) firstInput.focus();
       } else {
-        setError(data.message);
+        setError(response.data.message);
       }
-    })
-    .catch(error => {
-      console.error('Erreur:', error);
-      setError('Erreur de connexion au serveur');
-    })
-    .finally(() => {
+    } catch (error) {
+      console.error(' Erreur:', error);
+    
+   if (error.response) {
+        setError(error.response.data.message || 'Erreur lors du renvoi');
+      } else if (error.request) {
+        setError(' Impossible de contacter le serveur');
+      } else {
+        setError('Erreur: ' + error.message);
+      }
+    } finally {
       setLoading(false);
-    });
+    }
   };
-
+// ecran de chargement initial
 
   if (!isReady) {
     return (
@@ -151,7 +165,7 @@ export default function VerifyEmail() {
       </div>
     );
   }
-
+// ecran de succes
   if (success) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
