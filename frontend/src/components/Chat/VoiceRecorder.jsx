@@ -139,7 +139,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
         {!isRecording && !audioBlob && (
           <button
             onClick={startRecording}
-            className="p-4 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-full hover:from-red-600 hover:to-pink-600 transition-all transform hover:scale-105 shadow-lg"
+            className="p-4 bg-linear-to-r from-red-500 to-pink-500 text-white rounded-full hover:from-red-600 hover:to-pink-600 transition-all transform hover:scale-105 shadow-lg"
             title="Commencer l'enregistrement"
           >
             <Mic size={24} />
@@ -186,7 +186,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
         {audioBlob && !isRecording && (
           <>
             <div className="flex-1 flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 bg-linear-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shrink-0">
                 <Mic size={20} className="text-white" />
               </div>
               
@@ -215,7 +215,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
             
             <button
               onClick={sendVoice}
-              className="p-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-full hover:from-blue-700 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg"
+              className="p-4 bg-linear-to-r from-blue-600 to-cyan-500 text-white rounded-full hover:from-blue-700 hover:to-cyan-600 transition-all transform hover:scale-105 shadow-lg"
               title="Envoyer le message vocal"
             >
               <Send size={24} />
