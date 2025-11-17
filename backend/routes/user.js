@@ -1,13 +1,11 @@
 const express = require("express");
 const router = express.Router();
+const bcrypt = require("bcryptjs");
 const User = require("../models/Users");
 const cloudinary = require("../config/cloudinary");
-
 const multer = require("multer");
 const upload = multer({ dest: "uploads/" }); // dossier temporaire
-
-
-
+const userController = require("../Controllers/userController");
 
 // 🟢 INSCRIPTION
 router.post("/register", async (req, res) => {
@@ -20,24 +18,28 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "Email déjà utilisé" });
     }
 
+    // Hash du mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Création du nouvel utilisateur
     const newUser = new User({
       username,
       email,
-      password,
+      password: hashedPassword,
       phoneNumber,
       lastSeen: Date.now(),
-      isOnline: true
+      isOnline: true,
     });
 
     await newUser.save();
+
     res.status(201).json({
       message: "Inscription réussie",
       user: {
         _id: newUser._id,
         username: newUser.username,
-        email: newUser.email
-      }
+        email: newUser.email,
+      },
     });
   } catch (error) {
     console.error("Erreur /register :", error);
@@ -70,8 +72,8 @@ router.post("/login", async (req, res) => {
       user: {
         _id: user._id,
         username: user.username,
-        email: user.email
-      }
+        email: user.email,
+      },
     });
   } catch (error) {
     console.error("Erreur /login :", error);
@@ -79,20 +81,25 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// 🔹 Récupérer le dernier utilisateur connecté
+// 🟡 RÉCUPÉRER LE DERNIER UTILISATEUR
+// ⚠️ IMPORTANT : doit être AVANT les routes dynamiques
 router.get("/last", async (req, res) => {
   try {
-    // Trie par lastSeen décroissant et prends 1
-    const lastUser = await User.findOne().sort({ lastSeen: -1 }).select("-password");
+    const lastUser = await User.findOne().sort({ createdAt: -1 });
+
     if (!lastUser) {
-      return res.status(404).json({ message: "Aucun utilisateur trouvé" });
+      return res.status(404).json({ message: "Aucun utilisateur trouvé." });
     }
+
     res.json(lastUser);
   } catch (error) {
-    console.error("Erreur GET /api/user/last :", error);
+    console.error("Erreur /last :", error);
     res.status(500).json({ message: "Erreur serveur" });
   }
 });
 
+// 🟣 Routes dynamiques (toujours à la fin)
+router.get("/:id", userController.getUser);
+router.put("/:id", userController.updateUserById);
 
 module.exports = router;

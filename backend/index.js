@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const connectDB = require("./db");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const ratingRouter = require("./routes/rating");
 const authRoutes = require("./routes/auth");
