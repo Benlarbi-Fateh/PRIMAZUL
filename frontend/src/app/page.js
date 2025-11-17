@@ -11,13 +11,13 @@ export default function HomePage() {
       setMessage(res.data.message);
     } catch (err) {
       console.error("Erreur de connexion au backend :", err);
-      setMessage("Échec de la connexion ❌");
+      setMessage("Échec de la connexion ");
     }
   };
 
   return (
     <main style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>Test de connexion backend</h1>
+      <h1 className="text-3xl font-bold underline">Hello world!</h1>
       <button onClick={testBackend}>Tester la connexion</button>
       <p>{message}</p>
     </main>
