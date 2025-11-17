@@ -1,10 +1,10 @@
 // backend/controllers/authController.js
 
-const Users = require('../models/Users');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const Users = require("../models/Users");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 // Stock temporaire des codes
 const verificationCodes = new Map();
@@ -15,26 +15,26 @@ const createToken = (user) => {
     id: user._id,
     email: user.email || null,
     phoneNumber: user.phoneNumber || null,
-    username: user.username || null
+    username: user.username || null,
   };
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h'
+    expiresIn: process.env.JWT_EXPIRES_IN || "24h",
   });
 };
-
 
 // Mot de passe oublié : Envoi du code
 
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   const user = await Users.findOne({ email });
-  if (!user) return res.status(404).json({ message: "Aucun compte avec cet email" });
+  if (!user)
+    return res.status(404).json({ message: "Aucun compte avec cet email" });
 
   const code = crypto.randomInt(100000, 999999).toString();
   verificationCodes.set(email, code);
 
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    service: "gmail",
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
   });
 
@@ -62,7 +62,6 @@ exports.verifyCode = async (req, res) => {
   res.json({ message: "Code vérifié ✅" });
 };
 
-
 // Réinitialisation du mot de passe
 exports.resetPassword = async (req, res) => {
   const { email, password } = req.body;
@@ -78,7 +77,6 @@ exports.resetPassword = async (req, res) => {
 
   res.json({ message: "Mot de passe réinitialisé ✅" });
 };
-
 
 // Inscription
 /*
@@ -107,37 +105,37 @@ exports.login = async (req, res) => {
     const { identifier, password } = req.body;
 
     if (!identifier || !password)
-      return res.status(400).json({ message: 'Champs requis' });
+      return res.status(400).json({ message: "Champs requis" });
 
     // Rechercher l'utilisateur par email ou téléphone
     const user = await Users.findOne({
-      $or: [{ email: identifier }, { phoneNumber: identifier }]
+      $or: [{ email: identifier }, { phoneNumber: identifier }],
     });
 
     if (!user)
-      return res.status(401).json({ message: 'Utilisateur introuvable' });
+      return res.status(401).json({ message: "Utilisateur introuvable" });
 
     // Vérifier le mot de passe (bcrypt.compare avec le hash déjà en base)
     const isMatch = await bcrypt.compare(password.trim(), user.password);
     if (!isMatch)
-      return res.status(401).json({ message: 'Mot de passe incorrect' });
+      return res.status(401).json({ message: "Mot de passe incorrect" });
 
     // Générer le token JWT
     const token = createToken(user);
 
     // Réponse
     res.json({
-      message: 'Connexion réussie ✅',
+      message: "Connexion réussie ✅",
       token,
       user: {
         id: user._id,
         email: user.email,
         phoneNumber: user.phoneNumber,
-        username: user.username
-      }
+        username: user.username,
+      },
     });
   } catch (err) {
-    console.error('Erreur login:', err);
-    res.status(500).json({ message: 'Erreur serveur' });
+    console.error("Erreur login:", err);
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

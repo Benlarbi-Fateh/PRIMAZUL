@@ -12,43 +12,49 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
 
-  //  Vérifier si l'utilisateur est déjà connecté (token dans le localStorage)
-  //  Vérifier si l'utilisateur est déjà connecté (token dans le localStorage)
+  // Chargement initial de la session (token + user)
   useEffect(() => {
-    //  Exécuter seulement côté client
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      const userData = localStorage.getItem("user");
-      if (token && userData) {
-        //  On évite le setState direct au montage
+      const savedToken = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+
+      if (savedToken && savedUser) {
         setTimeout(() => {
-          setUser(JSON.parse(userData));
+          setToken(savedToken);
+          setUser(JSON.parse(savedUser));
         }, 0);
       }
     }
   }, []);
 
-  //  Fonction de connexion (sauvegarde token et infos user )
-  const login = (userData, token) => {
-    localStorage.setItem("token", token);
+  // Connexion → sauvegarde + mise à jour du state
+  const login = (userData, tokenValue) => {
+    localStorage.setItem("token", tokenValue);
     localStorage.setItem("user", JSON.stringify(userData));
+
+    setToken(tokenValue);
     setUser(userData);
   };
 
-  //  Fonction de déconnexion
+  // Déconnexion → nettoyage complet
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+
+    setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Hook personnalisé pour accéder facilement au contexte
+// Hook pour utiliser facilement AuthContext
 export const useAuth = () => React.useContext(AuthContext);
+
+//ce fichier a été modifié pour sauvegarder meme le token car au debut je sauvegardais uniquement le user
