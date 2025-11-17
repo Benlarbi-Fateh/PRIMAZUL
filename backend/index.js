@@ -20,6 +20,7 @@ app.use(
 );
 const PORT = process.env.PORT || 5000; // definir le port du serveur
 app.use("/api/users", userRoutes);
+app.use("/contacts", require("./routes/contacts.js"));
 
 
 // Default route

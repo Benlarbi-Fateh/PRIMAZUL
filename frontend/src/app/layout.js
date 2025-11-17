@@ -1,12 +1,15 @@
 import './globals.css';
-export default function Layout({ children }) {
+
+import addContact from "../components/addContact";
+
+function App() {
   return (
-    <html lang="fr">
-      <body>
-        <header>PrimAzul</header>
-        {children}
-        <footer>© 2025 PrimAzul</footer>
-      </body>
-    </html>
+    <div>
+      <h1>Mes Contacts</h1>
+      <AddContact />
+    </div>
   );
 }
+
+export default App;
+
