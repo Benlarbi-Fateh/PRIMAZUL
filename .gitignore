@@ -1,1 +1,3 @@
 node_modules/
+# Ignorer tous les node_modules où qu'ils soient
+**/node_modules/
