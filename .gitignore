@@ -1,12 +1,15 @@
-# Ignorer tous les node_modules où qu'ils soient
-**/node_modules/
+# .gitignore
 
-# Dossiers Node spécifiques (optionnel)
-backend/node_modules/
-frontend/node_modules/
+# Dépendances Node (Back et Front)
+/backend/node_modules
+/frontend/node_modules
 
-# Build Next.js
-frontend/.next/
+# Fichiers de build Next.js et de logs
+/frontend/.next
+/frontend/out
+npm-debug.log
+npm-debug.log.*
 
-# Environnement
+# Fichiers sensibles (Secrets)
 .env
+.env.local
