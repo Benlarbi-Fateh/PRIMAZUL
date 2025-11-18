@@ -10,7 +10,7 @@ import { Mail, Lock, Eye, EyeOff, User, MessageCircle, Sparkles, Zap, Shield, Ar
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
-    username: '',
+    name: '', // ✅ CHANGÉ: username → name
     email: '',
     password: '',
     confirmPassword: ''
@@ -29,7 +29,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/'); // ✅ CHANGÉ : '/chat' → '/'
+      router.push('/');
     }
   }, [user, router]);
 
@@ -49,14 +49,21 @@ export default function RegisterPage() {
       return;
     }
 
+    if (formData.password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const response = await api.post('/auth/register', {
-        username: formData.username,
-        email: formData.email,
+        name: formData.name.trim(), // ✅ CHANGÉ: username → name
+        email: formData.email.toLowerCase().trim(),
         password: formData.password
       });
+      
+      console.log('Réponse inscription:', response.data);
       
       if (response.data.requiresVerification) {
         setUserId(response.data.userId);
@@ -64,10 +71,14 @@ export default function RegisterPage() {
         setShowVerification(true);
       } else if (response.data.token) {
         authLogin(response.data.token, response.data.user);
-        router.push('/'); // ✅ CHANGÉ : '/chat' → '/'
+        router.push('/');
       }
     } catch (error) {
-      setError(error.response?.data?.error || "Erreur d'inscription");
+      console.error('Erreur inscription:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          "Erreur lors de l'inscription";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -75,10 +86,10 @@ export default function RegisterPage() {
 
   const handleVerifyCode = async (code) => {
     try {
-      const response = await api.post('/auth/verify-register', { userId, code });
+      const response = await api.post('/auth/verify-registration', { userId, code }); // ✅ CHANGÉ: verify-register → verify-registration
       if (response.data.token) {
         authLogin(response.data.token, response.data.user);
-        router.push('/'); // ✅ CHANGÉ : '/chat' → '/'
+        router.push('/');
       }
     } catch (error) {
       throw error;
@@ -201,8 +212,8 @@ export default function RegisterPage() {
                       <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
-                        name="username"
-                        value={formData.username}
+                        name="name" // ✅ CHANGÉ: username → name
+                        value={formData.name} // ✅ CHANGÉ: username → name
                         onChange={handleChange}
                         className="w-full pl-12 pr-4 py-4 bg-white/80 border border-gray-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500"
                         placeholder="Votre pseudo"

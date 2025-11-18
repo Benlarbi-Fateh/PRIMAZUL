@@ -21,6 +21,7 @@ import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar';
 import MobileHeader from '@/components/Layout/MobileHeader';
+import ChatHeader from '@/components/Layout/ChatHeader';
 import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
@@ -326,11 +327,23 @@ export default function ChatPage() {
         </div>
 
         <div className="flex-1 flex flex-col">
-          <MobileHeader 
-            contact={contact}
-            conversation={conversation}
-            onBack={() => router.push('/')} 
-          />
+          {/* 📱 Mobile Header - visible seulement sur mobile */}
+          <div className="lg:hidden">
+            <MobileHeader 
+              contact={contact}
+              conversation={conversation}
+              onBack={() => router.push('/')} 
+            />
+          </div>
+          
+          {/* 💻 Desktop Header - visible seulement sur desktop */}
+          <div className="hidden lg:block">
+            <ChatHeader 
+              contact={contact}
+              conversation={conversation}
+              onBack={() => router.push('/')} 
+            />
+          </div>
 
           <div 
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
