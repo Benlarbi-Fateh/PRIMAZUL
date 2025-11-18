@@ -11,17 +11,30 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const [isFocused, setIsFocused] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // Détection mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, isMobile ? 80 : 120)}px`;
     }
-  }, [message]);
+  }, [message, isMobile]);
 
   const handleChange = (e) => {
     setMessage(e.target.value);
@@ -143,32 +156,33 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   }
 
   return (
-    <div className="bg-white/95 backdrop-blur-xl border-t-2 border-blue-100 shadow-2xl">
+    <div className="bg-white/95 backdrop-blur-xl border-t-2 border-blue-100 shadow-2xl safe-area-padding-bottom">
       {showEmojiPicker && (
         <div 
-          className="border-b-2 border-blue-100 p-4 animate-slide-in-left"
+          className="border-b-2 border-blue-100 p-3 sm:p-4 animate-slide-in-left"
           style={{
             background: 'linear-gradient(to bottom, #dbeafe, #ffffff)'
           }}
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-blue-500" />
-              Emojis fréquents
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <span className="text-xs sm:text-sm font-bold text-slate-700 flex items-center gap-1 sm:gap-2">
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
+              <span className="hidden xs:inline">Emojis fréquents</span>
+              <span className="xs:hidden">Emojis</span>
             </span>
             <button
               onClick={() => setShowEmojiPicker(false)}
-              className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-xl transition-all active:scale-95"
+              className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 sm:p-2 rounded-xl transition-all active:scale-95"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-1 sm:gap-2 flex-wrap justify-center sm:justify-start">
             {frequentEmojis.map((emoji, index) => (
               <button
                 key={index}
                 onClick={() => handleEmojiClick(emoji)}
-                className="text-3xl hover:bg-blue-100 w-12 h-12 rounded-2xl transition-all transform hover:scale-125 active:scale-110 shadow-sm hover:shadow-md"
+                className="text-2xl sm:text-3xl hover:bg-blue-100 w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-105 shadow-sm hover:shadow-md"
               >
                 {emoji}
               </button>
@@ -177,43 +191,50 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="p-4">
+      <form onSubmit={handleSubmit} className="p-2 sm:p-3 md:p-4">
         <div 
-          className={`flex items-end gap-3 rounded-3xl p-4 transition-all ${
-            isFocused ? 'ring-4 ring-blue-300 shadow-xl transform scale-[1.01]' : 'shadow-md'
+          className={`flex items-end gap-2 sm:gap-3 rounded-2xl sm:rounded-3xl p-3 sm:p-4 transition-all ${
+            isFocused ? 'ring-2 sm:ring-4 ring-blue-300 shadow-lg sm:shadow-xl transform scale-[1.01]' : 'shadow-md'
           }`}
           style={{
             background: 'linear-gradient(to right, #dbeafe, #ecfeff)'
           }}
         >
           
-          <button
-            type="button"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className={`shrink-0 p-3 rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
-              showEmojiPicker 
-                ? 'text-blue-600 bg-blue-200 shadow-md' 
-                : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
-            }`}
-            title="Ajouter un emoji"
-            disabled={uploading}
-          >
-            <Smile className="w-6 h-6" />
-          </button>
+          {/* Boutons d'actions - cachés sur mobile très petit */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
+                showEmojiPicker 
+                  ? 'text-blue-600 bg-blue-200 shadow-md' 
+                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
+              }`}
+              title="Ajouter un emoji"
+              disabled={uploading}
+            >
+              <Smile className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className={`shrink-0 p-3 rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
-              uploading 
-                ? 'text-blue-400 cursor-not-allowed bg-blue-100' 
-                : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
-            }`}
-            title="Joindre un fichier"
-          >
-            {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Paperclip className="w-6 h-6" />}
-          </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
+                uploading 
+                  ? 'text-blue-400 cursor-not-allowed bg-blue-100' 
+                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
+              }`}
+              title="Joindre un fichier"
+            >
+              {uploading ? (
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 animate-spin" />
+              ) : (
+                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              )}
+            </button>
+          </div>
           
           <input
             ref={fileInputRef}
@@ -224,7 +245,8 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
             disabled={uploading}
           />
 
-          <div className="flex-1 relative">
+          {/* Zone de texte */}
+          <div className="flex-1 relative min-w-0">
             <textarea
               ref={textareaRef}
               value={message}
@@ -233,62 +255,85 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder={uploading ? "Upload en cours..." : "Écrivez votre message..."}
-              className="w-full bg-white/80 backdrop-blur-sm px-4 py-3 text-slate-800 placeholder-blue-400 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent disabled:opacity-50 rounded-2xl border-2 border-transparent focus:border-blue-300 font-medium"
+              className="w-full bg-white/80 backdrop-blur-sm px-3 sm:px-4 py-2 sm:py-3 text-slate-800 placeholder-blue-400 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent disabled:opacity-50 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-blue-300 font-medium text-sm sm:text-base"
               rows="1"
-              style={{ maxHeight: '120px' }}
+              style={{ 
+                maxHeight: isMobile ? '80px' : '120px',
+                minHeight: '40px'
+              }}
               disabled={uploading}
             />
             
-            {message.length > 0 && (
-              <div className="absolute -bottom-6 right-0 text-xs text-blue-500 font-semibold">
+            {message.length > 0 && !isMobile && (
+              <div className="absolute -bottom-5 right-0 text-xs text-blue-500 font-semibold hidden xs:block">
                 {message.length} caractères
               </div>
             )}
           </div>
 
-          {message.trim() || uploading ? (
-            <button
-              type="submit"
-              disabled={uploading || (!message.trim() && !uploading)}
-              className={`shrink-0 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 shadow-lg hover:shadow-xl ${
-                uploading 
-                  ? 'bg-blue-400 cursor-not-allowed' 
-                  : 'text-white'
-              }`}
-              title={uploading ? "Upload en cours..." : "Envoyer"}
-              style={!uploading ? {
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8, #06b6d4)'
-              } : {}}
-            >
-              {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowVoiceRecorder(true)}
-              className="shrink-0 p-4 rounded-2xl text-white transition-all transform hover:scale-110 active:scale-95 shadow-lg hover:shadow-xl"
-              title="Enregistrer un message vocal"
-              disabled={uploading}
-              style={{
-                background: 'linear-gradient(135deg, #f43f5e, #db2777)'
-              }}
-            >
-              <Mic className="w-6 h-6" />
-            </button>
-          )}
+          {/* Bouton d'envoi ou vocal */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {message.trim() || uploading ? (
+              <button
+                type="submit"
+                disabled={uploading || (!message.trim() && !uploading)}
+                className={`shrink-0 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 shadow-lg hover:shadow-xl ${
+                  uploading 
+                    ? 'bg-blue-400 cursor-not-allowed' 
+                    : 'text-white'
+                }`}
+                title={uploading ? "Upload en cours..." : "Envoyer"}
+                style={!uploading ? {
+                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8, #06b6d4)'
+                } : {}}
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowVoiceRecorder(true)}
+                className="shrink-0 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl text-white transition-all transform hover:scale-110 active:scale-95 shadow-lg hover:shadow-xl"
+                title="Enregistrer un message vocal"
+                disabled={uploading}
+                style={{
+                  background: 'linear-gradient(135deg, #f43f5e, #db2777)'
+                }}
+              >
+                <Mic className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* SUPPRIMÉ : Le texte "Enter pour envoyer..." */}
-
         {uploading && (
-          <div className="mt-3 text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-xl text-blue-700 font-semibold animate-pulse">
-              <Loader2 className="w-4 h-4 animate-spin" />
+          <div className="mt-2 sm:mt-3 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 bg-blue-100 rounded-lg sm:rounded-xl text-blue-700 font-semibold animate-pulse text-xs sm:text-sm">
+              <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
               <span>Envoi en cours...</span>
             </div>
           </div>
         )}
+
+        {/* Indicateur de caractères pour mobile */}
+        {message.length > 0 && isMobile && (
+          <div className="text-center mt-1">
+            <span className="text-xs text-blue-500 font-semibold bg-blue-100 px-2 py-1 rounded-full">
+              {message.length} caractères
+            </span>
+          </div>
+        )}
       </form>
+
+      <style jsx>{`
+        .safe-area-padding-bottom {
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+      `}</style>
     </div>
   );
 }

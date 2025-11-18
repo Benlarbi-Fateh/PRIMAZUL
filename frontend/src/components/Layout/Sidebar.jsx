@@ -353,7 +353,13 @@ export default function Sidebar({ activeConversationId }) {
       return conv.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.groupName || 'Groupe')}&background=6366f1&color=fff`;
     }
     const contact = getOtherParticipant(conv);
-    return contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=3b82f6&color=fff`;
+    
+    // Vérifie si la photo de profil existe et n'est pas une chaîne vide
+    const hasValidProfilePicture = contact?.profilePicture && contact.profilePicture.trim() !== '';
+    
+    return hasValidProfilePicture 
+      ? contact.profilePicture 
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
   };
 
   const getOtherParticipant = (conv) => {
