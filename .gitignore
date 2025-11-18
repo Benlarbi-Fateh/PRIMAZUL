@@ -1,7 +1,12 @@
-node_modules/
 # Ignorer tous les node_modules où qu'ils soient
 **/node_modules/
-/backend/node_modules
-/frontend/node_modules
-/frontend/.next
+
+# Dossiers Node spécifiques (optionnel)
+backend/node_modules/
+frontend/node_modules/
+
+# Build Next.js
+frontend/.next/
+
+# Environnement
 .env
