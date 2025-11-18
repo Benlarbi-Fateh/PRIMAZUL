@@ -3,55 +3,50 @@
 import { useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
-import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react'; // 🆕 AJOUT Users
+import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
 
-export default function MobileHeader({ contact, conversation, onBack }) { // 🆕 AJOUT conversation
+export default function MobileHeader({ contact, conversation, onBack }) {
   const { user } = useContext(AuthContext);
   const router = useRouter();
 
-  // ============================
-  // Header pour la page d'accueil
-  // ============================
   if (!contact && !conversation) {
     return (
-      <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 to-cyan-500">
-        {/* Lueur douce en haut à droite */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "radial-gradient(circle at top right, rgba(255,255,255,0.15), transparent)",
-          }}
-        ></div>
+      <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+        
+        <div className="absolute inset-0" style={{
+          background: "radial-gradient(circle at top right, rgba(6, 182, 212, 0.3), transparent)"
+        }}></div>
 
-        <div className="relative p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
+        <div className="relative p-5">
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={
-                  user?.profilePicture ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    user?.name || 'User'
-                  )}&background=fff&color=0ea5e9&bold=true&size=128`
-                }
+                src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`}
                 alt={user?.name}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-full ring-2 ring-white/60 shadow-lg object-cover"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ring-4 ring-white/40 shadow-2xl object-cover"
               />
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-white shadow-lg"></div>
             </div>
-            <div className="text-white">
-              <h2 className="font-bold text-base sm:text-lg drop-shadow-md truncate max-w-[150px] sm:max-w-[200px]">
+            <div className="text-white flex-1 min-w-0">
+              <h2 className="font-bold text-lg sm:text-xl drop-shadow-lg truncate">
                 {user?.name}
               </h2>
-              <p className="text-xs text-blue-50/90 font-medium">En ligne</p>
+              <p className="text-sm text-blue-100 font-semibold flex items-center gap-2">
+                <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg"></span>
+                En ligne
+              </p>
             </div>
           </div>
         </div>
+
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
       </div>
     );
   }
 
-  // 🆕 VÉRIFIER SI C'EST UN GROUPE
   const isGroup = conversation?.isGroup || false;
   const displayName = isGroup 
     ? (conversation?.groupName || 'Groupe sans nom')
@@ -59,83 +54,71 @@ export default function MobileHeader({ contact, conversation, onBack }) { // �
   
   const displayImage = isGroup
     ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=6366f1&color=fff&bold=true&size=128`)
-    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=fff&color=0ea5e9&bold=true&size=128`);
+    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`);
 
   const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
 
-  // ============================
-  // Header pour une conversation
-  // ============================
   return (
-    <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 to-cyan-500">
-      {/* Lueur douce en haut à droite */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: "radial-gradient(circle at top right, rgba(255,255,255,0.15), transparent)",
-        }}
-      ></div>
+    <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+      
+      <div className="absolute inset-0" style={{
+        background: "radial-gradient(circle at top right, rgba(6, 182, 212, 0.3), transparent)"
+      }}></div>
 
-      <div className="relative p-3 sm:p-4 flex items-center justify-between gap-2 sm:gap-3">
-        {/* Bouton retour + Info contact/groupe */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+      <div className="relative p-4 sm:p-5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <button
             onClick={onBack || (() => router.push('/'))}
-            className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95 shrink-0"
+            className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 shadow-md"
           >
-            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            <ArrowLeft className="w-6 h-6" />
           </button>
 
-          {/* Photo de profil ou icône groupe */}
           <div className="relative shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={displayImage}
               alt={displayName}
-              className="w-9 h-9 sm:w-11 sm:h-11 rounded-full ring-2 ring-white/60 shadow-lg object-cover"
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl ring-4 ring-white/40 shadow-2xl object-cover"
               onError={(e) => {
                 e.target.src = isGroup
                   ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`
-                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=0ea5e9&bold=true&size=128`;
+                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=3b82f6&bold=true&size=128`;
               }}
             />
-            {/* 🆕 BADGE GROUPE */}
             {isGroup && (
-              <div className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 bg-linear-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-sm flex items-center justify-center">
-                <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+                <Users className="w-3 h-3 text-white" />
               </div>
             )}
-            {/* Point vert en ligne (seulement pour conversations 1-1) */}
             {!isGroup && contact?.isOnline && (
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-400 rounded-full border-[1.5px] border-white shadow-sm">
-                <div className="w-full h-full bg-green-400 rounded-full animate-ping opacity-75"></div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg">
+                <div className="w-full h-full bg-emerald-400 rounded-full animate-ping opacity-75"></div>
               </div>
             )}
           </div>
 
-          {/* Nom et statut */}
           <div className="text-white flex-1 min-w-0">
-            <h2 className="font-bold text-sm sm:text-base drop-shadow-md truncate">
+            <h2 className="font-bold text-base sm:text-lg drop-shadow-lg truncate">
               {displayName}
             </h2>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex items-center gap-2 mt-0.5">
               {isGroup ? (
-                // 🆕 AFFICHAGE POUR LES GROUPES
-                <p className="text-xs text-blue-50/90 font-medium truncate">
+                <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
                   {participantsCount} participant{participantsCount > 1 ? 's' : ''}
                 </p>
               ) : (
-                // AFFICHAGE POUR LES CONVERSATIONS 1-1
                 <>
                   {contact?.isOnline ? (
                     <>
-                      <div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse shadow-sm shrink-0"></div>
-                      <p className="text-xs text-blue-50/90 font-medium truncate">
+                      <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg shrink-0"></span>
+                      <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
                         En ligne
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs text-blue-50/80 truncate">
+                    <p className="text-xs sm:text-sm text-blue-100 truncate">
                       {contact?.lastSeen ? `Vu ${formatMessageDate(contact.lastSeen)}` : 'Hors ligne'}
                     </p>
                   )}
@@ -145,42 +128,35 @@ export default function MobileHeader({ contact, conversation, onBack }) { // �
           </div>
         </div>
 
-        {/* Actions (Appel / Vidéo / Menu) - 🆕 MASQUER POUR LES GROUPES */}
-        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {!isGroup && (
             <>
               <button
-                className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
+                className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
                 title="Appel audio"
               >
-                <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Phone className="w-5 h-5" />
               </button>
 
               <button
-                className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
+                className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
                 title="Appel vidéo"
               >
-                <Video className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Video className="w-5 h-5" />
               </button>
             </>
           )}
 
           <button
-            className="text-white p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-all active:scale-95"
+            className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
             title="Plus d'options"
           >
-            <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+            <MoreVertical className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* Ligne de séparation subtile */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-px"
-        style={{
-          background: "linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent)",
-        }}
-      ></div>
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
     </div>
   );
 }

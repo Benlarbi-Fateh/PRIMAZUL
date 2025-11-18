@@ -24,7 +24,7 @@ import MobileHeader from '@/components/Layout/MobileHeader';
 import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
-import { Plane, Users } from 'lucide-react';
+import { Plane, Users, Sparkles } from 'lucide-react';
 
 export default function ChatPage() {
   const params = useParams();
@@ -241,7 +241,6 @@ export default function ChatPage() {
     return conversation.participants?.find(p => p._id !== userId);
   };
 
-  // 🆕 FONCTION POUR OBTENIR LE NOM D'AFFICHAGE (GROUPE OU CONTACT)
   const getDisplayName = () => {
     if (!conversation) return 'Chargement...';
     if (conversation.isGroup) {
@@ -256,33 +255,55 @@ export default function ChatPage() {
   if (loading) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen items-center justify-center bg-blue-50">
-          <div className="text-center">
+        <div 
+          className="flex h-screen items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)'
+          }}
+        >
+          <div className="text-center animate-fade-in">
             <div className="relative inline-block">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"></div>
-              <Plane className="w-8 h-8 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-45" />
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200 border-t-blue-600 shadow-xl"></div>
+              <Plane className="w-10 h-10 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-45 animate-pulse" />
             </div>
-            <p className="mt-4 text-blue-800 font-medium">Chargement de la conversation...</p>
+            <p className="mt-6 text-blue-800 font-bold text-lg">Chargement de la conversation...</p>
+            <div className="flex gap-2 justify-center mt-3">
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0s'}}></span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
+            </div>
           </div>
         </div>
       </ProtectedRoute>
     );
   }
 
-  // 🆕 MODIFICATION : Vérifier différemment pour les groupes
   if (!conversation || (!conversation.isGroup && !contact)) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen items-center justify-center bg-blue-50">
-          <div className="text-center max-w-md">
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Plane className="w-10 h-10 text-red-500 -rotate-45" />
+        <div 
+          className="flex h-screen items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)'
+          }}
+        >
+          <div className="text-center max-w-md animate-fade-in">
+            <div 
+              className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"
+              style={{
+                background: 'linear-gradient(135deg, #fecaca, #fca5a5)'
+              }}
+            >
+              <Plane className="w-12 h-12 text-rose-500 -rotate-45" />
             </div>
-            <h2 className="text-xl font-bold text-blue-900 mb-2">Conversation introuvable</h2>
-            <p className="text-blue-700 mb-6">Cette conversation n&apos;existe pas ou a été supprimée</p>
+            <h2 className="text-2xl font-bold text-slate-800 mb-3">Conversation introuvable</h2>
+            <p className="text-slate-600 mb-8 leading-relaxed">Cette conversation n&apos;existe pas ou a été supprimée</p>
             <button
               onClick={() => router.push('/')}
-              className="px-6 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
+              className="px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
+              style={{
+                background: 'linear-gradient(to right, #2563eb, #06b6d4)'
+              }}
             >
               Retour à l&apos;accueil
             </button>
@@ -294,32 +315,46 @@ export default function ChatPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen bg-blue-100">
+      <div 
+        className="flex h-screen"
+        style={{
+          background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)'
+        }}
+      >
         <div className="hidden lg:block">
           <Sidebar activeConversationId={conversationId} />
         </div>
 
         <div className="flex-1 flex flex-col">
-          {/* 🆕 MODIFICATION CRITIQUE ICI */}
           <MobileHeader 
             contact={contact}
             conversation={conversation}
             onBack={() => router.push('/')} 
           />
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-linear-to-b from-blue-50 to-cyan-50">
+          <div 
+            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
+            style={{
+              background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))'
+            }}
+          >
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex items-center justify-center h-full animate-fade-in">
                 <div className="text-center max-w-sm">
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-blue-200">
+                  <div 
+                    className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200"
+                    style={{
+                      background: 'linear-gradient(135deg, #ffffff, #dbeafe)'
+                    }}
+                  >
                     {conversation.isGroup ? (
-                      <Users className="w-10 h-10 text-purple-600" />
+                      <Users className="w-12 h-12 text-purple-600" />
                     ) : (
-                      <Plane className="w-10 h-10 text-blue-600 -rotate-45" />
+                      <Plane className="w-12 h-12 text-blue-600 -rotate-45" />
                     )}
                   </div>
-                  <p className="text-blue-800 font-medium">Aucun message pour l&apos;instant</p>
-                  <p className="text-sm text-blue-600 mt-2">
+                  <p className="text-slate-800 font-bold text-lg mb-2">Aucun message pour l&apos;instant</p>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     {conversation.isGroup 
                       ? `Commencez la discussion dans ${conversation.groupName || 'ce groupe'}`
                       : `Envoyez votre premier message à ${contact?.name || 'cet utilisateur'}`
