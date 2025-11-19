@@ -3,10 +3,10 @@
 import { useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
+import Image from 'next/image';
 import { 
   getConversations, 
   searchUsers, 
-  createConversation,
   sendInvitation,
   getReceivedInvitations,
   getSentInvitations,
@@ -25,7 +25,8 @@ import {
   emitInvitationSent,
   emitInvitationAccepted,
   emitInvitationRejected,
-  emitInvitationCancelled
+  emitInvitationCancelled,
+  onOnlineUsersUpdate
 } from '@/services/socket';
 import { 
   LogOut, 
@@ -139,29 +140,23 @@ export default function Sidebar({ activeConversationId }) {
     onInvitationCancelled(handleInvitationCancelled);
   }, [user]);
 
+  // 🔥 CORRECTION CRITIQUE : Utiliser la nouvelle fonction pour écouter les utilisateurs en ligne
   useEffect(() => {
-    const socket = getSocket();
-    
-    if (socket && user) {
-      socket.on('online-users-update', (userIds) => {
-        setOnlineUsers(new Set(userIds));
-      });
+    if (!user) return;
 
-      onShouldRefreshConversations(() => {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = setTimeout(() => {
-          fetchConversations();
-        }, 300);
-      });
+    // S'abonner aux mises à jour des utilisateurs en ligne
+    const unsubscribe = onOnlineUsersUpdate((userIds) => {
+      console.log('📡 Sidebar - Mise à jour utilisateurs en ligne:', userIds);
+      console.log('📡 IDs détaillés:', JSON.stringify(userIds));
+      setOnlineUsers(new Set(userIds));
+    });
 
-      requestOnlineUsers();
+    // Demander les utilisateurs en ligne immédiatement
+    requestOnlineUsers();
 
-      return () => {
-        socket.off('online-users-update');
-        socket.off('should-refresh-conversations');
-        clearTimeout(refreshTimeoutRef.current);
-      };
-    }
+    return () => {
+      unsubscribe(); // Nettoyer l'écouteur
+    };
   }, [user]);
 
   useEffect(() => {
@@ -206,10 +201,19 @@ export default function Sidebar({ activeConversationId }) {
         );
       });
 
+      onShouldRefreshConversations(() => {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = setTimeout(() => {
+          fetchConversations();
+        }, 300);
+      });
+
       return () => {
         socket.off('conversation-updated');
         socket.off('group-created');
         socket.off('conversation-read');
+        socket.off('should-refresh-conversations');
+        clearTimeout(refreshTimeoutRef.current);
       };
     }
   }, [user]);
@@ -354,7 +358,6 @@ export default function Sidebar({ activeConversationId }) {
     }
     const contact = getOtherParticipant(conv);
     
-    // Vérifie si la photo de profil existe et n'est pas une chaîne vide
     const hasValidProfilePicture = contact?.profilePicture && contact.profilePicture.trim() !== '';
     
     return hasValidProfilePicture 
@@ -364,11 +367,15 @@ export default function Sidebar({ activeConversationId }) {
 
   const getOtherParticipant = (conv) => {
     const userId = user?._id || user?.id;
-    return conv.participants?.find(p => p._id !== userId);
+    const participant = conv.participants?.find(p => (p._id || p.id) !== userId);
+    return participant;
   };
 
   const isUserOnline = (userId) => {
-    return onlineUsers.has(userId);
+    if (!userId) return false;
+    const online = onlineUsers.has(userId);
+    console.log(`👤 User ${userId} en ligne?`, online, '| Set contient:', Array.from(onlineUsers));
+    return online;
   };
 
   const getLastMessagePreview = (conv) => {
@@ -439,9 +446,23 @@ export default function Sidebar({ activeConversationId }) {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="relative shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in">
-                  {user?.name?.charAt(0).toUpperCase() || 'U'}
-                </div>
+                {user?.profilePicture && user.profilePicture.trim() !== '' ? (
+                  <Image
+                    src={user.profilePicture}
+                    alt={user?.name || 'User'}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 rounded-2xl object-cover shadow-lg ring-2 ring-white/50 animate-scale-in"
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=ffffff&color=3b82f6&bold=true`;
+                    }}
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                )}
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-md"></div>
               </div>
               <div className="flex-1 min-w-0">
@@ -582,7 +603,157 @@ export default function Sidebar({ activeConversationId }) {
               </div>
             )}
           </div>
-        ) : activeTab === 'invitations' ? (
+        ) : activeTab === 'chats' ? (
+          <div className="flex flex-col h-full">
+            <div className="flex-1">
+              {conversations.length === 0 ? (
+                <div className="p-12 text-center animate-fade-in">
+                  <div className="w-24 h-24 bg-linear-to-br from-blue-100 to-cyan-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                    <MessageCircle className="w-12 h-12 text-blue-500" />
+                  </div>
+                  <p className="font-bold text-slate-800 text-lg mb-2">Aucune conversation</p>
+                  <p className="text-sm text-slate-500 mb-6">Commencez à discuter avec vos contacts</p>
+                  <button
+                    onClick={() => handleTabChange('contacts')}
+                    className="px-8 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    Rechercher des contacts
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3 space-y-2">
+                  {conversations.map((conv) => {
+                    const isActive = conv._id === activeConversationId;
+                    const messageStatus = getMessageStatus(conv);
+                    const lastMessageTime = formatMessageTime(conv.updatedAt);
+                    const unreadCount = conv.unreadCount || 0;
+                    
+                    const displayName = getDisplayName(conv);
+                    const displayImage = getDisplayImage(conv);
+                    const contact = getOtherParticipant(conv);
+                    const contactId = contact?._id || contact?.id;
+                    const contactOnline = contactId && isUserOnline(contactId);
+
+                    return (
+                      <div
+                        key={conv._id}
+                        className="relative group animate-slide-in-left"
+                        onMouseLeave={() => setMenuOpen(null)}
+                      >
+                        <button
+                          onClick={() => router.push(`/chat/${conv._id}`)}
+                          className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${
+                            isActive 
+                              ? 'bg-linear-to-r from-blue-500 to-cyan-500 shadow-lg ring-2 ring-blue-300 transform scale-[1.02]' 
+                              : 'bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-md'
+                          }`}
+                        >
+                          <div className="relative shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={displayImage}
+                              alt={displayName}
+                              className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=3b82f6&color=fff&bold=true`;
+                              }}
+                            />
+                            {!conv.isGroup && contactOnline && (
+                              <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-md"></span>
+                            )}
+                            {conv.isGroup && (
+                              <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-white rounded-full flex items-center justify-center shadow-md">
+                                <Users className="w-3 h-3 text-white" />
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 text-left min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className={`font-bold truncate pr-2 ${
+                                isActive ? 'text-white' : unreadCount > 0 ? 'text-slate-800' : 'text-slate-700'
+                              }`}>
+                                {displayName}
+                              </h3>
+                              {lastMessageTime && (
+                                <span className={`text-xs shrink-0 font-semibold ${
+                                  isActive ? 'text-white/90' : unreadCount > 0 ? 'text-blue-600' : 'text-slate-400'
+                                }`}>
+                                  {lastMessageTime}
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5">
+                              {messageStatus && renderStatusIcon(messageStatus)}
+                              <p className={`text-sm truncate ${
+                                isActive ? 'text-white/90' : unreadCount > 0 
+                                  ? 'font-semibold text-slate-700' 
+                                  : 'text-slate-500'
+                              }`}>
+                                {getLastMessagePreview(conv)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {unreadCount > 0 && (
+                            <span className="shrink-0 bg-linear-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-3 py-1.5 rounded-full min-w-6 text-center shadow-md">
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpen(menuOpen === conv._id ? null : conv._id);
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl hover:bg-blue-100 opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <MoreVertical className="w-5 h-5 text-blue-500" />
+                        </button>
+
+                        {menuOpen === conv._id && (
+                          <div className="absolute right-2 top-full mt-2 bg-white rounded-2xl shadow-2xl border-2 border-blue-100 py-2 z-20 w-52 animate-scale-in">
+                            <button className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 flex items-center gap-3 text-slate-700 font-medium transition-colors">
+                              <Pin className="w-5 h-5 text-blue-500" />
+                              Épingler
+                            </button>
+                            <button className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 flex items-center gap-3 text-slate-700 font-medium transition-colors">
+                              <Archive className="w-5 h-5 text-blue-500" />
+                              Archiver
+                            </button>
+                            <hr className="my-2 border-slate-200" />
+                            <button 
+                              onClick={() => handleDeleteConversation(conv._id)}
+                              className="w-full px-4 py-3 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-3 font-medium transition-colors"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                              Supprimer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {activeTab === 'chats' && (
+              <div className="p-4 border-t-2 border-blue-100 bg-linear-to-t from-white to-blue-50/30">
+                <button
+                  onClick={() => router.push('/group/create')}
+                  className="w-full p-4 bg-linear-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 font-bold"
+                >
+                  <Plus className="w-6 h-6" />
+                  Créer un groupe
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Tab Invitations
           <div className="animate-fade-in">
             <div className="p-4 flex gap-2 bg-linear-to-b from-blue-50/50 to-transparent sticky top-0 z-10 backdrop-blur-sm">
               <button
@@ -728,153 +899,6 @@ export default function Sidebar({ activeConversationId }) {
                   ))}
                 </div>
               )
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col h-full">
-            <div className="flex-1">
-              {conversations.length === 0 ? (
-                <div className="p-12 text-center animate-fade-in">
-                  <div className="w-24 h-24 bg-linear-to-br from-blue-100 to-cyan-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-                    <MessageCircle className="w-12 h-12 text-blue-500" />
-                  </div>
-                  <p className="font-bold text-slate-800 text-lg mb-2">Aucune conversation</p>
-                  <p className="text-sm text-slate-500 mb-6">Commencez à discuter avec vos contacts</p>
-                  <button
-                    onClick={() => handleTabChange('contacts')}
-                    className="px-8 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
-                  >
-                    Rechercher des contacts
-                  </button>
-                </div>
-              ) : (
-                <div className="p-3 space-y-2">
-                  {conversations.map((conv) => {
-                    const isActive = conv._id === activeConversationId;
-                    const messageStatus = getMessageStatus(conv);
-                    const lastMessageTime = formatMessageTime(conv.updatedAt);
-                    const unreadCount = conv.unreadCount || 0;
-                    
-                    const displayName = getDisplayName(conv);
-                    const displayImage = getDisplayImage(conv);
-                    const contact = getOtherParticipant(conv);
-
-                    return (
-                      <div
-                        key={conv._id}
-                        className="relative group animate-slide-in-left"
-                        onMouseLeave={() => setMenuOpen(null)}
-                      >
-                        <button
-                          onClick={() => router.push(`/chat/${conv._id}`)}
-                          className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${
-                            isActive 
-                              ? 'bg-linear-to-r from-blue-500 to-cyan-500 shadow-lg ring-2 ring-blue-300 transform scale-[1.02]' 
-                              : 'bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-md'
-                          }`}
-                        >
-                          <div className="relative shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={displayImage}
-                              alt={displayName}
-                              className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
-                              onError={(e) => {
-                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=3b82f6&color=fff&bold=true`;
-                              }}
-                            />
-                            {!conv.isGroup && contact && isUserOnline(contact._id) && (
-                              <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-md"></span>
-                            )}
-                            {conv.isGroup && (
-                              <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-white rounded-full flex items-center justify-center shadow-md">
-                                <Users className="w-3 h-3 text-white" />
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="flex-1 text-left min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className={`font-bold truncate pr-2 ${
-                                isActive ? 'text-white' : unreadCount > 0 ? 'text-slate-800' : 'text-slate-700'
-                              }`}>
-                                {displayName}
-                              </h3>
-                              {lastMessageTime && (
-                                <span className={`text-xs shrink-0 font-semibold ${
-                                  isActive ? 'text-white/90' : unreadCount > 0 ? 'text-blue-600' : 'text-slate-400'
-                                }`}>
-                                  {lastMessageTime}
-                                </span>
-                              )}
-                            </div>
-                            
-                            <div className="flex items-center gap-1.5">
-                              {messageStatus && renderStatusIcon(messageStatus)}
-                              <p className={`text-sm truncate ${
-                                isActive ? 'text-white/90' : unreadCount > 0 
-                                  ? 'font-semibold text-slate-700' 
-                                  : 'text-slate-500'
-                              }`}>
-                                {getLastMessagePreview(conv)}
-                              </p>
-                            </div>
-                          </div>
-
-                          {unreadCount > 0 && (
-                            <span className="shrink-0 bg-linear-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-3 py-1.5 rounded-full min-w-6 text-center shadow-md">
-                              {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                          )}
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuOpen(menuOpen === conv._id ? null : conv._id);
-                          }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl hover:bg-blue-100 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          <MoreVertical className="w-5 h-5 text-blue-500" />
-                        </button>
-
-                        {menuOpen === conv._id && (
-                          <div className="absolute right-2 top-full mt-2 bg-white rounded-2xl shadow-2xl border-2 border-blue-100 py-2 z-20 w-52 animate-scale-in">
-                            <button className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 flex items-center gap-3 text-slate-700 font-medium transition-colors">
-                              <Pin className="w-5 h-5 text-blue-500" />
-                              Épingler
-                            </button>
-                            <button className="w-full px-4 py-3 text-left text-sm hover:bg-blue-50 flex items-center gap-3 text-slate-700 font-medium transition-colors">
-                              <Archive className="w-5 h-5 text-blue-500" />
-                              Archiver
-                            </button>
-                            <hr className="my-2 border-slate-200" />
-                            <button 
-                              onClick={() => handleDeleteConversation(conv._id)}
-                              className="w-full px-4 py-3 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-3 font-medium transition-colors"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                              Supprimer
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {activeTab === 'chats' && (
-              <div className="p-4 border-t-2 border-blue-100 bg-linear-to-t from-white to-blue-50/30">
-                <button
-                  onClick={() => router.push('/group/create')}
-                  className="w-full p-4 bg-linear-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 font-bold"
-                >
-                  <Plus className="w-6 h-6" />
-                  Créer un groupe
-                </button>
-              </div>
             )}
           </div>
         )}

@@ -4,12 +4,13 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http
 let socket = null;
 let currentUserId = null;
 let onlineUsersCache = [];
+let onlineUsersCallbacks = [];
 
 export const initSocket = (userId) => {
   if (typeof window === 'undefined') {
     return null;
   }
-
+    
   currentUserId = userId;
 
   if (socket?.connected) {
@@ -39,6 +40,16 @@ export const initSocket = (userId) => {
     console.log('✅ Connexion confirmée pour:', userId);
     console.log('👥 Utilisateurs en ligne:', onlineUsers);
     onlineUsersCache = onlineUsers;
+    // Notifier tous les callbacks
+    onlineUsersCallbacks.forEach(callback => callback(onlineUsers));
+  });
+
+  // 🆕 AJOUT CRITIQUE : Écouter les mises à jour des utilisateurs en ligne
+  socket.on('online-users-update', (userIds) => {
+    console.log('📡 Socket.js - Mise à jour utilisateurs en ligne:', userIds);
+    onlineUsersCache = userIds;
+    // Notifier tous les callbacks enregistrés
+    onlineUsersCallbacks.forEach(callback => callback(userIds));
   });
 
   socket.on('conversation-joined', ({ conversationId }) => {
@@ -63,6 +74,22 @@ export const initSocket = (userId) => {
 
   return socket;
 };
+
+// 🆕 FONCTION POUR ÉCOUTER LES MISES À JOUR DES UTILISATEURS EN LIGNE
+export const onOnlineUsersUpdate = (callback) => {
+  if (socket) {
+    // Ajouter le callback à la liste
+    onlineUsersCallbacks.push(callback);
+    
+    // Retourner une fonction pour se désabonner
+    return () => {
+      onlineUsersCallbacks = onlineUsersCallbacks.filter(cb => cb !== callback);
+    };
+  }
+};
+
+// 🆕 FONCTION POUR OBTENIR LES UTILISATEURS EN LIGNE ACTUELS
+export const getCurrentOnlineUsers = () => onlineUsersCache;
 
 const waitForConnection = (maxAttempts = 50) => {
   return new Promise((resolve, reject) => {
@@ -291,6 +318,7 @@ export const disconnectSocket = () => {
     socket = null;
     currentUserId = null;
     onlineUsersCache = [];
+    onlineUsersCallbacks = [];
   }
 };
 

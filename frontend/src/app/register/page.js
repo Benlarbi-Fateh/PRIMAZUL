@@ -6,7 +6,8 @@ import { AuthContext } from '@/context/AuthContext';
 import api from '@/lib/api';
 import Link from 'next/link';
 import VerifyCode from '@/components/Auth/VerifyCode';
-import { Mail, Lock, Eye, EyeOff, User, MessageCircle, Sparkles, Zap, Shield, ArrowLeft, LogIn, Users } from 'lucide-react';
+import UploadProfilePicture from '@/components/Auth/UploadProfilePicture';
+import { Mail, Lock, Eye, EyeOff, User, MessageCircle, Sparkles, Shield, ArrowLeft, LogIn, Users } from 'lucide-react';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -21,8 +22,10 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   
   const [showVerification, setShowVerification] = useState(false);
+  const [showUploadPicture, setShowUploadPicture] = useState(false);
   const [userId, setUserId] = useState(null);
   const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
   
   const { user, login: authLogin } = useContext(AuthContext);
   const router = useRouter();
@@ -68,10 +71,8 @@ export default function RegisterPage() {
       if (response.data.requiresVerification) {
         setUserId(response.data.userId);
         setUserEmail(response.data.email);
+        setUserName(formData.name.trim());
         setShowVerification(true);
-      } else if (response.data.token) {
-        authLogin(response.data.token, response.data.user);
-        router.push('/');
       }
     } catch (error) {
       console.error('Erreur inscription:', error);
@@ -84,15 +85,37 @@ export default function RegisterPage() {
     }
   };
 
+  // Après vérification du code → afficher l'upload de photo
   const handleVerifyCode = async (code) => {
     try {
       const response = await api.post('/auth/verify-registration', { userId, code });
-      if (response.data.token) {
-        authLogin(response.data.token, response.data.user);
-        router.push('/');
+      if (response.data.success) {
+        console.log('✅ Code vérifié, passage à l\'upload photo');
+        setShowVerification(false);
+        setShowUploadPicture(true);
       }
     } catch (error) {
       throw error;
+    }
+  };
+
+  // Après upload/skip de la photo → finaliser et se connecter
+  const handleProfilePictureComplete = async (userData) => {
+    try {
+      console.log('📸 Photo complétée, finalisation inscription...');
+      const response = await api.post('/auth/finalize-registration', { userId });
+      
+      if (response.data.token) {
+        console.log('✅ Inscription finalisée, connexion...');
+        authLogin(response.data.token, {
+          ...userData,
+          profilePicture: response.data.user.profilePicture
+        });
+        router.push('/');
+      }
+    } catch (error) {
+      console.error('❌ Erreur finalisation:', error);
+      setError('Erreur lors de la connexion');
     }
   };
 
@@ -102,13 +125,15 @@ export default function RegisterPage() {
 
   const handleBack = () => {
     setShowVerification(false);
+    setShowUploadPicture(false);
     setUserId(null);
     setUserEmail('');
+    setUserName('');
   };
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Sidebar - Version Desktop - MÊME DESIGN */}
+      {/* Sidebar - Version Desktop */}
       <div className="hidden lg:flex lg:w-2/5 bg-linear-to-br from-blue-600 to-blue-800 p-8 flex-col justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -169,7 +194,26 @@ export default function RegisterPage() {
 
           {/* Card - RESPONSIVE */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-lg border border-white/60 p-4 sm:p-6 lg:p-8">
-            {showVerification ? (
+            {showUploadPicture ? (
+              // Étape 3 : Upload de la photo de profil
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <button
+                    onClick={handleBack}
+                    className="p-2 hover:bg-blue-50 rounded-xl transition-all text-gray-600"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Personnalisation</h2>
+                </div>
+                <UploadProfilePicture
+                  userId={userId}
+                  userName={userName}
+                  onComplete={handleProfilePictureComplete}
+                />
+              </div>
+            ) : showVerification ? (
+              // Étape 2 : Vérification du code
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-center gap-3 mb-2">
                   <button
@@ -190,6 +234,7 @@ export default function RegisterPage() {
                 />
               </div>
             ) : (
+              // Étape 1 : Formulaire d'inscription
               <>
                 <div className="text-center mb-6 sm:mb-8">
                   <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Rejoignez-nous</h2>

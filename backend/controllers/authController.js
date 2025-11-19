@@ -52,7 +52,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// 🆕 VÉRIFIER LE CODE (INSCRIPTION)
+// 🆕 VÉRIFIER LE CODE (INSCRIPTION) - Ne plus connecter automatiquement
 exports.verifyRegistration = async (req, res) => {
   try {
     const { userId, code } = req.body;
@@ -77,32 +77,63 @@ exports.verifyRegistration = async (req, res) => {
       return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
     }
 
-    // Vérifier le compte
+    // Vérifier le compte SANS générer le token
     user.isVerified = true;
     user.verificationCode = undefined;
     user.verificationCodeExpiry = undefined;
     user.verificationCodeType = undefined;
+    await user.save();
+
+    console.log('✅ Compte vérifié:', user.email);
+
+    // Ne pas envoyer le token, juste confirmer la vérification
+    res.json({
+      success: true,
+      message: 'Compte vérifié ! Vous pouvez maintenant personnaliser votre profil.',
+      userId: user._id
+    });
+  } catch (error) {
+    console.error('❌ Erreur verification:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 FINALISER L'INSCRIPTION (après photo de profil)
+exports.finalizeRegistration = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    if (!user.isVerified) {
+      return res.status(400).json({ error: 'Compte non vérifié' });
+    }
+
+    // Mettre l'utilisateur en ligne
     user.isOnline = true;
     await user.save();
 
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Compte vérifié:', user.email);
+    console.log('✅ Inscription finalisée:', user.email);
 
     res.json({
       success: true,
-      message: 'Compte vérifié avec succès !',
+      message: 'Bienvenue sur PrimAzul !',
       token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        profilePicture: user.profilePicture 
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture
       }
     });
   } catch (error) {
-    console.error('❌ Erreur verification:', error);
+    console.error('❌ Erreur finalize registration:', error);
     res.status(500).json({ error: error.message });
   }
 };

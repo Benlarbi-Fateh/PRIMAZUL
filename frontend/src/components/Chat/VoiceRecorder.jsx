@@ -3,29 +3,52 @@
 import { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Send, X, Trash2, Play, Pause, Radio, Sparkles } from 'lucide-react';
 
-// Générer les barres waveform EN DEHORS du composant (une seule fois au chargement du module)
-const WAVEFORM_BARS = Array(20).fill(0).map(() => Math.random());
-
 export default function VoiceRecorder({ onSendVoice, onCancel }) {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [waveformBars, setWaveformBars] = useState(() => Array(20).fill(0).map(() => Math.random()));
   
   const mediaRecorderRef = useRef(null);
   const timerRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const audioRef = useRef(null);
+  const animationRef = useRef(null);
 
   useEffect(() => {
     return () => {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
       }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
   }, [audioUrl]);
+
+  // Animation de la waveform pendant l'enregistrement
+  useEffect(() => {
+    if (isRecording) {
+      const animateWaveform = () => {
+        setWaveformBars(Array(20).fill(0).map(() => Math.random()));
+        animationRef.current = requestAnimationFrame(animateWaveform);
+      };
+      animateWaveform();
+    } else {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    }
+    
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isRecording]);
 
   const startRecording = async () => {
     try {
@@ -131,6 +154,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
     }
     chunksRef.current = [];
     setIsPlaying(false);
+    setWaveformBars(() => Array(20).fill(0).map(() => Math.random()));
   };
 
   const formatDuration = (seconds) => {
@@ -325,6 +349,20 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
         }
         .animate-wave {
           animation: wave 0.8s ease-in-out infinite;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+        @keyframes scale-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-scale-in {
+          animation: scale-in 0.3s ease-out;
         }
       `}</style>
     </div>

@@ -1,14 +1,40 @@
 'use client'
 
-import { useContext } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
+import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
 
 export default function MobileHeader({ contact, conversation, onBack }) {
   const { user } = useContext(AuthContext);
   const router = useRouter();
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+
+  // 🔥 CORRECTION : Utiliser la nouvelle fonction pour écouter les utilisateurs en ligne
+  useEffect(() => {
+    if (!user) return;
+
+    // S'abonner aux mises à jour des utilisateurs en ligne
+    const unsubscribe = onOnlineUsersUpdate((userIds) => {
+      console.log('📡 MobileHeader - Mise à jour utilisateurs en ligne:', userIds);
+      setOnlineUsers(new Set(userIds));
+    });
+
+    // Demander les utilisateurs en ligne immédiatement
+    requestOnlineUsers();
+
+    return () => {
+      unsubscribe(); // Nettoyer l'écouteur
+    };
+  }, [user]);
+
+  // Fonction pour vérifier si un utilisateur est en ligne
+  const isUserOnline = (userId) => {
+    if (!userId) return false;
+    return onlineUsers.has(userId);
+  };
 
   if (!contact && !conversation) {
     return (
@@ -57,6 +83,9 @@ export default function MobileHeader({ contact, conversation, onBack }) {
     : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`);
 
   const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
+  
+  // Vérifier le statut en ligne en temps réel
+  const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
 
   return (
     <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
@@ -92,7 +121,7 @@ export default function MobileHeader({ contact, conversation, onBack }) {
                 <Users className="w-3 h-3 text-white" />
               </div>
             )}
-            {!isGroup && contact?.isOnline && (
+            {contactIsOnline && (
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg">
                 <div className="w-full h-full bg-emerald-400 rounded-full animate-ping opacity-75"></div>
               </div>
@@ -110,7 +139,7 @@ export default function MobileHeader({ contact, conversation, onBack }) {
                 </p>
               ) : (
                 <>
-                  {contact?.isOnline ? (
+                  {contactIsOnline ? (
                     <>
                       <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg shrink-0"></span>
                       <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
