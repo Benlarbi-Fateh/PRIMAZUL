@@ -14,11 +14,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const [showVerification, setShowVerification] = useState(false);
   const [userId, setUserId] = useState(null);
   const [userEmail, setUserEmail] = useState('');
-  
+
   const { user, login: authLogin } = useContext(AuthContext);
   const router = useRouter();
 
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
     try {
       const response = await api.post('/auth/login', { email, password });
-      
+
       if (response.data.requiresVerification) {
         setUserId(response.data.userId);
         setUserEmail(response.data.email);
@@ -217,8 +217,8 @@ export default function LoginPage() {
                   </div>
 
                   <div className="text-right">
-                    <Link 
-                      href="/forgot-password" 
+                    <Link
+                      href="/forgot-password"
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
                     >
                       Mot de passe oublié ?
@@ -247,8 +247,8 @@ export default function LoginPage() {
                 <div className="mt-8 text-center">
                   <p className="text-gray-600">
                     Pas de compte ?{' '}
-                    <Link 
-                      href="/register" 
+                    <Link
+                      href="/register"
                       className="bg-linear-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 inline-flex items-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105"
                     >
                       <UserPlus className="w-4 h-4" />

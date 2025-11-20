@@ -1,6 +1,6 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
-
+const Contact = require('../models/Contact');
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;

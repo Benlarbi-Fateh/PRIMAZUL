@@ -17,7 +17,7 @@ api.interceptors.request.use(
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+       config.headers.Authorization = `Bearer ${token}`;
       }
     }
     return config;
@@ -94,3 +94,28 @@ export const getUnreadCount = () =>
   api.get('/messages/unread/count');
 
 export default api;
+
+// ============================================
+// 🆕 API CONTACTS
+// ============================================
+
+// Récupérer tous les contacts
+export const getContacts = () => api.get('/contacts');
+
+// Rechercher dans ses contacts
+export const searchContacts = (query) => api.get(`/contacts/search?query=${encodeURIComponent(query)}`);
+
+// Récupérer un contact spécifique
+export const getContactById = (contactId) => api.get(`/contacts/${contactId}`);
+
+// Mettre à jour un contact
+export const updateContact = (contactId, data) => api.put(`/contacts/${contactId}`, data);
+
+// Supprimer un contact
+export const deleteContact = (contactId) => api.delete(`/contacts/${contactId}`);
+
+// Toggle favori
+export const toggleFavoriteContact = (contactId) => api.patch(`/contacts/${contactId}/favorite`);
+
+// Toggle bloquer
+export const toggleBlockContact = (contactId) => api.patch(`/contacts/${contactId}/block`);

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import Sidebar from '@/components/Layout/Sidebar';
+import Sidebar from '@/components/Layout/Sidebar.jsx';
 import MobileHeader from '@/components/Layout/MobileHeader';
 import { useSocket } from '@/hooks/useSocket';
 import { MessageCircle, Send, Folder, Sparkles, Users, Shield, Zap } from 'lucide-react';

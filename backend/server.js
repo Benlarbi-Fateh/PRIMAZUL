@@ -58,6 +58,7 @@ app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/audio', require('./routes/audioRoutes'));
 
+
 // 🆕 AJOUT DES ROUTES D'INVITATION - APRÈS LES AUTRES ROUTES
 app.use('/api/invitations', require('./routes/invitationRoutes'));
 
@@ -131,3 +132,4 @@ server.listen(PORT, '0.0.0.0', () => {
 
 // Export pour les tests
 module.exports = { app, server, io };
+ 
