@@ -6,34 +6,55 @@ import { AuthContext } from '@/context/AuthContext';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
+import Image from 'next/image';
 
 export default function MobileHeader({ contact, conversation, onBack }) {
   const { user } = useContext(AuthContext);
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
-  // 🔥 CORRECTION : Utiliser la nouvelle fonction pour écouter les utilisateurs en ligne
   useEffect(() => {
     if (!user) return;
-
-    // S'abonner aux mises à jour des utilisateurs en ligne
     const unsubscribe = onOnlineUsersUpdate((userIds) => {
-      console.log('📡 MobileHeader - Mise à jour utilisateurs en ligne:', userIds);
       setOnlineUsers(new Set(userIds));
     });
-
-    // Demander les utilisateurs en ligne immédiatement
     requestOnlineUsers();
-
-    return () => {
-      unsubscribe(); // Nettoyer l'écouteur
-    };
+    return () => unsubscribe();
   }, [user]);
 
-  // Fonction pour vérifier si un utilisateur est en ligne
   const isUserOnline = (userId) => {
     if (!userId) return false;
     return onlineUsers.has(userId);
+  };
+
+  // Fonction pour obtenir l'autre participant
+  const getOtherParticipant = (conv) => {
+    const userId = user?._id || user?.id;
+    return conv.participants?.find(p => (p._id || p.id) !== userId);
+  };
+
+  // Fonction pour gérer le clic sur la photo
+  const handleProfileClick = () => {
+    if (!contact && !conversation) {
+      // Cas sans contact = votre profil
+      router.push('/profile');
+    } else if (conversation?.isGroup) {
+      // Groupe : aller vers les détails du groupe
+      // router.push(`/group/${conversation._id}`);
+    } else {
+      // Conversation individuelle : aller vers le profil du contact
+      const contactUser = contact || getOtherParticipant(conversation);
+      if (contactUser?._id) {
+        router.push(`/profile/${contactUser._id}`);
+      }
+    }
+  };
+
+  // Fonction pour obtenir le titre de l'info-bulle
+  const getProfileTitle = () => {
+    if (!contact && !conversation) return "Voir mon profil";
+    if (conversation?.isGroup) return "Voir les détails du groupe";
+    return "Voir le profil";
   };
 
   if (!contact && !conversation) {
@@ -47,13 +68,22 @@ export default function MobileHeader({ contact, conversation, onBack }) {
 
         <div className="relative p-5">
           <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`}
-                alt={user?.name}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ring-4 ring-white/40 shadow-2xl object-cover"
-              />
+            {/* VOTRE photo de profil */}
+            <div 
+              className="relative shrink-0 cursor-pointer group"
+              onClick={handleProfileClick}
+              title={getProfileTitle()}
+            >
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ring-4 ring-white/40 shadow-2xl overflow-hidden group-hover:ring-white/60 transition">
+                <Image
+                  src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`}
+                  alt={user?.name || 'Utilisateur'}
+                  width={56}
+                  height={56}
+                  className="w-full h-full object-cover"
+                  unoptimized={true}
+                />
+              </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-white shadow-lg"></div>
             </div>
             <div className="text-white flex-1 min-w-0">
@@ -104,18 +134,27 @@ export default function MobileHeader({ contact, conversation, onBack }) {
             <ArrowLeft className="w-6 h-6" />
           </button>
 
-          <div className="relative shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={displayImage}
-              alt={displayName}
-              className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl ring-4 ring-white/40 shadow-2xl object-cover"
-              onError={(e) => {
-                e.target.src = isGroup
-                  ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`
-                  : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=3b82f6&bold=true&size=128`;
-              }}
-            />
+          {/* Photo du CONTACT ou GROUPE avec clic */}
+          <div 
+            className="relative shrink-0 cursor-pointer group"
+            onClick={handleProfileClick}
+            title={getProfileTitle()}
+          >
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl ring-4 ring-white/40 shadow-2xl overflow-hidden group-hover:ring-white/60 transition">
+              <Image
+                src={displayImage}
+                alt={displayName}
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+                unoptimized={true}
+                onError={(e) => {
+                  e.target.src = isGroup
+                    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`
+                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=3b82f6&bold=true&size=128`;
+                }}
+              />
+            </div>
             {isGroup && (
               <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
                 <Users className="w-3 h-3 text-white" />

@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 // Utilise une variable d'environnement pour l'URL de l'API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: `${API_URL}/api`,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -51,6 +51,23 @@ export const login = (data) => api.post('/auth/login', data);
 
 // 🔍 RECHERCHE D'UTILISATEURS
 export const searchUsers = (query) => api.get(`/auth/search?query=${query}`);
+
+// ============================================
+// 👤 PROFIL (🆕 AJOUTÉ)
+// ============================================
+export const getMyProfile = () => api.get('/profile/me');
+export const getUserProfile = (userId) => api.get(`/profile/${userId}`);
+export const updateProfile = (data) => api.put('/profile/update', data);
+export const uploadProfilePicture = (formData) => {
+  return api.put('/profile/picture', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
+};
+export const updatePrivacySettings = (data) => api.put('/profile/privacy', data);
+export const updatePreferences = (data) => api.put('/profile/preferences', data);
+export const changePassword = (data) => api.put('/profile/change-password', data);
 
 // ============================================
 // 💬 CONVERSATIONS

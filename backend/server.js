@@ -15,6 +15,11 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
+// ✅ AUGMENTATION DE LA LIMITE POUR LES IMAGES EN BASE64
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Middleware de logging
 app.use((req, res, next) => {
   console.log('=== NOUVELLE REQUÊTE ===');
   console.log(`📨 ${req.method} ${req.url}`);
@@ -22,8 +27,6 @@ app.use((req, res, next) => {
   console.log('====================');
   next();
 });
-
-app.use(express.json());
 
 // ✅ Socket.IO Configuration
 const io = new Server(server, {
@@ -37,12 +40,39 @@ const io = new Server(server, {
 
 app.set('io', io);
 
+// Connexion à la base de données
 connectDB();
 
-// Routes
+// ============================================
+// 🔗 CHARGEMENT DES ROUTES
+// ============================================
 console.log('🔍 Chargement des routes...');
 
-// 🆕 ROUTE DE SANTÉ - À AJOUTER
+// Routes existantes
+const authRoutes = require('./routes/authRoutes');
+const conversationRoutes = require('./routes/conversationRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const audioRoutes = require('./routes/audioRoutes');
+const groupRoutes = require('./routes/groupRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
+
+// 🆕 NOUVELLE ROUTE PROFILE
+const profileRoutes = require('./routes/profileRoutes');
+
+// Configuration des routes
+app.use('/api/auth', authRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/audio', audioRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/invitations', invitationRoutes);
+
+// 🆕 AJOUT DE LA ROUTE PROFILE
+app.use('/api/profile', profileRoutes);
+
+// 🆕 ROUTE DE SANTÉ
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -51,45 +81,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/upload', require('./routes/uploadRoutes'));
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/conversations', require('./routes/conversationRoutes'));
-app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
-app.use('/api/messages', require('./routes/messageRoutes'));
-app.use('/api/audio', require('./routes/audioRoutes'));
-
-// 🆕 AJOUT DES ROUTES D'INVITATION - APRÈS LES AUTRES ROUTES
-app.use('/api/invitations', require('./routes/invitationRoutes'));
-
-app.use((error, req, res, next) => {
-  console.log('🚨 ERREUR SERVEUR:', error);
-  res.status(500).json({ error: error.message });
-});
-
 // ============================================
-// 🔥 IMPORT DU SOCKET HANDLER
+// 🔥 CONFIGURATION SOCKET.IO
 // ============================================
 const initSocket = require('./socket/socketHandler');
 initSocket(io);
-
-// ============================================
-// 🎯 ÉVÉNEMENTS SOCKET SUPPLEMENTAIRES (si besoin)
-// ============================================
-
-// Heartbeat global pour nettoyer les connexions
-setInterval(() => {
-  const now = Date.now();
-  const TIMEOUT = 60000; // 60 secondes
-  
-  // Cette logique est maintenant dans socketHandler.js
-  // Mais on garde un heartbeat global au cas où
-  console.log('💓 Heartbeat serveur - ' + new Date().toISOString());
-}, 30000);
-
-// Gestion des erreurs globales Socket.io
-io.engine.on("connection_error", (err) => {
-  console.log('🚨 Erreur de connexion Socket.io:', err);
-});
 
 // Middleware pour logger les événements Socket.io
 io.use((socket, next) => {
@@ -101,6 +97,26 @@ io.use((socket, next) => {
 io.on("ready", () => {
   console.log('🚀 Socket.IO server ready');
 });
+
+// Gestion des erreurs globales Socket.io
+io.engine.on("connection_error", (err) => {
+  console.log('🚨 Erreur de connexion Socket.io:', err);
+});
+
+// ============================================
+// ⚙️ CONFIGURATION DU SERVEUR
+// ============================================
+
+// Middleware de gestion d'erreurs
+app.use((error, req, res, next) => {
+  console.log('🚨 ERREUR SERVEUR:', error);
+  res.status(500).json({ error: error.message });
+});
+
+// Heartbeat global
+setInterval(() => {
+  console.log('💓 Heartbeat serveur - ' + new Date().toISOString());
+}, 30000);
 
 // Gestion de la mémoire et nettoyage
 process.on('SIGINT', () => {
@@ -120,6 +136,7 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Rejet non géré:', reason);
 });
 
+// Démarrage du serveur
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
@@ -127,6 +144,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Health check disponible sur: http://localhost:${PORT}/api/health`);
   console.log(`🔌 Socket.IO disponible sur: http://localhost:${PORT}`);
   console.log(`📡 CORS autorisé pour: http://localhost:3000, http://192.168.1.7:3000`);
+  console.log(`📊 Routes chargées: auth, conversations, messages, upload, audio, groups, invitations, profile`);
 });
 
 // Export pour les tests
