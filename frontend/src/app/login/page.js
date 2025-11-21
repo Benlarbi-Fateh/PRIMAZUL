@@ -6,7 +6,7 @@ import { AuthContext } from '@/context/AuthContext';
 import api from '@/lib/api';
 import Link from 'next/link';
 import VerifyCode from '@/components/Auth/VerifyCode';
-import { Mail, Lock, Eye, EyeOff, MessageCircle, Sparkles, Zap, Shield, KeyRound, ArrowLeft, UserPlus, Smartphone } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, MessageCircle, Sparkles, Zap, Shield, KeyRound, ArrowLeft, UserPlus, Smartphone, Clock } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,11 +36,14 @@ export default function LoginPage() {
     try {
       const response = await api.post('/auth/login', { email, password });
       
+      // 🆕 GÉRER LES DEUX CAS : 2FA requis ou connexion directe
       if (response.data.requiresVerification) {
+        // 🔐 2FA requis (inactivité > 24h)
         setUserId(response.data.userId);
         setUserEmail(response.data.email);
         setShowVerification(true);
-      } else if (response.data.token) {
+      } else {
+        // ✅ Connexion directe (activité récente)
         authLogin(response.data.token, response.data.user);
         router.push('/');
       }
@@ -76,7 +79,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Sidebar - Version Desktop - MÊME DESIGN */}
+      {/* Sidebar - Version Desktop */}
       <div className="hidden lg:flex lg:w-2/5 bg-linear-to-br from-blue-500 to-blue-700 p-8 flex-col justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -98,18 +101,18 @@ export default function LoginPage() {
           </div>
 
           <div className="flex items-center gap-4 p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/20">
-            <Sparkles className="w-8 h-8 text-white" />
+            <Shield className="w-8 h-8 text-white" />
             <div>
-              <h3 className="text-white font-semibold">Design élégant</h3>
-              <p className="text-blue-100 text-sm">Interface moderne et intuitive</p>
+              <h3 className="text-white font-semibold">Sécurité renforcée</h3>
+              <p className="text-blue-100 text-sm">2FA après 24h d&apos;inactivité</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4 p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/20">
-            <Shield className="w-8 h-8 text-white" />
+            <Clock className="w-8 h-8 text-white" />
             <div>
-              <h3 className="text-white font-semibold">Sécurisé</h3>
-              <p className="text-blue-100 text-sm">Vos données protégées</p>
+              <h3 className="text-white font-semibold">Connexion rapide</h3>
+              <p className="text-blue-100 text-sm">Accès direct si actif récemment</p>
             </div>
           </div>
         </div>
@@ -146,7 +149,12 @@ export default function LoginPage() {
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Vérification</h2>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Vérification de sécurité</h2>
+                    <p className="text-gray-600 text-sm mt-1">
+                      🔐 Sécurité activée après 24h d&apos;inactivité
+                    </p>
+                  </div>
                 </div>
                 <VerifyCode
                   email={userEmail}
@@ -161,7 +169,12 @@ export default function LoginPage() {
               <>
                 <div className="text-center mb-6 sm:mb-8">
                   <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Content de vous revoir</h2>
-                  <p className="text-gray-600 text-sm sm:text-base">Connectez-vous à votre compte</p>
+                  <p className="text-gray-600 text-sm sm:text-base">
+                    Connectez-vous à votre compte
+                    <span className="block text-xs text-blue-600 mt-1">
+                      ⚡ Connexion directe si actif récemment
+                    </span>
+                  </p>
                 </div>
 
                 {error && (
@@ -256,6 +269,19 @@ export default function LoginPage() {
                     </Link>
                   </p>
                 </div>
+
+                {/* Information sur la sécurité */}
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl sm:rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Sécurité renforcée</p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Un code de vérification sera demandé après 24 heures d&apos;inactivité pour protéger votre compte.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -271,8 +297,8 @@ export default function LoginPage() {
               <span className="text-xs font-medium">Rapide</span>
             </div>
             <div className="flex flex-col items-center text-gray-600 p-2 sm:p-3 bg-white/50 rounded-xl sm:rounded-2xl backdrop-blur-sm">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 mb-1 text-blue-500" />
-              <span className="text-xs font-medium">Moderne</span>
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 mb-1 text-blue-500" />
+              <span className="text-xs font-medium">24h 2FA</span>
             </div>
           </div>
         </div>

@@ -48,12 +48,19 @@ api.interceptors.response.use(
 // ============================================
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
+export const verifyRegistration = (data) => api.post('/auth/verify-registration', data);
+export const verifyLogin = (data) => api.post('/auth/verify-login', data);
+export const resendCode = (data) => api.post('/auth/resend-code', data);
+export const finalizeRegistration = (data) => api.post('/auth/finalize-registration', data);
+
+// 🆕 METTRE À JOUR LAST LOGIN
+export const updateLastLogin = () => api.put('/auth/update-last-login');
 
 // 🔍 RECHERCHE D'UTILISATEURS
 export const searchUsers = (query) => api.get(`/auth/search?query=${query}`);
 
 // ============================================
-// 👤 PROFIL (🆕 AJOUTÉ)
+// 👤 PROFIL
 // ============================================
 export const getMyProfile = () => api.get('/profile/me');
 export const getUserProfile = (userId) => api.get(`/profile/${userId}`);
@@ -77,7 +84,7 @@ export const createConversation = (participantId) => api.post('/conversations/ge
 export const getConversation = (id) => api.get(`/conversations/${id}`);
 
 // ============================================
-// 👥 GROUPES (🆕 AJOUTÉ)
+// 👥 GROUPES
 // ============================================
 export const createGroup = (data) => api.post('/groups/create', data);
 export const getGroup = (id) => api.get(`/groups/${id}`);
@@ -85,7 +92,7 @@ export const addParticipantsToGroup = (data) => api.post('/groups/add-participan
 export const leaveGroup = (groupId) => api.delete(`/groups/${groupId}/leave`);
 
 // ============================================
-// 📨 INVITATIONS (🆕 AJOUTÉ)
+// 📨 INVITATIONS
 // ============================================
 export const sendInvitation = (data) => api.post('/invitations/send', data);
 export const getReceivedInvitations = () => api.get('/invitations/received');
@@ -109,5 +116,12 @@ export const markConversationAsRead = (conversationId) =>
 
 export const getUnreadCount = () => 
   api.get('/messages/unread/count');
+
+// ============================================
+// 🔑 RÉINITIALISATION MOT DE PASSE
+// ============================================
+export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
+export const verifyResetCode = (data) => api.post('/auth/verify-reset-code', data);
+export const resetPassword = (data) => api.post('/auth/reset-password', data);
 
 export default api;

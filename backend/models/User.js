@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     profilePicture: { type: String, default: "" },
     
-    // 🆕 NOUVEAU : Informations de profil étendues
+    // Informations de profil étendues
     username: { 
       type: String, 
       unique: true, 
@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
       default: "",
       trim: true
     },
-    location: {  // ✅ AJOUT DU CHAMP LOCATION
+    location: {
       type: String, 
       default: "",
       trim: true,
@@ -40,7 +40,13 @@ const userSchema = new mongoose.Schema(
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
     
-    // 🆕 NOUVEAU : Paramètres de confidentialité
+    // 🆕 AJOUT : Dernière connexion pour le 2FA temporisé
+    lastLogin: { 
+      type: Date, 
+      default: Date.now 
+    },
+    
+    // Paramètres de confidentialité
     privacySettings: {
       showOnlineStatus: { 
         type: String, 
@@ -64,14 +70,14 @@ const userSchema = new mongoose.Schema(
       }
     },
     
-    // 🆕 NOUVEAU : Statistiques utilisateur
+    // Statistiques utilisateur
     stats: {
       messagesCount: { type: Number, default: 0 },
       contactsCount: { type: Number, default: 0 },
       groupsCount: { type: Number, default: 0 }
     },
     
-    // 🆕 NOUVEAU : Préférences
+    // Préférences
     preferences: {
       theme: { 
         type: String, 

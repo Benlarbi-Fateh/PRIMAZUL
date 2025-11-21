@@ -5,7 +5,6 @@ import { AuthContext } from './AuthContext';
 import { updateProfile as updateProfileAPI } from '@/lib/api';
 
 export const AuthProvider = ({ children }) => {
-  // ✅ Initialiser directement avec une fonction (lazy initialization)
   const [user, setUser] = useState(() => {
     if (typeof window !== 'undefined') {
       const userData = localStorage.getItem('user');
@@ -30,6 +29,13 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
+      
+      // 🆕 METTRE À JOUR lastLogin DANS LOCALSTORAGE
+      const userWithLastLogin = {
+        ...userData,
+        lastLogin: new Date().toISOString()
+      };
+      localStorage.setItem('user', JSON.stringify(userWithLastLogin));
     }
   };
 
@@ -41,14 +47,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ✅ NOUVELLE FONCTION : Mettre à jour le profil en utilisant l'API axios
   const updateProfile = async (profileData) => {
     setLoading(true);
     try {
-      // Utiliser la fonction d'API qui utilise axios
       const response = await updateProfileAPI(profileData);
-
-      // La réponse d'axios est dans response.data
       const updatedUser = response.data.user;
       
       setUser(updatedUser);
