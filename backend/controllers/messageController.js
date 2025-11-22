@@ -231,3 +231,163 @@ exports.getUnreadCount = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+// ========================================
+// 🆕 SUPPRIMER UN MESSAGE
+// ========================================
+exports.deleteMessage = async (req, res) => {
+  console.log('🔍 ========== DELETE MESSAGE APPELÉ ==========');
+  console.log('📋 Params:', req.params);
+  console.log('👤 User ID:', req.user?._id);
+  
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    console.log('🗑️ Suppression du message:', messageId, 'par user:', userId);
+
+    // Vérifier que l'utilisateur est bien l'expéditeur
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      console.log('❌ Message non trouvé:', messageId);
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    console.log('📨 Message trouvé, sender:', message.sender.toString());
+
+    if (message.sender.toString() !== userId.toString()) {
+      console.log('❌ Non autorisé - sender:', message.sender.toString(), 'user:', userId.toString());
+      return res.status(403).json({ error: 'Non autorisé à supprimer ce message' });
+    }
+
+    const conversationId = message.conversationId.toString();
+
+    // Supprimer le message
+    await Message.findByIdAndDelete(messageId);
+    console.log('✅ Message supprimé de la BDD');
+
+    // 🔥 Émettre un événement Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to(conversationId).emit('message-deleted', {
+        messageId,
+        conversationId
+      });
+      console.log(`✅ Événement message-deleted émis pour conversation ${conversationId}`);
+    }
+
+    console.log('✅ Message supprimé avec succès');
+    res.json({ success: true, messageId });
+  } catch (error) {
+    console.error('❌ Erreur deleteMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🆕 MODIFIER UN MESSAGE
+// ========================================
+exports.editMessage = async (req, res) => {
+  console.log('🔍 ========== EDIT MESSAGE APPELÉ ==========');
+  console.log('📋 Params:', req.params);
+  console.log('📦 Body:', req.body);
+  console.log('👤 User ID:', req.user?._id);
+  
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id;
+
+    console.log('✏️ Modification du message:', messageId);
+
+    if (!content || content.trim() === '') {
+      console.log('❌ Contenu vide');
+      return res.status(400).json({ error: 'Le contenu ne peut pas être vide' });
+    }
+
+    // Vérifier que l'utilisateur est bien l'expéditeur
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      console.log('❌ Message non trouvé:', messageId);
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    console.log('📨 Message trouvé, sender:', message.sender.toString());
+
+    if (message.sender.toString() !== userId.toString()) {
+      console.log('❌ Non autorisé - sender:', message.sender.toString(), 'user:', userId.toString());
+      return res.status(403).json({ error: 'Non autorisé à modifier ce message' });
+    }
+
+    // Modifier le message
+    message.content = content.trim();
+    message.isEdited = true;
+    message.editedAt = new Date();
+    await message.save();
+    console.log('✅ Message modifié dans la BDD');
+
+    await message.populate('sender', 'name profilePicture');
+
+    // 🔥 Émettre un événement Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to(message.conversationId.toString()).emit('message-edited', {
+        messageId: message._id,
+        content: message.content,
+        isEdited: message.isEdited,
+        editedAt: message.editedAt,
+        conversationId: message.conversationId
+      });
+      console.log(`✅ Événement message-edited émis pour conversation ${message.conversationId}`);
+    }
+
+    console.log('✅ Message modifié avec succès');
+    res.json({ success: true, message });
+  } catch (error) {
+    console.error('❌ Erreur editMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🆕 TRADUIRE UN MESSAGE
+// ========================================
+exports.translateMessage = async (req, res) => {
+  const axios = require('axios');
+  
+  try {
+    const { messageId } = req.params;
+    const { targetLang } = req.body;
+
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    // 🌍 VRAIE TRADUCTION avec LibreTranslate
+    const response = await axios.post('https://libretranslate.de/translate', {
+      q: message.content,
+      source: 'auto',
+      target: targetLang,
+      format: 'text'
+    });
+
+    const translatedContent = response.data.translatedText;
+
+    res.json({ 
+      success: true, 
+      originalContent: message.content,
+      translatedContent,
+      targetLang,
+      messageId: message._id
+    });
+  } catch (error) {
+    console.error('❌ Erreur translateMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};

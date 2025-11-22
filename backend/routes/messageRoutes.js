@@ -6,7 +6,10 @@ const {
   sendMessage, 
   markAsDelivered, // 🆕
   markAsRead,      // 🆕
-  getUnreadCount   // 🆕
+  getUnreadCount ,  // 🆕
+  deleteMessage,    // 🆕 AJOUT
+  editMessage,      // 🆕 AJOUT
+  translateMessage  // 🆕 AJOUT
 } = require('../controllers/messageController');
 
 router.get('/:conversationId', authMiddleware, getMessages);
@@ -17,4 +20,7 @@ router.post('/mark-delivered', authMiddleware, markAsDelivered);
 router.post('/mark-read', authMiddleware, markAsRead);
 router.get('/unread/count', authMiddleware, getUnreadCount);
 
+router.delete('/:messageId', authMiddleware, deleteMessage);
+router.put('/:messageId', authMiddleware, editMessage);
+router.post('/:messageId/translate', authMiddleware, translateMessage);
 module.exports = router;

@@ -1,11 +1,20 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles } from 'lucide-react';
+import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles, Check } from 'lucide-react';
 import api from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
 
-export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) {
+export default function MessageInput({ 
+  onSendMessage, 
+  onTyping, 
+  onStopTyping,
+  // 🆕 Props pour le mode édition
+  editingMessageId,
+  editingContent,
+  onConfirmEdit,
+  onCancelEdit
+}) {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -17,7 +26,14 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Détection mobile
+  // 🆕 Synchroniser avec le contenu en édition
+  useEffect(() => {
+    if (editingMessageId && editingContent) {
+      setMessage(editingContent);
+      textareaRef.current?.focus();
+    }
+  }, [editingMessageId, editingContent]);
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -39,7 +55,10 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const handleChange = (e) => {
     setMessage(e.target.value);
     
-    if (onTyping) onTyping();
+    // 🆕 Ne pas émettre typing en mode édition
+    if (!editingMessageId && onTyping) {
+      onTyping();
+    }
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -55,8 +74,15 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     
     if (!message.trim() && !uploading) return;
 
-    onSendMessage(message.trim());
-    setMessage('');
+    // 🆕 Si en mode édition, confirmer la modification
+    if (editingMessageId) {
+      onConfirmEdit(message.trim());
+      setMessage('');
+    } else {
+      // Sinon, envoyer un nouveau message
+      onSendMessage(message.trim());
+      setMessage('');
+    }
     
     if (onStopTyping) onStopTyping();
     
@@ -69,6 +95,19 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+    }
+    
+    // 🆕 Échapper pour annuler l'édition
+    if (e.key === 'Escape' && editingMessageId) {
+      handleCancelEdit();
+    }
+  };
+
+  // 🆕 Annuler l'édition
+  const handleCancelEdit = () => {
+    setMessage('');
+    if (onCancelEdit) {
+      onCancelEdit();
     }
   };
 
@@ -157,7 +196,39 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
   return (
     <div className="bg-white/95 backdrop-blur-xl border-t-2 border-blue-100 shadow-2xl safe-area-padding-bottom">
-      {showEmojiPicker && (
+      {/* 🆕 BARRE D'INDICATION MODE ÉDITION */}
+      {editingMessageId && (
+        <div 
+          className="border-b-2 border-blue-200 px-3 sm:px-4 py-2 sm:py-3 animate-slide-in-left"
+          style={{
+            background: 'linear-gradient(to right, #dbeafe, #ecfeff)'
+          }}
+        >
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-600 to-cyan-500 rounded-full"></div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-blue-700 flex items-center gap-1 sm:gap-2">
+                  ✏️ <span>Modification en cours</span>
+                </p>
+                <p className="text-xs text-blue-600 hidden xs:block">
+                  <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-blue-700 font-mono text-xs">Enter</kbd> pour confirmer · 
+                  <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-blue-700 font-mono text-xs ml-1">Esc</kbd> pour annuler
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancelEdit}
+              className="p-1 sm:p-2 hover:bg-blue-200 rounded-full transition-all transform hover:scale-110 active:scale-95"
+              title="Annuler (Esc)"
+            >
+              <X size={18} className="text-blue-600" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showEmojiPicker && !editingMessageId && (
         <div 
           className="border-b-2 border-blue-100 p-3 sm:p-4 animate-slide-in-left"
           style={{
@@ -194,47 +265,53 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
       <form onSubmit={handleSubmit} className="p-2 sm:p-3 md:p-4">
         <div 
           className={`flex items-end gap-2 sm:gap-3 rounded-2xl sm:rounded-3xl p-3 sm:p-4 transition-all ${
-            isFocused ? 'ring-2 sm:ring-4 ring-blue-300 shadow-lg sm:shadow-xl transform scale-[1.01]' : 'shadow-md'
+            editingMessageId 
+              ? 'ring-2 sm:ring-4 ring-blue-400 shadow-xl transform scale-[1.02]'
+              : isFocused 
+                ? 'ring-2 sm:ring-4 ring-blue-300 shadow-lg sm:shadow-xl transform scale-[1.01]' 
+                : 'shadow-md'
           }`}
           style={{
-            background: 'linear-gradient(to right, #dbeafe, #ecfeff)'
+            background: editingMessageId 
+              ? 'linear-gradient(to right, #dbeafe, #bfdbfe)' 
+              : 'linear-gradient(to right, #dbeafe, #ecfeff)'
           }}
         >
           
-          {/* Boutons d'actions - cachés sur mobile très petit */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
-                showEmojiPicker 
-                  ? 'text-blue-600 bg-blue-200 shadow-md' 
-                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
-              }`}
-              title="Ajouter un emoji"
-              disabled={uploading}
-            >
-              <Smile className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-            </button>
+          {/* 🆕 MASQUER EMOJI ET FICHIERS EN MODE ÉDITION */}
+          {!editingMessageId && (
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
+                  showEmojiPicker 
+                    ? 'text-blue-600 bg-blue-200 shadow-md' 
+                    : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
+                }`}
+                disabled={uploading}
+              >
+                <Smile className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
-                uploading 
-                  ? 'text-blue-400 cursor-not-allowed bg-blue-100' 
-                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
-              }`}
-              title="Joindre un fichier"
-            >
-              {uploading ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 animate-spin" />
-              ) : (
-                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-              )}
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
+                  uploading 
+                    ? 'text-blue-400 cursor-not-allowed bg-blue-100' 
+                    : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 animate-spin" />
+                ) : (
+                  <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                )}
+              </button>
+            </div>
+          )}
           
           <input
             ref={fileInputRef}
@@ -245,7 +322,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
             disabled={uploading}
           />
 
-          {/* Zone de texte */}
           <div className="flex-1 relative min-w-0">
             <textarea
               ref={textareaRef}
@@ -254,8 +330,16 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={uploading ? "Upload en cours..." : "Écrivez votre message..."}
-              className="w-full bg-white/80 backdrop-blur-sm px-3 sm:px-4 py-2 sm:py-3 text-slate-800 placeholder-blue-400 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent disabled:opacity-50 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-blue-300 font-medium text-sm sm:text-base"
+              placeholder={
+                editingMessageId 
+                  ? "Modifier le message..." 
+                  : uploading 
+                    ? "Upload en cours..." 
+                    : "Écrivez votre message..."
+              }
+              className={`w-full bg-white/80 backdrop-blur-sm px-3 sm:px-4 py-2 sm:py-3 text-slate-800 placeholder-blue-400 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent disabled:opacity-50 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-blue-300 font-medium text-sm sm:text-base ${
+                editingMessageId ? 'font-semibold border-blue-400' : ''
+              }`}
               rows="1"
               style={{ 
                 maxHeight: isMobile ? '80px' : '120px',
@@ -271,7 +355,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
             )}
           </div>
 
-          {/* Bouton d'envoi ou vocal */}
           <div className="flex items-center gap-1 sm:gap-2">
             {message.trim() || uploading ? (
               <button
@@ -282,23 +365,26 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
                     ? 'bg-blue-400 cursor-not-allowed' 
                     : 'text-white'
                 }`}
-                title={uploading ? "Upload en cours..." : "Envoyer"}
+                title={uploading ? "Upload en cours..." : editingMessageId ? "Confirmer" : "Envoyer"}
                 style={!uploading ? {
-                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8, #06b6d4)'
+                  background: editingMessageId 
+                    ? 'linear-gradient(135deg, #10b981, #059669)' 
+                    : 'linear-gradient(135deg, #2563eb, #1d4ed8, #06b6d4)'
                 } : {}}
               >
                 {uploading ? (
                   <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                ) : editingMessageId ? (
+                  <Check className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                 ) : (
                   <Send className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                 )}
               </button>
-            ) : (
+            ) : !editingMessageId && (
               <button
                 type="button"
                 onClick={() => setShowVoiceRecorder(true)}
                 className="shrink-0 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl text-white transition-all transform hover:scale-110 active:scale-95 shadow-lg hover:shadow-xl"
-                title="Enregistrer un message vocal"
                 disabled={uploading}
                 style={{
                   background: 'linear-gradient(135deg, #f43f5e, #db2777)'
@@ -319,7 +405,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
           </div>
         )}
 
-        {/* Indicateur de caractères pour mobile */}
         {message.length > 0 && isMobile && (
           <div className="text-center mt-1">
             <span className="text-xs text-blue-500 font-semibold bg-blue-100 px-2 py-1 rounded-full">
@@ -332,6 +417,19 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
       <style jsx>{`
         .safe-area-padding-bottom {
           padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @keyframes slide-in-left {
+          from {
+            transform: translateY(-10px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in-left {
+          animation: slide-in-left 0.3s ease-out;
         }
       `}</style>
     </div>
