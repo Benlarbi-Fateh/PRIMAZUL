@@ -47,7 +47,8 @@ import {
   Send,
   UserCheck,
   UserX,
-  Sparkles
+  Sparkles,
+  UsersRound
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -140,22 +141,18 @@ export default function Sidebar({ activeConversationId }) {
     onInvitationCancelled(handleInvitationCancelled);
   }, [user]);
 
-  // 🔥 CORRECTION CRITIQUE : Utiliser la nouvelle fonction pour écouter les utilisateurs en ligne
   useEffect(() => {
     if (!user) return;
 
-    // S'abonner aux mises à jour des utilisateurs en ligne
     const unsubscribe = onOnlineUsersUpdate((userIds) => {
       console.log('📡 Sidebar - Mise à jour utilisateurs en ligne:', userIds);
-      console.log('📡 IDs détaillés:', JSON.stringify(userIds));
       setOnlineUsers(new Set(userIds));
     });
 
-    // Demander les utilisateurs en ligne immédiatement
     requestOnlineUsers();
 
     return () => {
-      unsubscribe(); // Nettoyer l'écouteur
+      unsubscribe();
     };
   }, [user]);
 
@@ -374,7 +371,6 @@ export default function Sidebar({ activeConversationId }) {
   const isUserOnline = (userId) => {
     if (!userId) return false;
     const online = onlineUsers.has(userId);
-    console.log(`👤 User ${userId} en ligne?`, online, '| Set contient:', Array.from(onlineUsers));
     return online;
   };
 
@@ -436,11 +432,10 @@ export default function Sidebar({ activeConversationId }) {
   const totalInvitations = receivedInvitations.length;
 
   return (
-    <div className="w-full lg:w-96 bg-white/95 backdrop-blur-xl border-r border-blue-100 flex flex-col h-screen shadow-xl">
-      {/* Header avec gradient moderne */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 opacity-90"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+    <div className="w-full lg:w-96 bg-white/95 backdrop-blur-xl border-r border-blue-100 flex flex-col h-screen shadow-xl relative">
+      {/* Header avec gradient bleu identique au ChatHeader */}
+      <div className="relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 shadow-lg">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-20"></div>
         
         <div className="relative p-5">
           <div className="flex items-center justify-between mb-6">
@@ -452,7 +447,7 @@ export default function Sidebar({ activeConversationId }) {
                 title="Voir mon profil"
               >
                 {user?.profilePicture && user.profilePicture.trim() !== '' ? (
-                  <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
+                  <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
                     <Image
                       src={user.profilePicture}
                       alt={user?.name || 'User'}
@@ -466,11 +461,11 @@ export default function Sidebar({ activeConversationId }) {
                     />
                   </div>
                 ) : (
-                  <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
+                  <div className="w-12 h-12 rounded-full bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                 )}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-md"></div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-blue-700 shadow-md"></div>
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-white drop-shadow-lg truncate">Messages</h1>
@@ -547,7 +542,7 @@ export default function Sidebar({ activeConversationId }) {
       )}
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-scrollbar]:hidden">
         {loading && activeTab !== 'invitations' ? (
           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
             <div className="relative">
@@ -583,15 +578,19 @@ export default function Sidebar({ activeConversationId }) {
                     className="w-full p-4 bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 rounded-2xl transition-all flex items-center gap-4 group border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-lg transform hover:scale-[1.02] animate-slide-in-left"
                   >
                     <div className="relative shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={contact.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=3b82f6&color=fff&bold=true`}
-                        alt={contact.name}
-                        className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100 group-hover:ring-blue-400 transition-all"
-                        onError={(e) => {
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=3b82f6&color=fff&bold=true`;
-                        }}
-                      />
+                      <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100 group-hover:ring-blue-400 transition-all">
+                        <Image
+                          src={contact.profilePicture?.trim() || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=3b82f6&color=fff&bold=true`}
+                          alt={contact.name}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+                          }}
+                          unoptimized
+                        />
+                      </div>
                       {isUserOnline(contact._id) && (
                         <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-md"></span>
                       )}
@@ -622,7 +621,7 @@ export default function Sidebar({ activeConversationId }) {
                   <p className="text-sm text-slate-500 mb-6">Commencez à discuter avec vos contacts</p>
                   <button
                     onClick={() => handleTabChange('contacts')}
-                    className="px-8 py-3 bg-linear-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="px-8 py-3 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Rechercher des contacts
                   </button>
@@ -649,22 +648,26 @@ export default function Sidebar({ activeConversationId }) {
                       >
                         <button
                           onClick={() => router.push(`/chat/${conv._id}`)}
-                          className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${
+                          className={`w-full p-2 rounded-2xl transition-all flex items-center gap-2 ${
                             isActive 
-                              ? 'bg-linear-to-r from-blue-500 to-cyan-500 shadow-lg ring-2 ring-blue-300 transform scale-[1.02]' 
+                              ? 'bg-linear-to-r from-blue-600 to-blue-700 shadow-lg ring-2 ring-blue-300 transform scale-[1.02]' 
                               : 'bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-md'
                           }`}
                         >
                           <div className="relative shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={displayImage}
-                              alt={displayName}
-                              className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
-                              onError={(e) => {
-                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=3b82f6&color=fff&bold=true`;
-                              }}
-                            />
+                            <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100">
+                              <Image
+                                src={displayImage}
+                                alt={displayName}
+                                width={56}
+                                height={56}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=3b82f6&color=fff&bold=true`;
+                                }}
+                                unoptimized
+                              />
+                            </div>
                             {!conv.isGroup && contactOnline && (
                               <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-md"></span>
                             )}
@@ -704,7 +707,7 @@ export default function Sidebar({ activeConversationId }) {
                           </div>
 
                           {unreadCount > 0 && (
-                            <span className="shrink-0 bg-linear-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-3 py-1.5 rounded-full min-w-6 text-center shadow-md">
+                            <span className="shrink-0 bg-linear-to-r from-blue-600 to-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-full min-w-6 text-center shadow-md">
                               {unreadCount > 99 ? '99+' : unreadCount}
                             </span>
                           )}
@@ -746,18 +749,6 @@ export default function Sidebar({ activeConversationId }) {
                 </div>
               )}
             </div>
-
-            {activeTab === 'chats' && (
-              <div className="p-4 border-t-2 border-blue-100 bg-linear-to-t from-white to-blue-50/30">
-                <button
-                  onClick={() => router.push('/group/create')}
-                  className="w-full p-4 bg-linear-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 font-bold"
-                >
-                  <Plus className="w-6 h-6" />
-                  Créer un groupe
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           // Tab Invitations
@@ -767,7 +758,7 @@ export default function Sidebar({ activeConversationId }) {
                 onClick={() => setInvitationTab('received')}
                 className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${
                   invitationTab === 'received'
-                    ? 'bg-linear-to-r from-blue-500 to-cyan-500 text-white shadow-lg transform scale-[1.02]'
+                    ? 'bg-linear-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-[1.02]'
                     : 'bg-white text-slate-600 hover:bg-slate-50 shadow-sm'
                 }`}
               >
@@ -777,7 +768,7 @@ export default function Sidebar({ activeConversationId }) {
                 onClick={() => setInvitationTab('sent')}
                 className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${
                   invitationTab === 'sent'
-                    ? 'bg-linear-to-r from-blue-500 to-cyan-500 text-white shadow-lg transform scale-[1.02]'
+                    ? 'bg-linear-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-[1.02]'
                     : 'bg-white text-slate-600 hover:bg-slate-50 shadow-sm'
                 }`}
               >
@@ -803,15 +794,19 @@ export default function Sidebar({ activeConversationId }) {
                     >
                       <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={invitation.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
-                            alt={invitation.sender?.name}
-                            className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
-                            onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
-                            }}
-                          />
+                          <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100">
+                            <Image
+                              src={invitation.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
+                              alt={invitation.sender?.name}
+                              width={56}
+                              height={56}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+                              }}
+                              unoptimized
+                            />
+                          </div>
                           {isUserOnline(invitation.sender?._id) && (
                             <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
                           )}
@@ -868,15 +863,19 @@ export default function Sidebar({ activeConversationId }) {
                     >
                       <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={invitation.receiver?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.receiver?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
-                            alt={invitation.receiver?.name}
-                            className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
-                            onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.receiver?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
-                            }}
-                          />
+                          <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100">
+                            <Image
+                              src={invitation.receiver?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.receiver?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
+                              alt={invitation.receiver?.name}
+                              width={56}
+                              height={56}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.receiver?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+                              }}
+                              unoptimized
+                            />
+                          </div>
                           {isUserOnline(invitation.receiver?._id) && (
                             <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
                           )}
@@ -910,6 +909,19 @@ export default function Sidebar({ activeConversationId }) {
           </div>
         )}
       </div>
+
+      {/* Bouton de création de groupe en bulle fixe */}
+      {activeTab === 'chats' && (
+        <div className="absolute bottom-4 right-4 z-30">
+          <button
+            onClick={() => router.push('/group/create')}
+            className="w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center group"
+            title="Créer un groupe"
+          >
+            <UsersRound className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
