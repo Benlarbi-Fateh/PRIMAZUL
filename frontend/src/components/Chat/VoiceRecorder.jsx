@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Send, X, Trash2, Play, Pause, Radio, Sparkles } from 'lucide-react';
+import { Mic, Square, Send, X, Trash2, Play, Pause } from 'lucide-react';
 
 export default function VoiceRecorder({ onSendVoice, onCancel }) {
   const [isRecording, setIsRecording] = useState(false);
@@ -9,77 +9,41 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [waveformBars, setWaveformBars] = useState(() => Array(20).fill(0).map(() => Math.random()));
   
   const mediaRecorderRef = useRef(null);
   const timerRef = useRef(null);
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const audioRef = useRef(null);
-  const animationRef = useRef(null);
 
   useEffect(() => {
     return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
-      }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
   }, [audioUrl]);
-
-  // Animation de la waveform pendant l'enregistrement
-  useEffect(() => {
-    if (isRecording) {
-      const animateWaveform = () => {
-        setWaveformBars(Array(20).fill(0).map(() => Math.random()));
-        animationRef.current = requestAnimationFrame(animateWaveform);
-      };
-      animateWaveform();
-    } else {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    }
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isRecording]);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        } 
+        audio: { echoCancellation: true, noiseSuppression: true }
       });
       
       streamRef.current = stream;
-      
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
         : 'audio/webm';
       
       mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
       
       mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
+        if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
+        setAudioUrl(URL.createObjectURL(blob));
         stream.getTracks().forEach(track => track.stop());
       };
       
@@ -87,18 +51,12 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
       setIsRecording(true);
       
       timerRef.current = setInterval(() => {
-        setDuration(prev => {
-          if (prev >= 300) {
-            stopRecording();
-            return 300;
-          }
-          return prev + 1;
-        });
+        setDuration(prev => prev >= 300 ? (stopRecording(), 300) : prev + 1);
       }, 1000);
       
     } catch (error) {
-      console.error('❌ Erreur micro:', error);
-      alert('Impossible d\'accéder au microphone. Vérifiez les permissions.');
+      console.error('❌ Micro error:', error);
+      alert('Microphone access denied.');
     }
   };
 
@@ -107,23 +65,14 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       clearInterval(timerRef.current);
-      
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
+      streamRef.current?.getTracks().forEach(track => track.stop());
     }
   };
 
   const togglePlayback = () => {
     if (!audioRef.current) return;
-    
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play();
-      setIsPlaying(true);
-    }
+    isPlaying ? audioRef.current.pause() : audioRef.current.play();
+    setIsPlaying(!isPlaying);
   };
 
   const sendVoice = () => {
@@ -134,27 +83,20 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
   };
 
   const cancelRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    }
+    if (isRecording) stopRecording();
     resetRecorder();
     onCancel();
   };
 
-  const deleteRecording = () => {
-    resetRecorder();
-  };
+  const deleteRecording = () => resetRecorder();
 
   const resetRecorder = () => {
     setDuration(0);
     setAudioBlob(null);
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl);
-      setAudioUrl(null);
-    }
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
     chunksRef.current = [];
     setIsPlaying(false);
-    setWaveformBars(() => Array(20).fill(0).map(() => Math.random()));
   };
 
   const formatDuration = (seconds) => {
@@ -164,207 +106,133 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
   };
 
   return (
-    <div className="bg-linear-to-r from-blue-50 via-white to-cyan-50 border-t-2 border-blue-200 p-4 shadow-2xl">
-      <div className="max-w-2xl mx-auto">
+    <div className="bg-slate-50 border-t border-slate-200 p-3">
+      <div className="max-w-md mx-auto">
         
-        {/* ENREGISTREMENT PAS COMMENCÉ */}
+        {/* ÉTAT INITIAL */}
         {!isRecording && !audioBlob && (
-          <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-blue-100 animate-fade-in">
-            <div className="text-center space-y-6">
-              {/* Icon avec animation */}
-              <div className="relative inline-block">
-                <div className="absolute inset-0 bg-linear-to-r from-rose-400 to-pink-400 rounded-full blur-xl opacity-50 animate-pulse"></div>
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={startRecording}
-                  className="relative w-20 h-20 bg-linear-to-br from-rose-500 to-pink-600 text-white rounded-full hover:from-rose-600 hover:to-pink-700 transition-all transform hover:scale-110 active:scale-95 shadow-2xl flex items-center justify-center group"
-                  title="Commencer l'enregistrement"
+                  className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all flex items-center justify-center shadow-md"
                 >
-                  <Mic size={32} className="group-hover:animate-pulse" />
+                  <Mic size={20} />
                 </button>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Appuyez pour enregistrer</p>
+                  <p className="text-xs text-slate-500">Max 5 minutes</p>
+                </div>
               </div>
-
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-blue-900 flex items-center justify-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-500" />
-                  Enregistrer un message vocal
-                </h3>
-                <p className="text-sm text-blue-600">Appuyez sur le micro pour commencer</p>
-                <p className="text-xs text-blue-400">Durée maximale : 5 minutes</p>
-              </div>
-
               <button
                 onClick={cancelRecording}
-                className="px-6 py-3 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-2xl font-semibold transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 mx-auto"
+                className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
               >
-                <X size={20} />
-                Annuler
+                <X size={18} />
               </button>
             </div>
           </div>
         )}
         
-        {/* EN COURS D'ENREGISTREMENT */}
+        {/* ENREGISTREMENT */}
         {isRecording && (
-          <div className="bg-linear-to-br from-rose-500 via-pink-500 to-rose-600 rounded-3xl p-6 shadow-2xl animate-scale-in">
-            <div className="flex items-center gap-6">
-              {/* Bouton Stop avec animation */}
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 shadow-lg">
+            <div className="flex items-center gap-4">
               <button
                 onClick={stopRecording}
-                className="shrink-0 w-16 h-16 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-2xl transition-all transform hover:scale-110 active:scale-95 shadow-xl flex items-center justify-center group"
-                title="Arrêter l'enregistrement"
+                className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all flex items-center justify-center"
               >
-                <Square size={28} fill="white" className="group-hover:animate-pulse" />
+                <Square size={16} fill="white" />
               </button>
               
-              <div className="flex-1 space-y-4">
-                {/* Indicateur REC */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                    <Radio className="w-5 h-5 text-white animate-pulse" />
-                    <span className="text-white font-bold tracking-wider">REC</span>
-                  </div>
-                  <div className="w-3 h-3 bg-white rounded-full animate-ping"></div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                  <span className="text-white/90 text-sm font-medium">Enregistrement</span>
                 </div>
-
-                {/* Waveform animée */}
-                <div className="flex items-center gap-1 h-12">
-                  {waveformBars.map((height, i) => (
+                
+                {/* Waveform minimaliste */}
+                <div className="flex items-center gap-1 h-6 mb-1">
+                  {Array.from({ length: 15 }, (_, i) => (
                     <div
                       key={i}
-                      className="flex-1 bg-white/80 rounded-full animate-wave"
+                      className="flex-1 bg-white/60 rounded-full animate-pulse"
                       style={{
-                        height: `${20 + height * 60}%`,
-                        animationDelay: `${i * 0.05}s`
+                        height: `${20 + Math.sin(i * 0.8) * 15}%`,
+                        animationDelay: `${i * 0.1}s`
                       }}
-                    ></div>
+                    />
                   ))}
                 </div>
-
-                {/* Timer */}
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl font-mono font-bold text-white drop-shadow-lg">
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-white font-mono font-medium text-sm">
                     {formatDuration(duration)}
                   </span>
                   {duration >= 290 && (
-                    <div className="flex items-center gap-2 bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full text-sm font-bold animate-pulse">
-                      <span>Limite bientôt atteinte</span>
-                    </div>
+                    <span className="text-xs text-yellow-200 bg-yellow-800/30 px-2 py-1 rounded">
+                      Bientôt fini
+                    </span>
                   )}
                 </div>
               </div>
-              
-              {/* Bouton Annuler */}
-              <button 
-                onClick={cancelRecording} 
-                className="shrink-0 p-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-2xl transition-all transform hover:scale-110 active:scale-95"
-                title="Annuler"
-              >
-                <X size={24} className="text-white" />
-              </button>
             </div>
           </div>
         )}
         
-        {/* LECTURE DE L'ENREGISTREMENT */}
+        {/* PRÉVISUALISATION */}
         {audioBlob && !isRecording && (
-          <div className="bg-white rounded-3xl p-6 shadow-xl border-2 border-blue-200 animate-scale-in">
-            <div className="space-y-6">
-              {/* Header */}
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-linear-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Mic size={24} className="text-white" />
-                  </div>
+                  <button
+                    onClick={togglePlayback}
+                    className="w-10 h-10 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all flex items-center justify-center"
+                  >
+                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                  </button>
                   <div>
-                    <h3 className="font-bold text-blue-900">Message vocal prêt</h3>
-                    <p className="text-sm text-blue-600">Durée: {formatDuration(duration)}</p>
+                    <p className="text-sm font-medium text-slate-800">Message vocal</p>
+                    <p className="text-xs text-slate-500">{formatDuration(duration)}</p>
                   </div>
                 </div>
                 
                 <button
                   onClick={deleteRecording}
-                  className="p-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-2xl transition-all transform hover:scale-110 active:scale-95"
-                  title="Supprimer"
+                  className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                 >
-                  <Trash2 size={20} />
+                  <Trash2 size={16} />
                 </button>
               </div>
 
-              {/* Player audio stylisé */}
-              <div className="bg-linear-to-r from-blue-50 to-cyan-50 rounded-2xl p-4">
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={togglePlayback}
-                    className="shrink-0 w-12 h-12 bg-linear-to-br from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl transition-all transform hover:scale-110 active:scale-95 shadow-lg flex items-center justify-center"
-                  >
-                    {isPlaying ? (
-                      <Pause size={20} fill="white" />
-                    ) : (
-                      <Play size={20} fill="white" />
-                    )}
-                  </button>
-                  
-                  <audio 
-                    ref={audioRef}
-                    src={audioUrl} 
-                    onEnded={() => setIsPlaying(false)}
-                    className="flex-1"
-                    controls
-                    style={{ 
-                      height: '40px',
-                      accentColor: '#3b82f6'
-                    }}
-                  />
-                </div>
-              </div>
+              <audio 
+                ref={audioRef}
+                src={audioUrl} 
+                onEnded={() => setIsPlaying(false)}
+                className="hidden"
+              />
 
-              {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <button
                   onClick={cancelRecording}
-                  className="flex-1 py-4 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
                 >
-                  <X size={20} />
                   Annuler
                 </button>
-                
                 <button
                   onClick={sendVoice}
-                  className="flex-1 py-4 bg-linear-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl hover:shadow-2xl flex items-center justify-center gap-2 group"
+                  className="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
                 >
-                  <Send size={20} className="group-hover:translate-x-1 transition-transform" />
+                  <Send size={14} />
                   Envoyer
-                  <Sparkles size={16} className="animate-pulse" />
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        @keyframes wave {
-          0%, 100% { transform: scaleY(0.3); }
-          50% { transform: scaleY(1); }
-        }
-        .animate-wave {
-          animation: wave 0.8s ease-in-out infinite;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-        @keyframes scale-in {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
