@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
-const userController = require('../controllers/userController');
+const userController = require('../Controllers/userController');
 const upload = require("../middleware/upload");
 
 // GET pour récupérer le profil

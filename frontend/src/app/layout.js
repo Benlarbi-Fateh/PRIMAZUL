@@ -1,30 +1,20 @@
-import { AuthProvider } from '@/context/AuthProvider';
-import './globals.css';
+
+import "./globals.css";
+import ClientLayout from "./ClientLayout";
 
 export const metadata = {
-  title: 'PrimaZul - Messagerie Moderne',
-  description: 'Application de messagerie instantanée moderne et sécurisée',
-  icons: {
-    icon: '/favicon.ico',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
-  themeColor: '#1e40af',
+  title: "PrimaZul - Messagerie Moderne",
+  description: "Application de messagerie instantanée moderne et sécurisée",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="fr" className="h-full">
-      <head>
-        <meta name="color-scheme" content="light" />
-      </head>
       <body className="h-full m-0 p-0 antialiased">
-        <AuthProvider>
+        {/* Le layout client est rendu APRES hydration → aucun mismatch */}
+        <ClientLayout>
           {children}
-        </AuthProvider>
+        </ClientLayout>
       </body>
     </html>
   );

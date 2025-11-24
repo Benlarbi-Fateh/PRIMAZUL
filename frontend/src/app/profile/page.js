@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import Image from "next/image";
 import { FaArrowLeft, FaUser, FaInfoCircle, FaCamera } from "react-icons/fa";
-
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -93,7 +92,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-blue-50 text-blue-900 flex flex-col items-center">
       {/* Header */}
       <div
-        className="fixed top-0 left-0 w-full flex items-center px-4 py-3 shadow z-10"
+        className="fixed top-0 left-16 w-[calc(100%-5rem)] flex items-center px-4 py-3 shadow z-10"
         style={{
           background:
             "linear-gradient(to right bottom, lab(44.0605 29.0279 -86.0352) 0%, lab(36.9089 35.0961 -85.6872) 50%, lab(55.1767 -26.7496 -30.5138) 100%)",

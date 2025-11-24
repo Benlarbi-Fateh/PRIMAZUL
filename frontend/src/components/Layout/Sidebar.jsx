@@ -446,36 +446,13 @@ export default function Sidebar({ activeConversationId }) {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="relative shrink-0">
-                <div
-                  className="cursor-pointer hover:opacity-90 transition"
-                  onClick={() => router.push('/profile')}
-                >
-                  {user?.profilePicture && user.profilePicture.trim() !== '' ? (
-                    <Image
-                      src={user.profilePicture}
-                      alt={user?.name || 'User'}
-                      width={48}
-                      height={48}
-                      className="w-12 h-12 rounded-2xl object-cover shadow-lg ring-2 ring-white/50 animate-scale-in"
-                      onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          user?.name || 'User'        
-                        )}&background=ffffff&color=3b82f6&bold=true`;
-                      }}
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in">
-                      {user?.name?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                  )}
-                </div>
-                {/* fin de changement  */}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-md"></div>
+                
+                {/* fin de changement 
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-md"></div> */}
+                
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-white drop-shadow-lg truncate">Messages</h1>
-                <p className="text-xs text-blue-100 font-medium truncate">{user?.name || 'Utilisateur'}</p>
               </div>
             </div>
             <button
