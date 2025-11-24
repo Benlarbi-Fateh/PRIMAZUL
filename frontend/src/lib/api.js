@@ -93,11 +93,13 @@ export const markConversationAsRead = (conversationId) =>
 export const getUnreadCount = () => 
   api.get('/messages/unread/count');
 
-export default api;
 
 // ============================================
 // 🆕 API CONTACTS
 // ============================================
+
+// Add contact
+export const addContact = (data) => api.post("/contacts", data);
 
 // Récupérer tous les contacts
 export const getContacts = () => api.get('/contacts');
@@ -119,3 +121,7 @@ export const toggleFavoriteContact = (contactId) => api.patch(`/contacts/${conta
 
 // Toggle bloquer
 export const toggleBlockContact = (contactId) => api.patch(`/contacts/${contactId}/block`);
+
+
+
+export default api;

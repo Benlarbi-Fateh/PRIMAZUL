@@ -57,6 +57,7 @@ app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/audio', require('./routes/audioRoutes'));
+app.use('/api/contacts', require('./routes/contactRoutes'));
 
 
 // 🆕 AJOUT DES ROUTES D'INVITATION - APRÈS LES AUTRES ROUTES
