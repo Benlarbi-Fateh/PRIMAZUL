@@ -12,7 +12,7 @@ exports.getMyContacts = async (req, res) => {
       isBlocked: false 
     })
       .populate('contact', 'name email profilePicture status isOnline')
-      .sort({ isFavorite: -1, addedAt: -1 }); // Favoris en premier
+      .sort({  addedAt: -1 }); // Favoris en premier
 
     res.json({
       success: true,

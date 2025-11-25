@@ -13,3 +13,22 @@ npm-debug.log.*
 # Fichiers sensibles (Secrets)
 .env
 .env.local
+# .gitignore
+
+# Dépendances Node (Back et Front)
+/backend/node_modules
+/frontend/node_modules
+
+# Fichiers de build Next.js et de logs
+/frontend/.next
+/frontend/out
+npm-debug.log
+npm-debug.log.*
+
+# Fichiers sensibles (Secrets)
+.env
+.env.local
+
+# 🆕 UPLOADS TEMPORAIRES
+/backend/uploads/temp/*
+!/backend/uploads/temp/.gitkeep

@@ -16,14 +16,20 @@ exports.createGroup = async (req, res) => {
       return res.status(400).json({ error: 'Au moins un participant est requis' });
     }
 
+    // 🆕 VÉRIFICATION : Minimum 3 personnes (créateur + 2 autres participants)
+    const allParticipants = [...new Set([userId.toString(), ...participantIds])];
+    
+    if (allParticipants.length < 3) {
+      return res.status(400).json({ 
+        error: 'Un groupe doit contenir au minimum 3 personnes (vous + 2 autres participants)' 
+      });
+    }
+
     // Vérifier que tous les participants existent
     const participants = await User.find({ _id: { $in: participantIds } });
     if (participants.length !== participantIds.length) {
       return res.status(400).json({ error: 'Certains utilisateurs n\'existent pas' });
     }
-
-    // Ajouter le créateur aux participants (s'il n'y est pas déjà)
-    const allParticipants = [...new Set([userId.toString(), ...participantIds])];
 
     // Créer le groupe
     const group = new Conversation({
@@ -39,7 +45,7 @@ exports.createGroup = async (req, res) => {
     await group.populate('participants', 'name email profilePicture isOnline lastSeen');
     await group.populate('groupAdmin', 'name email profilePicture');
 
-    console.log('✅ Groupe créé:', group._id, '- Nom:', groupName);
+    console.log('✅ Groupe créé:', group._id, '- Nom:', groupName, `(${allParticipants.length} participants)`);
 
     // Émettre un événement Socket pour notifier les participants
     const io = req.app.get('io');
@@ -146,20 +152,23 @@ exports.leaveGroup = async (req, res) => {
       return res.status(404).json({ error: 'Groupe non trouvé' });
     }
 
-    // Retirer l'utilisateur des participants
-    group.participants = group.participants.filter(
+    // 🆕 VÉRIFICATION : Impossible de quitter si ça laisse moins de 2 personnes
+    const remainingParticipants = group.participants.filter(
       p => p.toString() !== userId.toString()
     );
+
+    if (remainingParticipants.length < 2) {
+      return res.status(400).json({ 
+        error: 'Impossible de quitter le groupe : il doit rester au minimum 2 personnes' 
+      });
+    }
+
+    // Retirer l'utilisateur des participants
+    group.participants = remainingParticipants;
 
     // Si c'est l'admin qui part et qu'il reste des participants, transférer l'admin
     if (group.groupAdmin.toString() === userId.toString() && group.participants.length > 0) {
       group.groupAdmin = group.participants[0];
-    }
-
-    // Si plus de participants, supprimer le groupe
-    if (group.participants.length === 0) {
-      await Conversation.findByIdAndDelete(groupId);
-      return res.json({ success: true, message: 'Groupe supprimé' });
     }
 
     await group.save();

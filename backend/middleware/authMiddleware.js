@@ -15,6 +15,10 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: 'Utilisateur non trouvé' });
     }
 
+    // 🆕 METTRE À JOUR lastLogin À CHAQUE REQUÊTE (optionnel)
+    // user.lastLogin = new Date();
+    // await user.save();
+
     req.user = user;
     next();
   } catch (error) {
