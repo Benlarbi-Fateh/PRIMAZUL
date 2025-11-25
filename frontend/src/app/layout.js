@@ -1,6 +1,6 @@
 
 import "./globals.css";
-import ClientLayout from "./ClientLayout";
+import ClientLayout from "./profile/ClientLayout";
 
 export const metadata = {
   title: "PrimaZul - Messagerie Moderne",

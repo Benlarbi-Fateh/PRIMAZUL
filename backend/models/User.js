@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
@@ -8,20 +8,23 @@ const userSchema = new mongoose.Schema(
     profilePicture: { type: String, default: "" },
     status: { type: String, default: "Hey there! I'm using WhatsApp" },
     isOnline: { type: Boolean, default: false },
-    
-    // 🆕 CHAMPS POUR LA DOUBLE AUTHENTIFICATION
-    isVerified: { type: Boolean, default: false }, // Compte vérifié ou non
-    verificationCode: { type: String }, // Code de vérification
-    verificationCodeExpiry: { type: Date }, // Expiration du code (10 min)
-    verificationCodeType: { 
-      type: String, 
-      enum: ['registration', 'login', 'password-reset'], // 🆕 Ajouté password-reset
-      default: 'registration' 
-    }, // Type de vérification
-    
-    // 🆕 CHAMPS POUR LA RÉINITIALISATION DU MOT DE PASSE
-    resetPasswordCode: { type: String }, // Code de réinitialisation
-    resetPasswordExpires: { type: Date }, // Expiration du code (15 min)
+
+    isVerified: { type: Boolean, default: false },
+    verificationCode: { type: String },
+    verificationCodeExpiry: { type: Date },
+    verificationCodeType: {
+      type: String,
+      enum: ["registration", "login", "password-reset"],
+      default: "registration",
+    },
+
+    resetPasswordCode: { type: String },
+    resetPasswordExpires: { type: Date },
+
+    // 🔥 Champs ajoutés pour changement d’email
+    pendingEmail: { type: String },
+    emailVerificationCode: { type: String },
+    emailCodeExpires: { type: Date },
   },
   { timestamps: true }
 );

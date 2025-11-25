@@ -4,57 +4,75 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import Image from "next/image";
+import VerifyCode from "@/components/Auth/VerifyCode"; 
 import { FaArrowLeft, FaUser, FaInfoCircle, FaCamera } from "react-icons/fa";
+
 export default function ProfilePage() {
   const router = useRouter();
+
   const [user, setUser] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", status: "" });
+  const [originalEmail, setOriginalEmail] = useState("");
+
   const [preview, setPreview] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // Récupération du profil
+  // 🔹 Vérification email
+  const [showVerify, setShowVerify] = useState(false);
+  const [tempEmail, setTempEmail] = useState("");
+
+  // -----------------------------
+  // 🔹 Récupération profil
+  // -----------------------------
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const { data } = await api.get("/users/profile", {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
+
         setUser(data);
+        setOriginalEmail(data.email);
         setForm({
           name: data.name || "",
           email: data.email || "",
           status: data.status || "",
         });
-      } catch (error) {
-        console.error("Erreur API:", error);
+      } catch (err) {
+        console.error("Erreur API:", err);
       }
     };
+
     fetchProfile();
   }, []);
 
-  // Inputs
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  // Upload image
+  // -----------------------------
+  // 🔹 Upload image
+  // -----------------------------
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedFile(file);
-    setPreview(URL.createObjectURL(file));
+    const f = e.target.files[0];
+    if (!f) return;
+    setSelectedFile(f);
+    setPreview(URL.createObjectURL(f));
   };
 
-  // Sauvegarde du profil
+  // -----------------------------
+  // 🔹 Sauvegarde
+  // -----------------------------
   const handleUpdate = async () => {
     try {
-      let updatedData = { ...form };
+      const updatedData = { ...form };
 
+      // 🔹 Image
       if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
+        const fd = new FormData();
+        fd.append("file", selectedFile);
 
-        const { data: uploadData } = await api.post("/upload", formData, {
+        const { data: uploadData } = await api.post("/upload", fd, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
             "Content-Type": "multipart/form-data",
@@ -64,6 +82,23 @@ export default function ProfilePage() {
         updatedData.profilePicture = uploadData.fileUrl;
       }
 
+      // 🔹 SI l’email a changé → vérification obligatoire
+      if (form.email !== originalEmail) {
+        setTempEmail(form.email);
+
+        await api.post(
+          "/users/request-email-change",
+          { newEmail: form.email },
+          {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          }
+        );
+
+        setShowVerify(true); // Affiche VerifyCode
+        return; // on bloque la sauvegarde standard
+      }
+
+      // Sinon sauvegarde normale
       const { data } = await api.put("/users/profile", updatedData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -73,42 +108,88 @@ export default function ProfilePage() {
 
       setUser({ ...user, ...data });
       localStorage.setItem("user", JSON.stringify({ ...user, ...data }));
+      setOriginalEmail(data.email);
 
       setEditMode(false);
       setPreview(null);
       setSelectedFile(null);
-    } catch (error) {
-      console.error("Erreur sauvegarde:", error);
-      alert("Impossible de sauvegarder. Vérifie backend + Cloudinary.");
+    } catch (err) {
+      console.error("Erreur:", err);
+      alert("Erreur lors de la sauvegarde.");
     }
   };
 
-  if (!user)
-    return (
-      <p className="text-center text-blue-900 mt-10 text-lg">Chargement...</p>
+  // -----------------------------
+  // 🔹 Vérification du code reçu
+  // -----------------------------
+  const handleVerify = async (code) => {
+    await api.post(
+      "/users/confirm-email-change",
+      { code },
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      }
     );
 
+    setShowVerify(false);
+    setEditMode(false);
+
+    // Persistance profil
+    setUser({ ...user, email: tempEmail });
+    setOriginalEmail(tempEmail);
+
+    alert("Adresse email mise à jour !");
+  };
+
+  const handleResend = async () => {
+    await api.post(
+      "/users/request-email-change",
+      { newEmail: tempEmail },
+      {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      }
+    );
+  };
+
+  if (!user) return <p className="text-center mt-10">Chargement...</p>;
+
+  // -----------------------------------------
+  // 🔹 MODE VÉRIFICATION EMAIL
+  // -----------------------------------------
+  if (showVerify) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <VerifyCode
+          email={tempEmail}
+          type="email-change"
+          onVerify={handleVerify}
+          onResend={handleResend}
+          onBack={() => setShowVerify(false)}
+        />
+      </div>
+    );
+  }
+
+  // -----------------------------------------
+  // 🔹 MODE EDIT PROFILE
+  // -----------------------------------------
   return (
     <div className="min-h-screen bg-blue-50 text-blue-900 flex flex-col items-center">
-      {/* Header */}
       <div
         className="fixed top-0 left-16 w-[calc(100%-5rem)] flex items-center px-4 py-3 shadow z-10"
         style={{
           background:
-            "linear-gradient(to right bottom, lab(44.0605 29.0279 -86.0352) 0%, lab(36.9089 35.0961 -85.6872) 50%, lab(55.1767 -26.7496 -30.5138) 100%)",
+            "linear-gradient(to right bottom, #2563eb, #1d4ed8, #0ea5e9)",
         }}
       >
-        <button
-          onClick={() => router.back()}
-          className="text-white text-xl mr-2"
-        >
+        <button onClick={() => router.back()} className="text-white text-xl mr-2">
           <FaArrowLeft />
         </button>
         <h1 className="text-xl font-bold text-white">Profil</h1>
       </div>
 
       <div className="pt-24 max-w-md w-full flex flex-col items-center px-4">
-        {/* Photo profil */}
+        {/* PHOTO */}
         <div className="relative mb-6">
           <div className="w-36 h-36 rounded-full overflow-hidden bg-blue-100 shadow-md border border-blue-200">
             <Image
@@ -123,17 +204,12 @@ export default function ProfilePage() {
           {editMode && (
             <label className="absolute bottom-0 right-0 bg-blue-500 p-3 rounded-full cursor-pointer text-white shadow">
               <FaCamera />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
+              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
             </label>
           )}
         </div>
 
-        {/* Champs Profil */}
+        {/* CHAMPS */}
         <div className="w-full space-y-5 mb-6">
           <ProfileField
             icon={<FaUser />}
@@ -166,7 +242,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* Boutons */}
+        {/* BOUTONS */}
         <div className="w-full flex justify-center">
           {editMode ? (
             <div className="flex space-x-4">
@@ -206,18 +282,7 @@ export default function ProfilePage() {
   );
 }
 
-/* ---------------------------------------------------------
-   🔹 Composant champ de profil (NOUVEAU DESIGN AMÉLIORÉ)
----------------------------------------------------------- */
-function ProfileField({
-  icon,
-  label,
-  name,
-  value,
-  editMode,
-  handleChange,
-  fallback,
-}) {
+function ProfileField({ icon, label, name, value, editMode, handleChange, fallback }) {
   return (
     <div className="w-full bg-white shadow-md rounded-2xl p-5 border border-blue-100">
       <div className="flex items-center gap-3 mb-3">
