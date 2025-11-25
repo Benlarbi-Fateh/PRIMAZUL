@@ -15,6 +15,12 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
+//.................p9......
+// Body parser JSON
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+//.............................
+
 app.use((req, res, next) => {
   console.log('=== NOUVELLE REQUÊTE ===');
   console.log(`📨 ${req.method} ${req.url}`);

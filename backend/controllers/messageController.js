@@ -1,3 +1,4 @@
+
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 
@@ -64,6 +65,115 @@ exports.sendMessage = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+//..........p9..reagir et transfrert.......................
+/**
+ * Toggle reaction (ajoute si l'utilisateur n'a pas la même réaction, sinon supprime)
+ */
+//console.log('💡 toggleReaction body:', req.body);
+exports.toggleReaction = async (req, res) => {
+  try {
+    const messageId = req.params.id;
+    const { emoji } = req.body;
+    const userId = req.user._id;
+
+    if (!emoji) {
+      return res.status(400).json({ success: false, message: 'Emoji missing' });
+    }
+
+    // Récupère le message pour savoir s'il y avait une réaction existante
+    const message = await Message.findById(messageId).lean();
+    if (!message) return res.status(404).json({ success: false, message: 'Message not found' });
+
+    // Vérifier la réaction existante du user (s'il y en a)
+    const existing = (message.reactions || []).find(r => r.user.toString() === userId.toString());
+
+    // 1) Toujours retirer toute réaction de cet utilisateur (safe)
+    await Message.updateOne(
+      { _id: messageId },
+      { $pull: { reactions: { user: userId } } }
+    );
+
+    // 2) Si l'utilisateur avait la même réaction, on a déjà supprimé => toggle off, pas de push
+    //    Si l'utilisateur avait une réaction différente ou pas de réaction, on ajoute la nouvelle
+    if (!existing || existing.emoji !== emoji) {
+      // Ajouter la nouvelle réaction
+      await Message.updateOne(
+        { _id: messageId },
+        { $push: { reactions: { user: userId, emoji } } }
+      );
+    }
+
+    // Récupérer le message mis à jour, populater user sur reactions
+    const populated = await Message.findById(messageId)
+      .populate('reactions.user', 'name profilePicture')
+      .populate('sender', 'name profilePicture');
+
+    // Émettre socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(populated.conversationId.toString()).emit('message-reacted', { message: populated });
+    }
+
+    return res.json({ success: true, message: populated });
+  } catch (error) {
+    console.error('toggleReaction error', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+/**
+ * Forward message: créer un nouveau message dans la conversation cible
+ */
+exports.forwardMessage = async (req, res) => {
+  try {
+
+    const { toConversationId, originalMessageId } = req.body;
+    const senderId = req.user._id;
+
+    const original = await Message.findById(originalMessageId).populate('sender', 'name profilePicture');
+    if (!original) return res.status(404).json({ success: false, message: 'Original message not found' });
+
+    const forwardedData = {
+      originalMessageId: original._id,
+      originalSender: original.sender._id,
+      text: original.content,
+      attachments: original.fileUrl ? [{ url: original.fileUrl, name: original.fileName }] : []
+    };
+
+    const newMsg = new Message({
+      conversationId: toConversationId,
+      sender: senderId,
+      content: original.content || '',
+      type: original.type,
+      fileUrl: original.fileUrl || '',
+      fileName: original.fileName || '',
+      fileSize: original.fileSize || 0,
+      forwarded: forwardedData,
+      status: 'sent'
+    });
+
+    await newMsg.save();
+    await newMsg.populate('sender', 'name profilePicture');
+
+    await Conversation.findByIdAndUpdate(
+      toConversationId,
+      { lastMessage: newMsg._id, updatedAt: Date.now() },
+      { new: true }
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(toConversationId.toString()).emit('message-forwarded', { message: newMsg });
+    }
+
+    return res.status(201).json({ success: true, message: newMsg });
+  } catch (error) {
+    console.error('forwardMessage error', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 
 exports.markAsDelivered = async (req, res) => {
   try {

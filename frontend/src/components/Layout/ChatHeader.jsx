@@ -7,7 +7,7 @@ import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
 
-export default function ChatHeader({ contact, conversation, onBack }) {
+export default function ChatHeader({ contact, conversation, onBack, onOpenSidebar }) {  //p9 ernighd onOpenSidebar
   const { user } = useContext(AuthContext);
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
@@ -176,12 +176,15 @@ export default function ChatHeader({ contact, conversation, onBack }) {
             </>
           )}
 
-          <button
+       <button
+            onClick={() => onOpenSidebar?.()}  //p9  
             className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
             title="Plus d'options"
           >
             <MoreVertical className="w-5 h-5" />
-          </button>
+          </button> 
+
+
         </div>
       </div>
 

@@ -88,6 +88,26 @@ export const onOnlineUsersUpdate = (callback) => {
   }
 };
 
+//.......p9..................... 
+export const onMessageReacted = (callback) => {
+  if (socket) {
+    socket.off('message-reacted');
+    socket.on('message-reacted', (data) => {
+      callback(data.message); // backend envoie { message: populatedMessage }
+    });
+  }
+};
+
+export const onMessageForwarded = (callback) => {
+  if (socket) {
+    socket.off('message-forwarded');
+    socket.on('message-forwarded', (data) => {
+      callback(data.message);
+    });
+  }
+};
+//...................................
+
 // 🆕 FONCTION POUR OBTENIR LES UTILISATEURS EN LIGNE ACTUELS
 export const getCurrentOnlineUsers = () => onlineUsersCache;
 

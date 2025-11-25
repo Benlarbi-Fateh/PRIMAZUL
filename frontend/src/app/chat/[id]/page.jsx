@@ -4,6 +4,9 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
 import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
+import { toggleReaction, forwardMessage, getConversations } from '@/lib/api'; //p9
+import { onMessageReacted, onMessageForwarded } from '@/services/socket';  //p9
+
 import api from '@/lib/api';
 import { 
   getSocket, 
@@ -21,11 +24,14 @@ import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar';
 import MobileHeader from '@/components/Layout/MobileHeader';
+//p9 recherche 
 import ChatHeader from '@/components/Layout/ChatHeader';
+import SidebarGauche from '@/components/Chat/SidebarGauche';
+//..........................
 import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
-import { Plane, Users, Sparkles } from 'lucide-react';
+import { Plane, Users, Sparkles, ChevronDown } from 'lucide-react'; // chevrondown li yhbt f disccussion p9
 
 export default function ChatPage() {
   const params = useParams();
@@ -35,9 +41,34 @@ export default function ChatPage() {
   
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
+  //p9............rechercher dans msj 3la hadi zdtha
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [highlightedId, setHighlightedId] = useState(null);
+  // p9 la fleche 2 ligne aki
+  const messagesContainerRef = useRef(null);   // réf du container scrollable
+  const [showScrollDown, setShowScrollDown] = useState(false); // contrôle la flèche
+
+
+  const handleJumpToMessage = (msgId) => {
+  const el = document.getElementById(`message-${msgId}`);
+  if (!el) {
+    console.warn('Element message not found (maybe not rendered yet):', msgId);
+    return;
+  }
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setHighlightedId(msgId);
+  setTimeout(() => setHighlightedId(null), 1600);
+};
+
+  //.........................
+
   const [loading, setLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState([]);
-  
+  //......p9..................
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardingMessage, setForwardingMessage] = useState(null);
+  const [allConversations, setAllConversations] = useState([]);
+  //..............................
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
@@ -164,11 +195,92 @@ export default function ChatPage() {
       });
     }
   }, [conversationId, user]);
+//................................
+//......  p9......................
+// 👈 écouter l'événement custom pour ouvrir la modal
+useEffect(() => {
+  const handler = (e) => {
+    setForwardingMessage(e.detail.message);
+    setShowForwardModal(true);
+    loadAllConversations();
+  };
+  window.addEventListener('open-forward-modal', handler);
+  return () => window.removeEventListener('open-forward-modal', handler);
+}, []);
+
+// 👈 écouter socket pour réactions et forward
+useEffect(() => {
+  const socket = getSocket();
+  if (!socket) return;
+
+  onMessageReacted((updatedMessage) => {
+    setMessages(prev => prev.map(m => m._id === updatedMessage._id ? updatedMessage : m));
+  });
+
+  onMessageForwarded((newMessage) => {
+    if (newMessage.conversationId === conversationId) {
+      setMessages(prev => [...prev, newMessage]);
+    }
+  });
+
+}, [conversationId]);
+//........................................
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
+ 
+
+  // p9 Ajouter l'effet d'écoute du scroll ui scroll vers le bas sur
+ 
+    useEffect(() => {
+  const container = messagesContainerRef.current;
+  if (!container) return;
+
+  // seuil (px) : quand on est à moins de `threshold` du bas on considère "en bas"
+  const threshold = 180;
+
+  const handleScroll = () => {
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    // show arrow if user is far from bottom
+    setShowScrollDown(distanceFromBottom > threshold);
+  };
+
+  // initial check (si messages déjà chargés)
+  handleScroll();
+
+  container.addEventListener('scroll', handleScroll, { passive: true });
+  return () => container.removeEventListener('scroll', handleScroll);
+}, [messages]); // ré-évaluer quand messages changent
+
+
+    // ---- Fonctions pour forward ----
+    //................p9......................
+    const loadAllConversations = async () => {
+    try {
+      const resp = await getConversations();
+      setAllConversations(resp.data.conversations || resp.data || []);
+    } catch (err) {
+      console.error('Erreur loadConversations', err);
+      setAllConversations([]);
+    }
+  };
+
+  const handleForwardToConversation = async (targetConvId) => {
+    if (!forwardingMessage) return;
+    try {
+      await forwardMessage(targetConvId, forwardingMessage._id);
+      setShowForwardModal(false);
+      setForwardingMessage(null);
+      alert('Message transféré');
+    } catch (err) {
+      console.error('Erreur forward', err);
+      alert('Erreur lors du transfert');
+    }
+  };
+  //.........................................
   const handleSendMessage = async (content) => {
     try {
       let messageData;
@@ -236,6 +348,21 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
+//p9 la fonction scrollToBottom  
+const scrollToBottom = (smooth = true) => {
+  if (messagesEndRef.current) {
+    messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+  } else {
+    // fallback : scroll du container si besoin
+    const container = messagesContainerRef.current;
+    if (container) container.scrollTop = container.scrollHeight;
+  }
+  setShowScrollDown(false);
+};
+//..........................
+
+
+
   const getOtherParticipant = () => {
     if (!conversation || !user) return null;
     const userId = user._id || user.id;
@@ -253,6 +380,15 @@ export default function ChatPage() {
 
   const contact = getOtherParticipant();
 
+// .......p9............
+const handleUpdateMessage = (updatedMessage) => {
+  setMessages(prev =>
+    prev.map(msg =>
+      msg._id === updatedMessage._id ? updatedMessage : msg
+    )
+  );
+};
+//.................................
   if (loading) {
     return (
       <ProtectedRoute>
@@ -323,7 +459,7 @@ export default function ChatPage() {
         }}
       >
         <div className="hidden lg:block">
-          <Sidebar activeConversationId={conversationId} />
+          <Sidebar/>
         </div>
 
         <div className="flex-1 flex flex-col">
@@ -342,10 +478,12 @@ export default function ChatPage() {
               contact={contact}
               conversation={conversation}
               onBack={() => router.push('/')} 
+              onOpenSidebar={() => setSidebarOpen(true)} //p9 recherche msj
             />
           </div>
 
           <div 
+            ref={messagesContainerRef}   //p9 Lier le ref au container des messages scroldown
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
             style={{
               background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))'
@@ -385,7 +523,9 @@ export default function ChatPage() {
                       message={message}
                       isMine={message.sender?._id === userId}
                       isGroup={conversation?.isGroup || false}
-                    />
+                      onUpdateMessage={handleUpdateMessage}
+                      highlightedId={highlightedId}  // <-- p9 recherche msj
+                      />
                   );
                 })}
                 
@@ -397,6 +537,86 @@ export default function ChatPage() {
               </>
             )}
           </div>
+           {/*...............p9...............*/}
+
+           {showForwardModal && (
+  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl w-full max-w-2xl p-4 shadow-lg">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold">Transférer le message</h3>
+        <button 
+          onClick={() => { setShowForwardModal(false); setForwardingMessage(null); }} 
+          className="text-sm"
+        >
+          Annuler
+        </button>
+      </div>
+
+      <div className="max-h-96 overflow-y-auto">
+        {allConversations.length === 0 ? (
+          <p className="text-sm text-slate-500">Chargement...</p>
+        ) : (
+          allConversations.map(conv => {
+            const otherName = conv.isGroup 
+              ? (conv.groupName || 'Groupe') 
+              : (conv.participants?.find(p => p._id !== (user._id || user.id))?.name || 'Contact');
+            return (
+              <div key={conv._id} className="flex items-center justify-between p-2 rounded hover:bg-slate-50">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleForwardToConversation(conv._id)}>
+                  <div className="w-12 h-12 rounded-md bg-blue-100 flex items-center justify-center">
+                    <span className="font-bold">{(otherName || '').slice(0,2).toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <div className="font-medium">{otherName}</div>
+                    <div className="text-xs text-slate-500">{conv.lastMessage?.content ? conv.lastMessage.content.slice(0,30) : ''}</div>
+                  </div>
+                </div>
+                <div>
+                  <button onClick={() => handleForwardToConversation(conv._id)} className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Transférer</button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  </div>
+)}
+ {/*...............................*/}
+             {/*//p9..........*/}
+        <SidebarGauche
+            open={sidebarOpen}                  
+            onClose={() => setSidebarOpen(false)} 
+            contact={contact}
+            conversation={conversation}
+            messages={messages}
+            onJumpToMessage={handleJumpToMessage}
+          />
+ {/*//p9..........*/}
+  
+{/* Bouton "aller en bas" */}
+{showScrollDown && (
+  <button
+    onClick={() => scrollToBottom(true)}
+    aria-label="Aller en bas"
+    className="
+      fixed bottom-24 right-6 z-50
+      w-12 h-12
+      rounded-full
+      flex items-center justify-center
+      bg-white/70 border border-gray-200 
+      shadow-xl
+      backdrop-blur-md
+      transition-all duration-300
+      hover:scale-110 hover:bg-white
+      hover:shadow-2xl
+    "
+  >
+    <ChevronDown className="w-8 h-8 text-slate-700 animate-bounce" />
+  </button>
+)}
+
+
 
           <MessageInput
             onSendMessage={handleSendMessage}

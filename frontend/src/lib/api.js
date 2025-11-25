@@ -1,5 +1,4 @@
 import axios from 'axios';
-
 // Utilise une variable d'environnement pour l'URL de l'API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
@@ -92,5 +91,16 @@ export const markConversationAsRead = (conversationId) =>
 
 export const getUnreadCount = () => 
   api.get('/messages/unread/count');
+
+// ============================================
+// 📨        reagir/transfer  p9
+// ============================================
+export const toggleReaction = (messageId, emoji) => {
+  return api.post(`/messages/${messageId}/reaction`, { emoji });
+};
+
+export const forwardMessage = (toConversationId, originalMessageId) => {
+  return api.post(`/messages/forward`, { toConversationId, originalMessageId });
+};
 
 export default api;

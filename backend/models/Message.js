@@ -18,7 +18,19 @@ const messageSchema = new mongoose.Schema({
   voiceDuration: { type: Number, default: 0 }, // Durée en secondes
   cloudinaryId: { type: String, default: '' }, // Pour pouvoir supprimer le fichier si besoin
   
-  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' }
+  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
+//....p9........
+reactions: [
+    {
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      emoji: String
+    }
+  ],
+  
+  forwarded: Object
+  //...........
+
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', messageSchema);
