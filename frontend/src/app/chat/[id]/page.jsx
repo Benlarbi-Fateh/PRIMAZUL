@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { isSameDay } from 'date-fns';
 import { AuthContext } from '@/context/AuthContext';
 import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
 import api from '@/lib/api';
@@ -21,10 +22,11 @@ import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar';
 import MobileHeader from '@/components/Layout/MobileHeader';
-import MessageBubble from '@/components/Chat/MessageBubble';
+import ChatHeader from '@/components/Layout/ChatHeader';
+import MessageBubble, { DateSeparator } from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
-import { Plane, Users, Sparkles } from 'lucide-react';
+import { Plane, Users } from 'lucide-react';
 
 export default function ChatPage() {
   const params = useParams();
@@ -43,11 +45,9 @@ export default function ChatPage() {
 
   useSocket();
 
-  // Cleanup : Quitter la conversation quand on quitte la page
   useEffect(() => {
     return () => {
       if (conversationId) {
-        console.log('🚪 Quitter la conversation:', conversationId);
         leaveConversation(conversationId);
       }
     };
@@ -179,11 +179,8 @@ export default function ChatPage() {
         formData.append('duration', content.duration);
 
         await api.post('/audio', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+          headers: { 'Content-Type': 'multipart/form-data' }
         });
-
         return;
       }
 
@@ -241,26 +238,12 @@ export default function ChatPage() {
     return conversation.participants?.find(p => p._id !== userId);
   };
 
-  const getDisplayName = () => {
-    if (!conversation) return 'Chargement...';
-    if (conversation.isGroup) {
-      return conversation.groupName || 'Groupe sans nom';
-    }
-    const contact = getOtherParticipant();
-    return contact?.name || 'Utilisateur';
-  };
-
   const contact = getOtherParticipant();
 
   if (loading) {
     return (
       <ProtectedRoute>
-        <div 
-          className="flex h-screen items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)'
-          }}
-        >
+        <div className="flex h-screen items-center justify-center" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
           <div className="text-center animate-fade-in">
             <div className="relative inline-block">
               <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200 border-t-blue-600 shadow-xl"></div>
@@ -281,30 +264,14 @@ export default function ChatPage() {
   if (!conversation || (!conversation.isGroup && !contact)) {
     return (
       <ProtectedRoute>
-        <div 
-          className="flex h-screen items-center justify-center"
-          style={{
-            background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)'
-          }}
-        >
+        <div className="flex h-screen items-center justify-center" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
           <div className="text-center max-w-md animate-fade-in">
-            <div 
-              className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"
-              style={{
-                background: 'linear-gradient(135deg, #fecaca, #fca5a5)'
-              }}
-            >
+            <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl" style={{ background: 'linear-gradient(135deg, #fecaca, #fca5a5)' }}>
               <Plane className="w-12 h-12 text-rose-500 -rotate-45" />
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-3">Conversation introuvable</h2>
             <p className="text-slate-600 mb-8 leading-relaxed">Cette conversation n&apos;existe pas ou a été supprimée</p>
-            <button
-              onClick={() => router.push('/')}
-              className="px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
-              style={{
-                background: 'linear-gradient(to right, #2563eb, #06b6d4)'
-              }}
-            >
+            <button onClick={() => router.push('/')} className="px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl" style={{ background: 'linear-gradient(to right, #2563eb, #06b6d4)' }}>
               Retour à l&apos;accueil
             </button>
           </div>
@@ -315,38 +282,26 @@ export default function ChatPage() {
 
   return (
     <ProtectedRoute>
-      <div 
-        className="flex h-screen"
-        style={{
-          background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)'
-        }}
-      >
+      <div className="flex h-screen" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
         <div className="hidden lg:block">
           <Sidebar activeConversationId={conversationId} />
         </div>
 
         <div className="flex-1 flex flex-col">
-          <MobileHeader 
-            contact={contact}
-            conversation={conversation}
-            onBack={() => router.push('/')} 
-          />
+          <div className="lg:hidden">
+            <MobileHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
+          </div>
+          
+          <div className="hidden lg:block">
+            <ChatHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
+          </div>
 
-          <div 
-            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
-            style={{
-              background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))'
-            }}
-          >
+          {/* Zone des messages sans barre de scroll */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))' }}>
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full animate-fade-in">
                 <div className="text-center max-w-sm">
-                  <div 
-                    className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200"
-                    style={{
-                      background: 'linear-gradient(135deg, #ffffff, #dbeafe)'
-                    }}
-                  >
+                  <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200" style={{ background: 'linear-gradient(135deg, #ffffff, #dbeafe)' }}>
                     {conversation.isGroup ? (
                       <Users className="w-12 h-12 text-purple-600" />
                     ) : (
@@ -364,15 +319,29 @@ export default function ChatPage() {
               </div>
             ) : (
               <>
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                   const userId = user?._id || user?.id;
+                  const prevMessage = messages[index - 1];
+                  const isLast = index === messages.length - 1;
+                  
+                  // Vérifier si on doit afficher le séparateur de date
+                  const showDateSeparator = !prevMessage || !isSameDay(
+                    new Date(message.createdAt),
+                    new Date(prevMessage.createdAt)
+                  );
+
                   return (
-                    <MessageBubble
-                      key={message._id}
-                      message={message}
-                      isMine={message.sender?._id === userId}
-                      isGroup={conversation?.isGroup || false}
-                    />
+                    <div key={message._id}>
+                      {showDateSeparator && (
+                        <DateSeparator date={message.createdAt} />
+                      )}
+                      <MessageBubble
+                        message={message}
+                        isMine={message.sender?._id === userId}
+                        isGroup={conversation?.isGroup || false}
+                        isLast={isLast}
+                      />
+                    </div>
                   );
                 })}
                 

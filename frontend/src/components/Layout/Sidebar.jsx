@@ -3,11 +3,11 @@
 import { useContext, useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { AuthContext } from "@/context/AuthContext";
+import Image from "next/image";
 import {
   addContact,
   getConversations,
   searchUsers,
-  createConversation,
   sendInvitation,
   getReceivedInvitations,
   getSentInvitations,
@@ -27,6 +27,7 @@ import {
   emitInvitationAccepted,
   emitInvitationRejected,
   emitInvitationCancelled,
+  onOnlineUsersUpdate,
 } from "@/services/socket";
 import {
   LogOut,
@@ -48,6 +49,7 @@ import {
   UserCheck,
   UserX,
   Sparkles,
+  UsersRound,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -148,28 +150,18 @@ export default function Sidebar({ activeConversationId }) {
   }, [user]);
 
   useEffect(() => {
-    const socket = getSocket();
+    if (!user) return;
 
-    if (socket && user) {
-      socket.on("online-users-update", (userIds) => {
-        setOnlineUsers(new Set(userIds));
-      });
+    const unsubscribe = onOnlineUsersUpdate((userIds) => {
+      console.log("📡 Sidebar - Mise à jour utilisateurs en ligne:", userIds);
+      setOnlineUsers(new Set(userIds));
+    });
 
-      onShouldRefreshConversations(() => {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = setTimeout(() => {
-          fetchConversations();
-        }, 300);
-      });
+    requestOnlineUsers();
 
-      requestOnlineUsers();
-
-      return () => {
-        socket.off("online-users-update");
-        socket.off("should-refresh-conversations");
-        clearTimeout(refreshTimeoutRef.current);
-      };
-    }
+    return () => {
+      unsubscribe();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -214,10 +206,19 @@ export default function Sidebar({ activeConversationId }) {
         );
       });
 
+      onShouldRefreshConversations(() => {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = setTimeout(() => {
+          fetchConversations();
+        }, 300);
+      });
+
       return () => {
         socket.off("conversation-updated");
         socket.off("group-created");
         socket.off("conversation-read");
+        socket.off("should-refresh-conversations");
+        clearTimeout(refreshTimeoutRef.current);
       };
     }
   }, [user]);
@@ -295,28 +296,56 @@ export default function Sidebar({ activeConversationId }) {
   const handleAcceptInvitation = async (invitationId) => {
     try {
       const response = await acceptInvitation(invitationId);
+      const { invitation, conversation } = response.data || {};
 
+      // 1) Retirer l'invitation de la liste reçue
       setReceivedInvitations((prev) =>
         prev.filter((inv) => inv._id !== invitationId)
       );
-      setConversations((prev) => [response.data.conversation, ...prev]);
 
-      await addContact({
-        owner: currentUser._id, // your logged user ID
-        contact: senderId, // the user who sent the invitation
-      });
+      // 2) Ajouter la nouvelle conversation
+      if (conversation) {
+        setConversations((prev) => [conversation, ...prev]);
+      }
 
-      emitInvitationAccepted({
-        senderId: response.data.invitation.sender._id,
-        invitation: response.data.invitation,
-        conversation: response.data.conversation,
-      });
+      // 3) Ajouter le contact (si tu veux vraiment le faire ici)
+      if (user && invitation?.sender?._id) {
+        try {
+          await addContact({
+            owner: user._id || user.id, // id de l'utilisateur connecté
+            contact: invitation.sender._id, // id de l'expéditeur de l'invitation
+          });
+        } catch (err) {
+          console.error("Erreur addContact:", err);
+          // on ne bloque pas l'acceptation de l'invitation à cause de ça
+        }
+      }
 
+      // 4) Notifier via socket
+      if (invitation && conversation) {
+        emitInvitationAccepted({
+          senderId: invitation.sender._id,
+          invitation,
+          conversation,
+        });
+      }
+
+      // 5) Basculer sur l’onglet chats + ouvrir la conversation
       setActiveTab("chats");
-      router.push(`/chat/${response.data.conversation._id}`);
+      if (conversation?._id) {
+        router.push(`/chat/${conversation._id}`);
+      }
     } catch (error) {
-      console.error("Erreur acceptation invitation:", error);
-      alert("Erreur lors de l'acceptation de l'invitation");
+      console.error("Erreur acceptation invitation (brute):", error);
+      if (error?.response) {
+        console.error("Status:", error.response.status);
+        console.error("Data:", error.response.data);
+      }
+      alert(
+        error?.response?.data?.error ||
+          error?.message ||
+          "Erreur lors de l'acceptation de l'invitation"
+      );
     }
   };
 
@@ -379,21 +408,29 @@ export default function Sidebar({ activeConversationId }) {
       );
     }
     const contact = getOtherParticipant(conv);
-    return (
-      contact?.profilePicture ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        contact?.name || "User"
-      )}&background=3b82f6&color=fff`
-    );
+
+    const hasValidProfilePicture =
+      contact?.profilePicture && contact.profilePicture.trim() !== "";
+
+    return hasValidProfilePicture
+      ? contact.profilePicture
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          contact?.name || "User"
+        )}&background=3b82f6&color=fff&bold=true`;
   };
 
   const getOtherParticipant = (conv) => {
     const userId = user?._id || user?.id;
-    return conv.participants?.find((p) => p._id !== userId);
+    const participant = conv.participants?.find(
+      (p) => (p._id || p.id) !== userId
+    );
+    return participant;
   };
 
   const isUserOnline = (userId) => {
-    return onlineUsers.has(userId);
+    if (!userId) return false;
+    const online = onlineUsers.has(userId);
+    return online;
   };
 
   const getLastMessagePreview = (conv) => {
@@ -458,20 +495,42 @@ export default function Sidebar({ activeConversationId }) {
   const totalInvitations = receivedInvitations.length;
 
   return (
-    <div className="w-full lg:w-96 bg-white/95 backdrop-blur-xl border-r border-blue-100 flex flex-col h-screen shadow-xl">
-      {/* Header avec gradient moderne */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 opacity-90"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+    <div className="w-full lg:w-96 bg-white/95 backdrop-blur-xl border-r border-blue-100 flex flex-col h-screen shadow-xl relative">
+      {/* Header avec gradient bleu identique au ChatHeader */}
+      <div className="relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 shadow-lg">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-20"></div>
 
         <div className="relative p-5">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in">
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-md"></div>
+              {/* VOTRE photo de profil avec clic vers votre profil */}
+              <div
+                className="relative shrink-0 cursor-pointer group"
+                onClick={() => router.push("/profile")}
+                title="Voir mon profil"
+              >
+                {user?.profilePicture && user.profilePicture.trim() !== "" ? (
+                  <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
+                    <Image
+                      src={user.profilePicture}
+                      alt={user?.name || "User"}
+                      width={48}
+                      height={48}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          user?.name || "User"
+                        )}&background=ffffff&color=3b82f6&bold=true`;
+                      }}
+                      unoptimized
+                    />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
+                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                )}
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-blue-700 shadow-md"></div>
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-bold text-white drop-shadow-lg truncate">
@@ -552,13 +611,12 @@ export default function Sidebar({ activeConversationId }) {
         //       className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-blue-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-200 focus:border-blue-400 transition-all text-slate-700 placeholder-blue-400 font-medium shadow-sm hover:shadow-md"
         //     />
 
-            
         //   </div>
         // </div>
       )}
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-scrollbar]:hidden">
         {loading && activeTab !== "invitations" ? (
           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
             <div className="relative">
@@ -573,7 +631,6 @@ export default function Sidebar({ activeConversationId }) {
           <div className="animate-fade-in">
             <Contacts></Contacts>
             {!searchTerm.trim() ? (
-
               // <div className="p-12 text-center">
               //   <div className="w-24 h-24 bg-linear-to-br from-blue-100 to-cyan-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
               //     <Search className="w-12 h-12 text-blue-500" />
@@ -607,22 +664,26 @@ export default function Sidebar({ activeConversationId }) {
                     className="w-full p-4 bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 rounded-2xl transition-all flex items-center gap-4 group border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-lg transform hover:scale-[1.02] animate-slide-in-left"
                   >
                     <div className="relative shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={
-                          contact.profilePicture?.trim() ||
-                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            contact.name || "User"
-                          )}&background=3b82f6&color=fff&bold=true`
-                        }
-                        alt={contact.name}
-                        className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100 group-hover:ring-blue-400 transition-all"
-                        onError={(e) => {
-                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            contact.name || "User"
-                          )}&background=3b82f6&color=fff&bold=true`;
-                        }}
-                      />
+                      <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100 group-hover:ring-blue-400 transition-all">
+                        <Image
+                          src={
+                            contact.profilePicture?.trim() ||
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              contact.name || "User"
+                            )}&background=3b82f6&color=fff&bold=true`
+                          }
+                          alt={contact.name}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              contact.name || "User"
+                            )}&background=3b82f6&color=fff&bold=true`;
+                          }}
+                          unoptimized
+                        />
+                      </div>
                       {isUserOnline(contact._id) && (
                         <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-md"></span>
                       )}
@@ -650,7 +711,7 @@ export default function Sidebar({ activeConversationId }) {
                 onClick={() => setInvitationTab("received")}
                 className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${
                   invitationTab === "received"
-                    ? "bg-linear-to-r from-blue-500 to-cyan-500 text-white shadow-lg transform scale-[1.02]"
+                    ? "bg-linear-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-[1.02]"
                     : "bg-white text-slate-600 hover:bg-slate-50 shadow-sm"
                 }`}
               >
@@ -662,7 +723,7 @@ export default function Sidebar({ activeConversationId }) {
                 onClick={() => setInvitationTab("sent")}
                 className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${
                   invitationTab === "sent"
-                    ? "bg-linear-to-r from-blue-500 to-cyan-500 text-white shadow-lg transform scale-[1.02]"
+                    ? "bg-linear-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-[1.02]"
                     : "bg-white text-slate-600 hover:bg-slate-50 shadow-sm"
                 }`}
               >
@@ -693,22 +754,26 @@ export default function Sidebar({ activeConversationId }) {
                     >
                       <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={
-                              invitation.sender?.profilePicture ||
-                              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                invitation.sender?.name || "User"
-                              )}&background=3b82f6&color=fff&bold=true`
-                            }
-                            alt={invitation.sender?.name}
-                            className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
-                            onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                invitation.sender?.name || "User"
-                              )}&background=3b82f6&color=fff&bold=true`;
-                            }}
-                          />
+                          <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100">
+                            <Image
+                              src={
+                                invitation.sender?.profilePicture ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                  invitation.sender?.name || "User"
+                                )}&background=3b82f6&color=fff&bold=true`
+                              }
+                              alt={invitation.sender?.name}
+                              width={56}
+                              height={56}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                  invitation.sender?.name || "User"
+                                )}&background=3b82f6&color=fff&bold=true`;
+                              }}
+                              unoptimized
+                            />
+                          </div>
                           {isUserOnline(invitation.sender?._id) && (
                             <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
                           )}
@@ -777,22 +842,26 @@ export default function Sidebar({ activeConversationId }) {
                   >
                     <div className="flex items-start gap-3 mb-4">
                       <div className="relative shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={
-                            invitation.receiver?.profilePicture ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                              invitation.receiver?.name || "User"
-                            )}&background=3b82f6&color=fff&bold=true`
-                          }
-                          alt={invitation.receiver?.name}
-                          className="w-14 h-14 rounded-2xl object-cover ring-2 ring-blue-100"
-                          onError={(e) => {
-                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                              invitation.receiver?.name || "User"
-                            )}&background=3b82f6&color=fff&bold=true`;
-                          }}
-                        />
+                        <div className="w-14 h-14 rounded-full overflow-hidden ring-2 ring-blue-100">
+                          <Image
+                            src={
+                              invitation.receiver?.profilePicture ||
+                              `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                invitation.receiver?.name || "User"
+                              )}&background=3b82f6&color=fff&bold=true`
+                            }
+                            alt={invitation.receiver?.name}
+                            width={56}
+                            height={56}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                invitation.receiver?.name || "User"
+                              )}&background=3b82f6&color=fff&bold=true`;
+                            }}
+                            unoptimized
+                          />
+                        </div>
                         {isUserOnline(invitation.receiver?._id) && (
                           <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
                         )}

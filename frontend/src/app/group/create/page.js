@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
 import { searchUsers, createGroup } from '@/lib/api';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import { Users, Search, X, ArrowLeft, Check, Sparkles, UserPlus, Image as ImageIcon } from 'lucide-react';
+import { Users, Search, X, ArrowLeft, Check, Sparkles, UserPlus, Image as ImageIcon, AlertCircle } from 'lucide-react';
 
 export default function CreateGroupPage() {
   const router = useRouter();
@@ -17,6 +17,10 @@ export default function CreateGroupPage() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  // 🆕 Calcul du nombre total de participants (créateur inclus)
+  const totalParticipants = selectedUsers.length + 1; // +1 pour le créateur
 
   // Recherche d'utilisateurs
   useEffect(() => {
@@ -51,16 +55,20 @@ export default function CreateGroupPage() {
       }
       return [...prev, selectedUser];
     });
+    setError(''); // Effacer l'erreur quand l'utilisateur modifie la sélection
   };
 
   const handleCreateGroup = async () => {
+    setError('');
+
     if (!groupName.trim()) {
-      alert('Veuillez entrer un nom de groupe');
+      setError('Veuillez entrer un nom de groupe');
       return;
     }
 
-    if (selectedUsers.length === 0) {
-      alert('Veuillez sélectionner au moins un participant');
+    // 🆕 VÉRIFICATION : Minimum 2 participants sélectionnés (créateur + 2 autres = 3 personnes)
+    if (selectedUsers.length < 2) {
+      setError('Vous devez sélectionner au moins 2 autres personnes pour créer un groupe');
       return;
     }
 
@@ -79,7 +87,8 @@ export default function CreateGroupPage() {
       
     } catch (error) {
       console.error('❌ Erreur création groupe:', error);
-      alert('Erreur lors de la création du groupe');
+      const errorMessage = error.response?.data?.error || 'Erreur lors de la création du groupe';
+      setError(errorMessage);
     } finally {
       setCreating(false);
     }
@@ -121,6 +130,14 @@ export default function CreateGroupPage() {
             </div>
           </div>
 
+          {/* Message d'erreur */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-center gap-3 animate-shake">
+              <AlertCircle className="w-6 h-6 text-red-500 shrink-0" />
+              <p className="text-red-700 font-medium">{error}</p>
+            </div>
+          )}
+
           {/* Carte: Nom du groupe */}
           <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-xl border-2 border-blue-100 mb-6 animate-slide-in-left hover:shadow-2xl transition-all">
             <div className="flex items-center gap-3 mb-4">
@@ -161,9 +178,9 @@ export default function CreateGroupPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-purple-900 flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-linear-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold shadow-md">
-                    {selectedUsers.length}
+                    {totalParticipants}
                   </div>
-                  Participants
+                  Participants ({totalParticipants} au total)
                 </h3>
                 <button
                   onClick={() => setSelectedUsers([])}
@@ -174,6 +191,24 @@ export default function CreateGroupPage() {
                 </button>
               </div>
               
+              {/* 🆕 Affichage du créateur */}
+              <div className="mb-4">
+                <p className="text-sm text-purple-700 font-medium mb-2">Créateur du groupe :</p>
+                <div className="flex items-center gap-2 bg-linear-to-r from-green-100 to-emerald-100 text-green-900 px-4 py-2.5 rounded-full border-2 border-green-200 max-w-max">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={user.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=10b981&color=fff&bold=true&size=32`}
+                    alt={user.name}
+                    className="w-6 h-6 rounded-full ring-2 ring-white shadow-sm"
+                  />
+                  <span className="text-sm font-bold">{user.name} (Vous)</span>
+                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Participants sélectionnés */}
               <div className="flex flex-wrap gap-2">
                 {selectedUsers.map(u => (
                   <div
@@ -195,6 +230,24 @@ export default function CreateGroupPage() {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* 🆕 Indicateur de progression */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-purple-700 font-medium">
+                    {selectedUsers.length >= 2 ? '✅ Minimum atteint' : `Encore ${2 - selectedUsers.length} personne(s) à sélectionner`}
+                  </span>
+                  <span className="text-purple-600 font-bold">
+                    {selectedUsers.length}/2 minimum
+                  </span>
+                </div>
+                <div className="w-full bg-purple-200 rounded-full h-2">
+                  <div 
+                    className="bg-linear-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min((selectedUsers.length / 2) * 100, 100)}%` }}
+                  ></div>
+                </div>
               </div>
             </div>
           )}
@@ -293,7 +346,7 @@ export default function CreateGroupPage() {
           {/* Bouton Créer */}
           <button
             onClick={handleCreateGroup}
-            disabled={creating || !groupName.trim() || selectedUsers.length === 0}
+            disabled={creating || !groupName.trim() || selectedUsers.length < 2}
             className="w-full mt-8 group relative overflow-hidden bg-linear-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white py-5 rounded-2xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transform hover:scale-[1.02] active:scale-[0.98] shadow-2xl hover:shadow-blue-500/50 flex items-center justify-center gap-3"
           >
             <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
@@ -308,7 +361,7 @@ export default function CreateGroupPage() {
                 <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
                   <Users className="w-6 h-6" />
                 </div>
-                <span>Créer le groupe</span>
+                <span>Créer le groupe ({totalParticipants} personnes)</span>
                 <Sparkles className="w-5 h-5 animate-pulse" />
               </>
             )}
@@ -317,7 +370,7 @@ export default function CreateGroupPage() {
           {/* Info aide */}
           <p className="text-center text-sm text-blue-600 mt-6 flex items-center justify-center gap-2">
             <Sparkles className="w-4 h-4" />
-            Invitez autant de personnes que vous voulez !
+            Un groupe doit contenir au minimum 3 personnes (vous + 2 autres)
           </p>
         </div>
       </div>

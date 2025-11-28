@@ -3,6 +3,18 @@ const bcrypt = require('bcryptjs');
 const generateToken = require('../utils/generateToken');
 const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
 
+// 🆕 FONCTION : Vérifier si le 2FA est nécessaire (24 heures)
+const isTwoFactorRequired = (user) => {
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+  const timeSinceLastLogin = Date.now() - new Date(user.lastLogin).getTime();
+  
+  console.log(`⏰ Dernière connexion: ${user.lastLogin}`);
+  console.log(`⏰ Temps écoulé: ${Math.round(timeSinceLastLogin / (60 * 60 * 1000))} heures`);
+  console.log(`🔐 2FA requis: ${timeSinceLastLogin > TWENTY_FOUR_HOURS}`);
+  
+  return timeSinceLastLogin > TWENTY_FOUR_HOURS;
+};
+
 // 🆕 INSCRIPTION - Envoie le code de vérification
 exports.register = async (req, res) => {
   try {
@@ -29,7 +41,8 @@ exports.register = async (req, res) => {
       isVerified: false,
       verificationCode,
       verificationCodeExpiry,
-      verificationCodeType: 'registration'
+      verificationCodeType: 'registration',
+      lastLogin: new Date() // 🆕 Initialiser lastLogin
     });
     
     await user.save();
@@ -52,7 +65,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// 🆕 VÉRIFIER LE CODE (INSCRIPTION)
+// 🆕 VÉRIFIER LE CODE (INSCRIPTION) - Ne plus connecter automatiquement
 exports.verifyRegistration = async (req, res) => {
   try {
     const { userId, code } = req.body;
@@ -77,32 +90,65 @@ exports.verifyRegistration = async (req, res) => {
       return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
     }
 
-    // Vérifier le compte
+    // Vérifier le compte SANS générer le token
     user.isVerified = true;
     user.verificationCode = undefined;
     user.verificationCodeExpiry = undefined;
     user.verificationCodeType = undefined;
+    user.lastLogin = new Date(); // 🆕 Mettre à jour lastLogin
+    await user.save();
+
+    console.log('✅ Compte vérifié:', user.email);
+
+    // Ne pas envoyer le token, juste confirmer la vérification
+    res.json({
+      success: true,
+      message: 'Compte vérifié ! Vous pouvez maintenant personnaliser votre profil.',
+      userId: user._id
+    });
+  } catch (error) {
+    console.error('❌ Erreur verification:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 FINALISER L'INSCRIPTION (après photo de profil)
+exports.finalizeRegistration = async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    if (!user.isVerified) {
+      return res.status(400).json({ error: 'Compte non vérifié' });
+    }
+
+    // Mettre l'utilisateur en ligne et mettre à jour lastLogin
     user.isOnline = true;
+    user.lastLogin = new Date(); // 🆕 Mettre à jour lastLogin
     await user.save();
 
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Compte vérifié:', user.email);
+    console.log('✅ Inscription finalisée:', user.email);
 
     res.json({
       success: true,
-      message: 'Compte vérifié avec succès !',
+      message: 'Bienvenue sur PrimAzul !',
       token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        profilePicture: user.profilePicture 
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture
       }
     });
   } catch (error) {
-    console.error('❌ Erreur verification:', error);
+    console.error('❌ Erreur finalize registration:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -141,7 +187,7 @@ exports.resendCode = async (req, res) => {
   }
 };
 
-// 🆕 CONNEXION - Envoie le code de vérification
+// 🆕 CONNEXION - 2FA après 24 heures d'inactivité
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -168,7 +214,34 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Générer le code de vérification pour la connexion
+    // 🆕 VÉRIFIER SI LE 2FA EST NÉCESSAIRE (24 heures)
+    const requiresTwoFactor = isTwoFactorRequired(user);
+    
+    if (!requiresTwoFactor) {
+      // ✅ Connexion directe sans 2FA (activité récente)
+      user.lastLogin = new Date();
+      user.isOnline = true;
+      await user.save();
+
+      const token = generateToken(user._id);
+
+      console.log('✅ Connexion directe (2FA non requis):', user.email);
+
+      return res.json({
+        success: true,
+        message: 'Connexion réussie !',
+        token,
+        user: { 
+          id: user._id, 
+          name: user.name, 
+          email: user.email, 
+          profilePicture: user.profilePicture 
+        },
+        requiresVerification: false // 🆕 Indiquer que le 2FA n'est pas requis
+      });
+    }
+
+    // 🔐 2FA REQUIS - Envoyer le code (inactivité > 24h)
     const verificationCode = generateVerificationCode();
     const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -180,14 +253,14 @@ exports.login = async (req, res) => {
     // Envoyer l'email avec le code
     await sendVerificationEmail(email, user.name, verificationCode, 'login');
 
-    console.log('✅ Code de connexion envoyé:', email);
+    console.log('✅ 2FA requis - Code de connexion envoyé:', email);
 
     res.json({
       success: true,
       message: 'Code de vérification envoyé à votre email',
       userId: user._id,
       email: user.email,
-      requiresVerification: true
+      requiresVerification: true // 🆕 Indiquer que le 2FA est requis
     });
   } catch (error) {
     console.error('❌ Erreur login:', error);
@@ -220,12 +293,13 @@ exports.verifyLogin = async (req, res) => {
     user.verificationCodeExpiry = undefined;
     user.verificationCodeType = undefined;
     user.isOnline = true;
+    user.lastLogin = new Date(); // 🆕 METTRE À JOUR LA DERNIÈRE CONNEXION
     await user.save();
 
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Connexion vérifiée:', user.email);
+    console.log('✅ Connexion 2FA réussie:', user.email);
 
     res.json({
       success: true,
@@ -406,6 +480,30 @@ exports.resetPassword = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur reset password:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 🆕 METTRE À JOUR LAST LOGIN (pour les requêtes automatiques)
+exports.updateLastLogin = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    console.log('✅ Last login mis à jour pour:', user.email);
+
+    res.json({
+      success: true,
+      message: 'Last login mis à jour',
+      lastLogin: user.lastLogin
+    });
+  } catch (error) {
+    console.error('❌ Erreur updateLastLogin:', error);
     res.status(500).json({ error: error.message });
   }
 };
