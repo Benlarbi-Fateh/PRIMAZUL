@@ -1,7 +1,7 @@
-/** @type {import('next').NextConfig} */ // ce fichier utilise la syntaxe ES module
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  reactCompiler: false, // Désactivez le compilateur React
+  transpilePackages: ['lucide-react'],
 };
 
 export default nextConfig;

@@ -18,6 +18,7 @@ import {
   onConversationStatusUpdated
 } from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
+import { useAgora } from '@/hooks/useAgora';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar';
 import MobileHeader from '@/components/Layout/MobileHeader';
@@ -25,7 +26,9 @@ import ChatHeader from '@/components/Layout/ChatHeader';
 import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
+import CallModal from '@/components/Call/CallModal';
 import { Plane, Users, Sparkles } from 'lucide-react';
+
 
 export default function ChatPage() {
   const params = useParams();
@@ -41,8 +44,20 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
-
   useSocket();
+   const { 
+    startCall, 
+    acceptCall, 
+    rejectCall, 
+    endCall, 
+    callStatus, 
+    currentCall,
+    localVideoRef,
+    remoteVideoRef,
+     localVideoTrack,       
+     remoteVideoTrack,
+    permissionError
+  } = useAgora();
 
   // Cleanup : Quitter la conversation quand on quitte la page
   useEffect(() => {
@@ -108,7 +123,6 @@ export default function ChatPage() {
       isMarkingAsReadRef.current = false;
     };
   }, [conversationId, user]);
-
   useEffect(() => {
     const socket = getSocket();
     
@@ -164,7 +178,6 @@ export default function ChatPage() {
       });
     }
   }, [conversationId, user]);
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
@@ -326,24 +339,30 @@ export default function ChatPage() {
           <Sidebar activeConversationId={conversationId} />
         </div>
 
-        <div className="flex-1 flex flex-col">
-          {/* 📱 Mobile Header - visible seulement sur mobile */}
-          <div className="lg:hidden">
-            <MobileHeader 
-              contact={contact}
-              conversation={conversation}
-              onBack={() => router.push('/')} 
-            />
-          </div>
+       <div className="flex-1 flex flex-col">
+        {/* 📱 Mobile Header */}
+        <div className="lg:hidden">
+          <MobileHeader 
+            contact={contact}
+            conversation={conversation}
+            onBack={() => router.push('/')}
+            onAudioCall={() => startCall(contact?._id, 'audio')}
+            onVideoCall={() => startCall(contact?._id, 'video')}
+            callStatus={callStatus}
+          />
+        </div>
           
-          {/* 💻 Desktop Header - visible seulement sur desktop */}
-          <div className="hidden lg:block">
-            <ChatHeader 
-              contact={contact}
-              conversation={conversation}
-              onBack={() => router.push('/')} 
-            />
-          </div>
+          {/* 💻 Desktop Header */}
+        <div className="hidden lg:block">
+          <ChatHeader 
+            contact={contact}
+            conversation={conversation}
+            onBack={() => router.push('/')}
+            onAudioCall={() => startCall(contact?._id, 'audio')}
+            onVideoCall={() => startCall(contact?._id, 'video')}
+            callStatus={callStatus}
+          />
+        </div>
 
           <div 
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
@@ -403,6 +422,19 @@ export default function ChatPage() {
             onTyping={handleTyping}
             onStopTyping={handleStopTyping}
           />
+          <CallModal
+          callStatus={callStatus}
+          currentCall={currentCall}
+          onAccept={acceptCall}
+          onReject={rejectCall}
+          onEnd={endCall}
+          contact={contact}
+          localVideoRef={localVideoRef}
+          remoteVideoRef={remoteVideoRef}
+          localVideoTrack={localVideoTrack}
+          remoteVideoTrack={remoteVideoTrack}
+          permissionError={permissionError}
+        />
         </div>
       </div>
     </ProtectedRoute>

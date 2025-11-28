@@ -24,6 +24,8 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+// Après les autres routes
+app.use('/api/calls', require('./routes/callRoutes'));
 
 // ✅ Socket.IO Configuration
 const io = new Server(server, {

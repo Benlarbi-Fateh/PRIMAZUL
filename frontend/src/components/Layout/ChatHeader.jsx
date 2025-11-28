@@ -6,12 +6,14 @@ import { AuthContext } from '@/context/AuthContext';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
+import { useAgora } from '@/hooks/useAgora';
+import CallModal from '@/components/Call/CallModal';
 
-export default function ChatHeader({ contact, conversation, onBack }) {
+export default function ChatHeader({ contact, conversation, onBack,onAudioCall,onVideoCall,callStatus }) {
   const { user } = useContext(AuthContext);
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
-
+  
   // 🔥 CORRECTION : Utiliser la nouvelle fonction pour écouter les utilisateurs en ligne
   useEffect(() => {
     if (!user) return;
@@ -86,7 +88,8 @@ export default function ChatHeader({ contact, conversation, onBack }) {
   
   // Vérifier le statut en ligne en temps réel
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
-
+ // 🔥 AJOUT : Vérifier si un appel est en cours pour désactiver les boutons
+  const isCalling = callStatus && callStatus !== 'idle';
   return (
     <div className="relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
       <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
@@ -161,15 +164,29 @@ export default function ChatHeader({ contact, conversation, onBack }) {
           {!isGroup && (
             <>
               <button
-                className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
-                title="Appel audio"
+                onClick={onAudioCall}
+                disabled={isCalling}
+                className={`text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md ${
+                  isCalling 
+                  ?'bg-gray-400 cursor-not-allowed'
+                  :'hover:bg-white/20'
+                }`}
+                title={isCalling ? 'Appel en cours...' : 'Appel audio'}
+              
               >
                 <Phone className="w-5 h-5" />
               </button>
 
               <button
-                className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
-                title="Appel vidéo"
+                onClick={onVideoCall}
+                disabled={isCalling}
+                className={`text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md ${
+                  isCalling 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'hover:bg-white/20'
+                }`}
+                title= {isCalling ? 'Appel en cours...' : 'Appel vidéo'}
+            
               >
                 <Video className="w-5 h-5" />
               </button>

@@ -322,6 +322,86 @@ export const disconnectSocket = () => {
   }
 };
 
+// Événements pour les appels
+export const emitCallInitiate = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('📞 Émission call-initiate:', data);
+      socket.emit('call-initiate', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre call-initiate:', error);
+    });
+};
+
+export const emitCallAccepted = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('✅ Émission call-accepted:', data);
+      socket.emit('call-accepted', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre call-accepted:', error);
+    });
+};
+
+export const emitCallRejected = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('❌ Émission call-rejected:', data);
+      socket.emit('call-rejected', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre call-rejected:', error);
+    });
+};
+
+export const emitCallEnded = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('📞 Émission call-ended:', data);
+      socket.emit('call-ended', data);
+    })
+    .catch((error) => {
+      console.error('❌ Impossible d\'émettre call-ended:', error);
+    });
+};
+
+// Écouteurs pour les appels
+export const onIncomingCall = (callback) => {
+  if (socket) {
+    socket.off('incoming-call');
+    socket.on('incoming-call', callback);
+  }
+};
+
+export const onCallAccepted = (callback) => {
+  if (socket) {
+    socket.off('call-accepted');
+    socket.on('call-accepted', callback);
+  }
+};
+
+export const onCallRejected = (callback) => {
+  if (socket) {
+    socket.off('call-rejected');
+    socket.on('call-rejected', callback);
+  }
+};
+
+export const onCallEnded = (callback) => {
+  if (socket) {
+    socket.off('call-ended');
+    socket.on('call-ended', callback);
+  }
+};
+
+export const onCallBusy = (callback) => {
+  if (socket) {
+    socket.off('call-busy');
+    socket.on('call-busy', callback);
+  }
+};
 export const getSocket = () => socket;
 
 export const isSocketConnected = () => socket?.connected || false;

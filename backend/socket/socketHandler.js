@@ -230,6 +230,69 @@ const initSocket = (io) => {
         console.log(`⚠️ Destinataire ${receiverId} hors ligne, notification stockée`);
       }
     });
+    // Dans la connexion Socket.io, ajouter :
+
+// Événements pour les appels
+socket.on('call-initiate', (data) => {
+  const { receiverId, callType, channelName, caller } = data;
+  console.log(`📞 Appel ${callType} initié vers ${receiverId}`);
+
+  if (onlineUsers.has(receiverId)) {
+    const receiverSocketId = onlineUsers.get(receiverId);
+    io.to(receiverSocketId).emit('incoming-call', {
+      caller,
+      callType,
+      channelName,
+      callId: Date.now().toString()
+    });
+    console.log(`📞 Notification d'appel envoyée à ${receiverId}`);
+  } else {
+    socket.emit('call-receiver-offline', { receiverId });
+  }
+});
+
+socket.on('call-accepted', (data) => {
+  const { callerId, channelName, callType } = data;
+  console.log(`✅ Appel accepté, notification à ${callerId}`);
+
+  if (onlineUsers.has(callerId)) {
+    const callerSocketId = onlineUsers.get(callerId);
+    io.to(callerSocketId).emit('call-accepted', {
+      channelName,
+      callType
+    });
+  }
+});
+
+socket.on('call-rejected', (data) => {
+  const { callerId } = data;
+  console.log(`❌ Appel rejeté, notification à ${callerId}`);
+
+  if (onlineUsers.has(callerId)) {
+    const callerSocketId = onlineUsers.get(callerId);
+    io.to(callerSocketId).emit('call-rejected');
+  }
+});
+
+socket.on('call-ended', (data) => {
+  const { receiverId, channelName } = data;
+  console.log(`📞 Appel terminé sur ${channelName}`);
+
+  if (receiverId && onlineUsers.has(receiverId)) {
+    const receiverSocketId = onlineUsers.get(receiverId);
+    io.to(receiverSocketId).emit('call-ended');
+  }
+});
+
+socket.on('call-busy', (data) => {
+  const { callerId } = data;
+  console.log(`🚗 Utilisateur occupé, notification à ${callerId}`);
+
+  if (onlineUsers.has(callerId)) {
+    const callerSocketId = onlineUsers.get(callerId);
+    io.to(callerSocketId).emit('call-busy');
+  }
+});
 
     // Déconnexion
     socket.on('disconnect', () => {
