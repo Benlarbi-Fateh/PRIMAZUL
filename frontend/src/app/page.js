@@ -10,7 +10,7 @@ import { MessageCircle, Send, Folder, Sparkles, Users, Shield, Zap } from 'lucid
 
 export default function HomePage() {
   const router = useRouter();
-  
+
   // Initialiser le socket
   useSocket();
 
