@@ -13,7 +13,7 @@ export default function MainSidebar() {
   const menuItems = [
     {
       label: "Discussions",
-      icon: <MessageCircle className="w-6 h-6" />,
+      icon: <MessageCircle className="mt-15 w-6 h-6" />,
       href: "/",
     },
     {
