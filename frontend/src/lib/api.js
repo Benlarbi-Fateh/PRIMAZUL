@@ -1,96 +1,103 @@
 import axios from 'axios';
 
-// Utilise une variable d'environnement pour l'URL de l'API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+// 🔹 URL de base du backend
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '[http://localhost:5001/api](http://localhost:5001/api)';
 
+// 🔹 Instance Axios
 const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+baseURL: API_URL,
+headers: {
+'Content-Type': 'application/json',
+},
 });
 
-// Ajouter le token automatiquement
+// 🔹 Injection automatique du token
 api.interceptors.request.use(
-  (config) => {
-    // Next.js : vérifier que nous sommes côté client
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
+(config) => {
+if (typeof window !== 'undefined') {
+const token = localStorage.getItem('token');
+if (token) {
+config.headers.Authorization = `Bearer ${token}`;
+}
+}
+return config;
+},
+(error) => Promise.reject(error)
 );
 
-// Intercepteur pour gérer les erreurs
+// 🔹 Gestion des erreurs 401
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expiré ou invalide
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      }
-    }
-    return Promise.reject(error);
-  }
+(response) => response,
+(error) => {
+if (error.response?.status === 401) {
+if (typeof window !== 'undefined') {
+localStorage.removeItem('token');
+localStorage.removeItem('user');
+window.location.href = '/login';
+}
+}
+return Promise.reject(error);
+}
 );
 
-// ============================================
-// 🔐 AUTH
-// ============================================
+// =================== AUTH ===================
 export const register = (data) => api.post('/auth/register', data);
 export const login = (data) => api.post('/auth/login', data);
-
-// 🔍 RECHERCHE D'UTILISATEURS
 export const searchUsers = (query) => api.get(`/auth/search?query=${query}`);
 
-// ============================================
-// 💬 CONVERSATIONS
-// ============================================
+// =================== CONVERSATIONS ===================
 export const getConversations = () => api.get('/conversations');
-export const createConversation = (participantId) => api.post('/conversations/get-or-create', { contactId: participantId });
+export const createConversation = (participantId) =>
+api.post('/conversations/get-or-create', { contactId: participantId });
 export const getConversation = (id) => api.get(`/conversations/${id}`);
 
-// ============================================
-// 👥 GROUPES (🆕 AJOUTÉ)
-// ============================================
+// =================== GROUPES ===================
 export const createGroup = (data) => api.post('/groups/create', data);
 export const getGroup = (id) => api.get(`/groups/${id}`);
-export const addParticipantsToGroup = (data) => api.post('/groups/add-participants', data);
-export const leaveGroup = (groupId) => api.delete(`/groups/${groupId}/leave`);
+export const addParticipantsToGroup = (data) =>
+api.post('/groups/add-participants', data);
+export const leaveGroup = (groupId) =>
+api.delete(`/groups/${groupId}/leave`);
 
-// ============================================
-// 📨 INVITATIONS (🆕 AJOUTÉ)
-// ============================================
+// =================== INVITATIONS ===================
 export const sendInvitation = (data) => api.post('/invitations/send', data);
 export const getReceivedInvitations = () => api.get('/invitations/received');
 export const getSentInvitations = () => api.get('/invitations/sent');
-export const acceptInvitation = (invitationId) => api.post(`/invitations/${invitationId}/accept`);
-export const rejectInvitation = (invitationId) => api.post(`/invitations/${invitationId}/reject`);
-export const cancelInvitation = (invitationId) => api.delete(`/invitations/${invitationId}/cancel`);
+export const acceptInvitation = (id) => api.post(`/invitations/${id}/accept`);
+export const rejectInvitation = (id) => api.post(`/invitations/${id}/reject`);
+export const cancelInvitation = (id) => api.delete(`/invitations/${id}/cancel`);
 
-// ============================================
-// 📨 MESSAGES
-// ============================================
-export const getMessages = (conversationId) => api.get(`/messages/${conversationId}`);
+// =================== MESSAGES ===================
+export const getMessages = (conversationId) =>
+api.get(`/messages/${conversationId}`);
 export const sendMessage = (data) => api.post('/messages', data);
+export const markMessagesAsDelivered = (messageIds) =>
+api.post('/messages/mark-delivered', { messageIds });
+export const markConversationAsRead = (conversationId) =>
+api.post('/messages/mark-read', { conversationId });
+export const getUnreadCount = () => api.get('/messages/unread/count');
 
-// 📊 STATUTS DES MESSAGES
-export const markMessagesAsDelivered = (messageIds) => 
-  api.post('/messages/mark-delivered', { messageIds });
+// =================== ⚙️ PARAMÈTRES DE MESSAGES ===================
+export const deleteConversationForUser = (conversationId) =>
+api.delete(`/message-settings/conversations/${conversationId}/delete`);
+export const restoreConversationForUser = (conversationId) =>
+api.post(`/message-settings/conversations/${conversationId}/restore`);
+export const muteConversation = (conversationId) =>
+api.post(`/message-settings/conversations/${conversationId}/mute`);
+export const unmuteConversation = (conversationId) =>
+api.post(`/message-settings/conversations/${conversationId}/unmute`);
+export const blockUser = (targetUserId) =>
+api.post('/message-settings/block', { targetUserId });
+export const unblockUser = (targetUserId) =>
+api.post('/message-settings/unblock', { targetUserId });
+export const getBlockedUsers = () => api.get('/message-settings/blocked');
+export const getConversationMedia = (conversationId) =>
+api.get(`/message-settings/conversations/${conversationId}/media`);
 
-export const markConversationAsRead = (conversationId) => 
-  api.post('/messages/mark-read', { conversationId });
-
-export const getUnreadCount = () => 
-  api.get('/messages/unread/count');
+export const saveTheme = (theme, wallpaperUrl) =>
+  api.post('/message-settings/save-theme', {
+    theme,
+    wallpaperUrl
+  });
 
 export default api;

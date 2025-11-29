@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ import MessageBubble from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
 import { Plane, Users, Sparkles } from 'lucide-react';
+import useBlockCheck from '@/hooks/useBlockCheck';
 
 export default function ChatPage() {
   const params = useParams();
@@ -41,6 +42,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
+
 
   useSocket();
 
@@ -111,7 +113,8 @@ export default function ChatPage() {
 
   useEffect(() => {
     const socket = getSocket();
-    
+    if (isBlocked) return;
+
     if (socket && conversationId && user) {
       onReceiveMessage((message) => {
         if (message.conversationId === conversationId) {
@@ -154,7 +157,7 @@ export default function ChatPage() {
             return prev;
           });
         }
-      });
+      }, [conversationId, user, isBlocked]);
 
       onUserStoppedTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
@@ -253,6 +256,7 @@ export default function ChatPage() {
 
   const contact = getOtherParticipant();
 
+  const { isBlocked } = useBlockCheck(contact?._id);
   if (loading) {
     return (
       <ProtectedRoute>
@@ -345,11 +349,9 @@ export default function ChatPage() {
             />
           </div>
 
+          {/* ZONE DES MESSAGES AVEC LE THÈME APPLIQUÉ */}
           <div 
-            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent"
-            style={{
-              background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))'
-            }}
+            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent chat-background"
           >
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full animate-fade-in">
@@ -389,7 +391,7 @@ export default function ChatPage() {
                   );
                 })}
                 
-                {typingUsers.length > 0 && (
+                {typingUsers.length > 0 && !isBlocked && (
                   <TypingIndicator contactName={contact?.name || 'Quelqu\'un'} />
                 )}
                 
@@ -402,6 +404,7 @@ export default function ChatPage() {
             onSendMessage={handleSendMessage}
             onTyping={handleTyping}
             onStopTyping={handleStopTyping}
+            contactId={contact?._id}
           />
         </div>
       </div>

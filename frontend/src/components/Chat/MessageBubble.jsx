@@ -66,7 +66,18 @@ export default function MessageBubble({ message, isMine, isGroup }) {
 
   const renderVoiceMessage = () => {
     return (
-      <div className={`flex items-center gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+      <div className={`flex items-end gap-3 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+        {!isMine && (
+          <img
+            src={message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
+            alt={message.sender?.name}
+            className="w-9 h-9 rounded-2xl object-cover ring-2 ring-blue-100 shadow-md shrink-0"
+            onError={(e) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+            }}
+          />
+        )}
+
         <div className="flex flex-col max-w-xs lg:max-w-md">
           {!isMine && isGroup && (
             <p className="text-xs font-bold text-blue-700 mb-1.5 ml-2 flex items-center gap-1">
@@ -94,7 +105,18 @@ export default function MessageBubble({ message, isMine, isGroup }) {
 
     if (fileType === 'image') {
       return (
-        <div className={`flex items-start gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+        <div className={`flex items-end gap-3 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+          {!isMine && (
+            <img
+              src={message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
+              alt={message.sender?.name}
+              className="w-9 h-9 rounded-2xl object-cover ring-2 ring-blue-100 shadow-md shrink-0"
+              onError={(e) => {
+                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+              }}
+            />
+          )}
+
           <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
             {!isMine && isGroup && (
               <p className="text-xs font-bold text-blue-700 mb-1.5 ml-2 flex items-center gap-1">
@@ -103,8 +125,12 @@ export default function MessageBubble({ message, isMine, isGroup }) {
               </p>
             )}
             
-            <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+            <div 
+              className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
+              style={{
+                borderRadius: `var(--bubble-radius)`
+              }}
+            >
               <img 
                 src={message.fileUrl} 
                 alt={message.fileName || 'Image partagée'}
@@ -127,7 +153,18 @@ export default function MessageBubble({ message, isMine, isGroup }) {
     }
 
     return (
-      <div className={`flex items-center gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+      <div className={`flex items-end gap-3 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+        {!isMine && (
+          <img
+            src={message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
+            alt={message.sender?.name}
+            className="w-9 h-9 rounded-2xl object-cover ring-2 ring-blue-100 shadow-md shrink-0"
+            onError={(e) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+            }}
+          />
+        )}
+
         <div className={`max-w-xs ${isMine ? 'ml-auto' : 'mr-auto'}`}>
           {!isMine && isGroup && (
             <p className="text-xs font-bold text-blue-700 mb-1.5 ml-2 flex items-center gap-1">
@@ -136,12 +173,29 @@ export default function MessageBubble({ message, isMine, isGroup }) {
             </p>
           )}
           
-          <div className={`p-5 rounded-3xl flex items-center gap-4 shadow-lg transition-all transform hover:scale-[1.02] ${
-            isMine 
-              ? 'bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 text-white' 
-              : 'bg-white text-slate-800 border-2 border-blue-100'
-          }`}>
-            <div className="shrink-0 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+          <div 
+            className={`p-5 rounded-3xl flex items-center gap-4 shadow-lg transition-all transform hover:scale-[1.02] ${
+              isMine 
+                ? 'text-white' 
+                : 'bg-white text-slate-800 border-2 border-blue-100'
+            }`}
+            style={{
+              borderRadius: `var(--bubble-radius)`,
+              background: isMine 
+                ? 'var(--user-bubble-bg)' 
+                : 'var(--other-bubble-bg)',
+              color: isMine 
+                ? 'var(--user-bubble-text)' 
+                : 'var(--other-bubble-text)'
+            }}
+          >
+            <div 
+              className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{
+                backgroundColor: isMine ? 'rgba(255,255,255,0.2)' : 'var(--chat-primary)',
+                color: isMine ? 'white' : 'white'
+              }}
+            >
               {fileType === 'audio' ? (
                 <Mic className="w-6 h-6" />
               ) : (
@@ -202,7 +256,6 @@ export default function MessageBubble({ message, isMine, isGroup }) {
         className={`flex items-end gap-3 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}
       >
         {!isMine && (
-          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`}
             alt={message.sender?.name}
@@ -217,13 +270,28 @@ export default function MessageBubble({ message, isMine, isGroup }) {
           <div
             className={`max-w-xs lg:max-w-md xl:max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
               isMine
-                ? 'bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
-                : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
+                ? 'text-white'
+                : 'bg-white text-slate-800 border-2 border-blue-100'
             }`}
+            style={{
+              borderRadius: `var(--bubble-radius)`,
+              background: isMine 
+                ? 'var(--user-bubble-bg)' 
+                : 'var(--other-bubble-bg)',
+              color: isMine 
+                ? 'var(--user-bubble-text)' 
+                : 'var(--other-bubble-text)'
+            }}
           >
             {!isMine && isGroup && (
-              <p className="text-xs font-bold text-blue-600 mb-1.5 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-linear-to-r from-blue-500 to-cyan-500"></span>
+              <p 
+                className="text-xs font-bold mb-1.5 flex items-center gap-1"
+                style={{ color: 'var(--chat-primary)' }}
+              >
+                <span 
+                  className="w-2 h-2 rounded-full"
+                  style={{ background: 'var(--chat-primary)' }}
+                ></span>
                 {message.sender?.name}
               </p>
             )}
@@ -231,7 +299,7 @@ export default function MessageBubble({ message, isMine, isGroup }) {
             <p className="text-sm wrap-break-word whitespace-pre-wrap leading-relaxed">{message.content}</p>
             <span
               className={`text-xs mt-2 flex items-center gap-1 ${
-                isMine ? 'text-blue-100 justify-end' : 'text-slate-500'
+                isMine ? 'justify-end opacity-80' : 'opacity-70'
               }`}
             >
               {formatTime(message.createdAt)}

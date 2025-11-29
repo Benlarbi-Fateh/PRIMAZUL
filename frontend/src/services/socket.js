@@ -189,16 +189,37 @@ export const onConversationStatusUpdated = (callback) => {
   }
 };
 
-export const emitTyping = (conversationId, userId) => {
+// 🆕 REMPLACER les fonctions existantes typing par celles-ci :
+export const emitTyping = (conversationId, recipientId) => {
   if (socket?.connected) {
-    socket.emit('typing', { conversationId, userId });
+    socket.emit('typing', { conversationId, recipientId });
+    console.log('⌨️ Émission typing à:', recipientId);
   }
 };
 
-export const emitStopTyping = (conversationId, userId) => {
+export const emitStopTyping = (conversationId, recipientId) => {
   if (socket?.connected) {
-    socket.emit('stop-typing', { conversationId, userId });
+    socket.emit('stop-typing', { conversationId, recipientId });
+    console.log('⏹️ Émission stop-typing à:', recipientId);
   }
+};
+
+// 🆕 NOUVELLE FONCTION : Écouter les erreurs de blocage
+export const onMessageBlocked = (callback) => {
+  if (socket) {
+    socket.off('message-error');
+    socket.on('message-error', (errorData) => {
+      console.log('🚫 Erreur message bloqué:', errorData);
+      if (errorData.blocked) {
+        callback(errorData);
+      }
+    });
+  }
+};
+
+// 🆕 NOUVELLE FONCTION : Vérifier si un utilisateur est en ligne
+export const isUserOnline = (userId) => {
+  return onlineUsersCache.includes(userId);
 };
 
 export const onUserTyping = (callback) => {
@@ -309,6 +330,22 @@ export const emitInvitationCancelled = (data) => {
     .catch((error) => {
       console.error('❌ Impossible d\'émettre annulation:', error);
     });
+};
+
+// ============================================
+// 🎨 THÈME - FONCTIONS AJOUTÉES
+// ============================================
+
+export const onThemeUpdated = (callback) => {
+  if (socket) {
+    socket.on('theme-updated', callback);
+  }
+};
+
+export const offThemeUpdated = () => {
+  if (socket) {
+    socket.off('theme-updated');
+  }
 };
 
 export const disconnectSocket = () => {

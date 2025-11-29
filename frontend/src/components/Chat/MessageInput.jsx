@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
+import useBlockCheck from '../../hooks/useBlockCheck';
 
-export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) {
+export default function MessageInput({ onSendMessage, onTyping, onStopTyping, contactId }) {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -13,9 +14,11 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
+  
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+ const { isBlocked, blockStatus } = useBlockCheck(contactId);
 
   // Détection mobile
   useEffect(() => {
@@ -36,8 +39,46 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     }
   }, [message, isMobile]);
 
+  // 🆕 AJOUTER CETTE FONCTION : Vérification de blocage avant envoi
+const checkBlockStatus = () => {
+  if (isBlocked) {
+    alert(blockStatus.blockedMe 
+      ? '❌ Vous êtes bloqué par cet utilisateur' 
+      : '🚫 Vous avez bloqué cet utilisateur'
+    );
+    return true; // Bloquer l'action
+  }
+  return false; // Autoriser l'action
+};
+
+const handleSendMessage = async (messageContent) => {
+  // Vérification finale avant envoi
+  if (checkBlockStatus()) {
+    return;
+  }
+  
+  try {
+    await onSendMessage(messageContent);
+  } catch (error) {
+     if (error.response?.status === 403 || error.response?.data?.blocked) {
+      alert('❌ Message non envoyé - Utilisateur bloqué');
+      return; 
+    }
+    if (error.response?.data?.blocked) {
+      // Le backend a confirmé le blocage
+      alert('❌ Message non envoyé - Utilisateur bloqué');
+    } else {
+      console.error('Erreur envoi message:', error);
+      alert('Erreur lors de l\'envoi du message');
+    }
+  }
+};
+
   const handleChange = (e) => {
-    setMessage(e.target.value);
+      if (isBlocked) return;
+  
+  const value = e.target.value;
+  setMessage(value);
     
     if (onTyping) onTyping();
 
@@ -52,10 +93,12 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
   const handleSubmit = (e) => {
     e.preventDefault();
+      if (checkBlockStatus()) return;
+  
+  if (!message.trim() && !uploading) return;
     
-    if (!message.trim() && !uploading) return;
 
-    onSendMessage(message.trim());
+    handleSendMessage(message.trim()); 
     setMessage('');
     
     if (onStopTyping) onStopTyping();
@@ -73,8 +116,11 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   };
 
   const handleFileSelect = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+      if (checkBlockStatus()) return;
+  
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
 
     if (file.size > 10 * 1024 * 1024) {
       alert('Fichier trop volumineux (max 10MB)');
@@ -95,13 +141,13 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
       const fileType = getFileType(file.type);
 
-      onSendMessage({
-        type: fileType,
-        fileUrl: response.data.fileUrl,
-        fileName: response.data.fileName,
-        fileSize: response.data.fileSize,
-        content: message.trim()
-      });
+      handleSendMessage({
+  type: fileType,
+  fileUrl: response.data.fileUrl,
+  fileName: response.data.fileName,
+  fileSize: response.data.fileSize,
+  content: message.trim()
+});
 
       setMessage('');
 
@@ -124,12 +170,12 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
   const handleSendVoice = async (audioBlob, duration) => {
     try {
-      onSendMessage({
-        type: 'voice',
-        audioBlob,
-        duration,
-        isVoiceMessage: true
-      });
+      handleSendMessage({
+  type: 'voice',
+  audioBlob,
+  duration,
+  isVoiceMessage: true
+});
       
       setShowVoiceRecorder(false);
       
@@ -145,6 +191,31 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   };
 
   const frequentEmojis = ['😊', '😂', '❤️', '👍', '🙏', '🔥', '✨', '💯', '🎉', '👏'];
+
+if (isBlocked) {
+  return (
+    <div className="bg-red-50 border-t border-red-200 p-6 text-center">
+      <div className="flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+          <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-red-800 mb-1">
+            {blockStatus.blockedMe 
+              ? '❌ Vous êtes bloqué' 
+              : '🚫 Vous avez bloqué cet utilisateur'
+            }
+          </h3>
+          <p className="text-red-600 text-sm">
+            Vous ne pouvez pas envoyer de messages
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
   if (showVoiceRecorder) {
     return (
@@ -171,7 +242,8 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               <span className="xs:hidden">Emojis</span>
             </span>
             <button
-              onClick={() => setShowEmojiPicker(false)}
+              onClick={() =>{ if (checkBlockStatus()) return;
+    setShowVoiceRecorder(true);}}
               className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 sm:p-2 rounded-xl transition-all active:scale-95"
             >
               <X className="w-4 h-4 sm:w-5 sm:h-5" />

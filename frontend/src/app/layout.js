@@ -1,4 +1,5 @@
 import { AuthProvider } from '@/context/AuthProvider';
+import { BlockProvider } from '@/context/BlockContext';
 import './globals.css';
 
 export const metadata = {
@@ -23,7 +24,9 @@ export default function RootLayout({ children }) {
       </head>
       <body className="h-full m-0 p-0 antialiased">
         <AuthProvider>
-          {children}
+           <BlockProvider> 
+             {children}
+           </BlockProvider>
         </AuthProvider>
       </body>
     </html>
