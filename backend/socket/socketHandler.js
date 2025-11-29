@@ -233,37 +233,74 @@ const initSocket = (io) => {
     // Dans la connexion Socket.io, ajouter :
 
 // Événements pour les appels
+// Dans socketHandler.js - Vérifie call-initiate
+// Dans socketHandler.js - call-initiate
 socket.on('call-initiate', (data) => {
   const { receiverId, callType, channelName, caller } = data;
+  
   console.log(`📞 Appel ${callType} initié vers ${receiverId}`);
+  console.log('📞 Données COMPLÈTES reçues:', data); // 🔥 LOG COMPLET
+  console.log('📞 Caller reçu:', caller);
+  console.log('📞 Caller ID:', caller?.id || caller?._id); // 🔥 Vérifier les deux
+
+  // 🔥 CORRECTION : Vérifier l'ID différemment
+  const callerId = caller?.id || caller?._id;
+  
+  if (!callerId) {
+    console.error('❌ ERREUR: Aucun ID trouvé dans caller:', caller);
+    // 🔥 ENVOYER QUAND MÊME l'appel sans bloquer
+    console.log('⚠️  Envoi quand même l\'appel...');
+  }
 
   if (onlineUsers.has(receiverId)) {
     const receiverSocketId = onlineUsers.get(receiverId);
+    
+    // 🔥 CORRECTION : Créer un caller complet
+    const completeCaller = {
+      id: callerId || caller?.id || 'unknown', // 🔥 Toujours avoir un ID
+      _id: callerId || caller?._id || 'unknown',
+      name: caller?.name || 'Utilisateur',
+      profilePicture: caller?.profilePicture || ''
+    };
+    
     io.to(receiverSocketId).emit('incoming-call', {
-      caller,
+      caller: completeCaller, // 🔥 Caller complet
       callType,
       channelName,
       callId: Date.now().toString()
     });
+    
     console.log(`📞 Notification d'appel envoyée à ${receiverId}`);
+    console.log('📞 Caller envoyé:', completeCaller);
   } else {
     socket.emit('call-receiver-offline', { receiverId });
   }
 });
-
+//  Événement call-accepted
 socket.on('call-accepted', (data) => {
   const { callerId, channelName, callType } = data;
-  console.log(`✅ Appel accepté, notification à ${callerId}`);
+  
+  console.log('🎯 ===== CALL-ACCEPTED REÇU =====');
+  console.log('📋 Données:', { callerId, channelName, callType });
+  console.log('📋 Utilisateurs en ligne:', Array.from(onlineUsers.keys()));
+  console.log('📋 CallerId est en ligne?', onlineUsers.has(callerId));
 
   if (onlineUsers.has(callerId)) {
     const callerSocketId = onlineUsers.get(callerId);
+    console.log('📤 Envoi call-accepted au socket:', callerSocketId);
+    
     io.to(callerSocketId).emit('call-accepted', {
       channelName,
-      callType
+      callType,
+      acceptedBy: socket.userId
     });
+    
+    console.log('✅ Notification call-accepted envoyée avec succès');
+  } else {
+    console.error('❌ ERREUR: Émetteur introuvable dans onlineUsers');
+    console.log('❌ CallerId recherché:', callerId);
   }
 });
-
 socket.on('call-rejected', (data) => {
   const { callerId } = data;
   console.log(`❌ Appel rejeté, notification à ${callerId}`);

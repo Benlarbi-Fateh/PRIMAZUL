@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useContext } from 'react';
 import { AuthContext } from '@/context/AuthContext';
-import { getSocket, onIncomingCall, onCallAccepted, onCallRejected, onCallEnded, onCallBusy, getCurrentOnlineUsers } from '@/services/socket';
+import { getSocket } from '@/services/socket';
 import api from '@/lib/api';
 
 export const useAgora = () => {
@@ -10,12 +10,22 @@ export const useAgora = () => {
   const [callStatus, setCallStatus] = useState('idle');
   const [currentCall, setCurrentCall] = useState(null);
   const [permissionError, setPermissionError] = useState(null);
+  const callTimeoutRef = useRef(null);
 
-  // Références pour les éléments et ressources Agora
+  // Références pour Agora
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const clientRef = useRef(null);
   const tracksRef = useRef([]);
+
+  // 🔥 REF pour stocker currentCall - SOLUTION CLEF
+  const currentCallRef = useRef(null);
+
+  // 🔥 Synchroniser currentCallRef avec currentCall
+  useEffect(() => {
+    currentCallRef.current = currentCall;
+    console.log('🔄 currentCallRef mis à jour:', currentCall);
+  }, [currentCall]);
 
   // Générer un token Agora
   const generateToken = async (channelName, uid = null) => {
@@ -31,12 +41,12 @@ export const useAgora = () => {
         throw new Error(response.data.error || 'Erreur génération token');
       }
       
-      console.log('✅ Token reçu:', response.data.token ? 'OUI' : 'NON');
+      console.log('✅ Token reçu');
       return response.data;
       
     } catch (error) {
-      console.error('❌ Erreur génération token:', error.response?.data || error.message);
-      throw new Error('Impossible de générer le token: ' + (error.response?.data?.error || error.message));
+      console.error('❌ Erreur génération token:', error);
+      throw new Error('Impossible de générer le token: ' + error.message);
     }
   };
 
@@ -62,15 +72,12 @@ export const useAgora = () => {
       
       let errorMessage = 'Erreur de permissions';
       if (error.name === 'NotAllowedError') {
-        errorMessage = 'Microphone/caméra bloqués ! Clique sur le cadenas 🔒 et autorise l\'accès.';
+        errorMessage = 'Microphone/caméra bloqués ! Autorise l\'accès.';
       } else if (error.name === 'NotFoundError') {
-        errorMessage = 'Aucun microphone/caméra détecté. Vérifie tes périphériques.';
-      } else if (error.name === 'NotReadableError') {
-        errorMessage = 'Impossible d\'accéder au microphone/caméra. Vérifie qu\'ils ne sont pas utilisés par une autre application.';
+        errorMessage = 'Aucun microphone/caméra détecté.';
       }
       
       setPermissionError(errorMessage);
-      alert(errorMessage);
       return false;
     }
   };
@@ -79,12 +86,10 @@ export const useAgora = () => {
   const initAgoraForCall = async (channelName, callType) => {
     try {
       if (typeof window === 'undefined') return;
-      console.log('🚀 Initialisation Agora pour:', channelName);
+      console.log('🚀 INIT AGORA - Channel:', channelName);
       
-      // Importer Agora dynamiquement
       const AgoraRTC = (await import('agora-rtc-sdk-ng')).default;
       const tokenData = await generateToken(channelName);
-      console.log('🔑 Token data:', tokenData);
       
       // Créer le client
       const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
@@ -105,7 +110,6 @@ export const useAgora = () => {
         const [microphoneTrack, cameraTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
         tracksRef.current = [microphoneTrack, cameraTrack];
         
-        // Afficher la vidéo locale
         if (localVideoRef.current) {
           cameraTrack.play(localVideoRef.current);
         }
@@ -119,9 +123,9 @@ export const useAgora = () => {
         console.log('🎤 Track audio publié');
       }
 
-      // Configurer les écouteurs pour les utilisateurs distants
+      // Écouter les utilisateurs distants
       client.on('user-published', async (user, mediaType) => {
-        console.log('👤 Utilisateur publié:', user.uid, mediaType);
+        console.log('👤 Utilisateur publié:', mediaType);
         await client.subscribe(user, mediaType);
         
         if (mediaType === 'video') {
@@ -129,39 +133,20 @@ export const useAgora = () => {
           if (remoteVideoRef.current) {
             remoteVideoTrack.play(remoteVideoRef.current);
           }
-          console.log('📹 Vidéo distante affichée');
         }
         
         if (mediaType === 'audio') {
-          const remoteAudioTrack = user.audioTrack;
-          remoteAudioTrack.play();
-          console.log('🔊 Audio distant activé');
+          user.audioTrack.play();
         }
       });
 
-      client.on('user-unpublished', (user, mediaType) => {
-        console.log('👤 Utilisateur non publié:', user.uid, mediaType);
-        if (mediaType === 'video' && remoteVideoRef.current) {
-          remoteVideoRef.current.innerHTML = '';
-        }
-      });
-
-      client.on('user-left', (user) => {
-        console.log('👤 Utilisateur a quitté:', user.uid);
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.innerHTML = '';
-        }
-        // Si l'autre utilisateur quitte, terminer l'appel
+      client.on('user-left', () => {
+        console.log('👤 Utilisateur a quitté');
         endCall();
       });
 
-      client.on('connection-state-change', (curState, prevState) => {
-        console.log('🔗 État connexion:', prevState, '->', curState);
-      });
-
     } catch (error) {
-      console.error('❌ Erreur initialisation Agora:', error);
-      // Nettoyer en cas d'erreur
+      console.error('❌ ERREUR INIT AGORA:', error);
       await cleanupAgora();
       throw error;
     }
@@ -170,24 +155,19 @@ export const useAgora = () => {
   // Nettoyer les ressources Agora
   const cleanupAgora = async () => {
     try {
-      // Libérer les tracks
       if (tracksRef.current.length > 0) {
         tracksRef.current.forEach(track => {
-          if (track.stop) track.stop();
-          if (track.close) track.close();
+          track.stop();
+          track.close();
         });
         tracksRef.current = [];
-        console.log('🧹 Tracks Agora libérés');
       }
 
-      // Quitter le channel
       if (clientRef.current) {
         await clientRef.current.leave();
         clientRef.current = null;
-        console.log('🚪 Channel Agora quitté');
       }
 
-      // Nettoyer les éléments vidéo
       if (localVideoRef.current) {
         localVideoRef.current.innerHTML = '';
       }
@@ -199,37 +179,150 @@ export const useAgora = () => {
     }
   };
 
-  // Démarrer un appel
-  const startCall = async (receiverId, callType = 'audio') => {
+  // Réinitialiser l'état d'appel
+  const resetCallState = () => {
+    setCallStatus('idle');
+    setCurrentCall(null);
+    currentCallRef.current = null; // 🔥 AUSSI NETTOYER LE REF
+    setPermissionError(null);
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+  };
+
+  // Terminer un appel
+  const endCall = async () => {
     try {
-      // Vérifier que le destinataire est en ligne
-      const onlineUsers = getCurrentOnlineUsers();
-      if (!onlineUsers.includes(receiverId)) {
-        alert('❌ L\'utilisateur est hors ligne');
+      console.log('📞 Fin d\'appel');
+      await cleanupAgora();
+
+      const socket = getSocket();
+      const call = currentCallRef.current; // 🔥 UTILISER LE REF
+      
+      if (socket && call) {
+        const receiverId = call.isInitiator 
+          ? call.receiverId 
+          : (call.caller?.id || call.callerId);
+          
+        if (receiverId) {
+          socket.emit('call-ended', {
+            receiverId,
+            channelName: call.channelName
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur fin d\'appel:', error);
+    } finally {
+      resetCallState();
+    }
+  };
+
+  // Rejeter un appel
+  const rejectCall = () => {
+    console.log('❌ Appel rejeté');
+
+    const socket = getSocket();
+    const call = currentCallRef.current; // 🔥 UTILISER LE REF
+    
+    if (socket && call && call.caller) {
+      socket.emit('call-rejected', {
+        callerId: call.caller.id
+      });
+    }
+
+    resetCallState();
+  };
+
+  // Accepter un appel
+  const acceptCall = async () => {
+    const call = currentCallRef.current; // 🔥 UTILISER LE REF
+    
+    if (!call) {
+      console.log('❌ acceptCall: currentCall est null');
+      return;
+    }
+
+    try {
+      console.log('✅ DESTINATAIRE accepte l\'appel');
+      console.log('📋 CurrentCall:', call);
+
+      if (!call.caller) {
+        console.error('❌ Caller manquant dans currentCall');
+        alert('Erreur: Données d\'appel incomplètes');
         return;
       }
 
-      // Vérifier qu'aucun appel n'est en cours
+      const permissionsOK = await testPermissions(call.callType);
+      if (!permissionsOK) {
+        rejectCall();
+        return;
+      }
+
+      setCallStatus('in-call');
+      
+      const { channelName, callType, caller } = call;
+      await initAgoraForCall(channelName, callType);
+
+      // Émettre l'acceptation
+      const socket = getSocket();
+      if (socket && caller.id) {
+        console.log('📤 Envoi call-accepted à:', caller.id);
+        socket.emit('call-accepted', {
+          callerId: caller.id,
+          channelName,
+          callType
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ Erreur acceptation appel:', error);
+      endCall();
+    }
+  };
+
+  // Démarrer un appel
+  const startCall = async (receiverId, callType = 'audio') => {
+    try {
+      console.log('📞 ÉMETTEUR lance appel vers:', receiverId);
+      console.log('👤 User complet:', user); // 🔥 DEBUG
+      
       if (callStatus !== 'idle') {
         alert('❌ Un appel est déjà en cours');
         return;
       }
 
-      // Tester les permissions AVANT tout
+      // 🔥 VÉRIFIER que user existe et a un ID
+      if (!user || !user.id) {
+        console.error('❌ User non défini ou sans ID!', user);
+        alert('Erreur: Utilisateur non connecté');
+        return;
+      }
+
       const permissionsOK = await testPermissions(callType);
       if (!permissionsOK) return;
 
       setCallStatus('calling');
-      setPermissionError(null);
       
-      const channelName = `call_${user._id}_${receiverId}_${Date.now()}`;
+      // 🔥 RACCOURCIR le channel name pour respecter la limite de 64 caractères
+      const timestamp = Date.now().toString().slice(-8); // Derniers 8 chiffres
+      const callerId = user.id.slice(-8); // Derniers 8 caractères de l'ID
+      const receiverIdShort = receiverId.slice(-8); // Derniers 8 caractères
+      const channelName = `c_${callerId}_${receiverIdShort}_${timestamp}`;
+      
+      console.log('📺 Channel créé:', channelName, `(${channelName.length} chars)`);
+      
       const caller = {
-        id: user._id,
-        name: user.name,
-        profilePicture: user.profilePicture
+        id: user.id,
+        //_id: user.id,
+        name: user.name || 'Utilisateur',
+        profilePicture: user.profilePicture || ''
       };
 
-      // Émettre l'événement d'appel via Socket.io
+      console.log('📤 Données caller envoyées:', caller);
+
+      // Émettre l'appel
       const socket = getSocket();
       if (socket) {
         socket.emit('call-initiate', {
@@ -238,208 +331,143 @@ export const useAgora = () => {
           channelName,
           caller
         });
+        console.log('✅ call-initiate émis');
       }
 
-      setCurrentCall({
+      const newCall = {
         channelName,
         receiverId,
         callType,
         caller,
         isInitiator: true
-      });
+      };
+      
+      setCurrentCall(newCall);
+      currentCallRef.current = newCall; // 🔥 METTRE À JOUR LE REF IMMÉDIATEMENT
 
-      console.log('📞 Appel initié:', { receiverId, callType, channelName });
+      // Timeout
+      callTimeoutRef.current = setTimeout(() => {
+        console.log('⏰ Timeout - aucune réponse');
+        endCall();
+      }, 30000);
 
     } catch (error) {
       console.error('❌ Erreur démarrage appel:', error);
       setCallStatus('idle');
-      alert('Erreur lors du démarrage de l\'appel: ' + error.message);
     }
   };
 
-  // Accepter un appel
-  const acceptCall = async () => {
-    if (!currentCall) return;
-
-    try {
-      const permissionsOK = await testPermissions(currentCall.callType);
-      if (!permissionsOK) {
-        rejectCall();
-        return;
-      }
-
-      setCallStatus('in-call');
-      
-      const { channelName, callType } = currentCall;
-      await initAgoraForCall(channelName, callType);
-
-      // Notifier l'appelant que l'appel est accepté
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('call-accepted', {
-          callerId: currentCall.caller.id,
-          channelName,
-          callType
-        });
-      }
-
-      console.log('✅ Appel accepté');
-
-    } catch (error) {
-      console.error('❌ Erreur acceptation appel:', error);
-      alert('Erreur lors de l\'acceptation de l\'appel: ' + error.message);
-      endCall();
-    }
-  };
-
-  // Rejeter un appel
-  const rejectCall = () => {
-    if (!currentCall) return;
-
-    console.log('❌ Appel rejeté');
-
-    const socket = getSocket();
-    if (socket && currentCall.caller) {
-      socket.emit('call-rejected', {
-        callerId: currentCall.caller.id
-      });
-    }
-
-    resetCallState();
-  };
-
-  // Terminer un appel
-  const endCall = async () => {
-    try {
-      console.log('📞 Fin d\'appel demandée');
-      
-      await cleanupAgora();
-
-      // Notifier l'autre utilisateur
-      const socket = getSocket();
-      if (socket && currentCall) {
-        const receiverId = currentCall.isInitiator 
-          ? currentCall.receiverId 
-          : currentCall.caller.id;
-          
-        socket.emit('call-ended', {
-          receiverId,
-          channelName: currentCall.channelName
-        });
-      }
-
-    } catch (error) {
-      console.error('❌ Erreur fin d\'appel:', error);
-    } finally {
-      resetCallState();
-    }
-  };
-
-  // Réinitialiser l'état d'appel
-  const resetCallState = () => {
-    setCallStatus('idle');
-    setCurrentCall(null);
-    setPermissionError(null);
-    console.log('🔄 État d\'appel réinitialisé');
-  };
-
-  // Gérer les appels entrants
+  // 🔥 GESTION DES ÉVÉNEMENTS SOCKET - VERSION CORRIGÉE
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
+    console.log('🔌 Configuration écouteurs socket');
+
+    // Gérer appel entrant
     const handleIncomingCall = (data) => {
       console.log('📞 Appel entrant reçu:', data);
       
-      // Vérifier qu'aucun appel n'est en cours
       if (callStatus !== 'idle') {
-        console.log('🚗 Déjà en appel, rejet automatique');
-        socket.emit('call-busy', { callerId: data.caller.id });
+        console.log('🚗 Déjà en appel, rejet auto');
+        socket.emit('call-busy', { callerId: data.caller?.id });
         return;
       }
 
-      setCurrentCall({
-        ...data,
+      const newCall = {
+        caller: data.caller,
+        callType: data.callType,
+        channelName: data.channelName,
         isInitiator: false
-      });
+      };
+      
+      setCurrentCall(newCall);
+      currentCallRef.current = newCall; // 🔥 METTRE À JOUR LE REF
       setCallStatus('ringing');
+      
+      console.log('✅ Appel entrant configuré');
     };
 
+    // 🔥 CORRECTION PRINCIPALE - Gérer appel accepté
     const handleCallAccepted = async (data) => {
-      console.log('✅ Appel accepté par le destinataire:', data);
+      console.log('🎯 ===== CALL-ACCEPTED REÇU =====');
+      console.log('📋 Données:', data);
+      console.log('📋 Status actuel:', callStatus);
+      console.log('📋 CurrentCall actuel:', currentCallRef.current);
+      
+      // Annuler timeout
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+        console.log('✅ Timeout annulé');
+      }
+
       setCallStatus('in-call');
       
-      // Rejoindre le channel Agora pour l'appelant
-      if (currentCall?.isInitiator) {
+      // 🔥 UTILISER LE REF au lieu de currentCall
+      const call = currentCallRef.current;
+      
+      if (!call) {
+        console.error('❌ ERREUR: currentCall est null!');
+        return;
+      }
+
+      // 🔥 Rejoindre Agora si c'est l'émetteur
+      if (call.isInitiator) {
+        console.log('🚀 ÉMETTEUR rejoint Agora maintenant');
+        console.log('🚀 Channel:', data.channelName);
+        console.log('🚀 Type:', data.callType);
+        
         try {
           await initAgoraForCall(data.channelName, data.callType);
+          console.log('✅ ÉMETTEUR connecté à Agora avec succès!');
         } catch (error) {
-          console.error('❌ Erreur rejoindre channel après acceptation:', error);
+          console.error('❌ Erreur connexion Agora émetteur:', error);
           endCall();
         }
+      } else {
+        console.log('ℹ️  Je suis le récepteur, déjà connecté à Agora');
       }
     };
 
     const handleCallRejected = () => {
-      console.log('❌ Appel rejeté par le destinataire');
-      alert('L\'appel a été rejeté');
+      console.log('❌ Appel rejeté');
       resetCallState();
     };
 
     const handleCallEnded = () => {
-      console.log('📞 Appel terminé par l\'autre utilisateur');
-      alert('L\'autre utilisateur a terminé l\'appel');
+      console.log('📞 Appel terminé');
+      cleanupAgora();
       resetCallState();
     };
 
     const handleCallBusy = () => {
       console.log('🚗 Utilisateur occupé');
-      alert('L\'utilisateur est actuellement occupé');
       resetCallState();
     };
 
-    // Écouter les événements d'appel
+    // Configurer écouteurs
     socket.on('incoming-call', handleIncomingCall);
     socket.on('call-accepted', handleCallAccepted);
     socket.on('call-rejected', handleCallRejected);
     socket.on('call-ended', handleCallEnded);
     socket.on('call-busy', handleCallBusy);
 
-    // Nettoyer à la déconnexion du composant
     return () => {
       socket.off('incoming-call', handleIncomingCall);
       socket.off('call-accepted', handleCallAccepted);
       socket.off('call-rejected', handleCallRejected);
       socket.off('call-ended', handleCallEnded);
       socket.off('call-busy', handleCallBusy);
-      
-      // Nettoyer Agora si le composant est démonté pendant un appel
-      if (callStatus !== 'idle') {
-        cleanupAgora();
-      }
     };
-  }, [callStatus, currentCall]);
-
-  // Nettoyer automatiquement à la déconnexion
-  useEffect(() => {
-    return () => {
-      if (callStatus !== 'idle') {
-        cleanupAgora();
-      }
-    };
-  }, []);
+  }, [callStatus]); // 🔥 UNIQUEMENT callStatus en dépendance
 
   return {
-    // États
     callStatus,
     currentCall,
     permissionError,
-    
-    // Références
     localVideoRef,
     remoteVideoRef,
-    
-    // Actions
     startCall,
     acceptCall,
     rejectCall,
