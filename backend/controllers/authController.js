@@ -2,6 +2,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const generateToken = require('../utils/generateToken');
 const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
+const profileService = require('../utils/profileService');
 
 // 🆕 FONCTION : Vérifier si le 2FA est nécessaire (24 heures)
 const isTwoFactorRequired = (user) => {
@@ -505,5 +506,29 @@ exports.updateLastLogin = async (req, res) => {
   } catch (error) {
     console.error('❌ Erreur updateLastLogin:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+// 🚀 Envoi code pour mise à jour profil
+exports.sendProfileUpdateCode = async (req, res) => {
+  try {
+    const { userId } = req.user; // ou req.body.userId si nécessaire
+    const updatedData = req.body;
+
+    const data = await profileService.sendProfileUpdateCode(userId, updatedData);
+    res.json({ success: true, message: 'Code de vérification envoyé', ...data });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+};
+
+// 🚀 Vérification code et sauvegarde profil
+exports.verifyProfileUpdateCode = async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+
+    const updatedUser = await profileService.verifyProfileUpdateCode(userId, code);
+    res.json({ success: true, message: 'Profil mis à jour !', user: updatedUser });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
   }
 };

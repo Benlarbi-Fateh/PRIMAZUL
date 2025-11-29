@@ -497,7 +497,7 @@ export default function Sidebar({ activeConversationId }) {
   return (
     <div className="w-full lg:w-96 bg-white/95 backdrop-blur-xl border-r border-blue-100 flex flex-col h-screen shadow-xl relative">
       {/* Header avec gradient bleu identique au ChatHeader */}
-      <div className="relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 shadow-lg">
+      <div className="relative overflow-hidden bg-linear-to-br from-blue-700 via-blue-700 to-blue-800 shadow-lg">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-20"></div>
 
         <div className="relative p-5">
@@ -510,7 +510,7 @@ export default function Sidebar({ activeConversationId }) {
                 title="Voir mon profil"
               >
                 {user?.profilePicture && user.profilePicture.trim() !== "" ? (
-                  <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
+                  <div className="w-15 h-15 rounded-full overflow-hidden shadow-lg ring-2 ring-white/50 animate-scale-in group-hover:ring-white/80 transition-all">
                     <Image
                       src={user.profilePicture}
                       alt={user?.name || "User"}

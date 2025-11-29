@@ -117,13 +117,6 @@ export const markConversationAsRead = (conversationId) =>
 export const getUnreadCount = () => 
   api.get('/messages/unread/count');
 
-// ============================================
-// 🔑 RÉINITIALISATION MOT DE PASSE
-// ============================================
-export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
-export const verifyResetCode = (data) => api.post('/auth/verify-reset-code', data);
-export const resetPassword = (data) => api.post('/auth/reset-password', data);
-
 
 // ============================================
 // 🆕 API CONTACTS
@@ -154,5 +147,11 @@ export const toggleFavoriteContact = (contactId) => api.patch(`/contacts/${conta
 export const toggleBlockContact = (contactId) => api.patch(`/contacts/${contactId}/block`);
 
 
+// ============================================
+// 🔑 RÉINITIALISATION MOT DE PASSE
+// ============================================
+export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
+export const verifyResetCode = (data) => api.post('/auth/verify-reset-code', data);
+export const resetPassword = (data) => api.post('/auth/reset-password', data);
 
 export default api;

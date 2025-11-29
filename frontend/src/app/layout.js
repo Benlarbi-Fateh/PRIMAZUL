@@ -1,5 +1,6 @@
-import { AuthProvider } from '@/context/AuthProvider';
-import './globals.css';
+
+import "./globals.css";
+import ClientLayout from "./profile/ClientLayout";
 
 // ✅ Métadonnées sans viewport ni themeColor
 export const metadata = {
@@ -21,13 +22,11 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="fr" className="h-full">
-      <head>
-        <meta name="color-scheme" content="light" />
-      </head>
       <body className="h-full m-0 p-0 antialiased">
-        <AuthProvider>
+        {/* Le layout client est rendu APRES hydration → aucun mismatch */}
+        <ClientLayout>
           {children}
-        </AuthProvider>
+        </ClientLayout>
       </body>
     </html>
   );

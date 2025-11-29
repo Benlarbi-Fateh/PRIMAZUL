@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
@@ -109,6 +109,14 @@ const userSchema = new mongoose.Schema(
     // Réinitialisation mot de passe
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
+    status: { type: String, default: "Hey there! I'm using WhatsApp" },
+    isOnline: { type: Boolean, default: false },
+
+
+    // 🔥 Champs ajoutés pour changement d’email
+    pendingEmail: { type: String },
+    emailVerificationCode: { type: String },
+    emailCodeExpires: { type: Date },
   },
   { 
     timestamps: true

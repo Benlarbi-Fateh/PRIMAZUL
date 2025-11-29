@@ -4,7 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const connectDB = require('./config/db');
-
+const userRoutes = require("./routes/userRoutes")
 const app = express();
 const server = http.createServer(app);
 
@@ -83,10 +83,13 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/audio', require('./routes/audioRoutes'));
+//new
+app.use("/uploads", express.static("uploads"));
 app.use('/api/contacts', require('./routes/contactRoutes'));
 
 
