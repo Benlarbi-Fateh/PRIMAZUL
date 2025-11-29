@@ -4,15 +4,20 @@ const generateToken = require('../utils/generateToken');
 const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
 const profileService = require('../utils/profileService');
 
+
 // 🆕 FONCTION : Vérifier si le 2FA est nécessaire (24 heures)
 const isTwoFactorRequired = (user) => {
   const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
   const timeSinceLastLogin = Date.now() - new Date(user.lastLogin).getTime();
-  
+
   console.log(`⏰ Dernière connexion: ${user.lastLogin}`);
-  console.log(`⏰ Temps écoulé: ${Math.round(timeSinceLastLogin / (60 * 60 * 1000))} heures`);
+  console.log(
+    `⏰ Temps écoulé: ${Math.round(
+      timeSinceLastLogin / (60 * 60 * 1000)
+    )} heures`
+  );
   console.log(`🔐 2FA requis: ${timeSinceLastLogin > TWENTY_FOUR_HOURS}`);
-  
+
   return timeSinceLastLogin > TWENTY_FOUR_HOURS;
 };
 
@@ -24,7 +29,7 @@ exports.register = async (req, res) => {
     // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+      return res.status(400).json({ error: "Cet email est déjà utilisé" });
     }
 
     // Hasher le mot de passe
@@ -35,33 +40,33 @@ exports.register = async (req, res) => {
     const verificationCodeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Créer l'utilisateur NON vérifié
-    const user = new User({ 
-      name, 
-      email, 
+    const user = new User({
+      name,
+      email,
       password: hashedPassword,
       isVerified: false,
       verificationCode,
       verificationCodeExpiry,
-      verificationCodeType: 'registration',
-      lastLogin: new Date() // 🆕 Initialiser lastLogin
+      verificationCodeType: "registration",
+      lastLogin: new Date(), // 🆕 Initialiser lastLogin
     });
-    
+
     await user.save();
 
     // Envoyer l'email avec le code
-    await sendVerificationEmail(email, name, verificationCode, 'registration');
+    await sendVerificationEmail(email, name, verificationCode, "registration");
 
-    console.log('✅ Utilisateur créé, code envoyé:', email);
+    console.log("✅ Utilisateur créé, code envoyé:", email);
 
     res.status(201).json({
       success: true,
-      message: 'Code de vérification envoyé à votre email',
+      message: "Code de vérification envoyé à votre email",
       userId: user._id,
       email: user.email,
-      requiresVerification: true
+      requiresVerification: true,
     });
   } catch (error) {
-    console.error('❌ Erreur registration:', error);
+    console.error("❌ Erreur registration:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -74,21 +79,23 @@ exports.verifyRegistration = async (req, res) => {
     // Trouver l'utilisateur
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     // Vérifier si déjà vérifié
     if (user.isVerified) {
-      return res.status(400).json({ error: 'Compte déjà vérifié' });
+      return res.status(400).json({ error: "Compte déjà vérifié" });
     }
 
     // Vérifier le code et l'expiration
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+      return res
+        .status(400)
+        .json({ error: "Code expiré. Demandez un nouveau code." });
     }
 
     // Vérifier le compte SANS générer le token
@@ -99,16 +106,17 @@ exports.verifyRegistration = async (req, res) => {
     user.lastLogin = new Date(); // 🆕 Mettre à jour lastLogin
     await user.save();
 
-    console.log('✅ Compte vérifié:', user.email);
+    console.log("✅ Compte vérifié:", user.email);
 
     // Ne pas envoyer le token, juste confirmer la vérification
     res.json({
       success: true,
-      message: 'Compte vérifié ! Vous pouvez maintenant personnaliser votre profil.',
-      userId: user._id
+      message:
+        "Compte vérifié ! Vous pouvez maintenant personnaliser votre profil.",
+      userId: user._id,
     });
   } catch (error) {
-    console.error('❌ Erreur verification:', error);
+    console.error("❌ Erreur verification:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -118,13 +126,13 @@ exports.finalizeRegistration = async (req, res) => {
   try {
     const { userId } = req.body;
 
-    const user = await User.findById(userId).select('-password');
+    const user = await User.findById(userId).select("-password");
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     if (!user.isVerified) {
-      return res.status(400).json({ error: 'Compte non vérifié' });
+      return res.status(400).json({ error: "Compte non vérifié" });
     }
 
     // Mettre l'utilisateur en ligne et mettre à jour lastLogin
@@ -135,21 +143,21 @@ exports.finalizeRegistration = async (req, res) => {
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Inscription finalisée:', user.email);
+    console.log("✅ Inscription finalisée:", user.email);
 
     res.json({
       success: true,
-      message: 'Bienvenue sur PrimAzul !',
+      message: "Bienvenue sur PrimAzul !",
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        profilePicture: user.profilePicture
-      }
+        profilePicture: user.profilePicture,
+      },
     });
   } catch (error) {
-    console.error('❌ Erreur finalize registration:', error);
+    console.error("❌ Erreur finalize registration:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -161,7 +169,7 @@ exports.resendCode = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     // Générer un nouveau code
@@ -173,17 +181,17 @@ exports.resendCode = async (req, res) => {
     await user.save();
 
     // Envoyer l'email
-    const type = user.isVerified ? 'login' : 'registration';
+    const type = user.isVerified ? "login" : "registration";
     await sendVerificationEmail(email, user.name, verificationCode, type);
 
-    console.log('✅ Nouveau code envoyé:', email);
+    console.log("✅ Nouveau code envoyé:", email);
 
     res.json({
       success: true,
-      message: 'Nouveau code envoyé à votre email'
+      message: "Nouveau code envoyé à votre email",
     });
   } catch (error) {
-    console.error('❌ Erreur resend code:', error);
+    console.error("❌ Erreur resend code:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -196,28 +204,28 @@ exports.login = async (req, res) => {
     // Trouver l'utilisateur
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+      return res.status(401).json({ error: "Email ou mot de passe incorrect" });
     }
 
     // Vérifier le mot de passe
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
+      return res.status(401).json({ error: "Email ou mot de passe incorrect" });
     }
 
     // Vérifier si le compte est vérifié
     if (!user.isVerified) {
-      return res.status(403).json({ 
-        error: 'Compte non vérifié. Veuillez vérifier votre email.',
+      return res.status(403).json({
+        error: "Compte non vérifié. Veuillez vérifier votre email.",
         requiresVerification: true,
         userId: user._id,
-        email: user.email
+        email: user.email,
       });
     }
 
     // 🆕 VÉRIFIER SI LE 2FA EST NÉCESSAIRE (24 heures)
     const requiresTwoFactor = isTwoFactorRequired(user);
-    
+
     if (!requiresTwoFactor) {
       // ✅ Connexion directe sans 2FA (activité récente)
       user.lastLogin = new Date();
@@ -226,19 +234,19 @@ exports.login = async (req, res) => {
 
       const token = generateToken(user._id);
 
-      console.log('✅ Connexion directe (2FA non requis):', user.email);
+      console.log("✅ Connexion directe (2FA non requis):", user.email);
 
       return res.json({
         success: true,
-        message: 'Connexion réussie !',
+        message: "Connexion réussie !",
         token,
-        user: { 
-          id: user._id, 
-          name: user.name, 
-          email: user.email, 
-          profilePicture: user.profilePicture 
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          profilePicture: user.profilePicture,
         },
-        requiresVerification: false // 🆕 Indiquer que le 2FA n'est pas requis
+        requiresVerification: false, // 🆕 Indiquer que le 2FA n'est pas requis
       });
     }
 
@@ -248,23 +256,23 @@ exports.login = async (req, res) => {
 
     user.verificationCode = verificationCode;
     user.verificationCodeExpiry = verificationCodeExpiry;
-    user.verificationCodeType = 'login';
+    user.verificationCodeType = "login";
     await user.save();
 
     // Envoyer l'email avec le code
-    await sendVerificationEmail(email, user.name, verificationCode, 'login');
+    await sendVerificationEmail(email, user.name, verificationCode, "login");
 
-    console.log('✅ 2FA requis - Code de connexion envoyé:', email);
+    console.log("✅ 2FA requis - Code de connexion envoyé:", email);
 
     res.json({
       success: true,
-      message: 'Code de vérification envoyé à votre email',
+      message: "Code de vérification envoyé à votre email",
       userId: user._id,
       email: user.email,
-      requiresVerification: true // 🆕 Indiquer que le 2FA est requis
+      requiresVerification: true, // 🆕 Indiquer que le 2FA est requis
     });
   } catch (error) {
-    console.error('❌ Erreur login:', error);
+    console.error("❌ Erreur login:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -277,16 +285,18 @@ exports.verifyLogin = async (req, res) => {
     // Trouver l'utilisateur
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     // Vérifier le code et l'expiration
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+      return res
+        .status(400)
+        .json({ error: "Code expiré. Demandez un nouveau code." });
     }
 
     // Connexion réussie
@@ -300,21 +310,21 @@ exports.verifyLogin = async (req, res) => {
     // Générer le token
     const token = generateToken(user._id);
 
-    console.log('✅ Connexion 2FA réussie:', user.email);
+    console.log("✅ Connexion 2FA réussie:", user.email);
 
     res.json({
       success: true,
-      message: 'Connexion réussie !',
+      message: "Connexion réussie !",
       token,
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        email: user.email, 
-        profilePicture: user.profilePicture 
-      }
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture,
+      },
     });
   } catch (error) {
-    console.error('❌ Erreur verify login:', error);
+    console.error("❌ Erreur verify login:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -325,10 +335,10 @@ exports.searchUsers = async (req, res) => {
     const { query } = req.query;
     const currentUserId = req.user._id;
 
-    if (!query || query.trim() === '') {
-      return res.status(400).json({ 
-        success: false, 
-        error: "La recherche ne peut pas être vide" 
+    if (!query || query.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        error: "La recherche ne peut pas être vide",
       });
     }
 
@@ -338,24 +348,24 @@ exports.searchUsers = async (req, res) => {
         { isVerified: true },
         {
           $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { email: { $regex: query, $options: 'i' } }
-          ]
-        }
-      ]
+            { name: { $regex: query, $options: "i" } },
+            { email: { $regex: query, $options: "i" } },
+          ],
+        },
+      ],
     })
-    .select('name email profilePicture status isOnline')
-    .limit(20);
+      .select("name email profilePicture status isOnline")
+      .limit(20);
 
-    res.status(200).json({ 
-      success: true, 
-      users 
+    res.status(200).json({
+      success: true,
+      users,
     });
   } catch (error) {
     console.error("Erreur lors de la recherche:", error);
-    res.status(500).json({ 
-      success: false, 
-      error: "Erreur serveur lors de la recherche" 
+    res.status(500).json({
+      success: false,
+      error: "Erreur serveur lors de la recherche",
     });
   }
 };
@@ -363,11 +373,11 @@ exports.searchUsers = async (req, res) => {
 // Récupérer tous les utilisateurs (sauf soi-même)
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({ 
+    const users = await User.find({
       _id: { $ne: req.user._id },
-      isVerified: true
+      isVerified: true,
     })
-      .select('-password')
+      .select("-password")
       .sort({ name: 1 });
 
     res.json({ success: true, users });
@@ -385,7 +395,8 @@ exports.forgotPassword = async (req, res) => {
     if (!user) {
       return res.json({
         success: true,
-        message: 'Si cet email existe, un code de réinitialisation a été envoyé'
+        message:
+          "Si cet email existe, un code de réinitialisation a été envoyé",
       });
     }
 
@@ -394,20 +405,25 @@ exports.forgotPassword = async (req, res) => {
 
     user.verificationCode = verificationCode;
     user.verificationCodeExpiry = verificationCodeExpiry;
-    user.verificationCodeType = 'password-reset';
+    user.verificationCodeType = "password-reset";
     await user.save();
 
-    await sendVerificationEmail(email, user.name, verificationCode, 'password-reset');
+    await sendVerificationEmail(
+      email,
+      user.name,
+      verificationCode,
+      "password-reset"
+    );
 
-    console.log('✅ Code de réinitialisation envoyé:', email);
+    console.log("✅ Code de réinitialisation envoyé:", email);
 
     res.json({
       success: true,
-      message: 'Code de réinitialisation envoyé à votre email',
-      email: user.email
+      message: "Code de réinitialisation envoyé à votre email",
+      email: user.email,
     });
   } catch (error) {
-    console.error('❌ Erreur forgot password:', error);
+    console.error("❌ Erreur forgot password:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -419,30 +435,35 @@ exports.verifyResetCode = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré. Demandez un nouveau code.' });
+      return res
+        .status(400)
+        .json({ error: "Code expiré. Demandez un nouveau code." });
     }
 
-    if (user.verificationCodeType !== 'password-reset') {
-      return res.status(400).json({ error: 'Code invalide pour cette opération' });
+    if (user.verificationCodeType !== "password-reset") {
+      return res
+        .status(400)
+        .json({ error: "Code invalide pour cette opération" });
     }
 
-    console.log('✅ Code de réinitialisation vérifié:', email);
+    console.log("✅ Code de réinitialisation vérifié:", email);
 
     res.json({
       success: true,
-      message: 'Code vérifié. Vous pouvez maintenant réinitialiser votre mot de passe.',
-      email: user.email
+      message:
+        "Code vérifié. Vous pouvez maintenant réinitialiser votre mot de passe.",
+      email: user.email,
     });
   } catch (error) {
-    console.error('❌ Erreur verify reset code:', error);
+    console.error("❌ Erreur verify reset code:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -454,15 +475,15 @@ exports.resetPassword = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Code de vérification incorrect' });
+      return res.status(400).json({ error: "Code de vérification incorrect" });
     }
 
     if (user.verificationCodeExpiry < Date.now()) {
-      return res.status(400).json({ error: 'Code expiré' });
+      return res.status(400).json({ error: "Code expiré" });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -473,14 +494,15 @@ exports.resetPassword = async (req, res) => {
     user.verificationCodeType = undefined;
     await user.save();
 
-    console.log('✅ Mot de passe réinitialisé:', email);
+    console.log("✅ Mot de passe réinitialisé:", email);
 
     res.json({
       success: true,
-      message: 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.'
+      message:
+        "Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.",
     });
   } catch (error) {
-    console.error('❌ Erreur reset password:', error);
+    console.error("❌ Erreur reset password:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -490,21 +512,21 @@ exports.updateLastLogin = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ error: 'Utilisateur introuvable' });
+      return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
     user.lastLogin = new Date();
     await user.save();
 
-    console.log('✅ Last login mis à jour pour:', user.email);
+    console.log("✅ Last login mis à jour pour:", user.email);
 
     res.json({
       success: true,
-      message: 'Last login mis à jour',
-      lastLogin: user.lastLogin
+      message: "Last login mis à jour",
+      lastLogin: user.lastLogin,
     });
   } catch (error) {
-    console.error('❌ Erreur updateLastLogin:', error);
+    console.error("❌ Erreur updateLastLogin:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -529,6 +551,83 @@ exports.verifyProfileUpdateCode = async (req, res) => {
     const updatedUser = await profileService.verifyProfileUpdateCode(userId, code);
     res.json({ success: true, message: 'Profil mis à jour !', user: updatedUser });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message });
+    res.status(400).json({ success: false, error: error.message })};
+};
+
+
+// 2. DEMANDER OTP POUR CHANGEMENT DE MOT DE PASSE
+exports.requestPasswordChangeOTP = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    // récupérer l'id depuis le token
+    const userId = req.user.userId || req.user._id || req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+
+    const isValid = await bcrypt.compare(oldPassword, user.password);
+    console.log("🔍 Résultat comparaison:", isValid);
+
+    if (!isValid) {
+      return res.status(400).json({ message: "Ancien mot de passe incorrect" });
+    }
+
+    // Générer OTP
+    const code = generateVerificationCode();
+    user.verificationCode = code;
+    user.verificationCodeExpiry = Date.now() + 10 * 60 * 1000;
+    user.verificationCodeType = "change-password";
+    await user.save();
+
+    await sendVerificationEmail(user.email, user.name, code, "change-password");
+
+    return res.json({ success: true, message: "OTP envoyé à votre email" });
+  } catch (error) {
+    console.error("❌ Erreur requestPasswordChangeOTP:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// 3. VÉRIFIER OTP ET CHANGER LE MOT DE PASSE
+exports.verifyAndChangePassword = async (req, res) => {
+  const { code, newPassword } = req.body;
+
+  try {
+    const userId = req.user.userId || req.user._id || req.user.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur introuvable" });
+    }
+
+    if (
+      user.verificationCode === code &&
+      user.verificationCodeExpiry > Date.now() &&
+      user.verificationCodeType === "change-password"
+    ) {
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+
+      user.verificationCode = undefined;
+      user.verificationCodeExpiry = undefined;
+      user.verificationCodeType = undefined;
+
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: "Mot de passe modifié avec succès !",
+      });
+    } else {
+      return res.status(400).json({ message: "Code invalide ou expiré" });
+    }
+  } catch (error) {
+    console.error("❌ Erreur verifyAndChangePassword:", error);
+    return res
+      .status(500)
+      .json({ message: "Erreur serveur lors du changement de mot de passe" });
   }
 };

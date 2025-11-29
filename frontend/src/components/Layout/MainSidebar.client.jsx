@@ -37,7 +37,8 @@ export default function MainSidebar() {
 
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-16  bg-blue-700 border-r border-blue-700 flex flex-col items-center py-4 shadow-lg relative">
+    <aside className="fixed 
+                 left-0 top-0 h-relative w-16  bg-blue-700 border-r border-blue-700 flex flex-col items-center py-4 shadow-lg static">
       
       {/* Avatar utilisateur */}
      
