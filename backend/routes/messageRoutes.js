@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const messageController = require('../controllers/messageController');
+
 const { 
   getMessages, 
   sendMessage, 
@@ -22,5 +24,6 @@ router.get('/unread/count', authMiddleware, getUnreadCount);
 
 router.delete('/:messageId', authMiddleware, deleteMessage);
 router.put('/:messageId', authMiddleware, editMessage);
-router.post('/:messageId/translate', authMiddleware, translateMessage);
+router.post('/:messageId/translate', authMiddleware, translateMessage );
+
 module.exports = router;

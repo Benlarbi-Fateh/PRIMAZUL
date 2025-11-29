@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { 
   Image, File, Mic, Download, ExternalLink, Check, CheckCheck,
-  MoreVertical, Trash2, Edit2, Languages, X
+  MoreVertical, Trash2, Edit2, Languages, X, RotateCcw
 } from 'lucide-react';
 import VoiceMessage from './VoiceMessage';
 
@@ -23,6 +23,7 @@ export default function MessageBubble({
   const [showMenu, setShowMenu] = useState(false);
   const [isTranslated, setIsTranslated] = useState(false);
   const [translatedText, setTranslatedText] = useState('');
+  const [originalText, setOriginalText] = useState(''); // ✅ Sauvegarder l'original
   const [isTranslating, setIsTranslating] = useState(false);
   const [showTranslateIcon, setShowTranslateIcon] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -57,27 +58,16 @@ export default function MessageBubble({
   // ========================================
   const handleMenuToggle = (e) => {
     e.stopPropagation();
-    console.log('🔍 Menu toggle:', showMenu);
     setShowMenu(!showMenu);
   };
 
   const handleDelete = (e) => {
     e.stopPropagation();
-    console.log('🔍 DEBUT handleDelete');
-    console.log('Message ID:', message._id);
-    console.log('Message:', message);
     
     if (window.confirm('Voulez-vous vraiment supprimer ce message ?')) {
-      console.log('✅ Confirmation reçue');
-      
       if (onDelete) {
-        console.log('✅ onDelete existe, appel en cours...');
         onDelete(message._id);
-      } else {
-        console.error('❌ onDelete est undefined !');
       }
-    } else {
-      console.log('❌ Suppression annulée par l\'utilisateur');
     }
     
     setShowMenu(false);
@@ -85,15 +75,9 @@ export default function MessageBubble({
 
   const handleEdit = (e) => {
     e.stopPropagation();
-    console.log('🔍 DEBUT handleEdit');
-    console.log('Message ID:', message._id);
-    console.log('Message content:', message.content);
     
     if (onEdit) {
-      console.log('✅ onEdit existe, appel en cours...');
       onEdit(message._id, message.content);
-    } else {
-      console.error('❌ onEdit est undefined !');
     }
     
     setShowMenu(false);
@@ -115,32 +99,34 @@ export default function MessageBubble({
 
   const handleTranslateClick = (e) => {
     e.stopPropagation();
-    console.log('🔍 DEBUT handleTranslateClick');
     
     if (isTranslated) {
-      console.log('✅ Retour au texte original');
+      // ✅ Retour au texte original
       setIsTranslated(false);
       setShowLanguageMenu(false);
     } else {
-      console.log('✅ Affichage menu langues');
+      // ✅ Afficher le menu de langues
       setShowLanguageMenu(!showLanguageMenu);
     }
   };
 
   const handleTranslate = async (targetLang) => {
-    console.log('🔍 DEBUT handleTranslate vers:', targetLang);
+    console.log('🔍 Traduction vers:', targetLang);
     setIsTranslating(true);
     setShowLanguageMenu(false);
     
     try {
       if (onTranslate) {
-        console.log('✅ onTranslate existe, appel en cours...');
+        // ✅ Sauvegarder l'original AVANT de traduire
+        if (!isTranslated) {
+          setOriginalText(message.content);
+        }
+        
         const translated = await onTranslate(message.content, message._id, targetLang);
         console.log('✅ Traduction reçue:', translated);
+        
         setTranslatedText(translated);
         setIsTranslated(true);
-      } else {
-        console.error('❌ onTranslate est undefined !');
       }
     } catch (error) {
       console.error('❌ Erreur de traduction:', error);
@@ -405,16 +391,10 @@ export default function MessageBubble({
               </p>
             )}
             
+            {/* ✅ AFFICHAGE DU TEXTE : traduit ou original */}
             <p className="text-sm wrap-break-word whitespace-pre-wrap">
               {isTranslated ? translatedText : message.content}
             </p>
-
-            {isTranslated && (
-              <div className="flex items-center gap-1 mt-1 text-xs opacity-75">
-                <Languages className="w-3 h-3" />
-                <span>Traduit</span>
-              </div>
-            )}
 
             <span
               className={`text-xs mt-1 flex items-center ${
@@ -434,14 +414,15 @@ export default function MessageBubble({
                 disabled={isTranslating}
                 className={`p-2 rounded-full transition transform hover:scale-110 ${
                   isTranslated 
-                    ? 'bg-green-100 text-green-600' 
+                    ? 'bg-blue-500 text-white hover:bg-blue-600' 
                     : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
                 }`}
+                title={isTranslated ? 'Voir le texte original' : 'Traduire ce message'}
               >
                 {isTranslating ? (
                   <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                 ) : isTranslated ? (
-                  <X className="w-4 h-4" />
+                  <RotateCcw className="w-4 h-4" />
                 ) : (
                   <Languages className="w-4 h-4" />
                 )}
