@@ -7,6 +7,7 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name profilePicture')
+      .populate('reactions.user', 'name profilePicture')
       .sort({ createdAt: 1 });
     res.json({ success: true, messages });
   } catch (error) {

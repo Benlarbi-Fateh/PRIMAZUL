@@ -515,11 +515,11 @@ const handleUpdateMessage = (updatedMessage) => {
               </div>
             ) : (
               <>
-                {messages.map((message) => {
+                {messages.map((message , index) => {
                   const userId = user?._id || user?.id;
                   return (
                     <MessageBubble
-                      key={message._id}
+                      key={message._id || index}
                       message={message}
                       isMine={message.sender?._id === userId}
                       isGroup={conversation?.isGroup || false}
