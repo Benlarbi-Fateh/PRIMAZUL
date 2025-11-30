@@ -4,8 +4,12 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const connectDB = require('./config/db');
+<<<<<<< HEAD
 
 
+=======
+const userRoutes = require("./routes/userRoutes")
+>>>>>>> d7b2651abdf5ff4b9b346ac8afc789f56540d4fd
 const app = express();
 const server = http.createServer(app);
 
@@ -86,6 +90,29 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+<<<<<<< HEAD
+=======
+app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/conversations', require('./routes/conversationRoutes'));
+app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
+app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/audio', require('./routes/audioRoutes'));
+//new
+app.use("/uploads", express.static("uploads"));
+app.use('/api/contacts', require('./routes/contactRoutes'));
+
+
+// 🆕 AJOUT DES ROUTES D'INVITATION - APRÈS LES AUTRES ROUTES
+app.use('/api/invitations', require('./routes/invitationRoutes'));
+
+app.use((error, req, res, next) => {
+  console.log('🚨 ERREUR SERVEUR:', error);
+  res.status(500).json({ error: error.message });
+});
+
+>>>>>>> d7b2651abdf5ff4b9b346ac8afc789f56540d4fd
 // ============================================
 // 🔥 CONFIGURATION SOCKET.IO
 // ============================================

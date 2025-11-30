@@ -1,6 +1,7 @@
 // controllers/contactController.js
 const Contact = require('../models/Contact');
 const User = require('../models/User');
+const mongoose = require("mongoose");
 
 // 📌 Récupérer tous les contacts d'un utilisateur
 exports.getMyContacts = async (req, res) => {
@@ -31,57 +32,55 @@ exports.getMyContacts = async (req, res) => {
   }
 };
 
-// 📌 Ajouter un contact (utilisé automatiquement après acceptation d'invitation)
+
 exports.addContact = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { contactId } = req.body;
+    const { owner, contact } = req.body;
 
-    // Vérifier que le contact existe
-    const contactUser = await User.findById(contactId);
-    if (!contactUser) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
+    if (!owner || !contact)
+      return res.status(400).json({ message: "owner and contact are required" });
 
-    // Vérifier si le contact existe déjà
-    const existingContact = await Contact.findOne({
-      owner: userId,
-      contact: contactId
+    if (owner === contact)
+      return res.status(400).json({ message: "You cannot add yourself" });
+
+    // 1. Check users exist
+    const ownerUser = await User.findById(owner);
+    const contactUser = await User.findById(contact);
+
+    if (!ownerUser || !contactUser)
+      return res.status(404).json({ message: "User not found" });
+
+    // 2. Check if already exist
+    const alreadyExists = await Contact.findOne({ owner, contact });
+    if (alreadyExists)
+      return res.status(409).json({ message: "Contact already exists" });
+
+    // 3. Create conversation ID
+    const conversationId = new mongoose.Types.ObjectId();
+
+    // 4. Save contact
+    const newContact = new Contact({
+      owner,
+      contact,
+      conversation: conversationId,
+      isFavorite: false,
+      isBlocked: false
     });
 
-    if (existingContact) {
-      return res.status(400).json({ error: 'Contact déjà ajouté' });
-    }
-
-    // Créer le contact pour les DEUX utilisateurs (relation réciproque)
-    const contact1 = await Contact.create({
-      owner: userId,
-      contact: contactId
-    });
-
-    const contact2 = await Contact.create({
-      owner: contactId,
-      contact: userId
-    });
-
-    // Populate pour renvoyer les infos complètes
-    await contact1.populate('contact', 'name email profilePicture status isOnline');
+    const saved = await newContact.save();
 
     res.status(201).json({
-      success: true,
-      contact: {
-        _id: contact1._id,
-        user: contact1.contact,
-        customName: contact1.customName,
-        isFavorite: contact1.isFavorite,
-        addedAt: contact1.addedAt
-      }
+      message: "Contact added",
+      contact: saved
     });
-  } catch (error) {
-    console.error('Erreur addContact:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
+
 
 // 📌 Supprimer un contact
 exports.deleteContact = async (req, res) => {

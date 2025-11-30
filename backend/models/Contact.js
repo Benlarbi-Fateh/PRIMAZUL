@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // const mongoose = require("mongoose");
 
 //   const contactSchema = new mongoose.Schema({
@@ -66,14 +67,17 @@ const contactSchema = new mongoose.Schema(
     timestamps: true 
   }
 );
+=======
+const mongoose = require("mongoose");
 
-// Index composé pour éviter les doublons (un user ne peut pas ajouter 2x le même contact)
-contactSchema.index({ owner: 1, contact: 1 }, { unique: true });
+const contactSchema = new mongoose.Schema({
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  contact: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  conversation: { type: mongoose.Schema.Types.ObjectId, ref: "Conversation", required: true },
+  isFavorite: { type: Boolean, default: false },
+  isBlocked: { type: Boolean, default: false },
+  addedAt: { type: Date, default: Date.now },
+}, { timestamps: true });
 
-// Méthode pour récupérer les informations complètes du contact
-contactSchema.methods.getContactInfo = async function() {
-  await this.populate('contact', 'name email profilePicture status isOnline');
-  return this;
-};
 
-module.exports = mongoose.model('Contact', contactSchema);
+module.exports = mongoose.model("Contact", contactSchema);

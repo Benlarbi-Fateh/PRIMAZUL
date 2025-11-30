@@ -16,6 +16,7 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    domains: ['res.cloudinary.com'], // autorise les images depuis Cloudinary
   },
 };
 
