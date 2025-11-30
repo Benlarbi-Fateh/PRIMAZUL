@@ -1,0 +1,57 @@
+/* Container principal */
+.splash-container {
+  height: 100vh;
+  width: 100%;
+  background: linear-gradient(#004b9a, #0185ff);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-family: "Poppins", sans-serif;
+}
+
+/* Logo animation */
+.splash-logo {
+  width: 160px;
+  height: auto;
+  animation: spinScale 2s ease-out;
+}
+
+/* Animation du logo */
+@keyframes spinScale {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* Nom de l'application */
+.splash-title {
+  margin-top: 20px;
+  font-size: 40px;
+  font-weight: bold;
+  opacity: 0;
+  animation: fadeIn 2s ease forwards;
+  animation-delay: 0.6s;
+}
+
+/* Slogan */
+.splash-slogan {
+  margin-top: 5px;
+  font-size: 18px;
+  opacity: 0;
+  animation: fadeIn 2s ease forwards;
+  animation-delay: 1.3s;
+  font-style: italic;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
