@@ -2,7 +2,7 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 
 const initSocket = (io) => {
-  const onlineUsers = new Map(); // userId -> socketId
+  const onlineUsers = new Map();
 
   io.on('connection', (socket) => {
     console.log('✅ Socket connecté:', socket.id);
@@ -18,10 +18,8 @@ const initSocket = (io) => {
       
       const onlineUserIds = Array.from(onlineUsers.keys());
       
-      // Émettre à tous
       io.emit('online-users-update', onlineUserIds);
       
-      // Confirmer individuellement à chaque utilisateur en ligne
       onlineUserIds.forEach(uid => {
         io.to(uid).emit('online-users-update', onlineUserIds);
       });
@@ -60,7 +58,6 @@ const initSocket = (io) => {
         console.log('📤 Réception send-message:', data);
         const { conversationId, sender, content, type, fileUrl, fileName, fileSize } = data;
 
-        // Créer le message en base de données
         const message = new Message({
           conversationId,
           sender,
@@ -72,11 +69,8 @@ const initSocket = (io) => {
         });
 
         await message.save();
-        
-        // Populate le sender AVANT d'émettre
         await message.populate('sender', 'name profilePicture');
 
-        // Mettre à jour la conversation
         const updatedConversation = await Conversation.findByIdAndUpdate(
           conversationId,
           {
@@ -93,14 +87,12 @@ const initSocket = (io) => {
 
         console.log('💾 Message sauvegardé en base:', message._id);
 
-        // Émettre le message à TOUS les participants de la conversation
         io.to(conversationId).emit('receive-message', {
           ...message.toObject(),
           conversationId,
           sender: message.sender
         });
 
-        // Émettre la mise à jour de la conversation
         if (updatedConversation) {
           updatedConversation.participants.forEach(participant => {
             const participantId = participant._id.toString();
@@ -126,6 +118,55 @@ const initSocket = (io) => {
       socket.to(conversationId).emit('user-stopped-typing', { conversationId, userId });
     });
 
+    // ============================================
+    // 🆕 RÉACTIONS
+    // ============================================
+    
+    socket.on('toggle-reaction', async (data) => {
+      try {
+        const { messageId, emoji, userId, conversationId } = data;
+        
+        const message = await Message.findById(messageId);
+        if (!message) return;
+
+        const existingIndex = message.reactions.findIndex(
+          r => r.userId.toString() === userId
+        );
+
+        let action = '';
+
+        if (existingIndex > -1) {
+          if (message.reactions[existingIndex].emoji === emoji) {
+            message.reactions.splice(existingIndex, 1);
+            action = 'removed';
+          } else {
+            message.reactions[existingIndex].emoji = emoji;
+            action = 'updated';
+          }
+        } else {
+          message.reactions.push({ userId, emoji });
+          action = 'added';
+        }
+
+        await message.save();
+        await message.populate('reactions.userId', 'name profilePicture');
+
+        io.to(conversationId).emit('reaction-updated', {
+          messageId: message._id,
+          reactions: message.reactions,
+          action,
+          userId,
+          emoji
+        });
+
+        console.log(`${action === 'added' ? '➕' : action === 'removed' ? '➖' : '🔄'} Réaction ${emoji} sur message ${messageId}`);
+
+      } catch (error) {
+        console.error('❌ Erreur toggle-reaction:', error);
+        socket.emit('reaction-error', { error: error.message });
+      }
+    });
+
     // Refresh conversations
     socket.on('refresh-conversations', (userId) => {
       console.log(`🔄 Demande de refresh conversations pour ${userId}`);
@@ -133,10 +174,9 @@ const initSocket = (io) => {
     });
 
     // ============================================
-    // 📨 INVITATIONS - CORRIGÉ POUR INSTANTANÉITÉ
+    // 📨 INVITATIONS
     // ============================================
     
-    // Nouvelle invitation envoyée
     socket.on('invitation-sent', (data) => {
       const { receiverId, invitation } = data;
       console.log(`📨 Tentative envoi invitation à ${receiverId}`, onlineUsers);
@@ -152,14 +192,12 @@ const initSocket = (io) => {
       }
     });
 
-    // Invitation acceptée
     socket.on('invitation-accepted', async (data) => {
       try {
         const { senderId, invitation, conversation } = data;
         
         console.log(`✅ Invitation acceptée, envoi à l'expéditeur: ${senderId}`);
         
-        // Récupérer la conversation complète avec populate
         const populatedConversation = await Conversation.findById(conversation._id)
           .populate('participants', 'name email profilePicture isOnline lastSeen')
           .populate({
@@ -169,7 +207,6 @@ const initSocket = (io) => {
 
         console.log('🔥 Conversation peuplée pour envoi:', populatedConversation?._id);
 
-        // Émettre à l'expéditeur SI EN LIGNE
         if (onlineUsers.has(senderId)) {
           const senderSocketId = onlineUsers.get(senderId);
           
@@ -178,7 +215,6 @@ const initSocket = (io) => {
             conversation: populatedConversation || conversation
           });
           
-          // Émettre aussi la mise à jour de conversation
           if (populatedConversation) {
             io.to(senderSocketId).emit('conversation-updated', populatedConversation);
           }
@@ -188,7 +224,6 @@ const initSocket = (io) => {
           console.log(`⚠️ Expéditeur ${senderId} hors ligne, notification stockée`);
         }
 
-        // Émettre aussi à l'acceptant si en ligne
         const receiverId = invitation.receiver?._id || invitation.receiver;
         if (receiverId && onlineUsers.has(receiverId.toString())) {
           const receiverSocketId = onlineUsers.get(receiverId.toString());
@@ -203,7 +238,6 @@ const initSocket = (io) => {
       }
     });
 
-    // Invitation refusée
     socket.on('invitation-rejected', (data) => {
       const { senderId, invitation } = data;
       console.log(`❌ Invitation refusée, notification à: ${senderId}`);
@@ -217,7 +251,6 @@ const initSocket = (io) => {
       }
     });
 
-    // Invitation annulée
     socket.on('invitation-cancelled', (data) => {
       const { receiverId, invitationId } = data;
       console.log(`🗑️ Invitation annulée, notification à: ${receiverId}`);
@@ -241,11 +274,9 @@ const initSocket = (io) => {
         
         const onlineUserIds = Array.from(onlineUsers.keys());
         
-        // Émettre à tous
         io.emit('online-users-update', onlineUserIds);
         io.emit('user-disconnected', socket.userId);
         
-        // Confirmer individuellement
         onlineUserIds.forEach(uid => {
           io.to(uid).emit('online-users-update', onlineUserIds);
         });
@@ -253,10 +284,10 @@ const initSocket = (io) => {
     });
   });
 
-  // Heartbeat : Nettoyer les utilisateurs inactifs
+  // Heartbeat
   setInterval(() => {
     const now = Date.now();
-    const TIMEOUT = 60000; // 60 secondes
+    const TIMEOUT = 60000;
     
     onlineUsers.forEach((data, userId) => {
       if (now - data.lastSeen > TIMEOUT) {

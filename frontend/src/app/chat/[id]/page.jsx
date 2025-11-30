@@ -16,7 +16,8 @@ import {
   onUserTyping, 
   onUserStoppedTyping, 
   onMessageStatusUpdated,
-  onConversationStatusUpdated
+  onConversationStatusUpdated,
+  onReactionUpdated // 🆕
 } from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
@@ -141,6 +142,17 @@ export default function ChatPage() {
 
       onConversationStatusUpdated(({ conversationId: updatedConvId, status }) => {
         console.log('📊 Statut conversation mis à jour:', { conversationId: updatedConvId, status });
+      });
+
+      // 🆕 Écouter les mises à jour de réactions
+      onReactionUpdated(({ messageId, reactions }) => {
+        setMessages((prevMessages) =>
+          prevMessages.map(msg =>
+            msg._id === messageId
+              ? { ...msg, reactions }
+              : msg
+          )
+        );
       });
 
       onUserTyping(({ conversationId: typingConvId, userId }) => {
@@ -296,7 +308,6 @@ export default function ChatPage() {
             <ChatHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
           </div>
 
-          {/* Zone des messages sans barre de scroll */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))' }}>
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full animate-fade-in">
@@ -324,7 +335,6 @@ export default function ChatPage() {
                   const prevMessage = messages[index - 1];
                   const isLast = index === messages.length - 1;
                   
-                  // Vérifier si on doit afficher le séparateur de date
                   const showDateSeparator = !prevMessage || !isSameDay(
                     new Date(message.createdAt),
                     new Date(prevMessage.createdAt)

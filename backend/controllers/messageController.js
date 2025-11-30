@@ -6,6 +6,7 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name profilePicture')
+      .populate('reactions.userId', 'name profilePicture') // 🆕 Populate les réactions
       .sort({ createdAt: 1 });
     res.json({ success: true, messages });
   } catch (error) {
@@ -141,7 +142,6 @@ exports.markAsRead = async (req, res) => {
       return res.json({ success: true, modifiedCount: 0 });
     }
 
-    // Vérifier si l'utilisateur est réellement dans la conversation
     const io = req.app.get('io');
     const sockets = await io.in(conversationId).fetchSockets();
     const userIsInConversation = sockets.some(s => s.userId === userId.toString());
@@ -152,12 +152,8 @@ exports.markAsRead = async (req, res) => {
     }
 
     const result = await Message.updateMany(
-      {
-        _id: { $in: messageIds }
-      },
-      {
-        $set: { status: 'read' }
-      }
+      { _id: { $in: messageIds } },
+      { $set: { status: 'read' } }
     );
 
     console.log(`✅ ${result.modifiedCount} messages marqués comme lus`);
@@ -179,8 +175,6 @@ exports.markAsRead = async (req, res) => {
         status: 'read'
       });
 
-      // 🆕 ÉVÉNEMENT CRITIQUE : Notifier immédiatement TOUS les participants
-      // que cette conversation a été lue par userId
       const conversation = await Conversation.findById(conversationId)
         .select('participants')
         .lean();
@@ -228,6 +222,96 @@ exports.getUnreadCount = async (req, res) => {
     res.json({ success: true, unreadCounts: result });
   } catch (error) {
     console.error('❌ Erreur getUnreadCount:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ============================================
+// 🆕 RÉACTIONS
+// ============================================
+
+// Ajouter/Supprimer une réaction
+exports.toggleReaction = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    // Chercher si l'utilisateur a déjà réagi
+    const existingReactionIndex = message.reactions.findIndex(
+      r => r.userId.toString() === userId.toString()
+    );
+
+    let action = '';
+
+    if (existingReactionIndex > -1) {
+      const existingEmoji = message.reactions[existingReactionIndex].emoji;
+      
+      if (existingEmoji === emoji) {
+        // Même emoji = supprimer la réaction
+        message.reactions.splice(existingReactionIndex, 1);
+        action = 'removed';
+      } else {
+        // Emoji différent = remplacer
+        message.reactions[existingReactionIndex].emoji = emoji;
+        action = 'updated';
+      }
+    } else {
+      // Nouvelle réaction
+      message.reactions.push({ userId, emoji });
+      action = 'added';
+    }
+
+    await message.save();
+
+    // Populate les réactions avec les infos utilisateur
+    await message.populate('reactions.userId', 'name profilePicture');
+
+    // Émettre via Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(message.conversationId.toString()).emit('reaction-updated', {
+        messageId: message._id,
+        reactions: message.reactions,
+        action,
+        userId,
+        emoji
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      reactions: message.reactions,
+      action 
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur toggleReaction:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Récupérer les réactions d'un message
+exports.getReactions = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    
+    const message = await Message.findById(messageId)
+      .select('reactions')
+      .populate('reactions.userId', 'name profilePicture');
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    res.json({ success: true, reactions: message.reactions });
+  } catch (error) {
+    console.error('❌ Erreur getReactions:', error);
     res.status(500).json({ error: error.message });
   }
 };
