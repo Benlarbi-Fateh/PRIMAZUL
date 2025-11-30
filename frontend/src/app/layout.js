@@ -3,6 +3,7 @@ import "./globals.css";
 import ClientLayout from "./profile/ClientLayout";
 import { AuthProvider } from "@/context/AuthProvider";
 import "./globals.css";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 
 // ✅ Métadonnées sans viewport ni themeColor
@@ -28,7 +29,9 @@ export default function RootLayout({ children }) {
       <body className="h-full m-0 p-0 antialiased">
         {/* Le layout client est rendu APRES hydration → aucun mismatch */}
         <ClientLayout>
-          {children}
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
         </ClientLayout>
       </body>
     </html>
