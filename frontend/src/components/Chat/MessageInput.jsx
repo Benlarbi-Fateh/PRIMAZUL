@@ -18,7 +18,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping, co
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
- const { isBlocked, blockStatus } = useBlockCheck(contactId);
+const { isBlocked, blockStatus, blockedStatus } = useBlockCheck(contactId);
 
   // Détection mobile
   useEffect(() => {
@@ -39,18 +39,16 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping, co
     }
   }, [message, isMobile]);
 
-  // 🆕 AJOUTER CETTE FONCTION : Vérification de blocage avant envoi
 const checkBlockStatus = () => {
   if (isBlocked) {
-    alert(blockStatus.blockedMe 
+    alert(blockStatus?.blockedMe 
       ? '❌ Vous êtes bloqué par cet utilisateur' 
       : '🚫 Vous avez bloqué cet utilisateur'
     );
-    return true; // Bloquer l'action
+    return true;
   }
-  return false; // Autoriser l'action
+  return false;
 };
-
 const handleSendMessage = async (messageContent) => {
   // Vérification finale avant envoi
   if (checkBlockStatus()) {
@@ -203,7 +201,7 @@ if (isBlocked) {
         </div>
         <div>
           <h3 className="text-lg font-bold text-red-800 mb-1">
-            {blockStatus.blockedMe 
+            {blockStatus?.blockedMe 
               ? '❌ Vous êtes bloqué' 
               : '🚫 Vous avez bloqué cet utilisateur'
             }

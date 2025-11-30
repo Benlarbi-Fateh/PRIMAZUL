@@ -37,8 +37,8 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   const menuRef = useRef(null);
   const urlInputRef = useRef(null);
   const fileInputRef = useRef(null);
-  const { isBlocked, blockStatus } = useBlockCheck(contact?._id);
-
+const { isBlocked, blockStatus, blockedStatus, loading: blockLoading } = useBlockCheck(contact?._id);
+ 
   // ✅ CORRECTION : Utiliser process.env au lieu de window
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
@@ -453,21 +453,24 @@ const downloadImage = async (image) => {
     }
   };
 
-  const toggleBlock = async () => {
+const toggleBlock = async () => {
   if (!contact?._id) return;
+  
   try {
-    const endpoint = settings.iBlocked ? '/message-settings/unblock' : '/message-settings/block';
-    const data = await fetchAPI(endpoint, { method: 'POST', body: JSON.stringify({ targetUserId: contact._id }) });
-    if (data.success) {
-      setSettings(prev => ({ ...prev, iBlocked: !prev.iBlocked, blocked: !prev.iBlocked }));
+    const endpoint = blockStatus?.iBlocked ? '/message-settings/unblock' : '/message-settings/block';
+    const response = await fetchAPI(endpoint, { 
+      method: 'POST', 
+      body: JSON.stringify({ targetUserId: contact._id }) 
+    });
+    
+    if (response.success) {
+      window.dispatchEvent(new CustomEvent('block-status-changed'));
       setShowMenu(false);
-      
-      // 🆕 FORCER LE RECHARGEMENT DE LA PAGE POUR ACTUALISER LE HOOK
-      window.location.reload();
+      alert(blockStatus?.iBlocked ? '✅ Utilisateur débloqué' : '🚫 Utilisateur bloqué');
     }
   } catch (err) {
-    console.error('Erreur toggle block:', err);
-    alert('Erreur lors du blocage');
+    console.error('❌ Erreur toggle block:', err);
+    alert('Erreur lors de l\'opération de blocage');
   }
 };
 
@@ -501,7 +504,20 @@ const downloadImage = async (image) => {
     setTheme(newTheme);
     persistTheme(newTheme);
   };
+  
+// ✅ CORRECTION : Écouter les changements de statut de blocage
+useEffect(() => {
+  const handleBlockStatusChange = () => {
+    // Recharger les données si nécessaire
+    console.log('🔄 Statut blocage changé');
+  };
 
+  window.addEventListener('block-status-changed', handleBlockStatusChange);
+  
+  return () => {
+    window.removeEventListener('block-status-changed', handleBlockStatusChange);
+  };
+}, []);
   const isUserOnline = (userId) => {
     if (!userId) return false;
     return onlineUsers.has(userId);
@@ -536,7 +552,6 @@ const downloadImage = async (image) => {
   const displayImage = isGroup ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`) : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=3b82f6&color=fff&bold=true&size=128`);
   const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
-  const blockedStatus = isBlocked || settings.iBlocked || settings.blockedMe;
   
   return (
     <>
@@ -810,18 +825,21 @@ const downloadImage = async (image) => {
             </div>
           </div>
         </div>
-   {blockedStatus && (
+{/* ✅ CORRECTION : Afficher la bannière de blocage */}
+{blockedStatus && (
   <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-center py-3 text-sm font-medium shadow-lg">
     <div className="flex items-center justify-center gap-2">
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
       </svg>
       <span>
-        {blockStatus.blockedMe 
-          ? '❌ Vous êtes bloqué - Messages désactivés' 
-          : '🚫 Utilisateur bloqué - Messages désactivés'
-        }
-      </span>
+  {blockStatus?.blockedMe 
+    ? '❌ Vous êtes bloqué - Messages désactivés' 
+    : blockStatus?.iBlocked
+    ? '🚫 Utilisateur bloqué - Messages désactivés'
+    : '⛔ Conversation bloquée'
+  }
+</span>
     </div>
   </div>
 )}
