@@ -1,3 +1,4 @@
+//socket/socketHandler.js
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 
@@ -235,44 +236,33 @@ const initSocket = (io) => {
 // Événements pour les appels
 // Dans socketHandler.js - Vérifie call-initiate
 // Dans socketHandler.js - call-initiate
+// Dans socketHandler.js - Version simplifiée
 socket.on('call-initiate', (data) => {
   const { receiverId, callType, channelName, caller } = data;
   
   console.log(`📞 Appel ${callType} initié vers ${receiverId}`);
-  console.log('📞 Données COMPLÈTES reçues:', data); // 🔥 LOG COMPLET
   console.log('📞 Caller reçu:', caller);
-  console.log('📞 Caller ID:', caller?.id || caller?._id); // 🔥 Vérifier les deux
 
-  // 🔥 CORRECTION : Vérifier l'ID différemment
-  const callerId = caller?.id || caller?._id;
-  
-  if (!callerId) {
-    console.error('❌ ERREUR: Aucun ID trouvé dans caller:', caller);
-    // 🔥 ENVOYER QUAND MÊME l'appel sans bloquer
-    console.log('⚠️  Envoi quand même l\'appel...');
+  if (!caller?.id) {
+    console.error('❌ ERREUR: caller.id manquant!');
+    socket.emit('call-error', { error: 'Données d\'appel invalides' });
+    return;
   }
 
   if (onlineUsers.has(receiverId)) {
     const receiverSocketId = onlineUsers.get(receiverId);
     
-    // 🔥 CORRECTION : Créer un caller complet
-    const completeCaller = {
-      id: callerId || caller?.id || 'unknown', // 🔥 Toujours avoir un ID
-      _id: callerId || caller?._id || 'unknown',
-      name: caller?.name || 'Utilisateur',
-      profilePicture: caller?.profilePicture || ''
-    };
-    
+    // 🔥 ENVOYER caller TEL QUEL (déjà formaté par le frontend)
     io.to(receiverSocketId).emit('incoming-call', {
-      caller: completeCaller, // 🔥 Caller complet
+      caller,        // Caller avec uniquement { id, name, profilePicture }
       callType,
       channelName,
       callId: Date.now().toString()
     });
     
-    console.log(`📞 Notification d'appel envoyée à ${receiverId}`);
-    console.log('📞 Caller envoyé:', completeCaller);
+    console.log(`✅ Notification d'appel envoyée à ${receiverId}`);
   } else {
+    console.log(`❌ Destinataire ${receiverId} hors ligne`);
     socket.emit('call-receiver-offline', { receiverId });
   }
 });
@@ -328,6 +318,24 @@ socket.on('call-busy', (data) => {
   if (onlineUsers.has(callerId)) {
     const callerSocketId = onlineUsers.get(callerId);
     io.to(callerSocketId).emit('call-busy');
+  }
+});
+socket.on('call-expired', (data) => {
+  const { receiverId, channelName, callerId} = data;
+  console.log(`⏰ Appel expiré sur ${channelName} - Notification à ${receiverId} et ${callerId}`);
+
+    // Notifier le destinataire (pour fermer l'interface d'appel entrant)
+  if (receiverId && onlineUsers.has(receiverId)) {
+    const receiverSocketId = onlineUsers.get(receiverId);
+    io.to(receiverSocketId).emit('call-expired');
+    console.log(`⏰ Notification d'expiration envoyée au destinataire ${receiverId}`);
+  }
+
+  // Notifier l'émetteur (pour changer l'interface "ne répond pas")
+  if (callerId && onlineUsers.has(callerId)) {
+    const callerSocketId = onlineUsers.get(callerId);
+    io.to(callerSocketId).emit('call-expired');
+    console.log(`⏰ Notification d'expiration envoyée à l'émetteur ${callerId}`);
   }
 });
 

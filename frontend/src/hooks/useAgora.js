@@ -18,10 +18,10 @@ export const useAgora = () => {
   const clientRef = useRef(null);
   const tracksRef = useRef([]);
 
-  // 🔥 REF pour stocker currentCall - SOLUTION CLEF
+  // REF pour stocker currentCall
   const currentCallRef = useRef(null);
 
-  // 🔥 Synchroniser currentCallRef avec currentCall
+  // Synchroniser currentCallRef avec currentCall
   useEffect(() => {
     currentCallRef.current = currentCall;
     console.log('🔄 currentCallRef mis à jour:', currentCall);
@@ -181,11 +181,13 @@ export const useAgora = () => {
 
   // Réinitialiser l'état d'appel
   const resetCallState = () => {
+    console.log('🔄 Réinitialisation état appel');
     setCallStatus('idle');
     setCurrentCall(null);
-    currentCallRef.current = null; // 🔥 AUSSI NETTOYER LE REF
+    currentCallRef.current = null;
     setPermissionError(null);
     if (callTimeoutRef.current) {
+      console.log('⏰ Annulation du timeout en cours');
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
     }
@@ -198,7 +200,7 @@ export const useAgora = () => {
       await cleanupAgora();
 
       const socket = getSocket();
-      const call = currentCallRef.current; // 🔥 UTILISER LE REF
+      const call = currentCallRef.current;
       
       if (socket && call) {
         const receiverId = call.isInitiator 
@@ -224,7 +226,7 @@ export const useAgora = () => {
     console.log('❌ Appel rejeté');
 
     const socket = getSocket();
-    const call = currentCallRef.current; // 🔥 UTILISER LE REF
+    const call = currentCallRef.current;
     
     if (socket && call && call.caller) {
       socket.emit('call-rejected', {
@@ -237,7 +239,7 @@ export const useAgora = () => {
 
   // Accepter un appel
   const acceptCall = async () => {
-    const call = currentCallRef.current; // 🔥 UTILISER LE REF
+    const call = currentCallRef.current;
     
     if (!call) {
       console.log('❌ acceptCall: currentCall est null');
@@ -282,82 +284,112 @@ export const useAgora = () => {
     }
   };
 
-  // Démarrer un appel
-  const startCall = async (receiverId, callType = 'audio') => {
-    try {
-      console.log('📞 ÉMETTEUR lance appel vers:', receiverId);
-      console.log('👤 User complet:', user); // 🔥 DEBUG
-      
-      if (callStatus !== 'idle') {
-        alert('❌ Un appel est déjà en cours');
-        return;
-      }
-
-      // 🔥 VÉRIFIER que user existe et a un ID
-      if (!user || !user.id) {
-        console.error('❌ User non défini ou sans ID!', user);
-        alert('Erreur: Utilisateur non connecté');
-        return;
-      }
-
-      const permissionsOK = await testPermissions(callType);
-      if (!permissionsOK) return;
-
-      setCallStatus('calling');
-      
-      // 🔥 RACCOURCIR le channel name pour respecter la limite de 64 caractères
-      const timestamp = Date.now().toString().slice(-8); // Derniers 8 chiffres
-      const callerId = user.id.slice(-8); // Derniers 8 caractères de l'ID
-      const receiverIdShort = receiverId.slice(-8); // Derniers 8 caractères
-      const channelName = `c_${callerId}_${receiverIdShort}_${timestamp}`;
-      
-      console.log('📺 Channel créé:', channelName, `(${channelName.length} chars)`);
-      
-      const caller = {
-        id: user.id,
-        //_id: user.id,
-        name: user.name || 'Utilisateur',
-        profilePicture: user.profilePicture || ''
-      };
-
-      console.log('📤 Données caller envoyées:', caller);
-
-      // Émettre l'appel
-      const socket = getSocket();
-      if (socket) {
-        socket.emit('call-initiate', {
-          receiverId,
-          callType,
-          channelName,
-          caller
-        });
-        console.log('✅ call-initiate émis');
-      }
-
-      const newCall = {
-        channelName,
-        receiverId,
-        callType,
-        caller,
-        isInitiator: true
-      };
-      
-      setCurrentCall(newCall);
-      currentCallRef.current = newCall; // 🔥 METTRE À JOUR LE REF IMMÉDIATEMENT
-
-      // Timeout
-      callTimeoutRef.current = setTimeout(() => {
-        console.log('⏰ Timeout - aucune réponse');
-        endCall();
-      }, 30000);
-
-    } catch (error) {
-      console.error('❌ Erreur démarrage appel:', error);
-      setCallStatus('idle');
+  // Démarrer un appel - 🔥 AVEC PRE-JOIN AGORA
+  // Dans la fonction startCall, MODIFIER cette partie :
+const startCall = async (receiverId, callType = 'audio') => {
+  try {
+    console.log('📞 ÉMETTEUR lance appel vers:', receiverId);
+    
+    if (callStatus !== 'idle') {
+      alert('❌ Un appel est déjà en cours');
+      return;
     }
-  };
 
-  // 🔥 GESTION DES ÉVÉNEMENTS SOCKET - VERSION CORRIGÉE
+    if (!user || !user.id) {
+      console.error('❌ User non défini ou sans ID!', user);
+      alert('Erreur: Utilisateur non connecté');
+      return;
+    }
+
+    const permissionsOK = await testPermissions(callType);
+    if (!permissionsOK) return;
+
+    setCallStatus('calling');
+    
+    // Créer le channel name
+    const timestamp = Date.now().toString().slice(-8);
+    const callerId = user.id.slice(-8);
+    const receiverIdShort = receiverId.slice(-8);
+    const channelName = `c_${callerId}_${receiverIdShort}_${timestamp}`;
+    
+    console.log('📺 Channel créé:', channelName);
+    
+    const caller = {
+      id: user.id,
+      name: user.name || 'Utilisateur',
+      profilePicture: user.profilePicture || ''
+    };
+
+    const newCall = {
+      channelName,
+      receiverId,
+      callType,
+      caller,
+      isInitiator: true
+    };
+    
+    setCurrentCall(newCall);
+    currentCallRef.current = newCall;
+
+    // 🔥 CORRECTION : Stocker receiverId dans une variable pour le timeout
+    const targetReceiverId = receiverId;
+
+    // 🔥 REJOINDRE AGORA IMMÉDIATEMENT
+    console.log('🚀 ÉMETTEUR rejoint Agora immédiatement');
+    await initAgoraForCall(channelName, callType);
+    console.log('✅ ÉMETTEUR prêt dans le channel');
+
+    // Émettre l'appel
+    const socket = getSocket();
+    if (socket) {
+      socket.emit('call-initiate', {
+        receiverId: targetReceiverId, // Utiliser la variable stockée
+        callType,
+        channelName,
+        caller
+      });
+      console.log('✅ call-initiate émis');
+    }
+
+    // 🔥 CORRECTION : Timeout avec vérification robuste
+    callTimeoutRef.current = setTimeout(() => {
+      console.log('🔔 TIMEOUT DÉCLENCHÉ à', new Date().toISOString());
+  console.log('📋 callStatus:', callStatus);
+  console.log('📋 currentCallRef:', currentCallRef.current);
+  console.log('📋 callTimeoutRef:', callTimeoutRef.current);
+      
+      // Vérifier si l'appel est toujours en attente
+      if (currentCallRef.current && currentCallRef.current.isInitiator) {
+        console.log('⏰ Appel expiré - Ne répond pas');
+        
+        setCallStatus('no-answer');
+        
+        // Notifier le backend
+        if (socket) {
+          socket.emit('call-expired', {
+            receiverId: targetReceiverId, // Utiliser la variable stockée
+            channelName,
+            callerId: user.id
+          });
+        }
+        
+        // Fermer après 3 secondes
+        setTimeout(() => {
+          console.log('🔚 Fermeture automatique après timeout');
+          endCall();
+        }, 3000);
+      } else {
+        console.log('✅ Appel déjà terminé, timeout ignoré');
+      }
+    }, 60000); // 60 secondes
+
+  } catch (error) {
+    console.error('❌ Erreur démarrage appel:', error);
+    await cleanupAgora();
+    setCallStatus('idle');
+  }
+};
+  // Gestion des événements Socket
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -382,21 +414,19 @@ export const useAgora = () => {
       };
       
       setCurrentCall(newCall);
-      currentCallRef.current = newCall; // 🔥 METTRE À JOUR LE REF
+      currentCallRef.current = newCall;
       setCallStatus('ringing');
       
       console.log('✅ Appel entrant configuré');
     };
 
-    // 🔥 CORRECTION PRINCIPALE - Gérer appel accepté
+    // Gérer appel accepté
     const handleCallAccepted = async (data) => {
-      console.log('🎯 ===== CALL-ACCEPTED REÇU =====');
-      console.log('📋 Données:', data);
-      console.log('📋 Status actuel:', callStatus);
-      console.log('📋 CurrentCall actuel:', currentCallRef.current);
+      console.log('🎯 CALL-ACCEPTED REÇU');
       
       // Annuler timeout
       if (callTimeoutRef.current) {
+        console.log('✅ Timeout annulé dans handleCallAccepted');
         clearTimeout(callTimeoutRef.current);
         callTimeoutRef.current = null;
         console.log('✅ Timeout annulé');
@@ -404,35 +434,16 @@ export const useAgora = () => {
 
       setCallStatus('in-call');
       
-      // 🔥 UTILISER LE REF au lieu de currentCall
-      const call = currentCallRef.current;
-      
-      if (!call) {
-        console.error('❌ ERREUR: currentCall est null!');
-        return;
-      }
-
-      // 🔥 Rejoindre Agora si c'est l'émetteur
-      if (call.isInitiator) {
-        console.log('🚀 ÉMETTEUR rejoint Agora maintenant');
-        console.log('🚀 Channel:', data.channelName);
-        console.log('🚀 Type:', data.callType);
-        
-        try {
-          await initAgoraForCall(data.channelName, data.callType);
-          console.log('✅ ÉMETTEUR connecté à Agora avec succès!');
-        } catch (error) {
-          console.error('❌ Erreur connexion Agora émetteur:', error);
-          endCall();
-        }
-      } else {
-        console.log('ℹ️  Je suis le récepteur, déjà connecté à Agora');
-      }
+      // L'émetteur est déjà dans Agora, juste changer le status
+      console.log('✅ ÉMETTEUR déjà connecté à Agora, appel actif!');
     };
 
     const handleCallRejected = () => {
       console.log('❌ Appel rejeté');
-      resetCallState();
+      setCallStatus('rejected');
+      setTimeout(() => {
+        endCall();
+      }, 1500);
     };
 
     const handleCallEnded = () => {
@@ -443,15 +454,38 @@ export const useAgora = () => {
 
     const handleCallBusy = () => {
       console.log('🚗 Utilisateur occupé');
-      resetCallState();
+      setCallStatus('busy');
+      setTimeout(() => {
+        endCall();
+      }, 2000);
     };
 
+    // 🔥 NOUVEAU: Gérer expiration d'appel
+    const handleCallExpired = () => {
+      console.log('⏰ Appel expiré (reçu du serveur)');
+      // Si c'est le destinataire (appel entrant), fermer directement
+  if (currentCallRef.current && !currentCallRef.current.isInitiator) {
+    console.log('🎯 Destinataire - Fermeture interface appel expiré');
+    resetCallState();
+  } 
+  // Si c'est l'émetteur, changer le statut pour afficher "ne répond pas"
+  else {
+    console.log('📞 Émetteur - Changement statut vers "no-answer"');
+    setCallStatus('no-answer');
+    
+    // Fermer après 3 secondes
+    setTimeout(() => {
+      endCall();
+    }, 3000);
+  }
+};
     // Configurer écouteurs
     socket.on('incoming-call', handleIncomingCall);
     socket.on('call-accepted', handleCallAccepted);
     socket.on('call-rejected', handleCallRejected);
     socket.on('call-ended', handleCallEnded);
     socket.on('call-busy', handleCallBusy);
+    socket.on('call-expired', handleCallExpired);
 
     return () => {
       socket.off('incoming-call', handleIncomingCall);
@@ -459,8 +493,9 @@ export const useAgora = () => {
       socket.off('call-rejected', handleCallRejected);
       socket.off('call-ended', handleCallEnded);
       socket.off('call-busy', handleCallBusy);
+      socket.off('call-expired', handleCallExpired);
     };
-  }, [callStatus]); // 🔥 UNIQUEMENT callStatus en dépendance
+  }, [callStatus]);
 
   return {
     callStatus,
