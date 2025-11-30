@@ -29,6 +29,8 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
 // ✅ Socket.IO Configuration
 const io = new Server(server, {
   cors: {
@@ -71,7 +73,7 @@ app.use('/api/audio', audioRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/contacts', contactRoutes);
-
+//app.use("/api/stories", storyRoutes);
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use('/api/profile', profileRoutes);
 

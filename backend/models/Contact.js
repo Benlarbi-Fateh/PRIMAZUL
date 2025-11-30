@@ -19,8 +19,8 @@ const contactSchema = new mongoose.Schema(
     // Propriétaire du contact
     owner: { 
       type: mongoose.Schema.Types.ObjectId, 
-      ref: 'User', 
-      required: true,
+      ref: 'User',  // pointer
+      required: true, // obligatoire 
       index: true // Index pour des requêtes rapides
     },
     
