@@ -14,11 +14,11 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const [showVerification, setShowVerification] = useState(false);
   const [userId, setUserId] = useState(null);
   const [userEmail, setUserEmail] = useState('');
-  
+
   const { user, login: authLogin } = useContext(AuthContext);
   const router = useRouter();
 
@@ -234,8 +234,8 @@ export default function LoginPage() {
                   </div>
 
                   <div className="text-right">
-                    <Link 
-                      href="/forgot-password" 
+                    <Link
+                      href="/forgot-password"
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
                     >
                       Mot de passe oublié ?

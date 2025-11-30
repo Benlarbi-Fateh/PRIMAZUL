@@ -32,3 +32,4 @@ npm-debug.log.*
 # 🆕 UPLOADS TEMPORAIRES
 /backend/uploads/temp/*
 !/backend/uploads/temp/.gitkeep
+/node_modules/
