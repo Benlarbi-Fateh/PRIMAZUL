@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, X, RotateCw, Check, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -9,239 +9,228 @@ export default function CameraCapture({ onCapture, onCancel }) {
   const [facingMode, setFacingMode] = useState('user');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [retakeFlag, setRetakeFlag] = useState(0); // ✅ Pour forcer le redémarrage
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-  }, []);
+  // ✅ CORRECTION : facingMode ET retakeFlag comme dépendances
+  useEffect(() => {
+    let isMounted = true;
+    let loadTimeout;
 
-  const startCamera = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      stopCamera();
-
-      const constraints = {
-        video: {
-          facingMode: facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      };
-
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = mediaStream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+    const startCamera = async () => {
+      try {
+        if (!isMounted) return;
         
-        // ✅ CORRECTION: Attendre que la vidéo soit vraiment prête
-        await new Promise((resolve, reject) => {
-          if (!videoRef.current) {
-            reject(new Error('Video ref perdu'));
-            return;
+        setLoading(true);
+        setError(null);
+
+        // Nettoyer l'ancien stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+
+        console.log('🎥 Démarrage caméra - facingMode:', facingMode);
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: facingMode,
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           }
-
-          const video = videoRef.current;
-          
-          // Timeout de sécurité
-          const timeout = setTimeout(() => {
-            reject(new Error('Timeout caméra'));
-          }, 10000);
-
-          const handleCanPlay = async () => {
-            clearTimeout(timeout);
-            try {
-              await video.play();
-              
-              // Vérifier que la vidéo a des dimensions valides
-              const checkVideo = () => {
-                if (video.videoWidth > 0 && video.videoHeight > 0) {
-                  setIsCameraActive(true);
-                  setLoading(false);
-                  resolve();
-                } else {
-                  // Réessayer après 100ms
-                  setTimeout(checkVideo, 100);
-                }
-              };
-              
-              checkVideo();
-            } catch (err) {
-              clearTimeout(timeout);
-              reject(err);
-            }
-          };
-
-          video.addEventListener('canplay', handleCanPlay, { once: true });
         });
-      }
-    } catch (err) {
-      console.error('Erreur accès caméra:', err);
-      let errorMessage = "Impossible d'accéder à la caméra. ";
+        
+        console.log('✅ Stream caméra obtenu');
+        
+        if (!isMounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        
+        streamRef.current = stream;
 
-      if (err.name === 'NotAllowedError') {
-        errorMessage += "Veuillez autoriser l'accès à la caméra.";
-      } else if (err.name === 'NotFoundError') {
-        errorMessage += 'Aucune caméra trouvée.';
-      } else if (err.name === 'NotSupportedError' || err.name === 'SecurityError') {
-        errorMessage += "Contexte non sécurisé (utilisez HTTPS).";
-      } else {
-        errorMessage += err.message || 'Erreur technique.';
-      }
+        console.log('📹 Attachement du stream à la vidéo');
+        videoRef.current.srcObject = stream;
+        
+        // Timeout de sécurité
+        loadTimeout = setTimeout(() => {
+          if (isMounted) {
+            console.error('⏰ TIMEOUT');
+            setError('La caméra met trop de temps');
+            setLoading(false);
+          }
+        }, 10000);
 
-      setError(errorMessage);
-      setLoading(false);
-      setIsCameraActive(false);
-    }
-  }, [facingMode, stopCamera]);
+        // Handler loadeddata  
+        const handleLoadedData = () => {
+          clearTimeout(loadTimeout);
+          if (!isMounted) return;
+          
+          console.log('✅ loadeddata - Lecture vidéo');
+          
+          videoRef.current?.play()
+            .then(() => {
+              if (!isMounted) return;
+              console.log('✅ Caméra prête !');
+              setLoading(false);
+            })
+            .catch(err => {
+              console.error('❌ Erreur play:', err);
+              if (!isMounted) return;
+              setError('Erreur lecture vidéo');
+              setLoading(false);
+            });
+        };
 
-  useLayoutEffect(() => {
-    const timer = setTimeout(() => {
-      startCamera();
-    }, 0);
-    
-    return () => {
-      clearTimeout(timer);
-      stopCamera();
-      if (capturedImage) {
-        URL.revokeObjectURL(capturedImage);
+        videoRef.current.addEventListener('loadeddata', handleLoadedData, { once: true });
+
+      } catch (err) {
+        clearTimeout(loadTimeout);
+        console.error('❌ Erreur caméra:', err.name, err.message);
+        
+        if (!isMounted) return;
+        
+        let errorMsg = "Erreur caméra";
+        
+        if (err.name === 'NotAllowedError') {
+          errorMsg = "Permission refusée";
+        } else if (err.name === 'NotFoundError') {
+          errorMsg = "Aucune caméra trouvée";
+        } else if (err.name === 'NotReadableError') {
+          errorMsg = "Caméra déjà utilisée";
+        }
+        
+        setError(errorMsg);
+        setLoading(false);
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleCapture = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
+    startCamera();
+
+    return () => {
+      console.log('🧹 Nettoyage');
+      isMounted = false;
+      clearTimeout(loadTimeout);
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [facingMode, retakeFlag]); // ✅ Ajout de retakeFlag pour forcer le redémarrage
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) {
+      setError("Éléments manquants");
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      setError("La caméra n'est pas prête. Veuillez réessayer.");
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError("Vidéo non prête");
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    try {
+      console.log('📸 Capture photo');
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (facingMode === 'user') {
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-    } else {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    }
-
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const imageUrl = URL.createObjectURL(blob);
-        setCapturedImage(imageUrl);
-        stopCamera();
+      const ctx = canvas.getContext('2d');
+      
+      if (facingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
       }
-    }, 'image/jpeg');
-  }, [facingMode, stopCamera]);
+      
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const handleRetake = useCallback(() => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          console.log('✅ Image capturée:', (blob.size / 1024).toFixed(0), 'KB');
+          const imageUrl = URL.createObjectURL(blob);
+          setCapturedImage(imageUrl);
+          
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+          }
+        }
+      }, 'image/jpeg', 0.8);
+
+    } catch (err) {
+      console.error('❌ Erreur capture:', err);
+      setError("Erreur capture");
+    }
+  };
+
+  const handleSend = async () => {
+    if (!capturedImage || !canvasRef.current) return;
+
+    try {
+      console.log('📤 Envoi photo...');
+      
+      canvasRef.current.toBlob(async (blob) => {
+        if (blob) {
+          const file = new File([blob], `photo_${Date.now()}.jpg`, {
+            type: 'image/jpeg',
+          });
+          
+          console.log('📤 Appel onCapture avec:', file.name);
+          await onCapture(file);
+          
+          URL.revokeObjectURL(capturedImage);
+          setCapturedImage(null);
+        }
+      }, 'image/jpeg', 0.8);
+    } catch (err) {
+      console.error('❌ Erreur envoi:', err);
+      setError("Erreur envoi");
+    }
+  };
+
+  const handleRetake = () => {
+    console.log('🔄 Reprendre photo');
     if (capturedImage) {
       URL.revokeObjectURL(capturedImage);
       setCapturedImage(null);
     }
     setError(null);
-    startCamera();
-  }, [capturedImage, startCamera]);
+    setRetakeFlag(prev => prev + 1); // ✅ Incrémenter pour forcer le redémarrage de useEffect
+  };
 
-  const handleSend = useCallback(async () => {
-    if (!capturedImage || !canvasRef.current) return;
+  const toggleCamera = () => {
+    console.log('🔄 Changement de caméra');
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
 
-    canvasRef.current.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `photo_${Date.now()}.jpg`, {
-        type: 'image/jpeg',
-      });
-      await onCapture(file);
-      if (capturedImage) {
-        URL.revokeObjectURL(capturedImage);
-      }
-      setCapturedImage(null);
-      stopCamera();
-    }, 'image/jpeg');
-  }, [capturedImage, onCapture, stopCamera]);
-
-  const toggleCamera = useCallback(async () => {
-    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(newFacingMode);
-    
-    stopCamera();
-    setLoading(true);
-    
-    setTimeout(async () => {
-      try {
-        const constraints = {
-          video: {
-            facingMode: newFacingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        };
-        
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          
-          setTimeout(() => {
-            setIsCameraActive(true);
-            setLoading(false);
-          }, 500);
-        }
-      } catch (err) {
-        console.error('Erreur changement caméra:', err);
-        setError("Impossible de changer de caméra");
-        setLoading(false);
-      }
-    }, 100);
-  }, [facingMode, stopCamera]);
-
-  const handleCancel = useCallback(() => {
-    stopCamera();
+  const handleCancel = () => {
+    console.log('❌ Annulation');
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
     if (capturedImage) {
       URL.revokeObjectURL(capturedImage);
     }
     onCancel();
-  }, [capturedImage, onCancel, stopCamera]);
+  };
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-linear-to-b from-black/70 to-transparent p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <button
             onClick={handleCancel}
             className="p-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all"
           >
             <X className="w-6 h-6 text-white" />
           </button>
-
-          {!capturedImage && !loading && isCameraActive && (
+          
+          {!capturedImage && !loading && !error && (
             <button
               onClick={toggleCamera}
               className="p-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all"
@@ -252,26 +241,58 @@ export default function CameraCapture({ onCapture, onCancel }) {
         </div>
       </div>
 
+      {/* Vue principale */}
       <div className="flex-1 relative flex items-center justify-center bg-black">
-        {loading ? (
-          <div className="text-center">
-            <Loader2 className="w-16 h-16 text-white animate-spin mx-auto mb-4" />
-            <p className="text-white text-lg">Démarrage de la caméra...</p>
-            <p className="text-white/60 text-sm mt-2">Cela peut prendre quelques secondes</p>
+        {/* Video toujours présent mais caché si nécessaire */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`max-w-full max-h-full object-cover ${
+            loading || error || capturedImage ? 'hidden' : ''
+          }`}
+          style={{
+            transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
+          }}
+        />
+
+        {/* Overlays */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center max-w-md px-4">
+              <Loader2 className="w-16 h-16 text-white animate-spin mx-auto mb-4" />
+              <p className="text-white text-lg">Chargement caméra...</p>
+              <p className="text-white/60 text-sm mt-2">Veuillez patienter</p>
+            </div>
           </div>
-        ) : error ? (
-          <div className="text-center p-8 max-w-md">
-            <Camera className="w-16 h-16 text-white mx-auto mb-4" />
-            <p className="text-white text-lg mb-2">Erreur caméra</p>
-            <p className="text-white/70 text-sm mb-4">{error}</p>
-            <button
-              onClick={startCamera}
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium"
-            >
-              Réessayer
-            </button>
+        )}
+
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center p-8 max-w-md">
+              <Camera className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <p className="text-white text-lg mb-2">Erreur caméra</p>
+              <p className="text-white/70 text-sm mb-4">{error}</p>
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Recharger
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
           </div>
-        ) : capturedImage ? (
+        )}
+
+        {capturedImage && (
           <Image
             src={capturedImage}
             alt="Photo capturée"
@@ -279,25 +300,10 @@ export default function CameraCapture({ onCapture, onCancel }) {
             className="object-contain"
             unoptimized
           />
-        ) : isCameraActive ? (
-          <div className="relative w-full h-full flex items-center justify-center">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="max-w-full max-h-full object-cover"
-              style={{
-                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-              }}
-            />
-            <div className="absolute inset-0 border-2 border-white/20 rounded-lg pointer-events-none" />
-          </div>
-        ) : null}
+        )}
       </div>
 
-      <canvas ref={canvasRef} className="hidden" />
-
+      {/* Footer */}
       {!loading && !error && (
         <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/70 to-transparent p-8">
           <div className="flex items-center justify-center gap-8">
@@ -309,7 +315,6 @@ export default function CameraCapture({ onCapture, onCancel }) {
                 >
                   <RotateCw className="w-6 h-6 text-white" />
                 </button>
-
                 <button
                   onClick={handleSend}
                   className="p-6 rounded-full bg-blue-500 hover:bg-blue-600 transition-all shadow-2xl"
@@ -317,17 +322,19 @@ export default function CameraCapture({ onCapture, onCancel }) {
                   <Check className="w-8 h-8 text-white" />
                 </button>
               </>
-            ) : isCameraActive ? (
+            ) : (
               <button
-                onClick={handleCapture}
+                onClick={capturePhoto}
                 className="w-20 h-20 rounded-full border-4 border-white bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all shadow-2xl flex items-center justify-center"
               >
                 <div className="w-16 h-16 rounded-full bg-white" />
               </button>
-            ) : null}
+            )}
           </div>
         </div>
       )}
+
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }

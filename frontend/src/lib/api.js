@@ -8,6 +8,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 30000, // ✅ AJOUT: Timeout de 30 secondes
 });
 
 // Ajouter le token automatiquement
@@ -44,6 +45,24 @@ api.interceptors.response.use(
 );
 
 // ============================================
+// 📤 UPLOAD DE FICHIERS (IMAGES, AUDIO, etc.)
+// ============================================
+export const uploadFile = (formData) => {
+  console.log('📤 uploadFile: Début upload');
+  return api.post('/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 60000, // ✅ AJOUT: 60 secondes pour les gros fichiers
+    onUploadProgress: (progressEvent) => {
+      // ✅ AJOUT: Suivre la progression
+      const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      console.log(`📊 Upload: ${percentCompleted}%`);
+    }
+  });
+};
+
+// ============================================
 // 🔐 AUTH
 // ============================================
 export const register = (data) => api.post("/auth/register", data);
@@ -72,6 +91,7 @@ export const uploadProfilePicture = (formData) => {
     headers: {
       "Content-Type": "multipart/form-data",
     },
+    timeout: 60000, // ✅ AJOUT: Timeout pour upload photo profil
   });
 };
 export const updatePrivacySettings = (data) =>
@@ -127,7 +147,6 @@ export const markConversationAsRead = (conversationId) =>
 
 export const getUnreadCount = () => api.get("/messages/unread/count");
 
-
 // ============================================
 // 🆕 API CONTACTS
 // ============================================
@@ -156,7 +175,6 @@ export const toggleFavoriteContact = (contactId) => api.patch(`/contacts/${conta
 // Toggle bloquer
 export const toggleBlockContact = (contactId) => api.patch(`/contacts/${contactId}/block`);
 
-
 // ============================================
 // 🔑 RÉINITIALISATION MOT DE PASSE
 // ============================================
@@ -164,6 +182,7 @@ export const forgotPassword = (data) => api.post("/auth/forgot-password", data);
 export const verifyResetCode = (data) =>
   api.post("/auth/verify-reset-code", data);
 export const resetPassword = (data) => api.post("/auth/reset-password", data);
+
 // ============================================
 // ⚙️ PARAMÈTRES - CHANGEMENT DE MOT DE PASSE AVEC OTP
 // ============================================
