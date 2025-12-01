@@ -18,7 +18,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping, co
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-const { isBlocked, blockStatus, blockedStatus } = useBlockCheck(contactId);
+  const { isBlocked, blockStatus } = useBlockCheck(contactId);
 
   // Détection mobile
   useEffect(() => {
@@ -40,11 +40,17 @@ const { isBlocked, blockStatus, blockedStatus } = useBlockCheck(contactId);
   }, [message, isMobile]);
 
 const checkBlockStatus = () => {
+  console.log('🔍 Vérification blocage MessageInput:', { 
+    isBlocked, 
+    blockStatus,
+    contactId 
+  });
+  
   if (isBlocked) {
-    alert(blockStatus?.blockedMe 
+    const message = blockStatus?.blockedMe 
       ? '❌ Vous êtes bloqué par cet utilisateur' 
-      : '🚫 Vous avez bloqué cet utilisateur'
-    );
+      : '🚫 Vous avez bloqué cet utilisateur';
+    alert(message);
     return true;
   }
   return false;
@@ -52,18 +58,16 @@ const checkBlockStatus = () => {
 const handleSendMessage = async (messageContent) => {
   // Vérification finale avant envoi
   if (checkBlockStatus()) {
+    console.log('🚫 Message bloqué - utilisateur bloqué');
     return;
   }
   
   try {
     await onSendMessage(messageContent);
   } catch (error) {
-     if (error.response?.status === 403 || error.response?.data?.blocked) {
-      alert('❌ Message non envoyé - Utilisateur bloqué');
-      return; 
-    }
-    if (error.response?.data?.blocked) {
-      // Le backend a confirmé le blocage
+    if (error.response?.status === 403 || error.response?.data?.blocked) {
+      // Re-vérifier le statut de blocage
+      window.dispatchEvent(new CustomEvent('block-status-changed'));
       alert('❌ Message non envoyé - Utilisateur bloqué');
     } else {
       console.error('Erreur envoi message:', error);

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock } from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
 
 const THEME_STORAGE_KEY = (conversationId) => `chatTheme:${conversationId || 'global'}`;
@@ -20,14 +20,16 @@ const PRESET_BACKGROUNDS = [
 ];
 
 export default function ChatHeader({ contact, conversation, onBack, user }) {
-  const [onlineUsers, setOnlineUsers] = useState(new Set());
-  const [showMenu, setShowMenu] = useState(false);
-  const [openPanel, setOpenPanel] = useState(false);
-  const [showMediaPanel, setShowMediaPanel] = useState(false);
-  const [mediaType, setMediaType] = useState('images');
-  const [mediaData, setMediaData] = useState(null);
-  const [loadingMedia, setLoadingMedia] = useState(false);
-  const [settings, setSettings] = useState({ muted: false, blocked: false, iBlocked: false, blockedMe: false });
+const [onlineUsers, setOnlineUsers] = useState(new Set());
+const [showMenu, setShowMenu] = useState(false);
+const [openPanel, setOpenPanel] = useState(false);
+const [showMediaPanel, setShowMediaPanel] = useState(false);
+const [mediaType, setMediaType] = useState('images');
+const [mediaData, setMediaData] = useState(null);
+const [loadingMedia, setLoadingMedia] = useState(false);
+const [settings, setSettings] = useState({
+  muted: false
+});
   const [theme, setTheme] = useState({ id: 'default', primary: '#2563eb', bg: '', bubbleRadius: '14px', darkMode: false });
   const [selectedImage, setSelectedImage] = useState(null);
   const [playingAudio, setPlayingAudio] = useState(null);
@@ -36,9 +38,14 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   const audioRef = useRef(null);
   const menuRef = useRef(null);
   const urlInputRef = useRef(null);
-  const fileInputRef = useRef(null);
-const { isBlocked, blockStatus, blockedStatus, loading: blockLoading } = useBlockCheck(contact?._id);
- 
+  const fileInputRef = useRef(null);const { 
+  isBlocked, 
+  blockStatus, 
+  loading: blockLoading,
+  error: blockError,
+  refresh: refreshBlockStatus 
+} = useBlockCheck(contact?._id);
+
   // ✅ CORRECTION : Utiliser process.env au lieu de window
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
@@ -245,10 +252,17 @@ const loadThemeFromServer = async () => {
     return d.toLocaleDateString('fr-FR');
   };
 
-  // Fonction pour télécharger un fichier
-  const downloadFile = async (file) => {
-    try {
-      if (file.url) {
+ // Fonction améliorée pour télécharger les fichiers
+const downloadFile = async (file) => {
+  try {
+    console.log('📥 Téléchargement:', file);
+    
+    if (file.url) {
+      // Pour les URLs externes, ouvrir dans un nouvel onglet
+      if (file.url.startsWith('http')) {
+        window.open(file.url, '_blank');
+      } else {
+        // Pour les fichiers locaux, utiliser fetch
         const response = await fetch(file.url);
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -261,11 +275,15 @@ const loadThemeFromServer = async () => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (error) {
-      console.error('Erreur téléchargement:', error);
-      alert('Erreur lors du téléchargement');
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur téléchargement:', error);
+    // Fallback: ouvrir dans un nouvel onglet
+    if (file.url) {
+      window.open(file.url, '_blank');
+    }
+  }
+};
   //Fonction pour télécharger une image
 const downloadImage = async (image) => {
   try {
@@ -335,54 +353,58 @@ const downloadImage = async (image) => {
     }
   };
 
-  // Charger les médias
-  const loadMedia = async (type) => {
-    setLoadingMedia(true);
-    setMediaType(type);
-    try {
-      const data = await fetchAPI(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
-      
-      if (!data || Object.keys(data).length === 0) {
-        const mockData = {
-          images: type === 'images' ? [
-            { id: 1, url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400', name: 'image1.jpg', size: 1024000 },
-            { id: 2, url: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=400', name: 'image2.jpg', size: 2048000 }
-          ] : [],
-          files: type === 'files' ? [
-            { id: 1, url: '/api/files/1', name: 'document.pdf', size: 2500000, type: 'pdf' },
-            { id: 2, url: '/api/files/2', name: 'rapport.docx', size: 1800000, type: 'docx' }
-          ] : [],
-          audio: type === 'audio' ? [
-            { id: 1, url: '/api/audio/1', name: 'message_audio.mp3', duration: 45, size: 4500000 },
-            { id: 2, url: '/api/audio/2', name: 'note_vocale.mp3', duration: 30, size: 3000000 }
-          ] : [],
-          links: type === 'links' ? [
-            { 
-              id: 1, 
-              links: ['https://example.com', 'https://google.com'],
-              sender: { name: 'John Doe' },
-              createdAt: new Date(Date.now() - 3600000).toISOString()
-            }
-          ] : []
-        };
-        setMediaData(mockData);
-      } else {
-        setMediaData(data);
-      }
-    } catch (err) {
-      console.error('Erreur chargement média:', err);
+ // Fonction corrigée pour charger les médias
+const loadMedia = async (type) => {
+  setLoadingMedia(true);
+  setMediaType(type);
+  try {
+    console.log(`📥 Chargement des médias de type: ${type}`);
+    
+    const data = await fetchAPI(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
+    
+    console.log(`✅ Données reçues pour ${type}:`, data);
+    
+    if (!data || Object.keys(data).length === 0) {
+      // Données mockées seulement si nécessaire
       const mockData = {
         images: type === 'images' ? [
-          { id: 1, url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400', name: 'image1.jpg', size: 1024000 },
-          { id: 2, url: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=400', name: 'image2.jpg', size: 2048000 }
+          { 
+            id: 1, 
+            url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400', 
+            name: 'image1.jpg', 
+            size: 1024000,
+            createdAt: new Date()
+          }
         ] : [],
         files: type === 'files' ? [
-          { id: 1, url: '/api/files/1', name: 'document.pdf', size: 2500000, type: 'pdf' },
-          { id: 2, url: '/api/files/2', name: 'rapport.docx', size: 1800000, type: 'docx' }
+          { 
+            id: 1, 
+            url: '/api/files/1', 
+            name: 'document.pdf', 
+            size: 2500000, 
+            type: 'pdf',
+            createdAt: new Date()
+          }
         ] : [],
         audio: type === 'audio' ? [
-          { id: 1, url: '/api/audio/1', name: 'message_audio.mp3', duration: 45, size: 4500000 },
-          { id: 2, url: '/api/audio/2', name: 'note_vocale.mp3', duration: 30, size: 3000000 }
+          { 
+            id: 1, 
+            url: '/api/audio/1', 
+            name: 'message_audio.mp3', 
+            duration: 45, 
+            size: 4500000,
+            createdAt: new Date()
+          }
+        ] : [],
+        videos: type === 'videos' ? [
+          { 
+            id: 1, 
+            url: '/api/videos/1', 
+            name: 'video.mp4', 
+            duration: 120, 
+            size: 15000000,
+            createdAt: new Date()
+          }
         ] : [],
         links: type === 'links' ? [
           { 
@@ -394,9 +416,22 @@ const downloadImage = async (image) => {
         ] : []
       };
       setMediaData(mockData);
+    } else {
+      setMediaData(data);
     }
-    setLoadingMedia(false);
-  };
+  } catch (err) {
+    console.error('❌ Erreur chargement média:', err);
+    // En cas d'erreur, initialiser avec des tableaux vides
+    setMediaData({
+      images: [],
+      files: [],
+      audio: [],
+      videos: [],
+      links: []
+    });
+  }
+  setLoadingMedia(false);
+};
 
   // Nettoyer l'audio quand le composant est démonté
   useEffect(() => {
@@ -408,21 +443,22 @@ const downloadImage = async (image) => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!conversation?._id) return;
-    const loadSettings = async () => {
-      try {
-        const data = await fetchAPI(`/message-settings/conversations/${conversation._id}/settings`);
-        if (data.success) {
-          const s = data.settings;
-          setSettings({ muted: s.isMuted, blocked: s.iBlocked, iBlocked: s.iBlocked, blockedMe: s.blockedMe });
-        }
-      } catch (err) {
-        console.error('Erreur chargement settings:', err);
+ useEffect(() => {
+  if (!conversation?._id) return;
+  
+  const loadMutedStatus = async () => {
+    try {
+      const data = await fetchAPI(`/message-settings/conversations/${conversation._id}/settings`);
+      if (data.success) {
+        setSettings({ muted: data.settings.isMuted });
       }
-    };
-    loadSettings();
-  }, [conversation?._id]);
+    } catch (err) {
+      console.error('Erreur chargement settings:', err);
+    }
+  };
+  
+  loadMutedStatus();
+}, [conversation?._id]);
 
   useEffect(() => {
     if (contact?._id) {
@@ -441,36 +477,82 @@ const downloadImage = async (image) => {
   }, [showMenu]);
 
   const toggleMute = async () => {
-    try {
-      const endpoint = settings.muted ? `/message-settings/conversations/${conversation._id}/unmute` : `/message-settings/conversations/${conversation._id}/mute`;
-      const data = await fetchAPI(endpoint, { method: 'POST' });
-      if (data.success) {
-        setSettings(prev => ({ ...prev, muted: !prev.muted }));
-      }
-    } catch (err) {
-      console.error('Erreur toggle mute:', err);
-      alert('Erreur lors de la modification');
+  if (!conversation?._id) {
+    alert('❌ Conversation non définie');
+    return;
+  }
+
+  try {
+    const endpoint = settings.muted 
+      ? `/message-settings/conversations/${conversation._id}/unmute`
+      : `/message-settings/conversations/${conversation._id}/mute`;
+    
+    const data = await fetchAPI(endpoint, { method: 'POST' });
+    
+    if (data.success) {
+      setSettings(prev => ({ ...prev, muted: !prev.muted }));
+      
+      const msg = settings.muted 
+        ? '✅ Notifications réactivées' 
+        : '🔕 Notifications désactivées';
+      
+      alert(msg);
     }
-  };
+  } catch (err) {
+    console.error('❌ Erreur toggle mute:', err);
+    alert('Erreur lors de la modification des notifications');
+  }
+};
 
 const toggleBlock = async () => {
-  if (!contact?._id) return;
-  
+  if (!contact?._id) {
+    alert('❌ Contact non défini');
+    return;
+  }
+
+  const action = blockStatus?.iBlocked ? 'débloquer' : 'bloquer';
+  const confirmMsg = blockStatus?.iBlocked 
+    ? `Êtes-vous sûr de vouloir débloquer ${contact.name} ?`
+    : `Êtes-vous sûr de vouloir bloquer ${contact.name} ? Vous ne recevrez plus ses messages.`;
+
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
   try {
-    const endpoint = blockStatus?.iBlocked ? '/message-settings/unblock' : '/message-settings/block';
-    const response = await fetchAPI(endpoint, { 
-      method: 'POST', 
-      body: JSON.stringify({ targetUserId: contact._id }) 
-    });
+    console.log('🔄 Tentative de', action, 'pour:', contact._id);
     
+    const endpoint = blockStatus?.iBlocked 
+      ? '/message-settings/unblock' 
+      : '/message-settings/block';
+    
+    const response = await fetchAPI(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId: contact._id })
+    });
+
+    console.log('📡 Réponse backend:', response);
+
     if (response.success) {
+      console.log('✅ Action réussie');
+      
+      await refreshBlockStatus();
+      
       window.dispatchEvent(new CustomEvent('block-status-changed'));
+      
       setShowMenu(false);
-      alert(blockStatus?.iBlocked ? '✅ Utilisateur débloqué' : '🚫 Utilisateur bloqué');
+      
+      const successMsg = blockStatus?.iBlocked 
+        ? `✅ ${contact.name} a été débloqué` 
+        : `🚫 ${contact.name} a été bloqué`;
+      
+      alert(successMsg);
+    } else {
+      throw new Error(response.message || 'Erreur inconnue');
     }
   } catch (err) {
     console.error('❌ Erreur toggle block:', err);
-    alert('Erreur lors de l\'opération de blocage');
+    alert(`Erreur lors du ${action} : ${err.message}`);
   }
 };
 
@@ -543,7 +625,7 @@ useEffect(() => {
             </div>
           </div>
         </div>
-      </div>
+      </div> 
     );
   }
 
@@ -579,9 +661,20 @@ useEffect(() => {
     <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
       {participantsCount} participant{participantsCount > 1 ? 's' : ''}
     </p>
-  ) : blockedStatus ? ( // 🆕 AJOUTER CE CAS
-    <p className="text-xs sm:text-sm text-red-200 font-semibold truncate">
-      🔒 Bloqué
+  ) : blockLoading ? (
+    <p className="text-xs sm:text-sm text-white/70 truncate flex items-center gap-1">
+      <span className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></span>
+      Chargement...
+    </p>
+  ) : blockStatus?.blockedMe ? ( // ✅ CORRIGÉ
+    <p className="text-xs sm:text-sm text-red-200 font-semibold truncate flex items-center gap-1">
+      <Lock className="w-3 h-3" />
+      Vous êtes bloqué
+    </p>
+  ) : blockStatus?.iBlocked ? ( // ✅ CORRIGÉ
+    <p className="text-xs sm:text-sm text-yellow-200 font-semibold truncate flex items-center gap-1">
+      <Shield className="w-3 h-3" />
+      Bloqué
     </p>
   ) : contactIsOnline ? (
     <>
@@ -609,241 +702,465 @@ useEffect(() => {
               <button onClick={() => setShowMenu(!showMenu)} className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all">
                 <MoreVertical className="w-5 h-5" />
               </button>
-              {showMenu && (
-                <div className="fixed right-4 top-20 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-[85vh] flex flex-col">
-                  <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-gray-100 shrink-0">
-                    <div className="flex items-center gap-3">
-                      <img src={displayImage} alt={displayName} className="w-12 h-12 rounded-xl object-cover shadow-md ring-2 ring-white" />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 truncate">{displayName}</h3>
-                        <p className="text-xs text-gray-600 truncate mt-0.5">
-                          {isGroup ? `${participantsCount} membres` : contactIsOnline ? '🟢 En ligne' : '⚫ Hors ligne'}
-                        </p>
-                      </div>
-                      <button onClick={() => setShowMenu(false)} className="p-1.5 hover:bg-gray-200 rounded-lg">
-                        <X className="w-5 h-5 text-gray-600" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                    <button onClick={() => { setOpenPanel(true); setShowMenu(false); }} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-blue-50 transition-colors">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Users className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <span className="font-medium text-gray-700">Voir le profil</span>
-                    </button>
-                    <button onClick={openMediaPanel} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-purple-50 transition-colors">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <Image className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <span className="font-medium text-gray-700">Multimédia</span>
-                    </button>
-                    <button onClick={toggleMute} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-orange-50 transition-colors">
-                      <div className={`p-2 rounded-lg ${settings.muted ? 'bg-orange-200' : 'bg-orange-100'}`}>
-                        <Phone className="w-5 h-5 text-orange-600" />
-                      </div>
-                      <span className="font-medium text-gray-700">{settings.muted ? '🔕 Réactiver' : '🔔 Mettre en silence'}</span>
-                    </button>
-                    {!isGroup && (
-                      <button onClick={toggleBlock} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-50 transition-colors">
-                        <div className={`p-2 rounded-lg ${settings.iBlocked ? 'bg-red-200' : 'bg-red-100'}`}>
-                          <AlertCircle className="w-5 h-5 text-red-600" />
-                        </div>
-                        <span className="font-medium text-gray-700">{settings.iBlocked ? 'Débloquer' : 'Bloquer'}</span>
-                      </button>
-                    )}
-                    <button onClick={handleDeleteConversation} className="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-red-50 transition-colors">
-                      <div className="p-2 bg-red-100 rounded-lg">
-                        <Trash2 className="w-5 h-5 text-red-600" />
-                      </div>
-                      <span className="font-medium text-red-600">Supprimer</span>
-                    </button>
-                    
-                    {/* Section Personnalisation */}
-                    <div className="pt-3 border-t border-gray-200">
-                      <h4 className="text-sm font-bold text-gray-900 px-2 mb-3 flex items-center gap-2">
-                        🎨 Personnalisation
-                        {savingTheme && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                        )}
-                      </h4>
-                      <div className="space-y-3 px-2">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-2">Thèmes</label>
-                          <div className="grid grid-cols-3 gap-2">
-                            {PRESET_THEMES.map((preset) => (
-                              <button 
-                                key={preset.id} 
-                                onClick={() => applyPreset(preset)}
-                                disabled={savingTheme}
-                                className={`relative h-14 rounded-lg border-2 transition-all ${
-                                  theme.id === preset.id ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
-                                } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                style={{ background: `linear-gradient(135deg, ${preset.primary}20, ${preset.primary}40)` }}
-                              >
-                                {theme.id === preset.id && (
-                                  <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full"></div>
-                                )}
-                                <div className="w-full h-1.5 absolute bottom-0 left-0 rounded-b-lg" style={{ backgroundColor: preset.primary }} />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-2">Couleur</label>
-                          <input 
-                            type="color" 
-                            value={theme.primary} 
-                            onChange={(e) => { 
-                              const newTheme = { ...theme, primary: e.target.value, id: 'custom' }; 
-                              setTheme(newTheme); 
-                              persistTheme(newTheme); 
-                            }} 
-                            disabled={savingTheme}
-                            className={`w-full h-10 rounded-lg cursor-pointer border border-gray-300 ${
-                              savingTheme ? 'opacity-50 cursor-not-allowed' : ''
-                            }`}
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-2">Arrière-plan</label>
-                          <div className="flex gap-2 mb-2 flex-wrap">
-                            {PRESET_BACKGROUNDS.map((bg, index) => (
-                              <button 
-                                key={index} 
-                                onClick={() => { 
-                                  if (savingTheme) return;
-                                  const newTheme = { ...theme, bg: bg || '' }; 
-                                  setTheme(newTheme); 
-                                  persistTheme(newTheme); 
-                                }} 
-                                disabled={savingTheme}
-                                className={`w-16 h-16 rounded-lg border-2 ${
-                                  theme.bg === bg ? 'border-blue-500' : 'border-gray-200'
-                                } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''} relative group`}
-                              >
-                                {bg ? (
-                                  <>
-                                    <img src={bg} alt="" className="w-full h-full object-cover rounded-lg" />
-                                    {index >= 3 && (
-                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-lg flex items-center justify-center">
-                                        <span className="text-white text-xs opacity-0 group-hover:opacity-100 font-bold">
-                                          {index === 3 ? 'Montagnes' : index === 4 ? 'Plage' : ''}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
-                                    <X className="w-4 h-4 text-gray-400" />
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-                            
-                            <button 
-                              onClick={() => !savingTheme && setShowCustomBgUpload(!showCustomBgUpload)}
-                              disabled={savingTheme}
-                              className={`w-16 h-16 rounded-lg border-2 border-dashed ${
-                                theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) 
-                                  ? 'border-blue-500 bg-blue-50' 
-                                  : 'border-gray-300 hover:border-blue-400'
-                              } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''} flex flex-col items-center justify-center transition-all relative group`}
-                            >
-                              <Upload className="w-5 h-5 text-gray-400 mb-1" />
-                              <span className="text-xs text-gray-500">Personnalisé</span>
-                              
-                              {theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) && (
-                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></div>
-                              )}
-                            </button>
-                          </div>
+             {showMenu && (
+  <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 max-h-[85vh] flex flex-col overflow-hidden">
+    {/* Header avec dégradé */}
+    <div className="relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500"></div>
+      <div className="absolute inset-0 bg-black/10"></div>
+      
+      <div className="relative p-6">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <img 
+              src={displayImage} 
+              alt={displayName} 
+              className="w-16 h-16 rounded-2xl object-cover shadow-xl ring-4 ring-white/30" 
+            />
+            {contactIsOnline && !isGroup && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-white shadow-lg"></div>
+            )}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+  <h2 className="text-base sm:text-lg font-bold text-white truncate">
+    {displayName}
+  </h2>
+  
+  <div className="flex items-center gap-2 text-xs sm:text-sm">
+    {isGroup ? (
+      <div className="flex items-center gap-1.5 text-white/90">
+        <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+        <span>{participantsCount} participant{participantsCount > 1 ? 's' : ''}</span>
+      </div>
+    ) : blockLoading ? (
+      <div className="flex items-center gap-1.5 text-white/70">
+        <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></div>
+        <span>Chargement...</span>
+      </div>
+    ) : blockStatus?.blockedMe ? (
+      <div className="flex items-center gap-1.5 text-red-300">
+        <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+        <span>Vous êtes bloqué</span>
+      </div>
+    ) : blockStatus?.iBlocked ? (
+      <div className="flex items-center gap-1.5 text-yellow-300">
+        <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+        <span>Bloqué</span>
+      </div>
+    ) : contactIsOnline ? (
+      <>
+        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+        <span className="text-white/90">En ligne</span>
+      </>
+    ) : (
+      <span className="text-white/70">Hors ligne</span>
+    )}
+  </div>
+</div>
 
-                          {showCustomBgUpload && (
-                            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-blue-700">Ajouter votre image</span>
-                                <button 
-                                  onClick={() => setShowCustomBgUpload(false)}
-                                  className="text-blue-500 hover:text-blue-700"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                              
-                              <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={handleCustomBackgroundUpload}
-                                className="hidden"
-                              />
-                              
-                              <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
-                              >
-                                📁 Choisir une image
-                              </button>
-                              
-                              <p className="text-xs text-blue-600 mt-2 text-center">
-                                PNG, JPG, WEBP (max 5MB)
-                              </p>
-                            </div>
-                          )}
+          <button 
+            onClick={() => setShowMenu(false)} 
+            className="p-2 hover:bg-white/20 rounded-xl transition-all text-white backdrop-blur-sm"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+    </div>
 
-                          {theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) && (
-                            <button
-                              onClick={removeCustomBackground}
-                              disabled={savingTheme}
-                              className={`w-full mt-2 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                                savingTheme ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Supprimer l'arrière-plan personnalisé
-                            </button>
-                          )}
-                        </div>
-                        
-                        {/* Indicateur que le thème est partagé */}
-                        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg text-center">
-                          🎨 Ce thème sera visible par les deux participants
-                        </div>
-                      </div>
+    {/* Contenu défilant */}
+    <div className="flex-1 overflow-y-auto p-4">
+      {/* Actions Principales */}
+      <div className="space-y-2 mb-6">
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-3">
+          Actions
+        </div>
+
+        <button 
+          onClick={() => { setOpenPanel(true); setShowMenu(false); }} 
+          className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 transition-all"
+        >
+          <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-gray-800">Voir le profil</span>
+            <p className="text-xs text-gray-500 mt-0.5">Informations détaillées</p>
+          </div>
+        </button>
+
+        <button 
+          onClick={openMediaPanel} 
+          className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 transition-all"
+        >
+          <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
+            <Image className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-gray-800">Multimédia</span>
+            <p className="text-xs text-gray-500 mt-0.5">Photos, fichiers et liens</p>
+          </div>
+        </button>
+
+        <button 
+          onClick={toggleMute} 
+          className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-all"
+        >
+          <div className={`p-3 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all ${
+            settings.muted 
+              ? 'bg-gradient-to-br from-orange-500 to-amber-500' 
+              : 'bg-gradient-to-br from-orange-400 to-amber-400'
+          }`}>
+            <Phone className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-gray-800">
+              {settings.muted ? 'Réactiver' : 'Mettre en silence'}
+            </span>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {settings.muted ? 'Recevoir les notifications' : 'Masquer les notifications'}
+            </p>
+          </div>
+        </button>
+
+       {!isGroup && (
+  <button
+    onClick={toggleBlock}
+    disabled={blockLoading}
+    className={`group flex items-center gap-4 w-full p-4 rounded-2xl transition-all ${
+      blockLoading 
+        ? 'opacity-50 cursor-not-allowed bg-gray-100' 
+        : 'hover:bg-gradient-to-r hover:from-red-50 hover:to-orange-50'
+    }`}
+  >
+    <div className={`p-3 rounded-xl transition-all ${
+      blockLoading 
+        ? 'bg-gray-200' 
+        : blockStatus?.iBlocked 
+          ? 'bg-green-100 text-green-600 group-hover:bg-green-200' 
+          : 'bg-red-100 text-red-600 group-hover:bg-red-200'
+    }`}>
+      {blockLoading ? (
+        <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+      ) : blockStatus?.iBlocked ? (
+        <Unlock className="w-5 h-5" />
+      ) : (
+        <Shield className="w-5 h-5" />
+      )}
+    </div>
+    <div className="text-left flex-1">
+      <div className="font-semibold text-gray-900">
+        {blockLoading 
+          ? 'Chargement...' 
+          : blockStatus?.iBlocked 
+            ? 'Débloquer' 
+            : 'Bloquer'
+        }
+      </div>
+      <div className="text-sm text-gray-500">
+        {blockLoading 
+          ? 'Vérification du statut...' 
+          : blockStatus?.iBlocked 
+            ? 'Autoriser les messages' 
+            : 'Empêcher les messages'
+        }
+      </div>
+    </div>
+  </button>
+)}
+
+        <button 
+          onClick={handleDeleteConversation} 
+          className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all"
+        >
+          <div className="p-3 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
+            <Trash2 className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-red-700">Supprimer</span>
+            <p className="text-xs text-gray-500 mt-0.5">Supprimer pour vous uniquement</p>
+          </div>
+        </button>
+      </div>
+
+      {/* Section Personnalisation */}
+      <div className="border-t-2 border-gray-100 pt-6">
+        <div className="flex items-center gap-2 px-2 mb-4">
+          <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-500 rounded-lg">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+          </div>
+          <h4 className="text-sm font-bold text-gray-900">Personnalisation</h4>
+          {savingTheme && (
+            <div className="ml-auto">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4 px-2">
+          {/* Thèmes Prédéfinis */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
+              Thèmes
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {PRESET_THEMES.map((preset) => (
+                <button 
+                  key={preset.id} 
+                  onClick={() => applyPreset(preset)}
+                  disabled={savingTheme}
+                  className={`relative h-20 rounded-2xl border-3 transition-all transform hover:scale-105 ${
+                    theme.id === preset.id 
+                      ? 'border-blue-500 ring-4 ring-blue-200 shadow-xl' 
+                      : 'border-gray-200 hover:border-gray-300 shadow-md'
+                  } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{ 
+                    background: `linear-gradient(135deg, ${preset.primary}15, ${preset.primary}35)` 
+                  }}
+                >
+                  {theme.id === preset.id && (
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
                     </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 h-2 rounded-b-2xl" style={{ backgroundColor: preset.primary }} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold text-gray-700">{preset.name}</span>
                   </div>
-                  <div className="p-3 border-t border-gray-200 bg-gray-50 shrink-0">
-                    <button onClick={() => setShowMenu(false)} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium">
-                      Fermer
-                    </button>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sélecteur de Couleur */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
+              Couleur Personnalisée
+            </label>
+            <div className="relative">
+              <input 
+                type="color" 
+                value={theme.primary} 
+                onChange={(e) => { 
+                  const newTheme = { ...theme, primary: e.target.value, id: 'custom' }; 
+                  setTheme(newTheme); 
+                  persistTheme(newTheme); 
+                }} 
+                disabled={savingTheme}
+                className={`w-full h-14 rounded-2xl cursor-pointer border-3 border-gray-200 shadow-md hover:shadow-lg transition-all ${
+                  savingTheme ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              />
+              <div className="absolute inset-0 rounded-2xl pointer-events-none border-3 border-white/50"></div>
+            </div>
+          </div>
+
+          {/* Arrière-plans */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
+              Arrière-plan
+            </label>
+            <div className="flex gap-2 mb-3 flex-wrap">
+              {PRESET_BACKGROUNDS.map((bg, index) => (
+                <button 
+                  key={index} 
+                  onClick={() => { 
+                    if (savingTheme) return;
+                    const newTheme = { ...theme, bg: bg || '' }; 
+                    setTheme(newTheme); 
+                    persistTheme(newTheme); 
+                  }} 
+                  disabled={savingTheme}
+                  className={`w-20 h-20 rounded-2xl border-3 ${
+                    theme.bg === bg 
+                      ? 'border-blue-500 ring-4 ring-blue-200 shadow-xl' 
+                      : 'border-gray-200 hover:border-gray-300 shadow-md'
+                  } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''} relative group overflow-hidden transition-all transform hover:scale-105`}
+                >
+                  {bg ? (
+                    <>
+                      <img src={bg} alt="" className="w-full h-full object-cover rounded-2xl" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-end justify-center pb-2">
+                        <span className="text-white text-xs font-bold drop-shadow-lg">
+                          {index === 1 ? 'Gradient' : index === 2 ? 'Coloré' : index === 3 ? 'Nature' : 'Plage'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex flex-col items-center justify-center">
+                      <X className="w-6 h-6 text-gray-400 mb-1" />
+                      <span className="text-xs text-gray-500 font-medium">Aucun</span>
+                    </div>
+                  )}
+                  {theme.bg === bg && (
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
+
+              {/* Bouton Upload Personnalisé */}
+              <button 
+                onClick={() => !savingTheme && setShowCustomBgUpload(!showCustomBgUpload)}
+                disabled={savingTheme}
+                className={`w-20 h-20 rounded-2xl border-3 border-dashed ${
+                  theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) 
+                    ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-xl' 
+                    : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 shadow-md'
+                } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''} flex flex-col items-center justify-center transition-all transform hover:scale-105 relative group`}
+              >
+                <Upload className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-colors mb-1" />
+                <span className="text-xs text-gray-500 group-hover:text-blue-600 font-medium transition-colors">Upload</span>
+                
+                {theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) && (
+                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
                   </div>
+                )}
+              </button>
+            </div>
+
+            {/* Panel Upload Personnalisé */}
+            {showCustomBgUpload && (
+              <div className="mt-3 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border-2 border-blue-200 shadow-inner">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-blue-500 rounded-lg">
+                      <Upload className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-sm font-bold text-blue-800">Image Personnalisée</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowCustomBgUpload(false)}
+                    className="p-1.5 hover:bg-blue-200 rounded-lg transition-colors"
+                  >
+                    <X className="w-4 h-4 text-blue-600" />
+                  </button>
                 </div>
-              )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCustomBackgroundUpload}
+                  className="hidden"
+                />
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                >
+                  📁 Choisir une image
+                </button>
+
+                <p className="text-xs text-blue-700 mt-3 text-center font-medium">
+                  Format: PNG, JPG, WEBP • Taille max: 5MB
+                </p>
+              </div>
+            )}
+
+            {/* Bouton Supprimer l'arrière-plan personnalisé */}
+            {theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) && (
+              <button
+                onClick={removeCustomBackground}
+                disabled={savingTheme}
+                className={`w-full mt-3 py-3 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 ${
+                  savingTheme ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <Trash2 className="w-4 h-4" />
+                Supprimer l'arrière-plan
+              </button>
+            )}
+          </div>
+
+          {/* Info partagée */}
+          <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border-2 border-blue-200 shadow-inner">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-500 rounded-lg shrink-0">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-blue-800 mb-1">Thème Partagé</p>
+                <p className="text-xs text-blue-600 leading-relaxed">
+                  Ce thème sera visible par tous les participants de cette conversation
+                </p>
+              </div>
             </div>
           </div>
         </div>
-{/* ✅ CORRECTION : Afficher la bannière de blocage */}
-{blockedStatus && (
-  <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-center py-3 text-sm font-medium shadow-lg">
-    <div className="flex items-center justify-center gap-2">
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-      </svg>
-      <span>
-  {blockStatus?.blockedMe 
-    ? '❌ Vous êtes bloqué - Messages désactivés' 
-    : blockStatus?.iBlocked
-    ? '🚫 Utilisateur bloqué - Messages désactivés'
-    : '⛔ Conversation bloquée'
-  }
-</span>
+      </div>
+    </div>
+
+    {/* Footer fixe */}
+    <div className="p-4 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-white shrink-0">
+      <button 
+        onClick={() => setShowMenu(false)} 
+        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+      >
+        Fermer
+      </button>
     </div>
   </div>
 )}
-</div> 
+            </div>
+          </div>
+        </div>
+       {(blockStatus?.iBlocked || blockStatus?.blockedMe) && !blockLoading && (
+  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white p-4 shadow-2xl z-50">
+    <div className="absolute inset-0 bg-black/10 backdrop-blur-sm"></div>
+    
+    <div className="relative flex items-center gap-4">
+      <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+        {blockStatus?.blockedMe ? (
+          <Lock className="w-6 h-6" />
+        ) : (
+          <Shield className="w-6 h-6" />
+        )}
+      </div>
+      
+      <div className="flex-1">
+        <div className="font-bold text-lg">
+          {blockStatus?.blockedMe ? (
+            <>🚫 Vous êtes bloqué</>
+          ) : (
+            <>🛡️ Utilisateur bloqué</>
+          )}
+        </div>
+        <div className="text-sm text-white/90">
+          {blockStatus?.blockedMe 
+            ? 'Vous ne pouvez pas envoyer de messages à cet utilisateur' 
+            : 'Vous avez bloqué cet utilisateur'
+          }
+        </div>
+      </div>
+      
+      {blockStatus?.iBlocked && !blockStatus?.blockedMe && (
+        <button
+          onClick={toggleBlock}
+          className="px-4 py-2 bg-white text-red-600 rounded-xl font-bold hover:bg-red-50 transition-all transform hover:scale-105 shadow-lg"
+        >
+          Débloquer
+        </button>
+      )}
+    </div>
+    
+    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-300 via-red-300 to-orange-300 animate-pulse"></div>
+  </div>
+)}
+      </div> 
       {openPanel && (
         <div className="fixed inset-0 bg-black/40 z-50 flex justify-end">
           <div className="w-80 bg-white h-full shadow-2xl flex flex-col">
@@ -894,27 +1211,29 @@ useEffect(() => {
               </div>
             </div>
             
-            <div className="flex border-b bg-white">
-              {[
-                { id: 'images', label: 'Images', icon: Image },
-                { id: 'files', label: 'Fichiers', icon: FileText },
-                { id: 'audio', label: 'Audio', icon: Music },
-                { id: 'links', label: 'Liens', icon: Link }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => loadMedia(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-4 font-semibold ${
-                    mediaType === tab.id 
-                      ? 'text-purple-600 border-b-2 border-purple-600' 
-                      : 'text-gray-600'
-                  }`}
-                >
-                  <tab.icon className="w-5 h-5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {/* 🆕 NOUVELLE SECTION AVEC VIDÉOS - REMPLACE L'ANCIENNE */}
+<div className="flex border-b bg-white overflow-x-auto">
+  {[
+    { id: 'images', label: 'Images', icon: Image },
+    { id: 'files', label: 'Fichiers', icon: FileText },
+    { id: 'audio', label: 'Audio', icon: Music },
+    { id: 'videos', label: 'Vidéos', icon: Play }, // 🆕 Nouvel onglet
+    { id: 'links', label: 'Liens', icon: Link }
+  ].map((tab) => (
+    <button
+      key={tab.id}
+      onClick={() => loadMedia(tab.id)}
+      className={`flex items-center gap-2 px-4 py-4 font-semibold whitespace-nowrap ${
+        mediaType === tab.id 
+          ? 'text-purple-600 border-b-2 border-purple-600' 
+          : 'text-gray-600 hover:text-gray-900'
+      }`}
+    >
+      <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+      <span className="text-sm sm:text-base">{tab.label}</span>
+    </button>
+  ))}
+</div>
 
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
               {loadingMedia ? (
@@ -1040,6 +1359,49 @@ useEffect(() => {
                       )}
                     </div>
                   )}
+                   {mediaType === 'videos' && (
+        <div className="space-y-3">
+          {mediaData?.videos?.length > 0 ? (
+            mediaData.videos.map((video) => (
+              <div key={video.id} className="flex items-center gap-4 p-4 bg-white rounded-xl shadow">
+                <div className="relative">
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <Play className="w-6 h-6 text-gray-600" />
+                  </div>
+                  <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
+                    {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">{video.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {formatFileSize(video.size)} • {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => window.open(video.url, '_blank')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Ouvrir la vidéo"
+                >
+                  <Play className="w-5 h-5 text-gray-600" />
+                </button>
+                <button 
+                  onClick={() => downloadFile(video)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Télécharger"
+                >
+                  <Download className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-20">
+              <Play className="w-20 h-20 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Aucune vidéo</p>
+            </div>
+          )}
+        </div>
+      )}
 
                   {mediaType === 'links' && (
                     <div className="space-y-2">
