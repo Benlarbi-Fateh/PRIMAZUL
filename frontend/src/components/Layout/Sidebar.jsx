@@ -441,6 +441,7 @@ useEffect(() => {
     const lastMsg = conv.lastMessage;
 
     if (lastMsg.type === "image") return "🖼️ Image";
+    if (lastMsg.type === "video") return "🎬 Vidéo";
     if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
     if (lastMsg.type === "voice") return "🎤 Message vocal";
 

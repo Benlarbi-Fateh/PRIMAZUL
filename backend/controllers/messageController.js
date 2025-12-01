@@ -1,12 +1,13 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const Contact = require('../models/Contact');
+
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name profilePicture')
-      .populate('reactions.userId', 'name profilePicture') // 🆕 Populate les réactions
+      .populate('reactions.userId', 'name profilePicture')
       .sort({ createdAt: 1 });
     res.json({ success: true, messages });
   } catch (error) {
@@ -16,10 +17,21 @@ exports.getMessages = async (req, res) => {
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, content, type, fileUrl, fileName, fileSize } = req.body;
+    const { 
+      conversationId, 
+      content, 
+      type, 
+      fileUrl, 
+      fileName, 
+      fileSize,
+      videoDuration, // ✅ Nouveau champ
+      videoThumbnail // ✅ Nouveau champ (optionnel)
+    } = req.body;
+    
     const senderId = req.user._id;
 
-    const message = new Message({
+    // ✅ Création du message avec support vidéo
+    const messageData = {
       conversationId,
       sender: senderId,
       content: content || '',
@@ -28,8 +40,15 @@ exports.sendMessage = async (req, res) => {
       fileName,
       fileSize,
       status: 'sent'
-    });
+    };
 
+    // ✅ Ajouter les champs spécifiques aux vidéos si présents
+    if (type === 'video') {
+      if (videoDuration) messageData.videoDuration = videoDuration;
+      if (videoThumbnail) messageData.videoThumbnail = videoThumbnail;
+    }
+
+    const message = new Message(messageData);
     await message.save();
 
     const conversation = await Conversation.findByIdAndUpdate(
@@ -227,10 +246,9 @@ exports.getUnreadCount = async (req, res) => {
 };
 
 // ============================================
-// 🆕 RÉACTIONS
+// RÉACTIONS
 // ============================================
 
-// Ajouter/Supprimer une réaction
 exports.toggleReaction = async (req, res) => {
   try {
     const { messageId } = req.params;
@@ -242,7 +260,6 @@ exports.toggleReaction = async (req, res) => {
       return res.status(404).json({ error: 'Message non trouvé' });
     }
 
-    // Chercher si l'utilisateur a déjà réagi
     const existingReactionIndex = message.reactions.findIndex(
       r => r.userId.toString() === userId.toString()
     );
@@ -253,26 +270,20 @@ exports.toggleReaction = async (req, res) => {
       const existingEmoji = message.reactions[existingReactionIndex].emoji;
       
       if (existingEmoji === emoji) {
-        // Même emoji = supprimer la réaction
         message.reactions.splice(existingReactionIndex, 1);
         action = 'removed';
       } else {
-        // Emoji différent = remplacer
         message.reactions[existingReactionIndex].emoji = emoji;
         action = 'updated';
       }
     } else {
-      // Nouvelle réaction
       message.reactions.push({ userId, emoji });
       action = 'added';
     }
 
     await message.save();
-
-    // Populate les réactions avec les infos utilisateur
     await message.populate('reactions.userId', 'name profilePicture');
 
-    // Émettre via Socket.io
     const io = req.app.get('io');
     if (io) {
       io.to(message.conversationId.toString()).emit('reaction-updated', {
@@ -296,7 +307,6 @@ exports.toggleReaction = async (req, res) => {
   }
 };
 
-// Récupérer les réactions d'un message
 exports.getReactions = async (req, res) => {
   try {
     const { messageId } = req.params;
