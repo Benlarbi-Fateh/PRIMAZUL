@@ -2,7 +2,7 @@
 
 import { useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import api from '@/lib/api';
 import Link from 'next/link';
 import VerifyCode from '@/components/Auth/VerifyCode';

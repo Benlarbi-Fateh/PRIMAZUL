@@ -8,7 +8,7 @@ import Image from 'next/image';
 import VoiceMessage from './VoiceMessage';
 import ReactionPicker from './ReactionPicker';
 import MessageReactions from './MessageReactions';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { emitToggleReaction } from '@/services/socket';
 
 export function DateSeparator({ date }) {
@@ -122,7 +122,13 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
             <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
-              <Image src={avatarUrl} alt={message.sender?.name || 'User'} fill className="object-cover" />
+              <Image 
+                src={avatarUrl} 
+                alt={message.sender?.name || 'User'} 
+                fill 
+                sizes="32px"
+                className="object-cover" 
+              />
             </div>
           )}
           <div 
@@ -150,7 +156,13 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
             <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0 self-end">
-              <Image src={avatarUrl} alt={message.sender?.name || 'User'} fill className="object-cover" />
+              <Image 
+                src={avatarUrl} 
+                alt={message.sender?.name || 'User'} 
+                fill 
+                sizes="32px"
+                className="object-cover" 
+              />
             </div>
           )}
           <div 
@@ -167,6 +179,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
                   src={message.fileUrl} 
                   alt={message.fileName || 'Image'} 
                   fill 
+                  sizes="(max-width: 640px) 224px, 256px"
                   className="object-cover hover:scale-105 transition-transform duration-300" 
                 />
               </div>
@@ -195,7 +208,13 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
             <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
-              <Image src={avatarUrl} alt={message.sender?.name || 'User'} fill className="object-cover" />
+              <Image 
+                src={avatarUrl} 
+                alt={message.sender?.name || 'User'} 
+                fill 
+                sizes="32px"
+                className="object-cover" 
+              />
             </div>
           )}
           <div 
@@ -238,7 +257,13 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
       <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
         {!isMine && (
           <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
-            <Image src={avatarUrl} alt={message.sender?.name || 'User'} fill className="object-cover" />
+            <Image 
+              src={avatarUrl} 
+              alt={message.sender?.name || 'User'} 
+              fill 
+              sizes="32px"
+              className="object-cover" 
+            />
           </div>
         )}
         <div 

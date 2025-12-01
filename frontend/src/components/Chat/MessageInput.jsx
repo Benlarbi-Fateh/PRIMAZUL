@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Smile, Paperclip, Mic, X, Loader2 } from 'lucide-react';
+import { Send, Smile, Paperclip, Mic, X, Loader2, Camera } from 'lucide-react';
 import api from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
+import CameraCapture from './CameraCapture';
 
 export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) {
   const [message, setMessage] = useState('');
@@ -11,6 +12,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const [isFocused, setIsFocused] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
@@ -103,6 +105,38 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     }
   };
 
+  const handleCameraCapture = async (file) => {
+    setUploading(true);
+    setShowCamera(false);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await api.post('/upload', formData, {
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+
+      onSendMessage({
+        type: 'image',
+        fileUrl: response.data.fileUrl,
+        fileName: response.data.fileName,
+        fileSize: response.data.fileSize,
+        content: message.trim()
+      });
+
+      setMessage('');
+
+    } catch (error) {
+      console.error('❌ Erreur upload photo:', error);
+      alert('Erreur lors de l\'envoi de la photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getFileType = (mimeType) => {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('audio/')) return 'audio';
@@ -132,6 +166,15 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   };
 
   const frequentEmojis = ['😊', '😂', '❤️', '👍', '🙏', '🔥', '✨', '💯', '🎉', '👏'];
+
+  if (showCamera) {
+    return (
+      <CameraCapture
+        onCapture={handleCameraCapture}
+        onCancel={() => setShowCamera(false)}
+      />
+    );
+  }
 
   if (showVoiceRecorder) {
     return (
@@ -192,6 +235,20 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               disabled={uploading}
             >
               <Smile className="w-5 h-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCamera(true)}
+              disabled={uploading}
+              className={`p-2 rounded-xl transition ${
+                uploading 
+                  ? 'text-slate-400 cursor-not-allowed' 
+                  : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Prendre une photo"
+            >
+              <Camera className="w-5 h-5" />
             </button>
 
             <button

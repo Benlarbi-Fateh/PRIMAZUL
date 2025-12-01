@@ -116,7 +116,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
               <div className="flex items-center gap-3">
                 <button
                   onClick={startRecording}
-                  className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all flex items-center justify-center shadow-md"
+                  className="w-12 h-12 bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl transition-all flex items-center justify-center shadow-md"
                 >
                   <Mic size={20} />
                 </button>
@@ -137,7 +137,7 @@ export default function VoiceRecorder({ onSendVoice, onCancel }) {
         
         {/* ENREGISTREMENT */}
         {isRecording && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 shadow-lg">
+          <div className="bg-linear-to-r from-blue-500 to-blue-600 rounded-xl p-4 shadow-lg">
             <div className="flex items-center gap-4">
               <button
                 onClick={stopRecording}

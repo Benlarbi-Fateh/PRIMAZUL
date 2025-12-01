@@ -1,9 +1,9 @@
-'use client'
+'use client';
 
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { isSameDay } from 'date-fns';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
 import api from '@/lib/api';
 import { 
@@ -17,10 +17,11 @@ import {
   onUserStoppedTyping, 
   onMessageStatusUpdated,
   onConversationStatusUpdated,
-  onReactionUpdated // 🆕
+  onReactionUpdated
 } from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
+import MainSidebar from '@/components/Layout/MainSidebar.client';
 import Sidebar from '@/components/Layout/Sidebar';
 import MobileHeader from '@/components/Layout/MobileHeader';
 import ChatHeader from '@/components/Layout/ChatHeader';
@@ -144,7 +145,6 @@ export default function ChatPage() {
         console.log('📊 Statut conversation mis à jour:', { conversationId: updatedConvId, status });
       });
 
-      // 🆕 Écouter les mises à jour de réactions
       onReactionUpdated(({ messageId, reactions }) => {
         setMessages((prevMessages) =>
           prevMessages.map(msg =>
@@ -263,7 +263,7 @@ export default function ChatPage() {
             </div>
             <p className="mt-6 text-blue-800 font-bold text-lg">Chargement de la conversation...</p>
             <div className="flex gap-2 justify-center mt-3">
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0s'}}></span>
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
               <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
               <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
             </div>
@@ -295,80 +295,84 @@ export default function ChatPage() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
-        <div className="hidden lg:block">
-          <Sidebar activeConversationId={conversationId} />
-        </div>
+        <MainSidebar />
 
-        <div className="flex-1 flex flex-col">
-          <div className="lg:hidden">
-            <MobileHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
-          </div>
-          
+        <div className="flex flex-1">
           <div className="hidden lg:block">
-            <ChatHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
+            <Sidebar activeConversationId={conversationId} />
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))' }}>
-            {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full animate-fade-in">
-                <div className="text-center max-w-sm">
-                  <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200" style={{ background: 'linear-gradient(135deg, #ffffff, #dbeafe)' }}>
-                    {conversation.isGroup ? (
-                      <Users className="w-12 h-12 text-purple-600" />
-                    ) : (
-                      <Plane className="w-12 h-12 text-blue-600 -rotate-45" />
-                    )}
-                  </div>
-                  <p className="text-slate-800 font-bold text-lg mb-2">Aucun message pour l&apos;instant</p>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    {conversation.isGroup 
-                      ? `Commencez la discussion dans ${conversation.groupName || 'ce groupe'}`
-                      : `Envoyez votre premier message à ${contact?.name || 'cet utilisateur'}`
-                    }
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {messages.map((message, index) => {
-                  const userId = user?._id || user?.id;
-                  const prevMessage = messages[index - 1];
-                  const isLast = index === messages.length - 1;
-                  
-                  const showDateSeparator = !prevMessage || !isSameDay(
-                    new Date(message.createdAt),
-                    new Date(prevMessage.createdAt)
-                  );
+          <div className="flex-1 flex flex-col">
+            <div className="lg:hidden">
+              <MobileHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
+            </div>
+            
+            <div className="hidden lg:block">
+              <ChatHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
+            </div>
 
-                  return (
-                    <div key={message._id}>
-                      {showDateSeparator && (
-                        <DateSeparator date={message.createdAt} />
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))' }}>
+              {messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full animate-fade-in">
+                  <div className="text-center max-w-sm">
+                    <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200" style={{ background: 'linear-gradient(135deg, #ffffff, #dbeafe)' }}>
+                      {conversation.isGroup ? (
+                        <Users className="w-12 h-12 text-purple-600" />
+                      ) : (
+                        <Plane className="w-12 h-12 text-blue-600 -rotate-45" />
                       )}
-                      <MessageBubble
-                        message={message}
-                        isMine={message.sender?._id === userId}
-                        isGroup={conversation?.isGroup || false}
-                        isLast={isLast}
-                      />
                     </div>
-                  );
-                })}
-                
-                {typingUsers.length > 0 && (
-                  <TypingIndicator contactName={contact?.name || 'Quelqu\'un'} />
-                )}
-                
-                <div ref={messagesEndRef} />
-              </>
-            )}
-          </div>
+                    <p className="text-slate-800 font-bold text-lg mb-2">Aucun message pour l&apos;instant</p>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {conversation.isGroup 
+                        ? `Commencez la discussion dans ${conversation.groupName || 'ce groupe'}`
+                        : `Envoyez votre premier message à ${contact?.name || 'cet utilisateur'}`
+                      }
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {messages.map((message, index) => {
+                    const userId = user?._id || user?.id;
+                    const prevMessage = messages[index - 1];
+                    const isLast = index === messages.length - 1;
+                    
+                    const showDateSeparator = !prevMessage || !isSameDay(
+                      new Date(message.createdAt),
+                      new Date(prevMessage.createdAt)
+                    );
 
-          <MessageInput
-            onSendMessage={handleSendMessage}
-            onTyping={handleTyping}
-            onStopTyping={handleStopTyping}
-          />
+                    return (
+                      <div key={message._id}>
+                        {showDateSeparator && (
+                          <DateSeparator date={message.createdAt} />
+                        )}
+                        <MessageBubble
+                          message={message}
+                          isMine={message.sender?._id === userId}
+                          isGroup={conversation?.isGroup || false}
+                          isLast={isLast}
+                        />
+                      </div>
+                    );
+                  })}
+                  
+                  {typingUsers.length > 0 && (
+                    <TypingIndicator contactName={contact?.name || 'Quelqu\'un'} />
+                  )}
+                  
+                  <div ref={messagesEndRef} />
+                </>
+              )}
+            </div>
+
+            <MessageInput
+              onSendMessage={handleSendMessage}
+              onTyping={handleTyping}
+              onStopTyping={handleStopTyping}
+            />
+          </div>
         </div>
       </div>
     </ProtectedRoute>

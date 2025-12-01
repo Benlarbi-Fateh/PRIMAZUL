@@ -2,7 +2,7 @@
 
 import { useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { ArrowLeft, MoreVertical, Phone, Video, Users, Info } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useContext } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { getUserProfile } from '@/lib/api';
 import Image from 'next/image';
 import { 

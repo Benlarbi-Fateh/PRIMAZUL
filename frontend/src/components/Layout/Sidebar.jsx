@@ -2,7 +2,7 @@
 
 import { useContext, useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthContext } from '@/context/AuthProvider';
 import Image from "next/image";
 import {
   addContact,
@@ -149,7 +149,7 @@ export default function Sidebar({ activeConversationId }) {
     onInvitationCancelled(handleInvitationCancelled);
   }, [user]);
 
-  useEffect(() => {
+useEffect(() => {
     if (!user) return;
 
     const unsubscribe = onOnlineUsersUpdate((userIds) => {
@@ -160,7 +160,9 @@ export default function Sidebar({ activeConversationId }) {
     requestOnlineUsers();
 
     return () => {
-      unsubscribe();
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
   }, [user]);
 
@@ -1063,15 +1065,13 @@ export default function Sidebar({ activeConversationId }) {
             </div>
 
             {activeTab === "chats" && (
-              <div className="p-4 border-t-2 border-blue-100 bg-linear-to-t from-white to-blue-50/30">
-                <button
-                  onClick={() => router.push("/group/create")}
-                  className="w-full p-4 bg-linear-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 font-bold"
-                >
-                  <Plus className="w-6 h-6" />
-                  Créer un groupe
-                </button>
-              </div>
+              <button
+                onClick={() => router.push("/group/create")}
+                className="fixed bottom-6 right-6 w-12 h-12 bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center z-50 group"
+                title="Créer un groupe"
+              >
+                <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+              </button>
             )}
           </div>
         )}

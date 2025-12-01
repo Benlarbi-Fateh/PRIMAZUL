@@ -2,7 +2,7 @@
 
 import { useEffect, useContext, useRef } from 'react';
 import { initSocket } from '@/services/socket';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 
 export const useSocket = () => {
   const { user } = useContext(AuthContext);

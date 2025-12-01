@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useContext, useEffect } from "react";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthContext } from '@/context/AuthProvider';
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {

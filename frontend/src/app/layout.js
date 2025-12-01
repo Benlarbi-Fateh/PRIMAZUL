@@ -1,11 +1,6 @@
-
 import "./globals.css";
-import ClientLayout from "./profile/ClientLayout";
 import { AuthProvider } from "@/context/AuthProvider";
-import "./globals.css";
 
-
-// ✅ Métadonnées sans viewport ni themeColor
 export const metadata = {
   title: "PrimaZul - Messagerie Moderne",
   description: "Application de messagerie instantanée moderne et sécurisée",
@@ -14,7 +9,6 @@ export const metadata = {
   },
 };
 
-// ✅ NOUVEAU : Export séparé pour viewport et themeColor
 export const viewport = {
   width: "device-width",
   initialScale: 1,
@@ -26,10 +20,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="fr" className="h-full">
       <body className="h-full m-0 p-0 antialiased">
-        {/* Le layout client est rendu APRES hydration → aucun mismatch */}
-        <ClientLayout>
+        <AuthProvider>
           {children}
-        </ClientLayout>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { searchUsers, createGroup } from '@/lib/api';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import { Users, Search, X, ArrowLeft, Check, Sparkles, UserPlus, Image as ImageIcon, AlertCircle } from 'lucide-react';

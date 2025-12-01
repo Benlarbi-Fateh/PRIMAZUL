@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   Key,
 } from "lucide-react";
-import { AuthContext } from "@/context/AuthContext";
+import { AuthContext } from '@/context/AuthProvider';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -137,7 +137,7 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-sky-50 via-slate-50 to-sky-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-sky-400/40 border-t-sky-500" />
           <p className="mt-4 text-slate-500 text-sm">
@@ -188,7 +188,7 @@ export default function SettingsPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sky-500 via-indigo-500 to-fuchsia-500">
+                  <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-sky-500 via-indigo-500 to-fuchsia-500">
                     <User className="h-10 w-10 text-white" />
                   </div>
                 )}
@@ -242,7 +242,7 @@ export default function SettingsPage() {
         <main className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {/* Profil */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-500/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-sky-500/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-500">
                 <User className="h-4 w-4" />
@@ -270,7 +270,7 @@ export default function SettingsPage() {
 
           {/* Notifications */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-amber-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
                 <Bell className="h-4 w-4" />
@@ -306,7 +306,7 @@ export default function SettingsPage() {
 
           {/* Apparence (switch clair/sombre pour CETTE page) */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-fuchsia-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-fuchsia-500/10 text-fuchsia-500">
                 <Moon className="h-4 w-4" />
@@ -354,7 +354,7 @@ export default function SettingsPage() {
 
           {/* Langue */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-emerald-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
                 <Globe className="h-4 w-4" />
@@ -382,7 +382,7 @@ export default function SettingsPage() {
 
           {/* Contacts bloqués */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-rose-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
                 <Lock className="h-4 w-4" />
@@ -412,7 +412,7 @@ export default function SettingsPage() {
 
           {/* Confidentialité */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-teal-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/10 text-teal-500">
                 <Shield className="h-4 w-4" />
@@ -440,7 +440,7 @@ export default function SettingsPage() {
 
           {/* Sécurité : changement de mot de passe */}
           <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-indigo-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500">
                 <Key className="h-4 w-4" />
@@ -458,8 +458,8 @@ export default function SettingsPage() {
             <button
               onClick={() => setShowModal(true)}
               className={
-                "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/40 transition hover:brightness-105 hover:-translate-y-[1px] " +
-                "bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400"
+                "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/40 transition hover:brightness-105 hover:-translate-y-px " +
+                "bg-linear-to-r from-indigo-500 via-sky-500 to-cyan-400"
               }
             >
               Modifier le mot de passe
@@ -471,7 +471,7 @@ export default function SettingsPage() {
         <button
           onClick={handleLogout}
           className={
-            "fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-6 py-3 text-xs font-semibold shadow-[0_14px_45px_rgba(248,113,113,0.45)] backdrop-blur-xl transition hover:-translate-y-[1px] " +
+            "fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-6 py-3 text-xs font-semibold shadow-[0_14px_45px_rgba(248,113,113,0.45)] backdrop-blur-xl transition hover:-translate-y-px " +
             (isDark
               ? "border border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25 hover:text-white"
               : "border border-rose-400/40 bg-rose-50 text-rose-600 hover:bg-rose-100")

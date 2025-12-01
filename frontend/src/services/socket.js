@@ -77,6 +77,8 @@ export const onOnlineUsersUpdate = (callback) => {
       onlineUsersCallbacks = onlineUsersCallbacks.filter(cb => cb !== callback);
     };
   }
+  // Retourner une fonction vide si pas de socket
+  return () => {};
 };
 
 export const getCurrentOnlineUsers = () => onlineUsersCache;

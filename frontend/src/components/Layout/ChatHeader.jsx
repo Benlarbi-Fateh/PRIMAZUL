@@ -2,7 +2,7 @@
 
 import { useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { ArrowLeft, MoreVertical, Phone, Video, Users, Info } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
@@ -13,13 +13,17 @@ export default function ChatHeader({ contact, conversation, onBack }) {
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
-  useEffect(() => {
+useEffect(() => {
     if (!user) return;
     const unsubscribe = onOnlineUsersUpdate((userIds) => {
       setOnlineUsers(new Set(userIds));
     });
     requestOnlineUsers();
-    return () => unsubscribe();
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, [user]);
 
   const isUserOnline = (userId) => {
