@@ -1,10 +1,9 @@
-
 import "./globals.css";
 import ClientLayout from "./profile/ClientLayout";
 import { AuthProvider } from "@/context/AuthProvider";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
-
+import { NotificationsProvider } from "@/context/NotificationsContext";
 
 // ✅ Métadonnées sans viewport ni themeColor
 export const metadata = {
@@ -30,7 +29,7 @@ export default function RootLayout({ children }) {
         {/* Le layout client est rendu APRES hydration → aucun mismatch */}
         <ClientLayout>
           <ThemeProvider>
-            {children}
+            <NotificationsProvider>{children}</NotificationsProvider>
           </ThemeProvider>
         </ClientLayout>
       </body>

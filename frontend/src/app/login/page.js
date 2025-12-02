@@ -84,9 +84,7 @@ export default function LoginPage() {
 
   const mobileFeatureCard =
     "flex flex-col items-center p-2 sm:p-3 rounded-xl sm:rounded-2xl backdrop-blur-sm text-xs font-medium " +
-    (isDark
-      ? "bg-slate-900/80 text-slate-200"
-      : "bg-white/60 text-gray-600");
+    (isDark ? "bg-slate-900/80 text-slate-200" : "bg-white/60 text-gray-600");
 
   useEffect(() => {
     if (user) router.push("/");
@@ -105,7 +103,7 @@ export default function LoginPage() {
         setShowVerification(true);
       } else {
         authLogin(response.data.token, response.data.user);
-        router.push("/");
+         router.push("/");
       }
     } catch (err) {
       setError(err.response?.data?.error || "Erreur de connexion");
@@ -159,21 +157,15 @@ export default function LoginPage() {
           <div className={sidebarCardClass}>
             <Smartphone className="w-8 h-8 text-white" />
             <div>
-              <h3 className="text-white font-semibold">
-                Messages instantanés
-              </h3>
-              <p className="text-blue-100 text-sm">
-                Discutez en temps réel
-              </p>
+              <h3 className="text-white font-semibold">Messages instantanés</h3>
+              <p className="text-blue-100 text-sm">Discutez en temps réel</p>
             </div>
           </div>
 
           <div className={sidebarCardClass}>
             <Shield className="w-8 h-8 text-white" />
             <div>
-              <h3 className="text-white font-semibold">
-                Sécurité renforcée
-              </h3>
+              <h3 className="text-white font-semibold">Sécurité renforcée</h3>
               <p className="text-blue-100 text-sm">
                 2FA après 24h d&apos;inactivité
               </p>
@@ -183,9 +175,7 @@ export default function LoginPage() {
           <div className={sidebarCardClass}>
             <Clock className="w-8 h-8 text-white" />
             <div>
-              <h3 className="text-white font-semibold">
-                Connexion rapide
-              </h3>
+              <h3 className="text-white font-semibold">Connexion rapide</h3>
               <p className="text-blue-100 text-sm">
                 Accès direct si actif récemment
               </p>
@@ -194,9 +184,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 text-center">
-          <p className="text-white/80 text-sm">
-            Rejoignez la conversation
-          </p>
+          <p className="text-white/80 text-sm">Rejoignez la conversation</p>
         </div>
       </div>
 
@@ -213,7 +201,9 @@ export default function LoginPage() {
                 <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div className="text-left">
-                <h1 className={`text-xl sm:text-2xl font-semibold ${textStrong}`}>
+                <h1
+                  className={`text-xl sm:text-2xl font-semibold ${textStrong}`}
+                >
                   PrimAzul
                 </h1>
                 <p className={`text-xs sm:text-sm ${textMuted}`}>

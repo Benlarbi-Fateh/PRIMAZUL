@@ -4,6 +4,7 @@ import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { isSameDay } from "date-fns";
 import { AuthContext } from "@/context/AuthContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import {
   getConversation,
   getMessages,
@@ -29,9 +30,7 @@ import ProtectedRoute from "@/components/Auth/ProtectedRoute";
 import Sidebar from "@/components/Layout/Sidebar";
 import MobileHeader from "@/components/Layout/MobileHeader";
 import ChatHeader from "@/components/Layout/ChatHeader";
-import MessageBubble, {
-  DateSeparator,
-} from "@/components/Chat/MessageBubble";
+import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
 import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
 import { Plane, Users } from "lucide-react";
@@ -46,6 +45,8 @@ export default function ChatPage() {
   // === Thème global ===
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  // ⬅️ AJOUT ICI
+  const { playMessageSound } = useNotifications();
 
   // Styles dépendants du thème
   const pageBackgroundStyle = {
@@ -60,17 +61,11 @@ export default function ChatPage() {
       : "linear-gradient(to bottom, #ffffff, rgba(219,234,254,0.3), rgba(236,254,255,0.3))",
   };
 
-  const loadingTextClass = isDark
-    ? "text-sky-100"
-    : "text-blue-800";
+  const loadingTextClass = isDark ? "text-sky-100" : "text-blue-800";
 
-  const emptyTitleClass = isDark
-    ? "text-slate-50"
-    : "text-slate-800";
+  const emptyTitleClass = isDark ? "text-slate-50" : "text-slate-800";
 
-  const emptyTextClass = isDark
-    ? "text-slate-300"
-    : "text-slate-600";
+  const emptyTextClass = isDark ? "text-slate-300" : "text-slate-600";
 
   const rootTextClass = isDark ? "text-slate-50" : "text-slate-900";
 
@@ -156,6 +151,14 @@ export default function ChatPage() {
 
     if (socket && conversationId && user) {
       onReceiveMessage((message) => {
+        const currentUserId = user._id || user.id;
+        const isFromMe = message.sender._id === currentUserId;
+
+        // 🔊 jouer le son pour les messages reçus d'un autre utilisateur
+        if (!isFromMe) {
+          playMessageSound();
+        }
+
         if (message.conversationId === conversationId) {
           setMessages((prev) => {
             const exists = prev.some((m) => m._id === message._id);
@@ -163,8 +166,7 @@ export default function ChatPage() {
             return [...prev, message];
           });
 
-          const userId = user._id || user.id;
-          if (message.sender._id !== userId) {
+          if (!isFromMe) {
             markMessagesAsDelivered([message._id])
               .then(() => markConversationAsRead(conversationId))
               .catch((err) => console.error("❌ Erreur marquage:", err));
@@ -208,7 +210,7 @@ export default function ChatPage() {
         }
       });
     }
-  }, [conversationId, user]);
+  }, [conversationId, user, playMessageSound]); // ⬅️ playMessageSound ajouté ici
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -421,9 +423,7 @@ export default function ChatPage() {
                       />
                     )}
                   </div>
-                  <p
-                    className={`font-bold text-lg mb-2 ${emptyTitleClass}`}
-                  >
+                  <p className={`font-bold text-lg mb-2 ${emptyTitleClass}`}>
                     Aucun message pour l&apos;instant
                   </p>
                   <p className={`text-sm leading-relaxed ${emptyTextClass}`}>
@@ -467,9 +467,7 @@ export default function ChatPage() {
                 })}
 
                 {typingUsers.length > 0 && (
-                  <TypingIndicator
-                    contactName={contact?.name || "Quelqu'un"}
-                  />
+                  <TypingIndicator contactName={contact?.name || "Quelqu'un"} />
                 )}
 
                 <div ref={messagesEndRef} />

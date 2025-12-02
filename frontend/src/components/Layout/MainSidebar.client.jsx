@@ -56,7 +56,7 @@ export default function MainSidebar() {
   return (
     <aside className={sidebarClass}>
       {/* Menu */}
-      <nav className="flex-1 flex flex-col items-center gap-8 mt-4">
+      <nav className="fixed flex-1 flex flex-col items-center gap-8 mt-4">
         {menuItems.map((item, index) => (
           <div key={index} className="relative group">
             <button
@@ -81,18 +81,13 @@ export default function MainSidebar() {
 
       {/* Déconnexion */}
       <div className="relative group mt-auto mb-4">
-        <button
-          onClick={handleLogout}
-          className={logoutButtonClass}
-        >
+        <button onClick={handleLogout} className={logoutButtonClass}>
           <LogOut className="w-6 h-6" />
         </button>
         <span
           className={
             "absolute left-20 top-1/2 -translate-y-1/2 text-sm font-medium py-1.5 px-3 rounded-lg shadow-lg opacity-0 translate-x-2 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 whitespace-nowrap " +
-            (isDark
-              ? "bg-rose-600 text-white"
-              : "bg-red-500 text-white")
+            (isDark ? "bg-rose-600 text-white" : "bg-red-500 text-white")
           }
         >
           Déconnexion

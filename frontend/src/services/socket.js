@@ -322,6 +322,7 @@ export const disconnectSocket = () => {
   }
 };
 
+
 export const getSocket = () => socket;
 
 export const isSocketConnected = () => socket?.connected || false;

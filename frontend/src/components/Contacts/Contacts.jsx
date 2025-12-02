@@ -204,7 +204,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
           }
         >
           <MessageCircle size={24} />
-          <span className="text-xs mt-1">Message</span>
+          <span className="text-xs mt-1"  >Message</span>
         </button>
         <button
           className={
