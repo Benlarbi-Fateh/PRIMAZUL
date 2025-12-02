@@ -88,14 +88,13 @@ exports.restoreConversationForUser = async (req, res) => {
 };
 
 
-/**
- * Block a user
- */
 exports.blockUser = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id; // CHANGÉ: .id au lieu de ._id
     const { targetUserId, reason } = req.body;
    
+    console.log('🔒 blockUser appelé:', { userId, targetUserId });
+
     if (!targetUserId) {
       return res.status(400).json({
         success: false,
@@ -103,6 +102,13 @@ exports.blockUser = async (req, res) => {
       });
     }
 
+    // ✅ EMPÊCHER L'AUTO-BLOCAGE
+    if (userId.toString() === targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Vous ne pouvez pas vous bloquer vous-même"
+      });
+    }
 
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
@@ -112,12 +118,11 @@ exports.blockUser = async (req, res) => {
       });
     }
 
-
+    // ✅ UTILISEZ LA MÉTHODE DU MODÈLE
     const existingBlock = await BlockedUser.findOne({
       userId,
       blockedUserId: targetUserId
     });
-
 
     if (existingBlock) {
       return res.json({
@@ -127,24 +132,24 @@ exports.blockUser = async (req, res) => {
       });
     }
 
-
     const blockedUser = new BlockedUser({
       userId,
       blockedUserId: targetUserId,
       reason: reason || ''
     });
 
-
     await blockedUser.save();
 
+    console.log('✅ Utilisateur bloqué:', targetUser.name);
 
+    // ✅ ÉMETTRE L'ÉVÉNEMENT SOCKET
     const io = req.app.get('io');
     if (io) {
       io.to(targetUserId.toString()).emit('user-blocked', {
-        blockedBy: userId.toString()
+        blockedBy: userId.toString(),
+        timestamp: new Date()
       });
     }
-
 
     return res.json({
       success: true,
@@ -156,23 +161,25 @@ exports.blockUser = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('blockUser error', err);
+    console.error('❌ blockUser error:', err);
     return res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: 'Erreur serveur',
+      error: err.message // Ajouter pour débogage
     });
   }
 };
-
 
 /**
  * Unblock a user
  */
 exports.unblockUser = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id; // CHANGÉ: .id
     const { targetUserId } = req.body;
    
+    console.log('🔓 unblockUser appelé:', { userId, targetUserId });
+
     if (!targetUserId) {
       return res.status(400).json({
         success: false,
@@ -180,54 +187,91 @@ exports.unblockUser = async (req, res) => {
       });
     }
 
-
     const result = await BlockedUser.findOneAndDelete({
       userId,
       blockedUserId: targetUserId
     });
 
-
     if (!result) {
       return res.json({
         success: true,
-        message: 'Utilisateur non bloqué'
+        message: 'Utilisateur n\'était pas bloqué',
+        wasNotBlocked: true
       });
     }
 
+    console.log('✅ Utilisateur débloqué:', targetUserId);
 
     const io = req.app.get('io');
     if (io) {
       io.to(targetUserId.toString()).emit('user-unblocked', {
-        unblockedBy: userId.toString()
+        unblockedBy: userId.toString(),
+        timestamp: new Date()
       });
     }
-
 
     return res.json({
       success: true,
       message: 'Utilisateur débloqué'
     });
   } catch (err) {
-    console.error('unblockUser error', err);
+    console.error('❌ unblockUser error:', err);
     return res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: 'Erreur serveur',
+      error: err.message
     });
   }
 };
 
+/**
+ * Check if user is blocked
+ */
+exports.checkIfBlocked = async (req, res) => {
+  try {
+    const userId = req.user.id; // CHANGÉ: .id
+    const { targetUserId } = req.query;
+
+    console.log('🔍 checkIfBlocked appelé:', { userId, targetUserId });
+
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'targetUserId requis'
+      });
+    }
+
+    // ✅ UTILISEZ LA MÉTHODE DU MODÈLE
+    const blockStatus = await BlockedUser.getBlockStatus(userId, targetUserId);
+
+    console.log('✅ Résultat checkIfBlocked:', blockStatus);
+
+    return res.json({
+      success: true,
+      ...blockStatus
+    });
+  } catch (err) {
+    console.error('❌ checkIfBlocked error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: err.message
+    });
+  }
+};
 
 /**
  * Get blocked users
  */
 exports.getBlockedUsers = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id; // CHANGÉ: .id
+    
+    console.log('📋 getBlockedUsers appelé pour:', userId);
    
     const blockedUsers = await BlockedUser.find({ userId })
       .populate('blockedUserId', 'name email profilePicture isOnline')
       .sort({ createdAt: -1 });
-
 
     const formattedUsers = blockedUsers.map(block => ({
       _id: block.blockedUserId._id,
@@ -239,69 +283,21 @@ exports.getBlockedUsers = async (req, res) => {
       reason: block.reason
     }));
 
+    console.log('✅ Nombre d\'utilisateurs bloqués:', formattedUsers.length);
 
     return res.json({
       success: true,
       blockedUsers: formattedUsers
     });
   } catch (err) {
-    console.error('getBlockedUsers error', err);
+    console.error('❌ getBlockedUsers error:', err);
     return res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: 'Erreur serveur',
+      error: err.message
     });
   }
 };
-
-
-/**
- * Check if user is blocked
- */
-exports.checkIfBlocked = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { targetUserId } = req.query;
-
-
-    if (!targetUserId) {
-      return res.status(400).json({
-        success: false,
-        message: 'targetUserId requis'
-      });
-    }
-
-
-    const iBlocked = await BlockedUser.findOne({
-      userId,
-      blockedUserId: targetUserId
-    });
-
-
-    const blockedMe = await BlockedUser.findOne({
-      userId: targetUserId,
-      blockedUserId: userId
-    });
-
-
-    return res.json({
-      success: true,
-      iBlocked: !!iBlocked,
-      blockedMe: !!blockedMe,
-      isBlocked: !!(iBlocked || blockedMe)
-    });
-  } catch (err) {
-    console.error('checkIfBlocked error', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-};
-
-
-
-
-
 
 /**
  * Mute conversation
@@ -395,23 +391,25 @@ exports.unmuteConversationForUser = async (req, res) => {
 exports.getMediaForConversation = async (req, res) => {
   try {
     const conversationId = req.params.id;
-    const { type } = req.query;
+    const { type = 'all' } = req.query; // Valeur par défaut
 
+    console.log(`📁 Chargement médias pour conversation ${conversationId}, type: ${type}`);
 
     const messages = await Message.find({ conversationId })
       .populate('sender', 'name profilePicture')
       .sort({ createdAt: -1 });
 
-
     let result = {};
 
-
-    if (!type || type === 'all' || type === 'images') {
+    // 🎯 FILTRAGE CORRECT PAR TYPE
+    if (type === 'all' || type === 'images') {
       result.images = messages
         .filter(m => m.type === 'image' && m.fileUrl)
         .map(m => ({
           id: m._id,
           url: m.fileUrl,
+          name: `image-${m._id}.jpg`,
+          size: m.fileSize || 0,
           sender: {
             _id: m.sender._id,
             name: m.sender.name,
@@ -421,15 +419,15 @@ exports.getMediaForConversation = async (req, res) => {
         }));
     }
 
-
-    if (!type || type === 'all' || type === 'files') {
+    if (type === 'all' || type === 'files') {
       result.files = messages
         .filter(m => m.type === 'file' && m.fileUrl)
         .map(m => ({
           id: m._id,
           url: m.fileUrl,
-          name: m.fileName,
-          size: m.fileSize,
+          name: m.fileName || `file-${m._id}`,
+          size: m.fileSize || 0,
+          type: m.fileName?.split('.').pop() || 'file',
           sender: {
             _id: m.sender._id,
             name: m.sender.name,
@@ -439,14 +437,15 @@ exports.getMediaForConversation = async (req, res) => {
         }));
     }
 
-
-    if (!type || type === 'all' || type === 'audio') {
+    if (type === 'all' || type === 'audio') {
       result.audio = messages
         .filter(m => (m.type === 'audio' || m.type === 'voice') && (m.fileUrl || m.voiceUrl))
         .map(m => ({
           id: m._id,
           url: m.voiceUrl || m.fileUrl,
+          name: m.type === 'voice' ? `voice-${m._id}.mp3` : (m.fileName || `audio-${m._id}.mp3`),
           duration: m.voiceDuration || 0,
+          size: m.fileSize || 0,
           type: m.type,
           sender: {
             _id: m.sender._id,
@@ -457,15 +456,16 @@ exports.getMediaForConversation = async (req, res) => {
         }));
     }
 
-
-    if (!type || type === 'all' || type === 'links') {
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      result.links = messages
-        .filter(m => m.content && urlRegex.test(m.content))
+    // 🆕 AJOUT DES VIDÉOS
+    if (type === 'all' || type === 'videos') {
+      result.videos = messages
+        .filter(m => m.type === 'video' && m.fileUrl)
         .map(m => ({
           id: m._id,
-          links: m.content.match(urlRegex) || [],
-          content: m.content,
+          url: m.fileUrl,
+          name: m.fileName || `video-${m._id}.mp4`,
+          size: m.fileSize || 0,
+          duration: m.videoDuration || 0,
           sender: {
             _id: m.sender._id,
             name: m.sender.name,
@@ -475,27 +475,51 @@ exports.getMediaForConversation = async (req, res) => {
         }));
     }
 
+    if (type === 'all' || type === 'links') {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      result.links = messages
+        .filter(m => m.content && urlRegex.test(m.content))
+        .map(m => {
+          const links = m.content.match(urlRegex) || [];
+          return {
+            id: m._id,
+            links: links,
+            content: m.content,
+            sender: {
+              _id: m.sender._id,
+              name: m.sender.name,
+              profilePicture: m.sender.profilePicture
+            },
+            createdAt: m.createdAt
+          };
+        })
+        .filter(item => item.links.length > 0); // Filtrer les éléments sans liens
+    }
 
+    // Stats
     result.stats = {
       totalImages: result.images?.length || 0,
       totalFiles: result.files?.length || 0,
       totalAudio: result.audio?.length || 0,
+      totalVideos: result.videos?.length || 0,
       totalLinks: result.links?.length || 0
     };
 
+    console.log(`✅ Médias chargés:`, result.stats);
 
     return res.json({
       success: true,
       ...result
     });
   } catch (err) {
-    console.error('getMediaForConversation error', err);
+    console.error('❌ getMediaForConversation error:', err);
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur'
     });
   }
 };
+
 
 
 /**

@@ -40,14 +40,17 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping, co
   }, [message, isMobile]);
 
 const checkBlockStatus = () => {
+  const safeIsBlocked = isBlocked || false;
+  const safeBlockStatus = blockStatus || { iBlocked: false, blockedMe: false, isBlocked: false };
+  
   console.log('🔍 Vérification blocage MessageInput:', { 
-    isBlocked, 
-    blockStatus,
+    isBlocked: safeIsBlocked, 
+    blockStatus: safeBlockStatus,
     contactId 
   });
   
-  if (isBlocked) {
-    const message = blockStatus?.blockedMe 
+  if (safeIsBlocked) {
+    const message = (safeBlockStatus.blockedMe || false)
       ? '❌ Vous êtes bloqué par cet utilisateur' 
       : '🚫 Vous avez bloqué cet utilisateur';
     alert(message);
@@ -194,7 +197,9 @@ const handleSendMessage = async (messageContent) => {
 
   const frequentEmojis = ['😊', '😂', '❤️', '👍', '🙏', '🔥', '✨', '💯', '🎉', '👏'];
 
-if (isBlocked) {
+const safeIsBlocked = isBlocked || false;
+const safeBlockStatus = blockStatus || { iBlocked: false, blockedMe: false, isBlocked: false };
+if (safeIsBlocked) {
   return (
     <div className="bg-red-50 border-t border-red-200 p-6 text-center">
       <div className="flex flex-col items-center justify-center gap-3">
@@ -205,7 +210,7 @@ if (isBlocked) {
         </div>
         <div>
           <h3 className="text-lg font-bold text-red-800 mb-1">
-            {blockStatus?.blockedMe 
+            {(safeBlockStatus.blockedMe || false)
               ? '❌ Vous êtes bloqué' 
               : '🚫 Vous avez bloqué cet utilisateur'
             }

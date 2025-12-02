@@ -15,7 +15,6 @@ const {
 
 router.get('/:conversationId', authMiddleware, getMessages);
 router.post('/', authMiddleware, checkBlockStatus, sendMessage);
-router.post('/', authMiddleware, sendMessage);
 
 
 // 🆕 NOUVELLES ROUTES POUR LES STATUTS
@@ -25,9 +24,18 @@ router.get('/unread/count', authMiddleware, getUnreadCount);
 
 
 router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
-  // Votre logique typing existante ira ici
-  // Pour l'instant, retourner un succès
-  return res.json({ success: true, typing: true });
+  const { conversationId, isTyping } = req.body;
+  
+  const io = req.app.get('io');
+  if (io) {
+    io.to(conversationId).emit('user-typing', {
+      userId: req.user.id || req.user._id,
+      isTyping: isTyping || true,
+      conversationId
+    });
+  }
+  
+  return res.json({ success: true, typing: isTyping || true });
 });
 
 

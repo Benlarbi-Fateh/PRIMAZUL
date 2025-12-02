@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock } from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
+import api from '@/lib/api';
 
 const THEME_STORAGE_KEY = (conversationId) => `chatTheme:${conversationId || 'global'}`;
 
@@ -67,33 +68,24 @@ const fetchAPI = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      
-      // ✅ MODIFICATION : Moins de logs bruyants pour les 404
-      if (response.status === 404) {
-        console.log('⚠️ Route non disponible:', endpoint);
-        return {};
-      }
-      
       console.error(`❌ HTTP ${response.status} pour ${endpoint}:`, errorText);
       
-      if (response.status === 500) {
-        console.log('⚠️ Erreur serveur 500 - utilisation du fallback');
-        return {};
-      }
-      
+      // ⚠️ CORRECTION : NE RETOURNEZ PAS UN OBJET VIDE
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
-      console.log('⚠️ Réponse non-JSON - probablement route inexistante');
-      return {};
+      // ⚠️ CORRECTION : LANCEZ UNE ERREUR
+      throw new Error('Réponse non-JSON du serveur');
     }
 
     return await response.json();
   } catch (error) {
     console.error('❌ Erreur fetchAPI pour', endpoint, ':', error.message);
-    return {};
+    
+    // ⚠️ CORRECTION : LANCEZ L'ERREUR POUR QUE toggleBlock LA CAPTURE
+    throw error;
   }
 };
 
@@ -526,6 +518,11 @@ const toggleBlock = async () => {
       ? '/message-settings/unblock' 
       : '/message-settings/block';
     
+    // ✅ LOG POUR DÉBOGUER
+    console.log('🔗 Endpoint:', endpoint);
+    console.log('🔗 API_URL:', API_URL);
+    console.log('🔗 Token présent:', !!localStorage.getItem('token'));
+    
     const response = await fetchAPI(endpoint, {
       method: 'POST',
       body: JSON.stringify({ targetUserId: contact._id })
@@ -552,7 +549,21 @@ const toggleBlock = async () => {
     }
   } catch (err) {
     console.error('❌ Erreur toggle block:', err);
-    alert(`Erreur lors du ${action} : ${err.message}`);
+    
+    // ✅ MESSAGE D'ERREUR PLUS DÉTAILLÉ
+    let errorMessage = `Erreur lors du ${action} : `;
+    
+    if (err.message.includes('404')) {
+      errorMessage += 'Route API non trouvée. Vérifiez que le backend tourne.';
+    } else if (err.message.includes('401')) {
+      errorMessage += 'Non autorisé. Veuillez vous reconnecter.';
+    } else if (err.message.includes('500')) {
+      errorMessage += 'Erreur serveur.';
+    } else {
+      errorMessage += err.message;
+    }
+    
+    alert(errorMessage);
   }
 };
 
@@ -722,7 +733,7 @@ useEffect(() => {
             )}
           </div>
           
-          <div className="flex-1 min-w-0">
+<div className="flex-1 min-w-0">
   <h2 className="text-base sm:text-lg font-bold text-white truncate">
     {displayName}
   </h2>
@@ -738,12 +749,12 @@ useEffect(() => {
         <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></div>
         <span>Chargement...</span>
       </div>
-    ) : blockStatus?.blockedMe ? (
+    ) : (blockStatus?.blockedMe || false) ? (
       <div className="flex items-center gap-1.5 text-red-300">
         <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         <span>Vous êtes bloqué</span>
       </div>
-    ) : blockStatus?.iBlocked ? (
+    ) : (blockStatus?.iBlocked || false) ? (
       <div className="flex items-center gap-1.5 text-yellow-300">
         <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         <span>Bloqué</span>
@@ -1118,13 +1129,13 @@ useEffect(() => {
             </div>
           </div>
         </div>
-       {(blockStatus?.iBlocked || blockStatus?.blockedMe) && !blockLoading && (
+      {((blockStatus?.iBlocked || false) || (blockStatus?.blockedMe || false)) && !blockLoading && (
   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white p-4 shadow-2xl z-50">
     <div className="absolute inset-0 bg-black/10 backdrop-blur-sm"></div>
     
     <div className="relative flex items-center gap-4">
       <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
-        {blockStatus?.blockedMe ? (
+        {(blockStatus?.blockedMe || false) ? (
           <Lock className="w-6 h-6" />
         ) : (
           <Shield className="w-6 h-6" />
@@ -1133,21 +1144,21 @@ useEffect(() => {
       
       <div className="flex-1">
         <div className="font-bold text-lg">
-          {blockStatus?.blockedMe ? (
+          {(blockStatus?.blockedMe || false) ? (
             <>🚫 Vous êtes bloqué</>
           ) : (
             <>🛡️ Utilisateur bloqué</>
           )}
         </div>
         <div className="text-sm text-white/90">
-          {blockStatus?.blockedMe 
+          {(blockStatus?.blockedMe || false)
             ? 'Vous ne pouvez pas envoyer de messages à cet utilisateur' 
             : 'Vous avez bloqué cet utilisateur'
           }
         </div>
       </div>
       
-      {blockStatus?.iBlocked && !blockStatus?.blockedMe && (
+      {(blockStatus?.iBlocked || false) && !(blockStatus?.blockedMe || false) && (
         <button
           onClick={toggleBlock}
           className="px-4 py-2 bg-white text-red-600 rounded-xl font-bold hover:bg-red-50 transition-all transform hover:scale-105 shadow-lg"

@@ -19,8 +19,7 @@ exports.getMessages = async (req, res) => {
 exports.sendMessage = async (req, res) => {
   try {
     const { conversationId, content, type, fileUrl, fileName, fileSize } = req.body;
-    const senderId = req.user._id;
-
+   const senderId = req.user.id || req.user._id;
 
         const convCheck = await Conversation.findById(conversationId)
       .populate('participants', '_id')
@@ -116,7 +115,7 @@ exports.sendMessage = async (req, res) => {
 exports.markAsDelivered = async (req, res) => {
   try {
     const { messageIds } = req.body;
-    const userId = req.user._id;
+   const userId = req.user.id || req.user._id; // ✅ CORRECTION
 
 
     console.log('📬 Marquage comme délivré:', messageIds);
@@ -181,8 +180,7 @@ exports.markAsDelivered = async (req, res) => {
 exports.markAsRead = async (req, res) => {
   try {
     const { conversationId } = req.body;
-    const userId = req.user._id;
-
+    const userId = req.user.id || req.user._id; // ✅ CORRECTION
 
     console.log('👁️ Marquage comme lu pour conversation:', conversationId, 'par user:', userId);
 
@@ -274,8 +272,7 @@ exports.markAsRead = async (req, res) => {
 
 exports.getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user._id;
-
+    const userId = req.user.id || req.user._id; // ✅ CORRECTION
 
     const unreadCounts = await Message.aggregate([
       {
