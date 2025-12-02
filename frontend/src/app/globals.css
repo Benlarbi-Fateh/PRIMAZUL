@@ -1,6 +1,189 @@
 @import "tailwindcss";
+
+/* Variables CSS pour les thèmes */
+:root {
+  /* Thème light (défaut) */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222.2 84% 4.9%);
+  --color-primary: hsl(221.2 83.2% 53.3%);
+  --color-primary-foreground: hsl(210 40% 98%);
+  --color-secondary: hsl(210 40% 96.1%);
+  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-muted: hsl(210 40% 96.1%);
+  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  --color-accent: hsl(210 40% 96.1%);
+  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --color-border: hsl(214.3 31.8% 91.4%);
+  --color-input: hsl(214.3 31.8% 91.4%);
+  --color-ring: hsl(221.2 83.2% 53.3%);
+  --color-sidebar: hsl(210 40% 98%);
+  --color-sidebar-foreground: hsl(222.2 84% 4.9%);
+  --color-sidebar-border: hsl(214.3 31.8% 91.4%);
+  --radius: 0.5rem;
+}
+
+/* Thème dark */
+.dark {
+  --color-background: hsl(222.2 84% 4.9%);
+  --color-foreground: hsl(210 40% 98%);
+  --color-card: hsl(222.2 84% 4.9%);
+  --color-card-foreground: hsl(210 40% 98%);
+  --color-primary: hsl(217.2 91.2% 59.8%);
+  --color-primary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-secondary: hsl(217.2 32.6% 17.5%);
+  --color-secondary-foreground: hsl(210 40% 98%);
+  --color-muted: hsl(217.2 32.6% 17.5%);
+  --color-muted-foreground: hsl(215 20.2% 65.1%);
+  --color-accent: hsl(217.2 32.6% 17.5%);
+  --color-accent-foreground: hsl(210 40% 98%);
+  --color-border: hsl(217.2 32.6% 17.5%);
+  --color-input: hsl(217.2 32.6% 17.5%);
+  --color-ring: hsl(224.3 76.3% 48%);
+  --color-sidebar: hsl(222.2 84% 4.9%);
+  --color-sidebar-foreground: hsl(210 40% 98%);
+  --color-sidebar-border: hsl(217.2 32.6% 17.5%);
+}
+
+/* Classes utilitaires basées sur les variables CSS */
+.bg-background { background-color: var(--color-background); }
+.text-foreground { color: var(--color-foreground); }
+.bg-card { background-color: var(--color-card); }
+.text-card-foreground { color: var(--color-card-foreground); }
+.bg-primary { background-color: var(--color-primary); }
+.text-primary-foreground { color: var(--color-primary-foreground); }
+.bg-secondary { background-color: var(--color-secondary); }
+.text-secondary-foreground { color: var(--color-secondary-foreground); }
+.bg-muted { background-color: var(--color-muted); }
+.text-muted-foreground { color: var(--color-muted-foreground); }
+.bg-accent { background-color: var(--color-accent); }
+.text-accent-foreground { color: var(--color-accent-foreground); }
+.border-border { border-color: var(--color-border); }
+.bg-sidebar { background-color: var(--color-sidebar); }
+.text-sidebar-foreground { color: var(--color-sidebar-foreground); }
+.border-sidebar-border { border-color: var(--color-sidebar-border); }
+
+/* Styles de base */
 body {
   margin: 0;
-  font-family: sans-serif;
-  background-color: #f9f9f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  border-color: var(--color-border);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Styles pour les bordures globales */
+* {
+  border-color: var(--color-border);
+}
+
+/* Overrides pour le dark mode */
+.dark .bg-white {
+  background-color: hsl(222.2 84% 4.9%) !important;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-700 {
+  color: hsl(210 40% 90%) !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: hsl(215 20.2% 65.1%) !important;
+}
+
+.dark .border-slate-200 {
+  border-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .border-slate-100 {
+  border-color: hsl(217.2 32.6% 25.5%) !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: hsl(217.2 32.6% 17.5%) !important;
+}
+
+.dark .bg-slate-200 {
+  background-color: hsl(217.2 32.6% 25.5%) !important;
+}
+
+.dark .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dark .shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dark .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(214.3 31.8% 71.4%);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(214.3 31.8% 61.4%);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: hsl(222.2 84% 4.9%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(217.2 32.6% 30.5%);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(217.2 32.6% 40.5%);
+}
+
+/* Transitions fluides pour le thème */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Pour éviter les transitions sur certains éléments */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}
+
+/* Pour les animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }

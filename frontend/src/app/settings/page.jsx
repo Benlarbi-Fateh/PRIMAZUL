@@ -11,8 +11,13 @@ import {
   LogOut,
   ArrowLeft,
   Key,
+  Settings as SettingsIcon,
+  Check,
+  AlertCircle,
+  Sparkles,
 } from "lucide-react";
 import { AuthContext } from '@/context/AuthProvider';
+import { useTheme } from '@/hooks/useTheme';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,6 +25,7 @@ import { sendPasswordOtp, verifyChangePassword } from "@/lib/api";
 
 export default function SettingsPage() {
   const { user, logout } = useContext(AuthContext);
+  const { isDark, toggleTheme } = useTheme();
   const router = useRouter();
 
   const [showModal, setShowModal] = useState(false);
@@ -35,51 +41,76 @@ export default function SettingsPage() {
     name: user?.name || "",
     email: user?.email || "",
     notifications: true,
-    darkMode: false,
     language: "fr",
     privacy: "public",
   });
 
-  // ====== uniquement pour le style (clair/sombre dans CETTE page) ======
-  const isDark = userData.darkMode;
-
+  // Styles basés sur le thème
   const pageBg = isDark
-    ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
-    : "bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100 text-slate-900";
+    ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
+    : "bg-gradient-to-br from-blue-50 via-white to-cyan-50";
 
-  const haloBg = isDark
-    ? "bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.35)_0,_transparent_55%),radial-gradient(circle_at_bottom,_rgba(79,70,229,0.3)_0,_transparent_55%)]"
-    : "bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18)_0,_transparent_55%),radial-gradient(circle_at_bottom,_rgba(129,140,248,0.16)_0,_transparent_55%)]";
+  const cardBg = isDark
+    ? "bg-blue-900/80 backdrop-blur-xl border-blue-800"
+    : "bg-white/80 backdrop-blur-xl border-blue-100";
 
-  const cardBase =
-    "group relative overflow-hidden rounded-2xl px-5 py-5 transition-transform duration-200 backdrop-blur-xl " +
-    (isDark
-      ? "border border-slate-800 bg-slate-900/80 shadow-[0_18px_45px_rgba(15,23,42,0.6)] hover:-translate-y-1"
-      : "border border-slate-200 bg-white/90 shadow-[0_14px_40px_rgba(15,23,42,0.08)] hover:-translate-y-1");
+  const textPrimary = isDark ? "text-blue-50" : "text-blue-900";
+  const textSecondary = isDark ? "text-blue-300" : "text-blue-600";
+  const textMuted = isDark ? "text-blue-400" : "text-blue-400";
 
-  const inputBase =
-    "w-full rounded-xl border px-3 py-2 text-sm outline-none ring-0 transition " +
-    (isDark
-      ? "border-slate-700 bg-slate-900 text-slate-100 focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
-      : "border-slate-300 bg-white text-slate-900 focus:border-sky-500 focus:ring-1 focus:ring-sky-400");
+  const buttonStyle = isDark
+    ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
+    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white shadow-2xl hover:shadow-blue-500/50";
 
-  // ******* ICI : paramètre en pur JS ********
-  const buttonPrimary = (gradient) =>
-    "mt-1 w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-105 hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-70 " +
-    (gradient === "blue"
-      ? "bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 shadow-sky-500/40"
-      : "bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-400 shadow-emerald-500/40");
+  const backButtonBg = isDark
+    ? "bg-blue-800 hover:bg-blue-700 border-blue-700"
+    : "bg-white hover:bg-blue-50 border-blue-100 hover:border-blue-300";
 
-  const labelText = isDark ? "text-slate-200" : "text-slate-700";
-  const smallMuted = isDark ? "text-slate-400" : "text-slate-500";
+  const backButtonText = isDark ? "text-cyan-400" : "text-blue-600";
 
-  const headerCard =
-    "mt-6 flex flex-col gap-6 rounded-3xl px-5 py-5 md:flex-row md:items-center md:justify-between " +
-    (isDark
-      ? "border border-slate-800 bg-slate-900/90 shadow-[0_18px_60px_rgba(15,23,42,0.7)]"
-      : "border border-slate-200 bg-white/95 shadow-[0_18px_60px_rgba(15,23,42,0.12)]");
+  const inputBg = isDark
+    ? "bg-blue-800 border-blue-700 focus:ring-cyan-500 focus:border-cyan-400"
+    : "bg-white border-blue-200 focus:ring-blue-300 focus:border-blue-400";
 
-  // === Logique changement mot de passe (inchangée) ===
+  const inputText = isDark ? "text-blue-100 placeholder-blue-400" : "text-blue-900 placeholder-blue-400";
+
+  const errorBg = isDark
+    ? "bg-red-900/30 border-red-800"
+    : "bg-red-50 border-red-200";
+
+  const errorText = isDark ? "text-red-300" : "text-red-700";
+
+  const successBg = isDark
+    ? "bg-green-900/30 border-green-800"
+    : "bg-green-50 border-green-200";
+
+  const successText = isDark ? "text-green-300" : "text-green-700";
+
+  const sectionIconBg = (color) => {
+    const colors = {
+      blue: isDark ? "bg-blue-700" : "bg-blue-100",
+      purple: isDark ? "bg-purple-700" : "bg-purple-100",
+      green: isDark ? "bg-green-700" : "bg-green-100",
+      orange: isDark ? "bg-orange-700" : "bg-orange-100",
+      pink: isDark ? "bg-pink-700" : "bg-pink-100",
+      cyan: isDark ? "bg-cyan-700" : "bg-cyan-100",
+    };
+    return colors[color] || colors.blue;
+  };
+
+  const sectionIconText = (color) => {
+    const colors = {
+      blue: isDark ? "text-cyan-400" : "text-blue-600",
+      purple: isDark ? "text-purple-400" : "text-purple-600",
+      green: isDark ? "text-green-400" : "text-green-600",
+      orange: isDark ? "text-orange-400" : "text-orange-600",
+      pink: isDark ? "text-pink-400" : "text-pink-600",
+      cyan: isDark ? "text-cyan-400" : "text-cyan-600",
+    };
+    return colors[color] || colors.blue;
+  };
+
+  // === Logique changement mot de passe ===
   const startChangePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       return setMessage("❌ Remplissez tous les champs");
@@ -96,13 +127,13 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       await sendPasswordOtp({ oldPassword, newPassword });
-      setMessage("✅ OTP envoyé à votre email");
+      setMessage("✅ Code de vérification envoyé à votre email");
       setStep(2);
     } catch (error) {
       if (error.response?.status === 400) {
         setMessage("❌ Ancien mot de passe incorrect");
       } else {
-        setMessage("❌ Erreur lors de l'envoi de l'OTP");
+        setMessage("❌ Erreur lors de l'envoi du code");
       }
     } finally {
       setLoading(false);
@@ -111,18 +142,21 @@ export default function SettingsPage() {
 
   const confirmChangePassword = async () => {
     if (!otp) {
-      return setMessage("❌ Veuillez saisir le code OTP");
+      return setMessage("❌ Veuillez saisir le code de vérification");
     }
     try {
       setLoading(true);
       await verifyChangePassword({ code: otp, newPassword });
       setMessage("✅ Mot de passe changé avec succès");
-      setShowModal(false);
-      setStep(1);
-      setOldPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setOtp("");
+      setTimeout(() => {
+        setShowModal(false);
+        setStep(1);
+        setOldPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setOtp("");
+        setMessage("");
+      }, 2000);
     } catch (error) {
       setMessage("❌ Code invalide ou expiré");
     } finally {
@@ -137,10 +171,10 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-sky-50 via-slate-50 to-sky-100">
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-blue-950' : 'bg-linear-to-br from-blue-50 via-white to-cyan-50'}`}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-sky-400/40 border-t-sky-500" />
-          <p className="mt-4 text-slate-500 text-sm">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-cyan-400/40 border-t-cyan-500" />
+          <p className={`mt-4 text-sm ${isDark ? 'text-blue-400' : 'text-blue-500'}`}>
             Chargement du profil...
           </p>
         </div>
@@ -149,445 +183,407 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className={`relative min-h-screen overflow-hidden px-4 py-6 md:px-8 ${pageBg}`}>
-      {/* halo décoratif */}
-      <div
-        className={`pointer-events-none absolute inset-0 -z-10 opacity-60 ${haloBg}`}
-      />
+    <div className={`min-h-screen ${pageBg} relative overflow-hidden`}>
+      {/* Background décoratif */}
+      {!isDark && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
+        </div>
+      )}
 
-      {/* Bouton retour */}
-      <button
-        onClick={() => router.back()}
-        className={
-          "fixed top-5 left-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-md hover:-translate-y-0.5 transition-all " +
-          (isDark
-            ? "bg-slate-900/90 border-slate-700 text-slate-100 hover:border-sky-400 hover:text-sky-400"
-            : "bg-white/90 border-slate-200 text-slate-700 hover:border-sky-500 hover:text-sky-500")
-        }
-      >
-        <ArrowLeft className="w-6 h-6" strokeWidth={2.2} />
-      </button>
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 relative z-10">
+        
+        {/* Header moderne */}
+        <div className="mb-8 animate-fade-in">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => router.back()}
+              className={`p-3 rounded-2xl border-2 transition-all transform hover:scale-105 active:scale-95 shadow-md ${backButtonBg}`}
+            >
+              <ArrowLeft className={`w-6 h-6 ${backButtonText}`} />
+            </button>
+            
+            <div className="flex-1">
+              <h1 className={`text-3xl font-bold flex items-center gap-3 ${isDark ? 'text-cyan-50' : 'text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-cyan-500'}`}>
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isDark ? 'bg-linear-to-br from-blue-700 to-cyan-700' : 'bg-linear-to-br from-purple-500 to-pink-500'}`}>
+                  <SettingsIcon className="w-6 h-6 text-white" />
+                </div>
+                Paramètres
+              </h1>
+              <p className={`mt-1 ml-1 flex items-center gap-2 ${textSecondary}`}>
+                <Sparkles className="w-4 h-4" />
+                Gérez votre compte et vos préférences
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-8">
-        {/* En‑tête utilisateur */}
-        <header className={headerCard}>
-          <div className="flex items-center gap-4">
+        {/* Carte: Profil utilisateur */}
+        <div className={`rounded-3xl p-6 sm:p-8 shadow-xl border-2 mb-8 animate-slide-in-left hover:shadow-2xl transition-all ${cardBg}`}>
+          <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
-              <div
-                className={
-                  "h-20 w-20 overflow-hidden rounded-3xl ring-2 shadow-[0_10px_40px_rgba(56,189,248,0.6)] " +
-                  (isDark ? "ring-sky-500/80" : "ring-sky-400/80 bg-slate-100")
-                }
-              >
+              <div className={`w-24 h-24 rounded-3xl overflow-hidden border-4 ${isDark ? 'border-cyan-500/50' : 'border-blue-400/50'} shadow-2xl`}>
                 {user.profilePicture ? (
                   <Image
                     src={user.profilePicture}
                     alt={user.name}
-                    width={80}
-                    height={80}
+                    width={96}
+                    height={96}
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-sky-500 via-indigo-500 to-fuchsia-500">
-                    <User className="h-10 w-10 text-white" />
+                  <div className={`flex h-full w-full items-center justify-center ${isDark ? 'bg-linear-to-br from-blue-600 to-cyan-600' : 'bg-linear-to-br from-blue-500 to-cyan-500'}`}>
+                    <User className="h-12 w-12 text-white" />
                   </div>
                 )}
               </div>
-              <span
-                className={
-                  "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold shadow-md bg-emerald-500 text-white"
-                }
-              >
-                ●
-              </span>
+              <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center border-2 ${isDark ? 'border-blue-900 bg-cyan-500' : 'border-white bg-green-500'} shadow-lg`}>
+                <Check className="w-4 h-4 text-white" />
+              </div>
             </div>
 
-            <div>
-              <p
-                className={`mb-1 text-[11px] uppercase tracking-[0.22em] ${
-                  isDark ? "text-sky-400/80" : "text-sky-600/80"
-                }`}
-              >
-                Paramètres du compte
-              </p>
-              <h1 className="text-2xl md:text-3xl font-semibold">
+            <div className="flex-1 text-center md:text-left">
+              <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 ${isDark ? 'bg-blue-800 text-cyan-300' : 'bg-blue-100 text-blue-700'}`}>
+                COMPTE VERIFIÉ
+              </div>
+              <h2 className="text-2xl font-bold mb-2 text-primary">
                 {user.name || user.email?.split("@")[0]}
-              </h1>
-              <p className={`mt-1 text-xs ${smallMuted}`}>
-                {user.username && <span>@{user.username}</span>}
-                {!user.username && user.email && <span>{user.email}</span>}
+              </h2>
+              <p className={`mb-3 ${textSecondary}`}>
+                {user.email}
               </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col items-start gap-2 text-sm md:items-end">
-            <span
-              className={
-                "rounded-full border px-3 py-1 text-xs font-medium " +
-                (isDark
-                  ? "border-slate-700 bg-slate-900/80 text-slate-200"
-                  : "border-slate-200 bg-white text-slate-600")
-              }
-            >
-              Espace personnel sécurisé
-            </span>
-            <p className={`max-w-xs text-xs md:text-right ${smallMuted}`}>
-              Gérez vos informations, votre sécurité et vos préférences en un
-              seul endroit.
-            </p>
-          </div>
-        </header>
-
-        {/* Sections */}
-        <main className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {/* Profil */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-sky-500/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-500">
-                <User className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">Profil</h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Infos personnelles, photo, statut
-                </p>
-              </div>
-            </div>
-            <Link
-              href="/profile"
-              className={
-                "inline-flex items-center gap-1 text-xs font-medium " +
-                (isDark
-                  ? "text-sky-400 hover:text-sky-300"
-                  : "text-sky-600 hover:text-sky-500")
-              }
-            >
-              <span>Ouvrir la page profil</span>
-              <span aria-hidden>↗</span>
-            </Link>
-          </section>
-
-          {/* Notifications */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-amber-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
-                <Bell className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">Notifications</h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Sons, alertes et interruptions
-                </p>
-              </div>
-            </div>
-
-            <label className={`flex items-center gap-3 text-xs ${labelText}`}>
-              <input
-                type="checkbox"
-                checked={userData.notifications}
-                onChange={(e) =>
-                  setUserData({
-                    ...userData,
-                    notifications: e.target.checked,
-                  })
-                }
-                className={
-                  "h-4 w-4 rounded border bg-white " +
-                  (isDark
-                    ? "border-slate-600 text-amber-400 accent-amber-400"
-                    : "border-slate-300 text-amber-500 accent-amber-500")
-                }
-              />
-              <span>Activer les notifications importantes</span>
-            </label>
-          </section>
-
-          {/* Apparence (switch clair/sombre pour CETTE page) */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-fuchsia-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-fuchsia-500/10 text-fuchsia-500">
-                <Moon className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">Apparence</h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Bascule claire / sombre (uniquement sur cette page)
-                </p>
-              </div>
-            </div>
-
-            <label
-              className={`flex items-center gap-3 text-xs cursor-pointer ${labelText}`}
-            >
-              <div
-                className={
-                  "relative inline-flex h-6 w-11 items-center rounded-full transition-colors " +
-                  (isDark ? "bg-fuchsia-500/80" : "bg-slate-300")
-                }
-              >
-                <span
-                  className={
-                    "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform " +
-                    (isDark ? "translate-x-5" : "translate-x-1")
-                  }
-                />
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={userData.darkMode}
-                  onChange={(e) =>
-                    setUserData({
-                      ...userData,
-                      darkMode: e.target.checked,
-                    })
-                  }
-                />
-              </div>
-              <span>
-                {isDark ? "Mode sombre activé" : "Mode clair activé"}
-              </span>
-            </label>
-          </section>
-
-          {/* Langue */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-emerald-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                <Globe className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">Langue</h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Langue de l&apos;interface
-                </p>
-              </div>
-            </div>
-
-            <select
-              value={userData.language}
-              onChange={(e) =>
-                setUserData({ ...userData, language: e.target.value })
-              }
-              className={inputBase}
-            >
-              <option value="fr">Français</option>
-              <option value="en">English</option>
-              <option value="es">Español</option>
-            </select>
-          </section>
-
-          {/* Contacts bloqués */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-rose-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
-                <Lock className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">Contacts bloqués</h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Gérez les utilisateurs que vous ne voulez plus voir
-                </p>
-              </div>
-            </div>
-
-            <Link href="/settings/blocked">
-              <span
-                className={
-                  "inline-flex items-center gap-1 text-xs font-medium " +
-                  (isDark
-                    ? "text-rose-400 hover:text-rose-300"
-                    : "text-rose-500 hover:text-rose-400")
-                }
-              >
-                <span>Gérer la liste des utilisateurs bloqués</span>
-                <span aria-hidden>→</span>
-              </span>
-            </Link>
-          </section>
-
-          {/* Confidentialité */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-teal-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-500/10 text-teal-500">
-                <Shield className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">Confidentialité</h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Contrôlez la visibilité de votre profil
-                </p>
-              </div>
-            </div>
-
-            <select
-              value={userData.privacy}
-              onChange={(e) =>
-                setUserData({ ...userData, privacy: e.target.value })
-              }
-              className={inputBase}
-            >
-              <option value="public">Profil public</option>
-              <option value="private">Profil privé</option>
-              <option value="restricted">Limité</option>
-            </select>
-          </section>
-
-          {/* Sécurité : changement de mot de passe */}
-          <section className={cardBase}>
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-indigo-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500">
-                <Key className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">
-                  Sécurité du compte
-                </h2>
-                <p className={`text-xs ${smallMuted}`}>
-                  Mettez à jour régulièrement votre mot de passe
-                </p>
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${isDark ? 'bg-blue-800 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                  Membre depuis 2024
+                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${isDark ? 'bg-cyan-900/40 text-cyan-300' : 'bg-cyan-100 text-cyan-700'}`}>
+                  Premium
+                </span>
               </div>
             </div>
 
             <button
-              onClick={() => setShowModal(true)}
-              className={
-                "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/40 transition hover:brightness-105 hover:-translate-y-px " +
-                "bg-linear-to-r from-indigo-500 via-sky-500 to-cyan-400"
-              }
+              onClick={() => router.push('/profile')}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 hover:shadow-lg ${buttonStyle}`}
             >
-              Modifier le mot de passe
+              <span className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Modifier le profil
+              </span>
             </button>
-          </section>
-        </main>
+          </div>
+        </div>
 
-        {/* Déconnexion */}
-        <button
-          onClick={handleLogout}
-          className={
-            "fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-6 py-3 text-xs font-semibold shadow-[0_14px_45px_rgba(248,113,113,0.45)] backdrop-blur-xl transition hover:-translate-y-px " +
-            (isDark
-              ? "border border-rose-500/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25 hover:text-white"
-              : "border border-rose-400/40 bg-rose-50 text-rose-600 hover:bg-rose-100")
-          }
-        >
-          <LogOut className="h-4 w-4" />
-          Déconnexion
-        </button>
+        {/* Grid des sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          {/* Section Profil */}
+          <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg('blue')}`}>
+                <User className={`w-6 h-6 ${sectionIconText('blue')}`} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Profil public</h3>
+                <p className={`text-sm ${textMuted}`}>Informations visibles par tous</p>
+              </div>
+            </div>
+            <Link
+              href="/profile/edit"
+              className={`inline-flex items-center gap-2 font-medium hover:gap-3 transition-all ${isDark ? 'text-cyan-400 hover:text-cyan-300' : 'text-blue-600 hover:text-blue-700'}`}
+            >
+              <span>Personnaliser mon profil</span>
+              <span aria-hidden>→</span>
+            </Link>
+          </div>
+
+          {/* Section Notifications */}
+          <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg('orange')}`}>
+                <Bell className={`w-6 h-6 ${sectionIconText('orange')}`} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Notifications</h3>
+                <p className={`text-sm ${textMuted}`}>Contrôlez les alertes</p>
+              </div>
+            </div>
+            <label className={`flex items-center justify-between cursor-pointer ${textPrimary}`}>
+              <span className="font-medium">Notifications actives</span>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={userData.notifications}
+                  onChange={(e) => setUserData({...userData, notifications: e.target.checked})}
+                />
+                <div className={`block w-12 h-6 rounded-full transition-colors ${userData.notifications ? (isDark ? 'bg-cyan-500' : 'bg-blue-500') : (isDark ? 'bg-blue-700' : 'bg-blue-200')}`}></div>
+                <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${userData.notifications ? 'transform translate-x-6' : ''}`}></div>
+              </div>
+            </label>
+          </div>
+
+          {/* Section Apparence */}
+          <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg('purple')}`}>
+                <Moon className={`w-6 h-6 ${sectionIconText('purple')}`} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Apparence</h3>
+                <p className={`text-sm ${textMuted}`}>Thème clair/sombre</p>
+              </div>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className={`w-full px-4 py-3 rounded-xl font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-between ${isDark ? 'bg-blue-800 hover:bg-blue-700 text-blue-100' : 'bg-blue-100 hover:bg-blue-200 text-blue-800'}`}
+            >
+              <span>Mode {isDark ? 'Sombre' : 'Clair'}</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-cyan-500' : 'bg-blue-500'}`}>
+                <Moon className="w-4 h-4 text-white" />
+              </div>
+            </button>
+          </div>
+
+          {/* Section Langue */}
+          <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg('green')}`}>
+                <Globe className={`w-6 h-6 ${sectionIconText('green')}`} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Langue</h3>
+                <p className={`text-sm ${textMuted}`}>Langue de l&apos;interface</p>
+              </div>
+            </div>
+            <select
+              value={userData.language}
+              onChange={(e) => setUserData({...userData, language: e.target.value})}
+              className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${inputBg} ${inputText}`}
+            >
+              <option value="fr">🇫🇷 Français</option>
+              <option value="en">🇺🇸 English</option>
+              <option value="es">🇪🇸 Español</option>
+            </select>
+          </div>
+
+          {/* Section Confidentialité */}
+          <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg('cyan')}`}>
+                <Shield className={`w-6 h-6 ${sectionIconText('cyan')}`} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Confidentialité</h3>
+                <p className={`text-sm ${textMuted}`}>Visibilité de votre profil</p>
+              </div>
+            </div>
+            <select
+              value={userData.privacy}
+              onChange={(e) => setUserData({...userData, privacy: e.target.value})}
+              className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${inputBg} ${inputText}`}
+            >
+              <option value="public">🌍 Public - Visible par tous</option>
+              <option value="private">🔒 Privé - Amis uniquement</option>
+              <option value="restricted">👁️ Limité - Personnalisé</option>
+            </select>
+          </div>
+
+          {/* Section Sécurité */}
+          <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg('pink')}`}>
+                <Key className={`w-6 h-6 ${sectionIconText('pink')}`} />
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${textPrimary}`}>Sécurité</h3>
+                <p className={`text-sm ${textMuted}`}>Protégez votre compte</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowModal(true)}
+              className={`w-full px-4 py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${buttonStyle}`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Key className="w-4 h-4" />
+                Changer le mot de passe
+              </span>
+            </button>
+          </div>
+
+        </div>
+
+        {/* Section Contacts bloqués */}
+        <div className={`rounded-3xl p-6 shadow-xl border-2 mt-6 hover:shadow-2xl transition-all ${cardBg}`}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-red-900/40' : 'bg-red-100'}`}>
+                <Lock className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
+              </div>
+              <div>
+                <h3 className={`font-bold ${textPrimary}`}>Contacts bloqués</h3>
+                <p className={`text-sm ${textMuted}`}>Gérez vos restrictions</p>
+              </div>
+            </div>
+            <Link
+              href="/settings/blocked"
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${isDark ? 'bg-red-800/40 hover:bg-red-800/60 text-red-300' : 'bg-red-100 hover:bg-red-200 text-red-700'}`}
+            >
+              Voir la liste
+            </Link>
+          </div>
+        </div>
+
+        {/* Bouton Déconnexion */}
+        <div className="mt-8 flex justify-end">
+          <button
+            onClick={handleLogout}
+            className={`group relative overflow-hidden px-8 py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center gap-3 ${isDark ? 'bg-linear-to-r from-red-800 to-pink-800 hover:from-red-700 hover:to-pink-700 text-red-100' : 'bg-linear-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white'} shadow-2xl`}
+          >
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            <LogOut className="w-5 h-5" />
+            <span>Se déconnecter</span>
+          </button>
+        </div>
+
+        {/* Info aide */}
+        <p className={`text-center text-sm mt-8 flex items-center justify-center gap-2 ${textSecondary}`}>
+          <Sparkles className="w-4 h-4" />
+          Vos paramètres sont synchronisés sur tous vos appareils
+        </p>
       </div>
 
-      {/* Popup changement mot de passe */}
+      {/* Modal changement mot de passe */}
       {showModal && (
-        <div
-          className={
-            "fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm " +
-            (isDark ? "bg-slate-950/70" : "bg-black/30")
-          }
-        >
-          <div
-            className={
-              "w-full max-w-md rounded-3xl border p-6 shadow-[0_22px_70px_rgba(15,23,42,0.4)] " +
-              (isDark
-                ? "border-slate-800 bg-slate-900/95 text-slate-100"
-                : "border-slate-200 bg-white text-slate-900")
-            }
-          >
-            <div className="mb-4 flex items-center justify-between">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${isDark ? 'bg-blue-950/70' : 'bg-black/30'}`}>
+          <div className={`w-full max-w-md rounded-3xl border-2 p-6 shadow-2xl ${isDark ? 'bg-blue-900 border-blue-800' : 'bg-white border-blue-100'}`}>
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <p
-                  className={
-                    "text-[11px] uppercase tracking-[0.18em] " +
-                    (isDark ? "text-sky-400/80" : "text-sky-600/80")
-                  }
-                >
-                  Sécurité
-                </p>
-                <h2 className="mt-1 text-lg font-semibold">
-                  Changer le mot de passe
+                <p className={`text-sm font-bold ${textSecondary}`}>SÉCURITÉ</p>
+                <h2 className={`text-xl font-bold mt-1 ${textPrimary}`}>
+                  {step === 1 ? 'Changer le mot de passe' : 'Vérification'}
                 </h2>
               </div>
-              <div
-                className={
-                  "flex h-8 w-8 items-center justify-center rounded-full " +
-                  (isDark
-                    ? "bg-sky-500/15 text-sky-400"
-                    : "bg-sky-100 text-sky-600")
-                }
-              >
-                <Key className="h-4 w-4" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? 'bg-cyan-700' : 'bg-cyan-100'}`}>
+                <Key className={`w-5 h-5 ${isDark ? 'text-cyan-300' : 'text-cyan-600'}`} />
               </div>
             </div>
 
+            {message && (
+              <div className={`mb-4 p-3 rounded-xl border-2 flex items-center gap-3 ${message.includes('✅') ? successBg : errorBg}`}>
+                {message.includes('✅') ? (
+                  <Check className={`w-5 h-5 ${isDark ? 'text-green-400' : 'text-green-500'}`} />
+                ) : (
+                  <AlertCircle className={`w-5 h-5 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+                )}
+                <p className={`text-sm font-medium ${message.includes('✅') ? successText : errorText}`}>
+                  {message}
+                </p>
+              </div>
+            )}
+
             {step === 1 && (
-              <div className="space-y-3">
-                <input
-                  type="password"
-                  placeholder="Ancien mot de passe"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  className={inputBase}
-                />
-                <input
-                  type="password"
-                  placeholder="Nouveau mot de passe"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className={inputBase}
-                />
-                <input
-                  type="password"
-                  placeholder="Confirmer le nouveau mot de passe"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={inputBase}
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${textSecondary}`}>
+                    Ancien mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Entrez votre mot de passe actuel"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${inputBg} ${inputText}`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${textSecondary}`}>
+                    Nouveau mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Créez un nouveau mot de passe"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${inputBg} ${inputText}`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${textSecondary}`}>
+                    Confirmer le nouveau mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Répétez le nouveau mot de passe"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${inputBg} ${inputText}`}
+                  />
+                </div>
                 <button
                   onClick={startChangePassword}
                   disabled={loading}
-                  className={buttonPrimary("blue")}
+                  className={`w-full py-3.5 rounded-xl font-semibold transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed ${buttonStyle}`}
                 >
-                  {loading ? "Envoi..." : "Envoyer le code par email"}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Envoi du code...
+                    </span>
+                  ) : (
+                    "Envoyer le code de vérification"
+                  )}
                 </button>
               </div>
             )}
 
             {step === 2 && (
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Code OTP reçu par email"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className={inputBase}
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${textSecondary}`}>
+                    Code de vérification
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Entrez le code reçu par email"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all text-center text-lg font-mono ${inputBg} ${inputText}`}
+                    maxLength={6}
+                  />
+                  <p className={`text-xs mt-2 ${textMuted}`}>
+                    Vérifiez votre boîte email pour le code de 6 chiffres
+                  </p>
+                </div>
                 <button
                   onClick={confirmChangePassword}
                   disabled={loading}
-                  className={buttonPrimary("green")}
+                  className={`w-full py-3.5 rounded-xl font-semibold transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed ${buttonStyle}`}
                 >
-                  {loading ? "Vérification..." : "Confirmer le changement"}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Vérification...
+                    </span>
+                  ) : (
+                    "Confirmer le changement"
+                  )}
                 </button>
               </div>
             )}
 
-            {message && (
-              <p className={`mt-4 text-xs ${smallMuted}`}>{message}</p>
-            )}
-
             <button
-              onClick={() => setShowModal(false)}
-              className={
-                "mt-4 text-xs font-medium " +
-                (isDark
-                  ? "text-slate-300 hover:text-slate-100"
-                  : "text-slate-500 hover:text-slate-800")
-              }
+              onClick={() => {
+                setShowModal(false);
+                setStep(1);
+                setOldPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+                setOtp("");
+                setMessage("");
+              }}
+              className={`w-full mt-4 text-center font-medium ${isDark ? 'text-blue-400 hover:text-cyan-300' : 'text-blue-600 hover:text-blue-800'}`}
             >
               Annuler
             </button>

@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Smile, Paperclip, Mic, X, Loader2, Camera, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
 import api, { uploadFile } from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
 import CameraCapture from './CameraCapture';
 import EmojiPicker from './EmojiPicker';
 
 export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) {
+  const { isDark } = useTheme();
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -17,9 +19,66 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
-  const mediaInputRef = useRef(null); // ✅ Pour images & vidéos
-  const fileInputRef = useRef(null); // ✅ Pour fichiers
+  const mediaInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Styles basés sur le thème (mêmes couleurs que sidebar)
+  const containerBg = isDark
+    ? "bg-blue-950/80 border-blue-800"
+    : "bg-blue-50 border-blue-200";
+
+  const inputBg = isDark
+    ? "bg-blue-800/50 border-blue-700"
+    : "bg-white border-blue-300";
+
+  const textColor = isDark
+    ? "text-blue-100"
+    : "text-slate-800";
+
+  const placeholderColor = isDark
+    ? "placeholder-blue-400"
+    : "placeholder-slate-500";
+
+  const buttonColor = isDark
+    ? "text-blue-400 hover:text-cyan-400 hover:bg-blue-700/50"
+    : "text-blue-500 hover:text-blue-600 hover:bg-blue-50";
+
+  const buttonActive = isDark
+    ? "text-cyan-400 bg-blue-700/50"
+    : "text-blue-600 bg-blue-50";
+
+  const sendButtonStyle = isDark
+    ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-cyan-500/20"
+    : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg";
+
+  const errorBg = isDark
+    ? "bg-red-900/30 border-red-800 text-red-300"
+    : "bg-red-50 border-red-200 text-red-700";
+
+  const progressBg = isDark
+    ? "bg-blue-700"
+    : "bg-blue-200";
+
+  const progressBar = isDark
+    ? "bg-cyan-500"
+    : "bg-blue-500";
+
+  const progressText = isDark
+    ? "text-blue-300"
+    : "text-blue-600";
+
+  const focusedRing = isDark
+    ? "ring-2 ring-cyan-500"
+    : "ring-2 ring-blue-500";
+
+  const disabledColor = isDark
+    ? "text-blue-600 cursor-not-allowed"
+    : "text-blue-400 cursor-not-allowed";
+
+  const voiceButtonStyle = isDark
+    ? "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+    : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700";
 
   useEffect(() => {
     const adjustTextareaHeight = () => {
@@ -85,7 +144,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     }
   };
 
-  // ✅ Handler pour images et vidéos combinées
   const handleMediaSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -99,7 +157,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
       return;
     }
 
-    // Limite : 50MB pour vidéos, 10MB pour images
     const maxSize = isVideo ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     const maxSizeText = isVideo ? '50MB' : '10MB';
 
@@ -112,7 +169,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     await uploadFileToServer(file);
   };
 
-  // ✅ Handler pour fichiers (documents, audio, etc.)
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -140,7 +196,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
       const formData = new FormData();
       formData.append('file', file);
 
-      // ✅ Extraction de la durée pour les vidéos
       let videoDuration = 0;
       if (file.type.startsWith('video/')) {
         videoDuration = await getVideoDuration(file);
@@ -157,7 +212,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
         content: message.trim()
       };
 
-      // ✅ Ajouter la durée si c'est une vidéo
       if (fileType === 'video') {
         messageData.videoDuration = videoDuration;
       }
@@ -185,7 +239,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     }
   };
 
-  // ✅ Fonction pour extraire la durée d'une vidéo
   const getVideoDuration = (file) => {
     return new Promise((resolve) => {
       const video = document.createElement('video');
@@ -202,7 +255,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const getFileType = (mimeType) => {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('audio/')) return 'audio';
-    if (mimeType.startsWith('video/')) return 'video'; // ✅
+    if (mimeType.startsWith('video/')) return 'video';
     return 'file';
   };
 
@@ -257,7 +310,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   }
 
   return (
-    <div ref={containerRef} className="bg-slate-50 border-t border-slate-200 relative">
+    <div ref={containerRef} className={`border-t relative ${containerBg}`}>
       {showEmojiPicker && (
         <EmojiPicker 
           onSelect={handleEmojiClick}
@@ -267,7 +320,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
       {uploadError && (
         <div className="px-3 pt-2">
-          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${errorBg}`}>
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{uploadError}</span>
           </div>
@@ -276,10 +329,10 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
       <form onSubmit={handleSubmit} className="p-3">
         <div className={`
-          flex items-center gap-2 rounded-2xl p-3 transition-all
+          flex items-center gap-2 rounded-2xl p-3 transition-all border
           ${isFocused 
-            ? 'ring-2 ring-blue-500 bg-white shadow-sm' 
-            : 'bg-white border border-slate-300'
+            ? focusedRing
+            : inputBg
           }
         `}>
           
@@ -290,10 +343,9 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               className={`
                 p-2 rounded-xl transition
                 ${showEmojiPicker 
-                  ? 'text-blue-600 bg-blue-50' 
-                  : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
+                  ? buttonActive
+                  : uploading ? disabledColor : buttonColor
                 }
-                ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
               `}
               title="Ajouter un emoji"
               disabled={uploading}
@@ -307,44 +359,33 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               disabled={uploading}
               className={`
                 p-2 rounded-xl transition
-                ${uploading 
-                  ? 'text-slate-400 cursor-not-allowed' 
-                  : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
-                }
+                ${uploading ? disabledColor : buttonColor}
               `}
               title="Prendre une photo"
             >
               <Camera className="w-5 h-5" />
             </button>
 
-            {/* ✅ Bouton Images & Vidéos combiné */}
             <button
               type="button"
               onClick={() => mediaInputRef.current?.click()}
               disabled={uploading}
               className={`
                 p-2 rounded-xl transition
-                ${uploading 
-                  ? 'text-slate-400 cursor-not-allowed' 
-                  : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
-                }
+                ${uploading ? disabledColor : buttonColor}
               `}
               title="Envoyer une image ou vidéo"
             >
               <ImageIcon className="w-5 h-5" />
             </button>
 
-            {/* ✅ Bouton Fichiers (trombone) */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
               className={`
                 p-2 rounded-xl transition
-                ${uploading 
-                  ? 'text-slate-400 cursor-not-allowed' 
-                  : 'text-slate-500 hover:text-blue-600 hover:bg-blue-50'
-                }
+                ${uploading ? disabledColor : buttonColor}
               `}
               title="Joindre un fichier"
             >
@@ -356,7 +397,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
             </button>
           </div>
           
-          {/* ✅ Input pour Images & Vidéos */}
           <input
             ref={mediaInputRef}
             type="file"
@@ -366,7 +406,6 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
             disabled={uploading}
           />
 
-          {/* ✅ Input pour Fichiers (documents, audio, etc.) */}
           <input
             ref={fileInputRef}
             type="file"
@@ -385,16 +424,16 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder={uploading ? "Envoi..." : "Écrivez votre message..."}
-              className="
+              className={`
                 w-full bg-transparent px-3 py-2.5 
-                text-slate-800 placeholder-slate-500 
+                ${textColor} ${placeholderColor}
                 focus:outline-none resize-none 
                 text-sm leading-5 overflow-hidden
                 placeholder:whitespace-nowrap
                 placeholder:overflow-hidden
                 placeholder:text-ellipsis
                 max-w-full
-              "
+              `}
               rows="1"
               style={{ 
                 maxHeight: '100px',
@@ -412,8 +451,10 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
                 className={`
                   p-2.5 rounded-xl transition
                   ${uploading 
-                    ? 'bg-slate-400 cursor-not-allowed text-white' 
-                    : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
+                    ? isDark
+                      ? 'bg-blue-700/50 cursor-not-allowed text-blue-400' 
+                      : 'bg-blue-400 cursor-not-allowed text-white'
+                    : sendButtonStyle
                   }
                 `}
                 title={uploading ? "Upload en cours..." : "Envoyer"}
@@ -428,13 +469,12 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               <button
                 type="button"
                 onClick={() => setShowVoiceRecorder(true)}
-                className="
+                className={`
                   p-2.5 rounded-xl 
-                  bg-linear-to-r from-blue-500 to-blue-600 
-                  hover:from-blue-600 hover:to-blue-700 
                   text-white transition shadow-md hover:shadow-lg
                   min-w-11 min-h-11
-                "
+                  ${voiceButtonStyle}
+                `}
                 title="Enregistrer un message vocal"
                 disabled={uploading}
               >
@@ -447,14 +487,14 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
         {uploading && (
           <div className="mt-2">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-slate-600">Envoi en cours...</span>
+              <span className={`text-xs ${progressText}`}>Envoi en cours...</span>
               {uploadProgress > 0 && (
-                <span className="text-xs text-slate-600">{uploadProgress}%</span>
+                <span className={`text-xs ${progressText}`}>{uploadProgress}%</span>
               )}
             </div>
-            <div className="w-full bg-slate-200 rounded-full h-1.5">
+            <div className={`w-full rounded-full h-1.5 ${progressBg}`}>
               <div 
-                className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                className={`h-1.5 rounded-full transition-all duration-300 ${progressBar}`}
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>

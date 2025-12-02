@@ -20,6 +20,7 @@ import {
   onReactionUpdated
 } from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
+import { useTheme } from '@/hooks/useTheme';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
 import Sidebar from '@/components/Layout/Sidebar';
@@ -28,12 +29,13 @@ import ChatHeader from '@/components/Layout/ChatHeader';
 import MessageBubble, { DateSeparator } from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
-import { Plane, Users } from 'lucide-react';
+import { Plane, Users, Loader2 } from 'lucide-react';
 
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useContext(AuthContext);
+  const { isDark } = useTheme();
   const conversationId = params.id;
   
   const [conversation, setConversation] = useState(null);
@@ -252,20 +254,57 @@ export default function ChatPage() {
 
   const contact = getOtherParticipant();
 
+  // Styles basés sur le thème (mêmes couleurs que settings)
+  const pageBg = isDark
+    ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+    : "bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100";
+
+  const loadingBg = isDark
+    ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+    : "bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100";
+
+  const errorBg = isDark
+    ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
+    : "bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100";
+
+  const emptyChatBg = isDark
+    ? "bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"
+    : "bg-gradient-to-b from-white via-sky-50/30 to-cyan-50/30";
+
+  const chatContainerBg = isDark
+    ? "bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"
+    : "bg-gradient-to-b from-white via-sky-50/30 to-cyan-50/30";
+
+  const cardStyle = isDark
+    ? "bg-slate-800/90 border-slate-700 shadow-[0_18px_45px_rgba(15,23,42,0.6)]"
+    : "bg-white/95 border-slate-200 shadow-[0_14px_40px_rgba(15,23,42,0.08)]";
+
+  const textPrimary = isDark ? "text-slate-50" : "text-slate-900";
+  const textSecondary = isDark ? "text-slate-400" : "text-slate-600";
+  const textMuted = isDark ? "text-slate-500" : "text-slate-500";
+
+  const buttonStyle = isDark
+    ? "bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 shadow-sky-500/40"
+    : "bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 shadow-sky-500/40";
+
+  const iconStyle = isDark
+    ? "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700"
+    : "bg-gradient-to-br from-white to-sky-50 border-blue-200";
+
   if (loading) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen items-center justify-center" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
+        <div className={`flex h-screen items-center justify-center ${loadingBg}`}>
           <div className="text-center animate-fade-in">
             <div className="relative inline-block">
-              <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200 border-t-blue-600 shadow-xl"></div>
-              <Plane className="w-10 h-10 text-blue-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-45 animate-pulse" />
+              <div className={`animate-spin rounded-full h-20 w-20 border-4 ${isDark ? 'border-slate-700 border-t-sky-500' : 'border-blue-200 border-t-blue-600'} shadow-xl`}></div>
+              <Plane className={`w-10 h-10 ${isDark ? 'text-sky-400' : 'text-blue-600'} absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-45 animate-pulse`} />
             </div>
-            <p className="mt-6 text-blue-800 font-bold text-lg">Chargement de la conversation...</p>
+            <p className={`mt-6 font-bold text-lg ${isDark ? 'text-sky-300' : 'text-blue-800'}`}>Chargement de la conversation...</p>
             <div className="flex gap-2 justify-center mt-3">
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></span>
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></span>
+              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`}></span>
+              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`} style={{animationDelay: '0.2s'}}></span>
+              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`} style={{animationDelay: '0.4s'}}></span>
             </div>
           </div>
         </div>
@@ -276,14 +315,17 @@ export default function ChatPage() {
   if (!conversation || (!conversation.isGroup && !contact)) {
     return (
       <ProtectedRoute>
-        <div className="flex h-screen items-center justify-center" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
-          <div className="text-center max-w-md animate-fade-in">
-            <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl" style={{ background: 'linear-gradient(135deg, #fecaca, #fca5a5)' }}>
-              <Plane className="w-12 h-12 text-rose-500 -rotate-45" />
+        <div className={`flex h-screen items-center justify-center ${errorBg}`}>
+          <div className={`text-center max-w-md animate-fade-in p-8 rounded-3xl ${cardStyle} border`}>
+            <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 ${isDark ? 'border-slate-700' : 'border-rose-200'}`}>
+              <Plane className={`w-12 h-12 ${isDark ? 'text-rose-400' : 'text-rose-500'} -rotate-45`} />
             </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3">Conversation introuvable</h2>
-            <p className="text-slate-600 mb-8 leading-relaxed">Cette conversation n&apos;existe pas ou a été supprimée</p>
-            <button onClick={() => router.push('/')} className="px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl" style={{ background: 'linear-gradient(to right, #2563eb, #06b6d4)' }}>
+            <h2 className={`text-2xl font-bold mb-3 ${textPrimary}`}>Conversation introuvable</h2>
+            <p className={`mb-8 leading-relaxed ${textSecondary}`}>Cette conversation n&apos;existe pas ou a été supprimée</p>
+            <button 
+              onClick={() => router.push('/')} 
+              className={`px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl ${buttonStyle}`}
+            >
               Retour à l&apos;accueil
             </button>
           </div>
@@ -294,7 +336,7 @@ export default function ChatPage() {
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)' }}>
+      <div className={`flex h-screen ${pageBg}`}>
         <MainSidebar />
 
         <div className="flex flex-1">
@@ -311,19 +353,20 @@ export default function ChatPage() {
               <ChatHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]" style={{ background: 'linear-gradient(to bottom, #ffffff, rgba(219, 234, 254, 0.3), rgba(236, 254, 255, 0.3))' }}>
+            {/* Container des messages avec scrollbar cachée */}
+            <div className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}>
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full animate-fade-in">
-                  <div className="text-center max-w-sm">
-                    <div className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200" style={{ background: 'linear-gradient(135deg, #ffffff, #dbeafe)' }}>
+                  <div className={`text-center max-w-sm p-8 rounded-3xl ${cardStyle} border`}>
+                    <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 ${iconStyle}`}>
                       {conversation.isGroup ? (
-                        <Users className="w-12 h-12 text-purple-600" />
+                        <Users className={`w-12 h-12 ${isDark ? 'text-purple-400' : 'text-purple-600'}`} />
                       ) : (
-                        <Plane className="w-12 h-12 text-blue-600 -rotate-45" />
+                        <Plane className={`w-12 h-12 ${isDark ? 'text-sky-400' : 'text-blue-600'} -rotate-45`} />
                       )}
                     </div>
-                    <p className="text-slate-800 font-bold text-lg mb-2">Aucun message pour l&apos;instant</p>
-                    <p className="text-sm text-slate-600 leading-relaxed">
+                    <p className={`font-bold text-lg mb-2 ${textPrimary}`}>Aucun message pour l&apos;instant</p>
+                    <p className={`text-sm leading-relaxed ${textSecondary}`}>
                       {conversation.isGroup 
                         ? `Commencez la discussion dans ${conversation.groupName || 'ce groupe'}`
                         : `Envoyez votre premier message à ${contact?.name || 'cet utilisateur'}`

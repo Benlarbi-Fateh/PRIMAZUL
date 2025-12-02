@@ -10,8 +10,11 @@ import ReactionPicker from './ReactionPicker';
 import MessageReactions from './MessageReactions';
 import { AuthContext } from '@/context/AuthProvider';
 import { emitToggleReaction } from '@/services/socket';
+import { useTheme } from '@/hooks/useTheme';
 
 export function DateSeparator({ date }) {
+  const { isDark } = useTheme();
+  
   const formatDate = (d) => {
     const dateObj = new Date(d);
     if (isToday(dateObj)) return "Aujourd'hui";
@@ -21,8 +24,8 @@ export function DateSeparator({ date }) {
 
   return (
     <div className="flex items-center justify-center my-4">
-      <div className="px-3 py-1 bg-slate-100 rounded-full">
-        <span className="text-xs font-medium text-slate-500 capitalize">{formatDate(date)}</span>
+      <div className={`px-3 py-1 rounded-full ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
+        <span className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'} capitalize`}>{formatDate(date)}</span>
       </div>
     </div>
   );
@@ -35,6 +38,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
   const [showControls, setShowControls] = useState(false);
   const videoRef = useRef(null);
   const { user } = useContext(AuthContext);
+  const { isDark } = useTheme();
   const currentUserId = user?._id || user?.id;
 
   const handleReaction = (emoji) => {
@@ -141,7 +145,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
 
   const renderTimestamp = () => (
     <div className={`flex items-center gap-1 overflow-hidden transition-all duration-300 ${showTimestamp ? 'max-h-6 opacity-100 mt-1' : 'max-h-0 opacity-0 mt-0'}`}>
-      <span className="text-[10px] text-slate-400">{formatTime(message.createdAt)}</span>
+      <span className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{formatTime(message.createdAt)}</span>
       {renderStatus()}
     </div>
   );
@@ -160,12 +164,14 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     );
   };
 
-  // Video Message - Version améliorée
+  // Video Message
   if (fileType === 'video') {
     return (
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
-          <span className="text-xs font-semibold text-blue-700 mb-1 ml-10">{message.sender?.name}</span>
+          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+            {message.sender?.name}
+          </span>
         )}
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
@@ -290,7 +296,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
               
               {/* Texte sous la vidéo */}
               {message.content && (
-                <div className={`px-3 py-2 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white' : 'bg-white text-slate-700'}`}>
+                <div className={`px-3 py-2 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white' : `${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'}`}`}>
                   <p className="text-sm">{message.content}</p>
                 </div>
               )}
@@ -309,7 +315,9 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     return (
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
-          <span className="text-xs font-semibold text-blue-700 mb-1 ml-10">{message.sender?.name}</span>
+          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+            {message.sender?.name}
+          </span>
         )}
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
@@ -328,7 +336,14 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
-            <VoiceMessage voiceUrl={message.voiceUrl} voiceDuration={message.voiceDuration} isMine={isMine} isGroup={isGroup} sender={message.sender} />
+            <VoiceMessage 
+              voiceUrl={message.voiceUrl} 
+              voiceDuration={message.voiceDuration} 
+              isMine={isMine} 
+              isGroup={isGroup} 
+              sender={message.sender} 
+              isDark={isDark}
+            />
             <ReactionPicker onSelect={handleReaction} isMine={isMine} />
           </div>
         </div>
@@ -338,12 +353,14 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     );
   }
 
-  // Image Message (reste inchangé)
+  // Image Message
   if (fileType === 'image') {
     return (
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
-          <span className="text-xs font-semibold text-blue-700 mb-1 ml-10">{message.sender?.name}</span>
+          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+            {message.sender?.name}
+          </span>
         )}
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
@@ -366,7 +383,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
               className={`rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer ${isMine ? 'rounded-br-md' : 'rounded-bl-md'}`}
               onClick={handleOpenFile}
             >
-              <div className="relative w-56 h-44 sm:w-64 sm:h-52 bg-slate-100">
+              <div className={`relative w-56 h-44 sm:w-64 sm:h-52 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                 <Image 
                   src={message.fileUrl} 
                   alt={message.fileName || 'Image'} 
@@ -376,7 +393,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
                 />
               </div>
               {message.content && (
-                <div className={`px-3 py-2 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white' : 'bg-white text-slate-700'}`}>
+                <div className={`px-3 py-2 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white' : `${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'}`}`}>
                   <p className="text-sm">{message.content}</p>
                 </div>
               )}
@@ -390,12 +407,14 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     );
   }
 
-  // File Message (reste inchangé)
+  // File Message
   if (fileType !== 'text') {
     return (
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
-          <span className="text-xs font-semibold text-blue-700 mb-1 ml-10">{message.sender?.name}</span>
+          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+            {message.sender?.name}
+          </span>
         )}
         <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
@@ -414,19 +433,19 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
-            <div className={`p-3 rounded-2xl flex items-center gap-3 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md'}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isMine ? 'bg-white/20' : 'bg-blue-50'}`}>
+            <div className={`p-3 rounded-2xl flex items-center gap-3 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : `${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'} shadow-sm border ${isDark ? 'border-slate-700' : 'border-slate-100'} rounded-bl-md`}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isMine ? 'bg-white/20' : isDark ? 'bg-slate-700' : 'bg-blue-50'}`}>
                 {fileType === 'audio' ? <Mic className="w-5 h-5" /> : <File className="w-5 h-5" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{message.fileName || 'Fichier'}</p>
-                <p className="text-xs opacity-70">{formatFileSize(message.fileSize)}</p>
+                <p className={`text-xs ${isMine ? 'opacity-80' : 'opacity-70'}`}>{formatFileSize(message.fileSize)}</p>
               </div>
               <div className="flex gap-1">
-                <button onClick={handleOpenFile} className={`p-2 rounded-lg transition-colors ${isMine ? 'hover:bg-white/20' : 'hover:bg-slate-100'}`}>
+                <button onClick={handleOpenFile} className={`p-2 rounded-lg transition-colors ${isMine ? 'hover:bg-white/20' : isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}>
                   <ExternalLink className="w-4 h-4" />
                 </button>
-                <button onClick={handleDownload} className={`p-2 rounded-lg transition-colors ${isMine ? 'hover:bg-white/20' : 'hover:bg-slate-100'}`}>
+                <button onClick={handleDownload} className={`p-2 rounded-lg transition-colors ${isMine ? 'hover:bg-white/20' : isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-100'}`}>
                   <Download className="w-4 h-4" />
                 </button>
               </div>
@@ -440,11 +459,13 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     );
   }
 
-  // Text Message (reste inchangé)
+  // Text Message
   return (
     <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
       {!isMine && isGroup && (
-        <span className="text-xs font-semibold text-blue-700 mb-1 ml-10">{message.sender?.name}</span>
+        <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+          {message.sender?.name}
+        </span>
       )}
       <div className={`flex items-center gap-1 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
         {!isMine && (
@@ -463,7 +484,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <div className={`px-4 py-2.5 rounded-2xl max-w-xs lg:max-w-md ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md'}`}>
+          <div className={`px-4 py-2.5 rounded-2xl max-w-xs lg:max-w-md ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : `${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-700'} shadow-sm border ${isDark ? 'border-slate-700' : 'border-slate-100'} rounded-bl-md`}`}>
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
           </div>
           <ReactionPicker onSelect={handleReaction} isMine={isMine} />
