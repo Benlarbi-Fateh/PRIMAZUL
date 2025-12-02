@@ -1,19 +1,26 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles, Check } from 'lucide-react';
+import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles, Check, Clock,Reply } from 'lucide-react';
 import api from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
+import ScheduleModal from './ScheduleModal';
 
 export default function MessageInput({ 
   onSendMessage, 
   onTyping, 
   onStopTyping,
+  conversationId,
   // 🆕 Props pour le mode édition
   editingMessageId,
   editingContent,
   onConfirmEdit,
-  onCancelEdit
+  onCancelEdit,
+   // 🆕 Props pour la réponse - AJOUTÉ
+  replyingToId,
+  replyingToContent,
+  replyingToSender,
+  onCancelReply
 }) {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -21,6 +28,7 @@ export default function MessageInput({
   const [uploading, setUploading] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
@@ -227,6 +235,37 @@ export default function MessageInput({
           </div>
         </div>
       )}
+      {/* 🆕 BARRE D'INDICATION MODE RÉPONSE - AJOUTÉ */}
+      {replyingToId && (
+        <div 
+          className="border-b-2 border-green-200 px-3 sm:px-4 py-2 sm:py-3 animate-slide-in-left"
+          style={{
+            background: 'linear-gradient(to right, #d1fae5, #a7f3d0)'
+          }}
+        >
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-green-600 to-emerald-500 rounded-full"></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-bold text-green-700 flex items-center gap-1 sm:gap-2">
+                  <Reply className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>Réponse à {replyingToSender?.name || 'Utilisateur'}</span>
+                </p>
+                <p className="text-xs text-green-600 truncate max-w-xs sm:max-w-md">
+                  {replyingToContent}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onCancelReply}
+              className="p-1 sm:p-2 hover:bg-green-200 rounded-full transition-all transform hover:scale-110 active:scale-95"
+              title="Annuler"
+            >
+              <X size={18} className="text-green-600" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showEmojiPicker && !editingMessageId && (
         <div 
@@ -355,6 +394,18 @@ export default function MessageInput({
             )}
           </div>
 
+          {/* 🆕 BOUTON PROGRAMMER - AJOUTÉ */}
+          {!editingMessageId && !message.trim() && !uploading && (
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(true)}
+              className="shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-blue-500 hover:text-blue-600 hover:bg-blue-100 transition-all transform hover:scale-110 active:scale-95"
+              title="Programmer un message"
+            >
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+            </button>
+          )}
+
           <div className="flex items-center gap-1 sm:gap-2">
             {message.trim() || uploading ? (
               <button
@@ -413,6 +464,28 @@ export default function MessageInput({
           </div>
         )}
       </form>
+
+      {/* 🆕 MODAL DE PROGRAMMATION - AJOUTÉ */}
+      <ScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onSchedule={async (data) => {
+          try {
+            await api.post('/messages/schedule', {
+              ...data,
+              conversationId,
+              type: 'text'
+            });
+            alert('✅ Message programmé avec succès !');
+            setShowScheduleModal(false);
+          } catch (error) {
+            console.error('Erreur:', error);
+            alert('❌ Impossible de programmer le message');
+            throw error;
+          }
+        }}
+        initialContent={message}
+      />
 
       <style jsx>{`
         .safe-area-padding-bottom {

@@ -5,7 +5,8 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { 
   Image, File, Mic, Download, ExternalLink, Check, CheckCheck,
-  MoreVertical, Trash2, Edit2, Languages, X, RotateCcw
+  MoreVertical, Trash2, Edit2, Languages, X, RotateCcw,Reply
+
 } from 'lucide-react';
 import VoiceMessage from './VoiceMessage';
 
@@ -15,7 +16,8 @@ export default function MessageBubble({
   isGroup,
   onDelete,
   onEdit,
-  onTranslate
+  onTranslate,
+  onReply // ✅ AJOUTÉ repondre au message
 }) {
   // ========================================
   // 📦 ÉTATS
@@ -78,6 +80,22 @@ export default function MessageBubble({
     
     if (onEdit) {
       onEdit(message._id, message.content);
+    }
+    
+    setShowMenu(false);
+  };
+   // reponse a un message
+   const handleReply = (e) => {
+    e.stopPropagation();
+    console.log('🔍 DEBUT handleReply');
+    console.log('Message ID:', message._id);
+    console.log('Message content:', message.content);
+    
+    if (onReply) {
+      console.log('✅ onReply existe, appel en cours...');
+      onReply(message._id, message.content, message.sender);
+    } else {
+      console.error('❌ onReply est undefined !');
     }
     
     setShowMenu(false);
@@ -344,39 +362,52 @@ export default function MessageBubble({
         )}
 
         <div className="relative flex items-center gap-2">
-          {/* MENU 3 POINTS */}
-          {isMine && (
-            <div className="relative">
-              <button
-                onClick={handleMenuToggle}
-                className="p-1 rounded-full hover:bg-gray-200 transition"
-              >
-                <MoreVertical className="w-4 h-4 text-gray-600" />
-              </button>
+          {/* MENU 3 POINTS - POUR TOUS LES MESSAGES */}
+          <div className="relative">
+            <button
+              onClick={handleMenuToggle}
+              className="p-1 rounded-full hover:bg-gray-200 transition"
+            >
+              <MoreVertical className="w-4 h-4 text-gray-600" />
+            </button>
 
-              {showMenu && (
-                <div 
-                  className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]"
-                  onClick={(e) => e.stopPropagation()}
+            {showMenu && (
+              <div 
+                className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* ✅ BOUTON RÉPONDRE - POUR TOUS */}
+                <button
+                  onClick={handleReply}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
                 >
-                  <button
-                    onClick={handleEdit}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                    Modifier
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Supprimer
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                  <Reply className="w-4 h-4" />
+                  Répondre
+                </button>
+
+                {/* ✅ BOUTONS MODIFIER ET SUPPRIMER - UNIQUEMENT POUR MES MESSAGES */}
+                {isMine && (
+                  <>
+                    <button
+                      onClick={handleEdit}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Modifier
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          
 
           <div
             className={`max-w-xs lg:max-w-md xl:max-w-lg px-4 py-2 rounded-2xl ${
@@ -389,6 +420,25 @@ export default function MessageBubble({
               <p className="text-xs font-semibold text-blue-700 mb-1">
                 {message.sender?.name}
               </p>
+            )}
+             {/* 🆕 AFFICHAGE DU MESSAGE CITÉ - AJOUTÉ */}
+            {message.replyTo && (
+              <div className={`mb-2 p-2 rounded-lg border-l-4 ${
+                isMine 
+                  ? 'bg-blue-700/30 border-white/50' 
+                  : 'bg-gray-100 border-blue-500'
+              }`}>
+                <p className={`text-xs font-semibold ${
+                  isMine ? 'text-white/80' : 'text-blue-600'
+                }`}>
+                  {message.replyToSender?.name || 'Utilisateur'}
+                </p>
+                <p className={`text-xs mt-1 line-clamp-2 ${
+                  isMine ? 'text-white/70' : 'text-gray-600'
+                }`}>
+                  {message.replyToContent}
+                </p>
+              </div>
             )}
             
             {/* ✅ AFFICHAGE DU TEXTE : traduit ou original */}

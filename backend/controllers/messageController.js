@@ -15,7 +15,7 @@ exports.getMessages = async (req, res) => {
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, content, type, fileUrl, fileName, fileSize } = req.body;
+    const { conversationId, content, type, fileUrl, fileName, fileSize, replyTo, replyToContent, replyToSender } = req.body;
     const senderId = req.user._id;
 
     const message = new Message({
@@ -26,9 +26,12 @@ exports.sendMessage = async (req, res) => {
       fileUrl,
       fileName,
       fileSize,
-      status: 'sent'
+      status: 'sent',
+      // 🆕 Réponse à un message - AJOUTÉ
+      replyTo: replyTo || null,
+      replyToContent: replyToContent || null,
+      replyToSender: replyToSender || null
     });
-
     await message.save();
 
     const conversation = await Conversation.findByIdAndUpdate(
@@ -46,6 +49,10 @@ exports.sendMessage = async (req, res) => {
     });
 
     await message.populate('sender', 'name profilePicture');
+    // 🆕 Populate aussi les infos du message cité
+    if (message.replyToSender) {
+      await message.populate('replyToSender', 'name profilePicture');
+    }
 
     const io = req.app.get('io');
     if (io) {
@@ -476,4 +483,230 @@ exports.translateMessage = async (req, res) => {
   }
 };
 
+
+//ghiles
+
+
+// ========================================
+// 🆕 PROGRAMMER UN MESSAGE
+// ========================================
+exports.scheduleMessage = async (req, res) => {
+  console.log('⏰ ========== SCHEDULE MESSAGE APPELÉ ==========');
+  console.log('📦 Body:', req.body);
+  
+  try {
+    const { conversationId, content, scheduledFor, type, fileUrl, fileName, fileSize } = req.body;
+    const userId = req.user._id;
+
+    console.log('⏰ Programmation pour:', scheduledFor);
+
+    // Validation
+    if (!scheduledFor) {
+      return res.status(400).json({ error: 'Date de programmation requise' });
+    }
+
+    const scheduledDate = new Date(scheduledFor);
+    const now = new Date();
+
+    if (scheduledDate <= now) {
+      return res.status(400).json({ error: 'La date doit être dans le futur' });
+    }
+
+    // Créer le message programmé
+    const message = new Message({
+      conversationId,
+      sender: userId,
+      content: content || '',
+      type: type || 'text',
+      fileUrl,
+      fileName,
+      fileSize,
+      isScheduled: true,
+      scheduledFor: scheduledDate,
+      scheduledBy: userId,
+      isSent: false, // Pas encore envoyé
+      status: 'scheduled'
+    });
+
+    await message.save();
+    await message.populate('sender', 'name profilePicture');
+
+    console.log('✅ Message programmé créé:', message._id);
+
+    res.status(201).json({ 
+      success: true, 
+      message,
+      scheduledFor: scheduledDate
+    });
+  } catch (error) {
+    console.error('❌ Erreur scheduleMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🆕 OBTENIR LES MESSAGES PROGRAMMÉS
+// ========================================
+exports.getScheduledMessages = async (req, res) => {
+  console.log('📋 ========== GET SCHEDULED MESSAGES ==========');
+  
+  try {
+    const userId = req.user._id;
+
+    const scheduledMessages = await Message.find({
+      scheduledBy: userId,
+      isScheduled: true,
+      isSent: false
+    })
+    .populate('sender', 'name profilePicture')
+    .populate('conversationId', 'isGroup groupName participants')
+    .sort({ scheduledFor: 1 });
+
+    console.log(`✅ ${scheduledMessages.length} messages programmés trouvés`);
+
+    res.json({ 
+      success: true, 
+      scheduledMessages 
+    });
+  } catch (error) {
+    console.error('❌ Erreur getScheduledMessages:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🆕 ANNULER UN MESSAGE PROGRAMMÉ
+// ========================================
+exports.cancelScheduledMessage = async (req, res) => {
+  console.log('❌ ========== CANCEL SCHEDULED MESSAGE ==========');
+  
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findOne({
+      _id: messageId,
+      scheduledBy: userId,
+      isScheduled: true,
+      isSent: false
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message programmé non trouvé' });
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    console.log('✅ Message programmé annulé:', messageId);
+
+    res.json({ 
+      success: true, 
+      messageId 
+    });
+  } catch (error) {
+    console.error('❌ Erreur cancelScheduledMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🆕 MODIFIER UN MESSAGE PROGRAMMÉ
+// ========================================
+exports.updateScheduledMessage = async (req, res) => {
+  console.log('✏️ ========== UPDATE SCHEDULED MESSAGE ==========');
+  
+  try {
+    const { messageId } = req.params;
+    const { content, scheduledFor } = req.body;
+    const userId = req.user._id;
+
+    const message = await Message.findOne({
+      _id: messageId,
+      scheduledBy: userId,
+      isScheduled: true,
+      isSent: false
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message programmé non trouvé' });
+    }
+
+    if (content) message.content = content;
+    if (scheduledFor) {
+      const newDate = new Date(scheduledFor);
+      if (newDate <= new Date()) {
+        return res.status(400).json({ error: 'La date doit être dans le futur' });
+      }
+      message.scheduledFor = newDate;
+    }
+
+    await message.save();
+    await message.populate('sender', 'name profilePicture');
+
+    console.log('✅ Message programmé modifié:', messageId);
+
+    res.json({ 
+      success: true, 
+      message 
+    });
+  } catch (error) {
+    console.error('❌ Erreur updateScheduledMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🤖 TÂCHE CRON : ENVOYER LES MESSAGES PROGRAMMÉS
+// ========================================
+const checkScheduledMessages = async (io) => {
+  try {
+    const now = new Date();
+    
+    // Trouver tous les messages programmés dont l'heure est passée
+    const messagesToSend = await Message.find({
+      isScheduled: true,
+      isSent: false,
+      scheduledFor: { $lte: now }
+    })
+    .populate('sender', 'name profilePicture')
+    .populate('conversationId');
+
+    if (messagesToSend.length === 0) return;
+
+    console.log(`⏰ ${messagesToSend.length} messages programmés à envoyer`);
+
+    for (const message of messagesToSend) {
+      // Marquer comme envoyé
+      message.isSent = true;
+      message.status = 'sent';
+      await message.save();
+
+      // Mettre à jour la conversation
+      await Conversation.findByIdAndUpdate(
+        message.conversationId._id,
+        {
+          lastMessage: message._id,
+          updatedAt: Date.now()
+        }
+      );
+
+      // Émettre via Socket.IO
+      if (io) {
+        io.to(message.conversationId._id.toString()).emit('receive-message', message);
+        
+        message.conversationId.participants.forEach(participant => {
+          const participantId = participant._id ? participant._id.toString() : participant.toString();
+          io.to(participantId).emit('should-refresh-conversations');
+        });
+      }
+
+      console.log(`✅ Message programmé envoyé: ${message._id}`);
+    }
+  } catch (error) {
+    console.error('❌ Erreur checkScheduledMessages:', error);
+  }
+};
+
+// Exporter la fonction pour l'utiliser dans server.js
+module.exports.checkScheduledMessages = checkScheduledMessages;
 

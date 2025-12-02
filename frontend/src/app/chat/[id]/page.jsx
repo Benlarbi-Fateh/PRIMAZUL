@@ -3,7 +3,7 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
-import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
+import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead, scheduleMessage } from '@/lib/api';
 import api from '@/lib/api';
 import { 
   getSocket, 
@@ -45,6 +45,10 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
+  // 🆕 États pour la réponse
+  const [replyingToId, setReplyingToId] = useState(null);
+  const [replyingToContent, setReplyingToContent] = useState('');
+  const [replyingToSender, setReplyingToSender] = useState(null);
 
   useSocket();
 
@@ -125,12 +129,7 @@ export default function ChatPage() {
             return [...prev, message];
           });
 
-          const userId = user._id || user.id;
-          if (message.sender._id !== userId) {
-            markMessagesAsDelivered([message._id])
-              .then(() => markConversationAsRead(conversationId))
-              .catch(err => console.error('❌ Erreur marquage:', err));
-          }
+          
         }
       });
 
@@ -148,7 +147,7 @@ export default function ChatPage() {
         console.log('📊 Statut conversation mis à jour:', { conversationId: updatedConvId, status });
       });
 
-// 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
+      // 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
       socket.off('message-deleted');
       socket.on('message-deleted', ({ messageId }) => {
         console.log('🗑️ Message supprimé reçu:', messageId);
@@ -165,7 +164,6 @@ export default function ChatPage() {
             : msg
         ));
       });
-
 
       onUserTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
@@ -224,11 +222,23 @@ export default function ChatPage() {
         messageData = {
           conversationId,
           content: content.trim(),
-          type: 'text'
+          type: 'text',
+          // 🆕 Ajouter les infos de réponse si applicable
+          ...(replyingToId && {
+            replyTo: replyingToId,
+            replyToContent: replyingToContent,
+            replyToSender: replyingToSender?._id || replyingToSender
+          })
         };
       }
       
+      // ✅ UN SEUL await sendMessage
       await sendMessage(messageData);
+      
+      // 🆕 Réinitialiser la réponse après envoi
+      if (replyingToId) {
+        handleCancelReply();
+      }
       
       if (user) {
         const userId = user._id || user.id;
@@ -259,9 +269,7 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
-
-  
-// ========================================
+  // ========================================
   // 🆕 FONCTION SUPPRIMER
   // ========================================
   const handleDeleteMessage = async (messageId) => {
@@ -356,6 +364,26 @@ export default function ChatPage() {
       console.error('❌ Erreur traduction:', error);
       throw error;
     }
+  };
+
+  // ========================================
+  // 🆕 FONCTION RÉPONDRE
+  // ========================================
+  const handleReplyMessage = (messageId, content, sender) => {
+    console.log('↩️ ChatPage: Réponse activée pour:', messageId);
+    setReplyingToId(messageId);
+    setReplyingToContent(content);
+    setReplyingToSender(sender);
+  };
+
+  // ========================================
+  // 🆕 FONCTION ANNULER LA RÉPONSE
+  // ========================================
+  const handleCancelReply = () => {
+    console.log('❌ Annulation réponse');
+    setReplyingToId(null);
+    setReplyingToContent('');
+    setReplyingToSender(null);
   };
  
   const getOtherParticipant = () => {
@@ -507,10 +535,10 @@ export default function ChatPage() {
                       message={message}
                       isMine={message.sender?._id === userId}
                       isGroup={conversation?.isGroup || false}
-                      // 🆕 Props pour la modification ghiles
-                       onDelete={handleDeleteMessage}
+                      onDelete={handleDeleteMessage}
                       onEdit={handleEditMessage}
                       onTranslate={handleTranslateMessage}
+                       onReply={handleReplyMessage} // ✅ AJOUTÉ
                     />
                   );
                 })}
@@ -528,11 +556,16 @@ export default function ChatPage() {
             onSendMessage={handleSendMessage}
             onTyping={handleTyping}
             onStopTyping={handleStopTyping}
-            // 🆕 Props pour la modification ghiles
+            conversationId={conversationId}
             editingMessageId={editingMessageId}
             editingContent={editingContent}
             onConfirmEdit={handleConfirmEdit}
             onCancelEdit={handleCancelEdit}
+            // 🆕 Props pour la réponse - AJOUTÉ
+            replyingToId={replyingToId}
+            replyingToContent={replyingToContent}
+            replyingToSender={replyingToSender}
+            onCancelReply={handleCancelReply}
           />
         </div>
       </div>

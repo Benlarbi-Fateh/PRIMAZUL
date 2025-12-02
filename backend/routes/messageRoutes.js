@@ -11,7 +11,12 @@ const {
   getUnreadCount ,  // 🆕
   deleteMessage,    // 🆕 AJOUT
   editMessage,      // 🆕 AJOUT
-  translateMessage  // 🆕 AJOUT
+  translateMessage,  // 🆕 AJOUT
+  // routes messages programmes
+  scheduleMessage, 
+  getScheduledMessages, 
+  cancelScheduledMessage,
+  updateScheduledMessage
 } = require('../controllers/messageController');
 
 router.get('/:conversationId', authMiddleware, getMessages);
@@ -25,5 +30,10 @@ router.get('/unread/count', authMiddleware, getUnreadCount);
 router.delete('/:messageId', authMiddleware, deleteMessage);
 router.put('/:messageId', authMiddleware, editMessage);
 router.post('/:messageId/translate', authMiddleware, translateMessage );
+// Routes pour les messages programmés
+router.post('/schedule', authMiddleware, scheduleMessage);
+router.get('/scheduled', authMiddleware, getScheduledMessages);
+router.delete('/scheduled/:messageId', authMiddleware, cancelScheduledMessage);
+router.put('/scheduled/:messageId', authMiddleware, updateScheduledMessage);
 
 module.exports = router;

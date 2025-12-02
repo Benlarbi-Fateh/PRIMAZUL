@@ -123,5 +123,10 @@ export const getUnreadCount = () =>
 export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
 export const verifyResetCode = (data) => api.post('/auth/verify-reset-code', data);
 export const resetPassword = (data) => api.post('/auth/reset-password', data);
+//messages programmés
+export const scheduleMessage = (data) => api.post('/messages/schedule', data);
+export const getScheduledMessages = () => api.get('/messages/scheduled');
+export const cancelScheduledMessage = (messageId) => api.delete(`/messages/scheduled/${messageId}`);
+export const updateScheduledMessage = (messageId, data) => api.put(`/messages/scheduled/${messageId}`, data);
 
 export default api;

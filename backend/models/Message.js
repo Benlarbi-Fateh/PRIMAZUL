@@ -29,7 +29,42 @@ const messageSchema = new mongoose.Schema({
     translatedAt: { type: Date, default: Date.now }
   }],
   
-  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' }
+  status: { type: String, enum: ['sent', 'delivered', 'read','scheduled'], default: 'sent' },
+
+  //ghiles
+  // 🆕 MESSAGES PROGRAMMÉS
+  isScheduled: {
+    type: Boolean,
+    default: false
+  },
+  scheduledFor: {
+    type: Date,
+    default: null
+  },
+  scheduledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  isSent: {
+    type: Boolean,
+    default: true // true pour les messages normaux, false pour les programmés
+  } ,
+  // 🆕 RÉPONSE À UN MESSAGE
+  replyTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Message',
+    default: null
+  },
+  replyToContent: {
+    type: String,
+    default: null
+  },
+  replyToSender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', messageSchema);
