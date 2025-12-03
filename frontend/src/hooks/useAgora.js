@@ -458,14 +458,16 @@ export const useAgora = () => {
 
     console.log("🔌 Configuration écouteurs socket"); // Gérer appel entrant
 
-    const handleIncomingCall = (data) => {
+    const handleIncomingCall = async (data) => {
       console.log("📞 Appel entrant reçu:", data);
 
       if (callStatus !== "idle") {
         console.log("🚗 Déjà en appel, rejet auto");
         socket.emit("call-busy", { callerId: data.caller?.id });
         return;
-      } // MODIFICATION CRUCIALE N°2 : On utilise l'ID envoyé par l'émetteur (data.conversationId) // --- [AJOUT N°8 : Ajouter le conversationId au destinataire] ---
+      }
+
+      // MODIFICATION CRUCIALE N°2 : On utilise l'ID envoyé par l'émetteur (data.conversationId) // --- [AJOUT N°8 : Ajouter le conversationId au destinataire] ---
 
       const incomingConversationId = data.conversationId;
       if (!incomingConversationId) {

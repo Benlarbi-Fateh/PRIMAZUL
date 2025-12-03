@@ -16,13 +16,6 @@ export default function CallModal({
 }) {
   const [callDuration, setCallDuration] = React.useState(0);
 
-  // ---zaina:  Ajouts minimes ---
-  // mode mini (PiP) en bas à droite
-  const [isMinimized, setIsMinimized] = React.useState(false);
-  // plein écran visuel (toggle local — n'oblige pas fullscreen API)
-  const [isLarge, setIsLarge] = React.useState(false);
-  // ----------------------
-
   // Timer pour l'appel
   React.useEffect(() => {
     let interval;
@@ -133,63 +126,7 @@ export default function CallModal({
     );
   }
 
-  // ---------- zaina: Si mode mini (PiP) ----------
-  if (isMinimized) {
-    return (
-      <div className="fixed bottom-4 right-4 z-[9999] pointer-events-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-3 overflow-hidden w-72">
-          <div className="relative w-full h-40 rounded-md overflow-hidden bg-black">
-            {isVideoCall ? (
-              // conteneur où Agora attache le remote video
-              <div
-                ref={remoteVideoRef}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                className="w-full h-full"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center mb-2">
-                  <Phone className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-sm">{formatDuration(callDuration)}</div>
-              </div>
-            )}
-
-            {/* Controls PiP */}
-            <div className="absolute top-2 right-2 flex gap-2">
-              <button
-                onClick={() => setIsMinimized(false)}
-                className="bg-white/90 p-1 rounded text-sm shadow"
-                aria-label="Restore"
-                title="Restaurer"
-              >
-                ⤢
-              </button>
-            </div>
-          </div>
-
-          {/* quick actions */}
-          <div className="flex items-center justify-between mt-2">
-            <button
-              onClick={() => {
-                onEnd(); /* raccrocher */
-              }}
-              className="py-1 px-3 bg-red-500 text-white rounded-full"
-              title="Raccrocher"
-            >
-              Raccrocher
-            </button>
-
-            <div className="text-xs opacity-80">
-              {callerName || "Utilisateur"}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ---------- Mode normal / overlay ----------
+  // 🔥 INTERFACE PRINCIPALE (calling, ringing, in-call)
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div
@@ -198,32 +135,7 @@ export default function CallModal({
             ? "w-full h-full"
             : "max-w-md w-full"
         } bg-white rounded-2xl p-8 text-center shadow-2xl relative`}
-        style={{
-          width: isLarge ? "95%" : undefined,
-          height: isLarge && isVideoCall ? "92vh" : undefined,
-          transition: "all 0.25s ease",
-          maxWidth: "1600px",
-        }}
       >
-        {/* --- boutons réduire / agrandir --- */}
-        <div className="absolute top-3 right-3 flex gap-2 z-30">
-          <button
-            onClick={() => setIsMinimized(true)}
-            className="p-1 rounded bg-gray-100 hover:bg-gray-200"
-            title="Réduire"
-          >
-            —
-          </button>
-
-          <button
-            onClick={() => setIsLarge((s) => !s)}
-            className="p-1 rounded bg-gray-100 hover:bg-gray-200"
-            title="Agrandir / Réduire"
-          >
-            {isLarge ? "🗕" : "🗗"}
-          </button>
-        </div>
-
         {/* En-tête */}
         <div
           className={`${
@@ -240,9 +152,7 @@ export default function CallModal({
           </h2>
           <p className="text-sm opacity-90">{callerName || "Utilisateur"}</p>
           {callStatus === "in-call" && (
-            <p className="text-lg font-mono z-50">
-              {formatDuration(callDuration)}
-            </p>
+            <p className="text-lg font-mono">{formatDuration(callDuration)}</p>
           )}
         </div>
 
@@ -254,33 +164,28 @@ export default function CallModal({
               : ""
           }`}
         >
-          {/* VIDEO EN APPEL */}
+          {/* 🔥 VIDÉO EN APPEL */}
           {isVideoCall && callStatus === "in-call" && (
             <>
-              <div
-                className="w-full h-full bg-black rounded-lg overflow-hidden"
-                style={{ height: isLarge ? "calc(92vh - 6rem)" : undefined }}
-              >
-                {/* remote video container : forcer 100% */}
+              {/* Vidéo distante */}
+              <div className="w-full h-full bg-black rounded-lg">
                 <div
                   ref={remoteVideoRef}
-                  className="w-full h-full"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  className="w-full h-full object-cover rounded-lg"
                 />
               </div>
 
-              {/* local video (mini) */}
-              <div className="absolute bottom-4 right-4 w-48 h-32 bg-black rounded-lg border-2 border-white shadow-lg overflow-hidden">
+              {/* Vidéo locale */}
+              <div className="absolute bottom-4 right-4 w-48 h-32 bg-black rounded-lg border-2 border-white shadow-lg">
                 <div
                   ref={localVideoRef}
-                  className="w-full h-full"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  className="w-full h-full object-cover rounded-lg"
                 />
               </div>
             </>
           )}
 
-          {/* AUDIO EN APPEL */}
+          {/* 🔥 AUDIO EN APPEL */}
           {!isVideoCall && callStatus === "in-call" && (
             <div className="py-8">
               <div className="w-32 h-32 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 mx-auto mb-6 flex items-center justify-center">
@@ -292,7 +197,7 @@ export default function CallModal({
             </div>
           )}
 
-          {/* INTERFACE D'ATTENTE */}
+          {/* 🔥 INTERFACE D'ATTENTE (calling ou ringing) */}
           {(callStatus === "ringing" || callStatus === "calling") && (
             <div className="py-8">
               <div className="w-32 h-32 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 mx-auto mb-6 flex items-center justify-center animate-pulse">
@@ -310,7 +215,7 @@ export default function CallModal({
           )}
         </div>
 
-        {/* BOUTONS */}
+        {/* 🔥 BOUTONS */}
         <div
           className={`flex justify-center gap-4 ${
             isVideoCall && callStatus === "in-call"
@@ -318,6 +223,7 @@ export default function CallModal({
               : "mt-6"
           }`}
         >
+          {/* Boutons pour appel entrant (ringing + isIncoming) */}
           {callStatus === "ringing" && isIncoming && (
             <>
               <button
@@ -335,6 +241,7 @@ export default function CallModal({
             </>
           )}
 
+          {/* Bouton annuler pour émetteur en attente */}
           {callStatus === "calling" && (
             <button
               onClick={onEnd}
@@ -344,6 +251,7 @@ export default function CallModal({
             </button>
           )}
 
+          {/* Bouton raccrocher pendant l'appel */}
           {callStatus === "in-call" && (
             <button
               onClick={onEnd}
