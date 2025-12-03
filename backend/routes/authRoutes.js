@@ -1,7 +1,7 @@
-const express = require('express');
-const { 
-  register, 
-  login, 
+const express = require("express");
+const {
+  register,
+  login,
   verifyRegistration,
   verifyLogin,
   resendCode,
@@ -9,12 +9,15 @@ const {
   verifyResetCode,
   resetPassword,
   finalizeRegistration,
-  searchUsers, 
-  getUsers 
-} = require('../controllers/authController');
-const { uploadProfilePicture, skipProfilePicture } = require('../controllers/uploadController');
-const authMiddleware = require('../middleware/authMiddleware');
-const upload = require('../middleware/upload');
+  searchUsers,
+  getUsers,
+} = require("../controllers/authController");
+const {
+  uploadProfilePicture,
+  skipProfilePicture,
+} = require("../controllers/uploadController");
+const authMiddleware = require("../middleware/authMiddleware");
+const upload = require("../middleware/upload");
 
 const router = express.Router();
 
@@ -26,7 +29,11 @@ router.post("/login", login); // Étape 1 : Vérifier credentials et envoyer cod
 router.post("/resend-code", resendCode); // Renvoyer un code
 
 // 🆕 ROUTES PHOTO DE PROFIL (après inscription)
-router.post("/upload-profile-picture", upload.single('profilePicture'), uploadProfilePicture);
+router.post(
+  "/upload-profile-picture",
+  upload.single("profilePicture"),
+  uploadProfilePicture
+);
 router.post("/skip-profile-picture", skipProfilePicture);
 router.post("/finalize-registration", finalizeRegistration); // Étape finale après photo
 

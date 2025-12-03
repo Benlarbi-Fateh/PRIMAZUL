@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useEffect, useContext, useRef } from 'react';
-import { initSocket } from '@/services/socket';
-import { AuthContext } from '@/context/AuthContext';
+import { useEffect, useContext, useRef } from "react";
+import { initSocket } from "@/services/socket";
+import { AuthContext } from "@/context/AuthContext";
 
 export const useSocket = () => {
   const { user } = useContext(AuthContext);
@@ -11,8 +11,8 @@ export const useSocket = () => {
   useEffect(() => {
     if (user && !isInitialized.current) {
       const userId = user._id || user.id;
-      console.log('🔌 Initialisation du socket pour user:', userId);
-      
+      console.log("🔌 Initialisation du socket pour user:", userId);
+
       // 🆕 initSocket gère maintenant tout automatiquement
       initSocket(userId);
       isInitialized.current = true;
@@ -21,7 +21,7 @@ export const useSocket = () => {
     // 🆕 Cleanup si l'utilisateur se déconnecte
     return () => {
       if (!user && isInitialized.current) {
-        console.log('🧹 User déconnecté, reset du socket');
+        console.log("🧹 User déconnecté, reset du socket");
         isInitialized.current = false;
       }
     };
