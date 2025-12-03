@@ -3,6 +3,7 @@ import ClientLayout from "./profile/ClientLayout";
 import { AuthProvider } from "@/context/AuthProvider";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { CallProvider } from "@/context/CallContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
 
 // ✅ Métadonnées sans viewport ni themeColor
@@ -25,11 +26,16 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="fr" className="h-full">
-      <body className="h-full m-0 p-0 antialiased">
+      <body
+        className="h-full m-0 p-0 antialiased"
+        suppressHydrationWarning={true}
+      >
         {/* Le layout client est rendu APRES hydration → aucun mismatch */}
         <ClientLayout>
           <ThemeProvider>
-            <NotificationsProvider>{children}</NotificationsProvider>
+            <NotificationsProvider>
+              <CallProvider>{children}</CallProvider>
+            </NotificationsProvider>
           </ThemeProvider>
         </ClientLayout>
       </body>

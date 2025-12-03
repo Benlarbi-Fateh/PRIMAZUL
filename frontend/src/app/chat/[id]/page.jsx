@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { isSameDay } from "date-fns";
 import { AuthContext } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
+import { useTheme } from "@/context/ThemeContext";
+import { CallContext } from "@/context/CallContext"; // ✅ IMPORT DU CONTEXTE D'APPEL
+
 import {
   getConversation,
   getMessages,
@@ -23,9 +26,9 @@ import {
   onUserTyping,
   onUserStoppedTyping,
   onMessageStatusUpdated,
-  onConversationStatusUpdated,
 } from "@/services/socket";
 import { useSocket } from "@/hooks/useSocket";
+
 import ProtectedRoute from "@/components/Auth/ProtectedRoute";
 import Sidebar from "@/components/Layout/Sidebar";
 import MobileHeader from "@/components/Layout/MobileHeader";
@@ -33,42 +36,40 @@ import ChatHeader from "@/components/Layout/ChatHeader";
 import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
 import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
-import { Plane, Users } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext";
 
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useContext(AuthContext);
-  const conversationId = params.id;
 
-  // === Thème global ===
+  // ✅ Récupération de la fonction d'appel globale
+  const { initiateCall } = useContext(CallContext);
+
+  const conversationId = params.id;
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  // ⬅️ AJOUT ICI
   const { playMessageSound } = useNotifications();
 
-  // Styles dépendants du thème
+  // --- GESTION DU MONTAGE (HYDRATION) ---
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // --- STYLES ---
   const pageBackgroundStyle = {
     background: isDark
-      ? "linear-gradient(135deg, #020617, #020617, #0b1120)" // sombre
-      : "linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)", // clair
+      ? "linear-gradient(135deg, #020617, #020617, #0b1120)"
+      : "linear-gradient(135deg, #dbeafe, #ffffff, #ecfeff)",
   };
-
   const messagesBackgroundStyle = {
     background: isDark
       ? "linear-gradient(to bottom, #020617, rgba(30,64,175,0.35), rgba(8,47,73,0.45))"
       : "linear-gradient(to bottom, #ffffff, rgba(219,234,254,0.3), rgba(236,254,255,0.3))",
   };
-
-  const loadingTextClass = isDark ? "text-sky-100" : "text-blue-800";
-
-  const emptyTitleClass = isDark ? "text-slate-50" : "text-slate-800";
-
-  const emptyTextClass = isDark ? "text-slate-300" : "text-slate-600";
-
   const rootTextClass = isDark ? "text-slate-50" : "text-slate-900";
 
+  // --- ÉTATS DU CHAT ---
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +81,38 @@ export default function ChatPage() {
 
   useSocket();
 
+  // --- UTILITAIRES ---
+  const getOtherParticipant = () => {
+    if (!conversation || !user) return null;
+    const userId = user._id || user.id;
+    return conversation.participants?.find((p) => p._id !== userId);
+  };
+  const contact = getOtherParticipant();
+
+  // ============================================================
+  // 📞 HANDLERS POUR LANCER L'APPEL (VIA CONTEXTE)
+  // ============================================================
+  const handleVideoCall = () => {
+    if (contact) {
+      initiateCall(conversationId, contact._id, "video");
+    } else {
+      alert("Impossible d'appeler : contact introuvable.");
+    }
+  };
+
+  const handleAudioCall = () => {
+    if (contact) {
+      initiateCall(conversationId, contact._id, "audio");
+    } else {
+      alert("Impossible d'appeler : contact introuvable.");
+    }
+  };
+
+  // ============================================================
+  // 💬 LOGIQUE CHAT COMPLETE (JOIN, LOAD, MESSAGES, TYPING...)
+  // ============================================================
+
+  // 1. Rejoindre/Quitter la room Socket
   useEffect(() => {
     return () => {
       if (conversationId) {
@@ -88,6 +121,7 @@ export default function ChatPage() {
     };
   }, [conversationId]);
 
+  // 2. Chargement initial (Conversation + Messages + Read Status)
   useEffect(() => {
     if (!conversationId || !user) return;
 
@@ -109,6 +143,7 @@ export default function ChatPage() {
           joinConversation(conversationId);
         }
 
+        // Marquer comme lu
         setTimeout(async () => {
           if (isMarkingAsReadRef.current) return;
           isMarkingAsReadRef.current = true;
@@ -146,15 +181,16 @@ export default function ChatPage() {
     };
   }, [conversationId, user]);
 
+  // 3. Écouteurs Socket en temps réel (Messages, Typing, Status)
   useEffect(() => {
     const socket = getSocket();
 
     if (socket && conversationId && user) {
+      // Réception message
       onReceiveMessage((message) => {
         const currentUserId = user._id || user.id;
         const isFromMe = message.sender._id === currentUserId;
 
-        // 🔊 jouer le son pour les messages reçus d'un autre utilisateur
         if (!isFromMe) {
           playMessageSound();
         }
@@ -174,6 +210,7 @@ export default function ChatPage() {
         }
       });
 
+      // Mise à jour statut (envoyé/lu)
       onMessageStatusUpdated(({ messageIds, status }) => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
@@ -182,15 +219,7 @@ export default function ChatPage() {
         );
       });
 
-      onConversationStatusUpdated(
-        ({ conversationId: updatedConvId, status }) => {
-          console.log("📊 Statut conversation mis à jour:", {
-            conversationId: updatedConvId,
-            status,
-          });
-        }
-      );
-
+      // Typing Started
       onUserTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
@@ -203,6 +232,7 @@ export default function ChatPage() {
         }
       });
 
+      // Typing Stopped
       onUserStoppedTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
@@ -210,16 +240,19 @@ export default function ChatPage() {
         }
       });
     }
-  }, [conversationId, user, playMessageSound]); // ⬅️ playMessageSound ajouté ici
+  }, [conversationId, user, playMessageSound]);
 
+  // 4. Scroll automatique vers le bas
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
 
+  // 5. Envoi de message (Texte / Audio / Fichier)
   const handleSendMessage = async (content) => {
     try {
       let messageData;
 
+      // Cas Audio
       if (typeof content === "object" && content.isVoiceMessage) {
         const formData = new FormData();
         formData.append("audio", content.audioBlob, "voice-message.webm");
@@ -232,6 +265,7 @@ export default function ChatPage() {
         return;
       }
 
+      // Cas Fichier
       if (typeof content === "object") {
         messageData = {
           conversationId,
@@ -242,6 +276,7 @@ export default function ChatPage() {
           content: content.content || "",
         };
       } else {
+        // Cas Texte
         messageData = {
           conversationId,
           content: content.trim(),
@@ -261,6 +296,7 @@ export default function ChatPage() {
     }
   };
 
+  // 6. Gestion Typing
   const handleTyping = () => {
     if (!user) return;
     const userId = user._id || user.id;
@@ -279,163 +315,77 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
-  const getOtherParticipant = () => {
-    if (!conversation || !user) return null;
-    const userId = user._id || user.id;
-    return conversation.participants?.find((p) => p._id !== userId);
-  };
+  // ============================================================
+  // 🖥️ RENDU
+  // ============================================================
 
-  const contact = getOtherParticipant();
-
-  // ÉTAT : chargement
   if (loading) {
     return (
       <ProtectedRoute>
         <div
           className="flex h-screen items-center justify-center"
-          style={pageBackgroundStyle}
+          style={mounted ? pageBackgroundStyle : undefined}
         >
-          <div className="text-center animate-fade-in">
-            <div className="relative inline-block">
-              <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200/40 border-t-blue-600 shadow-xl" />
-              <Plane className="w-10 h-10 text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-45 animate-pulse" />
-            </div>
-            <p className={`mt-6 font-bold text-lg ${loadingTextClass}`}>
-              Chargement de la conversation...
-            </p>
-            <div className="flex gap-2 justify-center mt-3">
-              <span
-                className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                style={{ animationDelay: "0s" }}
-              />
-              <span
-                className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                style={{ animationDelay: "0.2s" }}
-              />
-              <span
-                className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"
-                style={{ animationDelay: "0.4s" }}
-              />
-            </div>
-          </div>
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-500" />
         </div>
       </ProtectedRoute>
     );
   }
 
-  // ÉTAT : conversation introuvable
   if (!conversation || (!conversation.isGroup && !contact)) {
     return (
       <ProtectedRoute>
         <div
           className="flex h-screen items-center justify-center"
-          style={pageBackgroundStyle}
+          style={mounted ? pageBackgroundStyle : undefined}
         >
-          <div className="text-center max-w-md animate-fade-in">
-            <div
-              className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"
-              style={{
-                background: isDark
-                  ? "linear-gradient(135deg, #450a0a, #b91c1c)"
-                  : "linear-gradient(135deg, #fecaca, #fca5a5)",
-              }}
-            >
-              <Plane className="w-12 h-12 text-rose-500 -rotate-45" />
-            </div>
-            <h2 className={`text-2xl font-bold mb-3 ${emptyTitleClass}`}>
-              Conversation introuvable
-            </h2>
-            <p className={`mb-8 leading-relaxed ${emptyTextClass}`}>
-              Cette conversation n&apos;existe pas ou a été supprimée
-            </p>
-            <button
-              onClick={() => router.push("/")}
-              className="px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
-              style={{
-                background: "linear-gradient(to right, #2563eb, #06b6d4)",
-              }}
-            >
-              Retour à l&apos;accueil
-            </button>
-          </div>
+          <div className="text-center">Conversation introuvable</div>
         </div>
       </ProtectedRoute>
     );
   }
 
-  // RENDU NORMAL
   return (
     <ProtectedRoute>
       <div
         className={`flex h-screen ${rootTextClass}`}
-        style={pageBackgroundStyle}
+        style={mounted ? pageBackgroundStyle : undefined}
       >
         <div className="hidden lg:block">
           <Sidebar activeConversationId={conversationId} />
         </div>
 
         <div className="flex-1 flex flex-col">
+          {/* HEADER MOBILE */}
           <div className="lg:hidden">
             <MobileHeader
               contact={contact}
               conversation={conversation}
               onBack={() => router.push("/")}
+              onVideoCall={handleVideoCall} // ✅ Fonction du contexte
+              onAudioCall={handleAudioCall} // ✅ Fonction du contexte
             />
           </div>
 
+          {/* HEADER DESKTOP */}
           <div className="hidden lg:block">
             <ChatHeader
               contact={contact}
               conversation={conversation}
               onBack={() => router.push("/")}
+              onVideoCall={handleVideoCall} // ✅ Fonction du contexte
+              onAudioCall={handleAudioCall} // ✅ Fonction du contexte
             />
           </div>
 
-          {/* Zone des messages */}
+          {/* LISTE DES MESSAGES */}
           <div
             className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            style={messagesBackgroundStyle}
+            style={mounted ? messagesBackgroundStyle : undefined}
           >
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-full animate-fade-in">
-                <div className="text-center max-w-sm">
-                  <div
-                    className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl border-2 border-blue-200"
-                    style={{
-                      background: isDark
-                        ? "linear-gradient(135deg, #020617, #1d4ed8)"
-                        : "linear-gradient(135deg, #ffffff, #dbeafe)",
-                    }}
-                  >
-                    {conversation.isGroup ? (
-                      <Users
-                        className={
-                          "w-12 h-12 " +
-                          (isDark ? "text-purple-300" : "text-purple-600")
-                        }
-                      />
-                    ) : (
-                      <Plane
-                        className={
-                          "w-12 h-12 -rotate-45 " +
-                          (isDark ? "text-sky-300" : "text-blue-600")
-                        }
-                      />
-                    )}
-                  </div>
-                  <p className={`font-bold text-lg mb-2 ${emptyTitleClass}`}>
-                    Aucun message pour l&apos;instant
-                  </p>
-                  <p className={`text-sm leading-relaxed ${emptyTextClass}`}>
-                    {conversation.isGroup
-                      ? `Commencez la discussion dans ${
-                          conversation.groupName || "ce groupe"
-                        }`
-                      : `Envoyez votre premier message à ${
-                          contact?.name || "cet utilisateur"
-                        }`}
-                  </p>
-                </div>
+              <div className="flex items-center justify-center h-full">
+                <p>Aucun message pour l'instant</p>
               </div>
             ) : (
               <>
@@ -475,6 +425,7 @@ export default function ChatPage() {
             )}
           </div>
 
+          {/* INPUT */}
           <MessageInput
             onSendMessage={handleSendMessage}
             onTyping={handleTyping}

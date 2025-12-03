@@ -3,22 +3,20 @@
 import { useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AuthContext } from "@/context/AuthContext";
-import {
-  onOnlineUsersUpdate,
-  requestOnlineUsers,
-} from "@/services/socket";
-import {
-  ArrowLeft,
-  Phone,
-  Video,
-  Users,
-  Info,
-} from "lucide-react";
+import { onOnlineUsersUpdate, requestOnlineUsers } from "@/services/socket";
+import { ArrowLeft, Phone, Video, Users, Info } from "lucide-react";
 import { formatMessageDate } from "@/utils/dateFormatter";
 import Image from "next/image";
 import { useTheme } from "@/context/ThemeContext";
 
-export default function MobileHeader({ contact, conversation, onBack }) {
+// ✅ 1. AJOUT DE onAudioCall DANS LES PROPS
+export default function MobileHeader({
+  contact,
+  conversation,
+  onBack,
+  onVideoCall,
+  onAudioCall,
+}) {
   const { user } = useContext(AuthContext);
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
@@ -131,8 +129,7 @@ export default function MobileHeader({ contact, conversation, onBack }) {
   const participantsCount = isGroup
     ? conversation?.participants?.length || 0
     : null;
-  const contactIsOnline =
-    !isGroup && contact?._id && isUserOnline(contact._id);
+  const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
 
   return (
     <div className={headerBgClass}>
@@ -211,13 +208,18 @@ export default function MobileHeader({ contact, conversation, onBack }) {
         <div className="flex items-center gap-1 shrink-0">
           {!isGroup && (
             <>
+              {/* ✅ 2. AJOUT DU onClick POUR AUDIO */}
               <button
+                onClick={onAudioCall}
                 className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
                 title="Appel audio"
               >
                 <Phone className="w-4 h-4" />
               </button>
+
+              {/* ✅ BOUTON VIDÉO */}
               <button
+                onClick={onVideoCall}
                 className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
                 title="Appel vidéo"
               >

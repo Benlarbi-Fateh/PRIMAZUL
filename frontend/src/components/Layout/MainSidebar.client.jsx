@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { MessageCircle, Users, Settings, LogOut } from "lucide-react";
-import { useContext } from "react";
+import { useContext, useState, useEffect } from "react"; // ✅ Ajout useState, useEffect
 import { AuthContext } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -10,6 +10,14 @@ export default function MainSidebar() {
   const router = useRouter();
   const { user, logout } = useContext(AuthContext);
   const { theme } = useTheme();
+
+  // ✅ CORRECTION HYDRATION : État pour savoir si on est sur le client
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const isDark = theme === "dark";
 
   const sidebarClass =
@@ -28,7 +36,8 @@ export default function MainSidebar() {
       ? "text-rose-400 hover:bg-rose-500/10"
       : "text-red-500 hover:bg-red-100");
 
-  if (!user) return null;
+  // ✅ CORRECTION : Si pas monté ou pas de user, on ne rend rien pour éviter l'erreur
+  if (!mounted || !user) return null;
 
   const menuItems = [
     {
@@ -39,7 +48,7 @@ export default function MainSidebar() {
     {
       label: "groupe",
       icon: <Users className="w-6 h-6" />,
-      href: "/chat/[user.id]",
+      href: "/chat/[user.id]", // Vérifie que c'est le bon lien pour tes groupes
     },
     {
       label: "Paramètres",
