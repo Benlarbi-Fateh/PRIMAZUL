@@ -35,11 +35,7 @@ export default function LoginPage() {
 
     try {
       const response = await api.post('/auth/login', { email, password });
-<<<<<<< HEAD
-
-=======
       
->>>>>>> d7b2651abdf5ff4b9b346ac8afc789f56540d4fd
       // 🆕 GÉRER LES DEUX CAS : 2FA requis ou connexion directe
       if (response.data.requiresVerification) {
         // 🔐 2FA requis (inactivité > 24h)

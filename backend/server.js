@@ -4,12 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const connectDB = require('./config/db');
-<<<<<<< HEAD
-
-
-=======
 const userRoutes = require("./routes/userRoutes")
->>>>>>> d7b2651abdf5ff4b9b346ac8afc789f56540d4fd
 const app = express();
 const server = http.createServer(app);
 
@@ -64,6 +59,7 @@ const audioRoutes = require('./routes/audioRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const invitationRoutes = require('./routes/invitationRoutes');
 const contactRoutes = require('./routes/contactRoutes');
+const statusRoutes = require('./routes/statusRoutes');
 
 // 🆕 NOUVELLE ROUTE PROFILE
 const profileRoutes = require('./routes/profileRoutes');
@@ -81,6 +77,8 @@ app.use('/api/contacts', contactRoutes);
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use('/api/profile', profileRoutes);
 
+app.use('/api/status', statusRoutes);
+
 // 🆕 ROUTE DE SANTÉ
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -90,8 +88,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-<<<<<<< HEAD
-=======
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
@@ -112,7 +108,6 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: error.message });
 });
 
->>>>>>> d7b2651abdf5ff4b9b346ac8afc789f56540d4fd
 // ============================================
 // 🔥 CONFIGURATION SOCKET.IO
 // ============================================

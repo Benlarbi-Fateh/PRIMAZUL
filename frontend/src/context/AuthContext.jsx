@@ -1,26 +1,5 @@
 'use client';
 
-<<<<<<< HEAD
-import { createContext, useState, useEffect } from 'react';
-
-export const AuthContext = createContext();
-
-export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-
-  useEffect(() => {
-    // Exemple : récupérer le user depuis localStorage
-    const user = localStorage.getItem('user');
-    if (user) setCurrentUser(JSON.parse(user));
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ currentUser, setCurrentUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-=======
 import { createContext, useState, useEffect, useContext } from "react";
 import api from "../lib/api";
 
@@ -63,4 +42,3 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
->>>>>>> d7b2651abdf5ff4b9b346ac8afc789f56540d4fd
