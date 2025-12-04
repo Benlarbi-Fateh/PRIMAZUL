@@ -14,7 +14,7 @@ const {
   updateLastLogin,
   requestPasswordChangeOTP,
   verifyAndChangePassword, // 🆕 AJOUTER CET IMPORT
-} = require("../controllers/authcontroller");
+} = require("../controllers/authController");
 const {
   uploadProfilePicture,
   skipProfilePicture,
