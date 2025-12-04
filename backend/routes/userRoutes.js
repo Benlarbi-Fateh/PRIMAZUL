@@ -3,7 +3,7 @@ const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload");
-const userController = require("../Controllers/userController");
+const userController = require("../controllers/userController");
 
 const User = require("../models/User");
 const {
