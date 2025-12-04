@@ -6,6 +6,11 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 // const userRoutes = require("./routes/userRoutes"); // Tu l'importes plus bas, inutile ici
 
+const allowedOrigins = [
+  "http://localhost:3000", // Pour tes tests locaux
+  "https://primazul-l5tgv6k4u-benlarbi-fatehs-projects.vercel.app", // ⚠️ REMPLACE PAR TON VRAI DOMAINE VERCEL
+  "https://primazul.vercel.app", // Autre variante possible
+];
 const app = express();
 const server = http.createServer(app);
 
@@ -15,7 +20,11 @@ const server = http.createServer(app);
 // ✅ 1. CORS Configuration (DOIT ÊTRE EN PREMIER)
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://192.168.1.7:3000"],
+    origin: [
+      "http://localhost:3000",
+      "http://192.168.1.7:3000",
+      ...allowedOrigins,
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Ajout de OPTIONS pour les preflight requests
     allowedHeaders: ["Content-Type", "Authorization"], // Important pour le header Authorization
@@ -37,7 +46,11 @@ app.use((req, res, next) => {
 // ✅ Socket.IO Configuration
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.1.7:3000"],
+    origin: [
+      "http://localhost:3000",
+      "http://192.168.1.7:3000",
+      ...allowedOrigins,
+    ],
     methods: ["GET", "POST"],
   },
   pingTimeout: 60000,
