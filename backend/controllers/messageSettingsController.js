@@ -229,8 +229,8 @@ exports.unblockUser = async (req, res) => {
  */
 exports.checkIfBlocked = async (req, res) => {
   try {
-    const userId = req.user.id; // CHANGÉ: .id
-    const { targetUserId } = req.query;
+    const userId = req.user._id;
+    const targetUserId = req.params.targetUserId || req.query.targetUserId;
 
     console.log('🔍 checkIfBlocked appelé:', { userId, targetUserId });
 
@@ -241,14 +241,18 @@ exports.checkIfBlocked = async (req, res) => {
       });
     }
 
-    // ✅ UTILISEZ LA MÉTHODE DU MODÈLE
-    const blockStatus = await BlockedUser.getBlockStatus(userId, targetUserId);
+    const blockStatus = await BlockedUser.getBlockStatus(
+      userId.toString(), 
+      targetUserId
+    );
 
     console.log('✅ Résultat checkIfBlocked:', blockStatus);
 
     return res.json({
       success: true,
-      ...blockStatus
+      iBlocked: blockStatus.iBlocked,
+      blockedMe: blockStatus.blockedMe,
+      isBlocked: blockStatus.isBlocked
     });
   } catch (err) {
     console.error('❌ checkIfBlocked error:', err);

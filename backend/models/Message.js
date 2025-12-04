@@ -19,6 +19,18 @@ const messageSchema = new mongoose.Schema({
   voiceDuration: { type: Number, default: 0 }, // Durée en secondes
   cloudinaryId: { type: String, default: '' }, // Pour pouvoir supprimer le fichier si besoin
  
+
+  // 🆕 CHAMPS POUR LA MODIFICATION
+  isEdited: { type: Boolean, default: false },
+  editedAt: { type: Date, default: null },
+  
+  // 🆕 CHAMPS POUR LA TRADUCTION (optionnel)
+  translations: [{
+    lang: String,
+    content: String,
+    translatedAt: { type: Date, default: Date.now }
+  }],
+  
   status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' }
 }, { timestamps: true });
 

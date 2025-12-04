@@ -5,6 +5,23 @@ let socket = null;
 let currentUserId = null;
 let onlineUsersCache = [];
 let onlineUsersCallbacks = [];
+//ghiles
+let onUpdateMessageCallback = null;
+
+// Fonction pour que le composant React puisse s'abonner aux messages mis à jour
+// socket.js
+export const onUpdateMessage = (callback) => {
+  if (socket) {
+    socket.off("update-message"); // évite les doublons
+    socket.on("update-message", (updatedMessage) => {
+      console.log("📡 Message mis à jour reçu:", updatedMessage);
+      callback(updatedMessage);
+    });
+    // Retourner une fonction pour se désabonner si besoin
+    return () => socket.off("update-message");
+  }
+};
+
 
 export const initSocket = (userId) => {
   if (typeof window === 'undefined') {
@@ -71,6 +88,15 @@ export const initSocket = (userId) => {
   socket.on('disconnect', (reason) => {
     console.log('⚠️ Socket déconnecté:', reason);
   });
+
+  socket.on("update-message", (updatedMessage) => {
+  if (onUpdateMessageCallback) {
+    onUpdateMessageCallback(updatedMessage);
+  }
+});
+
+
+
 
   return socket;
 };

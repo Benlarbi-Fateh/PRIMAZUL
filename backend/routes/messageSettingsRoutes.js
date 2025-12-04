@@ -15,7 +15,7 @@ router.post('/unblock', auth, ctrl.unblockUser);
 router.get('/blocked', auth, ctrl.getBlockedUsers);
 
 // ✅ ROUTE CRITIQUE POUR VÉRIFIER LE BLOCAGE
-router.get('/check-blocked', auth, ctrl.checkIfBlocked);
+router.get('/check-blocked/:targetUserId', auth, ctrl.checkIfBlocked);
 
 // Conversation operations
 router.delete('/conversations/:id/delete', auth, ctrl.deleteConversationForUser);

@@ -1,12 +1,22 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles } from 'lucide-react';
+import { Send, Smile, Paperclip, Mic, X, Loader2, Sparkles, Check ,Lock, Shield} from 'lucide-react';
 import api from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
 import useBlockCheck from '../../hooks/useBlockCheck';
 
-export default function MessageInput({ onSendMessage, onTyping, onStopTyping, contactId }) {
+export default function MessageInput({ 
+  onSendMessage, 
+  onTyping, 
+  onStopTyping,
+  // 🆕 Props pour le mode édition
+  editingMessageId,
+  editingContent,
+  onConfirmEdit,
+  onCancelEdit,
+  contactId 
+}) {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -18,9 +28,16 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping, co
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
-  const { isBlocked, blockStatus } = useBlockCheck(contactId);
+const { isBlocked, blockStatus, loading: blockLoading } = useBlockCheck(contactId);
 
-  // Détection mobile
+  // 🆕 Synchroniser avec le contenu en édition
+  useEffect(() => {
+    if (editingMessageId && editingContent) {
+      setMessage(editingContent);
+      textareaRef.current?.focus();
+    }
+  }, [editingMessageId, editingContent]);
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -40,61 +57,60 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping, co
   }, [message, isMobile]);
 
 const checkBlockStatus = () => {
-  const safeIsBlocked = isBlocked || false;
-  const safeBlockStatus = blockStatus || { iBlocked: false, blockedMe: false, isBlocked: false };
-  
-  console.log('🔍 Vérification blocage MessageInput:', { 
-    isBlocked: safeIsBlocked, 
-    blockStatus: safeBlockStatus,
-    contactId 
-  });
-  
-  if (safeIsBlocked) {
-    const message = (safeBlockStatus.blockedMe || false)
+  if (isBlocked) {
+    alert(blockStatus?.blockedMe 
       ? '❌ Vous êtes bloqué par cet utilisateur' 
-      : '🚫 Vous avez bloqué cet utilisateur';
-    alert(message);
+      : '🚫 Vous avez bloqué cet utilisateur'
+    );
     return true;
   }
   return false;
 };
 const handleSendMessage = async (messageContent) => {
-  // Vérification finale avant envoi
-  if (checkBlockStatus()) {
-    console.log('🚫 Message bloqué - utilisateur bloqué');
+  if (isBlocked) {
+    alert(blockStatus?.blockedMe 
+      ? '❌ Vous êtes bloqué par cet utilisateur' 
+      : '🚫 Vous avez bloqué cet utilisateur'
+    );
     return;
   }
   
   try {
     await onSendMessage(messageContent);
   } catch (error) {
+    console.error('❌ Erreur envoi:', error);
+    
     if (error.response?.status === 403 || error.response?.data?.blocked) {
-      // Re-vérifier le statut de blocage
-      window.dispatchEvent(new CustomEvent('block-status-changed'));
       alert('❌ Message non envoyé - Utilisateur bloqué');
-    } else {
-      console.error('Erreur envoi message:', error);
-      alert('Erreur lors de l\'envoi du message');
+      window.dispatchEvent(new CustomEvent('block-status-changed'));
+      return;
     }
+    
+    alert('Erreur lors de l\'envoi du message');
   }
 };
 
   const handleChange = (e) => {
-      if (isBlocked) return;
+  if (isBlocked) {
+    e.preventDefault();
+    return;
+  }
   
   const value = e.target.value;
   setMessage(value);
     
-    if (onTyping) onTyping();
+  if (!editingMessageId && onTyping) {
+    onTyping();
+  }
 
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
+  if (typingTimeoutRef.current) {
+    clearTimeout(typingTimeoutRef.current);
+  }
 
-    typingTimeoutRef.current = setTimeout(() => {
-      if (onStopTyping) onStopTyping();
-    }, 2000);
-  };
+  typingTimeoutRef.current = setTimeout(() => {
+    if (onStopTyping) onStopTyping();
+  }, 2000);
+};
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -103,8 +119,15 @@ const handleSendMessage = async (messageContent) => {
   if (!message.trim() && !uploading) return;
     
 
-    handleSendMessage(message.trim()); 
-    setMessage('');
+    // 🆕 Si en mode édition, confirmer la modification
+    if (editingMessageId) {
+      onConfirmEdit(message.trim());
+      setMessage('');
+    } else {
+      // Sinon, envoyer un nouveau message
+      onSendMessage(message.trim());
+      setMessage('');
+    }
     
     if (onStopTyping) onStopTyping();
     
@@ -117,6 +140,19 @@ const handleSendMessage = async (messageContent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+    }
+    
+    // 🆕 Échapper pour annuler l'édition
+    if (e.key === 'Escape' && editingMessageId) {
+      handleCancelEdit();
+    }
+  };
+
+  // 🆕 Annuler l'édition
+  const handleCancelEdit = () => {
+    setMessage('');
+    if (onCancelEdit) {
+      onCancelEdit();
     }
   };
 
@@ -197,28 +233,73 @@ const handleSendMessage = async (messageContent) => {
 
   const frequentEmojis = ['😊', '😂', '❤️', '👍', '🙏', '🔥', '✨', '💯', '🎉', '👏'];
 
-const safeIsBlocked = isBlocked || false;
-const safeBlockStatus = blockStatus || { iBlocked: false, blockedMe: false, isBlocked: false };
-if (safeIsBlocked) {
+if (isBlocked) {
   return (
-    <div className="bg-red-50 border-t border-red-200 p-6 text-center">
-      <div className="flex flex-col items-center justify-center gap-3">
-        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-          <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-          </svg>
+    <div className="bg-gradient-to-r from-red-500 via-red-600 to-orange-500 text-white shadow-2xl relative overflow-hidden">
+      {/* Effet de fond animé */}
+      <div className="absolute inset-0 bg-black/10 backdrop-blur-sm"></div>
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-300 via-red-300 to-orange-300 animate-pulse"></div>
+      
+      {/* Contenu responsive */}
+      <div className="relative px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2 sm:gap-3">
+        {/* Icône */}
+        <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center animate-pulse">
+          {(blockStatus?.blockedMe || false) ? (
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          )}
         </div>
-        <div>
-          <h3 className="text-lg font-bold text-red-800 mb-1">
-            {(safeBlockStatus.blockedMe || false)
-              ? '❌ Vous êtes bloqué' 
-              : '🚫 Vous avez bloqué cet utilisateur'
+        
+        {/* Texte */}
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm sm:text-base truncate">
+            {(blockStatus?.blockedMe || false) ? (
+              '🚫 Vous êtes bloqué'
+            ) : (
+              '🛡️ Utilisateur bloqué'
+            )}
+          </div>
+          <div className="text-xs sm:text-sm text-white/90 truncate">
+            {(blockStatus?.blockedMe || false)
+              ? 'Impossible d\'envoyer des messages' 
+              : 'Vous avez bloqué cet utilisateur'
             }
-          </h3>
-          <p className="text-red-600 text-sm">
-            Vous ne pouvez pas envoyer de messages
-          </p>
+          </div>
         </div>
+        
+        {/* Bouton Débloquer - uniquement si c'est VOUS qui avez bloqué */}
+        {(blockStatus?.iBlocked || false) && !(blockStatus?.blockedMe || false) && (
+          <button
+            onClick={async () => {
+              if (!window.confirm('Voulez-vous débloquer cet utilisateur ?')) return;
+              
+              try {
+                const response = await api.post('/message-settings/unblock', { 
+                  targetUserId: contactId 
+                });
+                
+                const data = response.data;
+                
+                if (data.success) {
+                  window.dispatchEvent(new CustomEvent('block-status-changed'));
+                  alert('✅ Utilisateur débloqué');
+                  window.location.reload(); // Rafraîchir la page
+                }
+              } catch (error) {
+                console.error('Erreur déblocage:', error);
+                alert('❌ Erreur lors du déblocage');
+              }
+            }}
+            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white text-red-600 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-red-50 transition-all transform hover:scale-105 shadow-lg whitespace-nowrap"
+          >
+            Débloquer
+          </button>
+        )}
       </div>
     </div>
   );
@@ -235,7 +316,39 @@ if (safeIsBlocked) {
 
   return (
     <div className="bg-white/95 backdrop-blur-xl border-t-2 border-blue-100 shadow-2xl safe-area-padding-bottom">
-      {showEmojiPicker && (
+      {/* 🆕 BARRE D'INDICATION MODE ÉDITION */}
+      {editingMessageId && (
+        <div 
+          className="border-b-2 border-blue-200 px-3 sm:px-4 py-2 sm:py-3 animate-slide-in-left"
+          style={{
+            background: 'linear-gradient(to right, #dbeafe, #ecfeff)'
+          }}
+        >
+          <div className="flex items-center justify-between max-w-6xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-1 h-6 sm:h-8 bg-gradient-to-b from-blue-600 to-cyan-500 rounded-full"></div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-blue-700 flex items-center gap-1 sm:gap-2">
+                  ✏️ <span>Modification en cours</span>
+                </p>
+                <p className="text-xs text-blue-600 hidden xs:block">
+                  <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-blue-700 font-mono text-xs">Enter</kbd> pour confirmer · 
+                  <kbd className="px-1.5 py-0.5 bg-blue-200 rounded text-blue-700 font-mono text-xs ml-1">Esc</kbd> pour annuler
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancelEdit}
+              className="p-1 sm:p-2 hover:bg-blue-200 rounded-full transition-all transform hover:scale-110 active:scale-95"
+              title="Annuler (Esc)"
+            >
+              <X size={18} className="text-blue-600" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showEmojiPicker && !editingMessageId && (
         <div 
           className="border-b-2 border-blue-100 p-3 sm:p-4 animate-slide-in-left"
           style={{
@@ -273,47 +386,53 @@ if (safeIsBlocked) {
       <form onSubmit={handleSubmit} className="p-2 sm:p-3 md:p-4">
         <div 
           className={`flex items-end gap-2 sm:gap-3 rounded-2xl sm:rounded-3xl p-3 sm:p-4 transition-all ${
-            isFocused ? 'ring-2 sm:ring-4 ring-blue-300 shadow-lg sm:shadow-xl transform scale-[1.01]' : 'shadow-md'
+            editingMessageId 
+              ? 'ring-2 sm:ring-4 ring-blue-400 shadow-xl transform scale-[1.02]'
+              : isFocused 
+                ? 'ring-2 sm:ring-4 ring-blue-300 shadow-lg sm:shadow-xl transform scale-[1.01]' 
+                : 'shadow-md'
           }`}
           style={{
-            background: 'linear-gradient(to right, #dbeafe, #ecfeff)'
+            background: editingMessageId 
+              ? 'linear-gradient(to right, #dbeafe, #bfdbfe)' 
+              : 'linear-gradient(to right, #dbeafe, #ecfeff)'
           }}
         >
           
-          {/* Boutons d'actions - cachés sur mobile très petit */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
-                showEmojiPicker 
-                  ? 'text-blue-600 bg-blue-200 shadow-md' 
-                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
-              }`}
-              title="Ajouter un emoji"
-              disabled={uploading}
-            >
-              <Smile className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-            </button>
+          {/* 🆕 MASQUER EMOJI ET FICHIERS EN MODE ÉDITION */}
+          {!editingMessageId && (
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
+                  showEmojiPicker 
+                    ? 'text-blue-600 bg-blue-200 shadow-md' 
+                    : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
+                }`}
+                disabled={uploading}
+              >
+                <Smile className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+              </button>
 
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
-                uploading 
-                  ? 'text-blue-400 cursor-not-allowed bg-blue-100' 
-                  : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
-              }`}
-              title="Joindre un fichier"
-            >
-              {uploading ? (
-                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 animate-spin" />
-              ) : (
-                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-              )}
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className={`shrink-0 p-2 sm:p-3 rounded-xl sm:rounded-2xl transition-all transform hover:scale-110 active:scale-95 ${
+                  uploading 
+                    ? 'text-blue-400 cursor-not-allowed bg-blue-100' 
+                    : 'text-blue-500 hover:text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                {uploading ? (
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 animate-spin" />
+                ) : (
+                  <Paperclip className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                )}
+              </button>
+            </div>
+          )}
           
           <input
             ref={fileInputRef}
@@ -324,7 +443,6 @@ if (safeIsBlocked) {
             disabled={uploading}
           />
 
-          {/* Zone de texte */}
           <div className="flex-1 relative min-w-0">
             <textarea
               ref={textareaRef}
@@ -333,8 +451,16 @@ if (safeIsBlocked) {
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={uploading ? "Upload en cours..." : "Écrivez votre message..."}
-              className="w-full bg-white/80 backdrop-blur-sm px-3 sm:px-4 py-2 sm:py-3 text-slate-800 placeholder-blue-400 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent disabled:opacity-50 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-blue-300 font-medium text-sm sm:text-base"
+              placeholder={
+                editingMessageId 
+                  ? "Modifier le message..." 
+                  : uploading 
+                    ? "Upload en cours..." 
+                    : "Écrivez votre message..."
+              }
+              className={`w-full bg-white/80 backdrop-blur-sm px-3 sm:px-4 py-2 sm:py-3 text-slate-800 placeholder-blue-400 focus:outline-none resize-none scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent disabled:opacity-50 rounded-xl sm:rounded-2xl border-2 border-transparent focus:border-blue-300 font-medium text-sm sm:text-base ${
+                editingMessageId ? 'font-semibold border-blue-400' : ''
+              }`}
               rows="1"
               style={{ 
                 maxHeight: isMobile ? '80px' : '120px',
@@ -350,7 +476,6 @@ if (safeIsBlocked) {
             )}
           </div>
 
-          {/* Bouton d'envoi ou vocal */}
           <div className="flex items-center gap-1 sm:gap-2">
             {message.trim() || uploading ? (
               <button
@@ -361,23 +486,26 @@ if (safeIsBlocked) {
                     ? 'bg-blue-400 cursor-not-allowed' 
                     : 'text-white'
                 }`}
-                title={uploading ? "Upload en cours..." : "Envoyer"}
+                title={uploading ? "Upload en cours..." : editingMessageId ? "Confirmer" : "Envoyer"}
                 style={!uploading ? {
-                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8, #06b6d4)'
+                  background: editingMessageId 
+                    ? 'linear-gradient(135deg, #10b981, #059669)' 
+                    : 'linear-gradient(135deg, #2563eb, #1d4ed8, #06b6d4)'
                 } : {}}
               >
                 {uploading ? (
                   <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                ) : editingMessageId ? (
+                  <Check className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                 ) : (
                   <Send className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                 )}
               </button>
-            ) : (
+            ) : !editingMessageId && (
               <button
                 type="button"
                 onClick={() => setShowVoiceRecorder(true)}
                 className="shrink-0 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl text-white transition-all transform hover:scale-110 active:scale-95 shadow-lg hover:shadow-xl"
-                title="Enregistrer un message vocal"
                 disabled={uploading}
                 style={{
                   background: 'linear-gradient(135deg, #f43f5e, #db2777)'
@@ -398,7 +526,6 @@ if (safeIsBlocked) {
           </div>
         )}
 
-        {/* Indicateur de caractères pour mobile */}
         {message.length > 0 && isMobile && (
           <div className="text-center mt-1">
             <span className="text-xs text-blue-500 font-semibold bg-blue-100 px-2 py-1 rounded-full">
@@ -411,6 +538,19 @@ if (safeIsBlocked) {
       <style jsx>{`
         .safe-area-padding-bottom {
           padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @keyframes slide-in-left {
+          from {
+            transform: translateY(-10px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in-left {
+          animation: slide-in-left 0.3s ease-out;
         }
       `}</style>
     </div>

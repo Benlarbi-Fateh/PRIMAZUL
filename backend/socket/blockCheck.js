@@ -1,24 +1,20 @@
 // backend/socket/blockCheck.js
 const BlockedUser = require('../models/BlockedUser');
 
-
 const checkBlockStatusSocket = async (userId, targetUserId) => {
   try {
-    if (!userId || !targetUserId) return true; // Bloquer par sécurité
+    if (!userId || !targetUserId) return true;
    
-    const isBlocked = await BlockedUser.findOne({
-      $or: [
-        { userId: userId, blockedUserId: targetUserId },
-        { userId: targetUserId, blockedUserId: userId }
-      ]
-    });
+    const blockStatus = await BlockedUser.getBlockStatus(
+      userId.toString(),
+      targetUserId.toString()
+    );
    
-    return !!isBlocked;
+    return blockStatus.isBlocked;
   } catch (error) {
-    console.error('Erreur vérification blocage socket:', error);
-    return true; // Bloquer en cas d'erreur
+    console.error('❌ Erreur vérification blocage socket:', error);
+    return true;
   }
 };
-
 
 module.exports = { checkBlockStatusSocket };

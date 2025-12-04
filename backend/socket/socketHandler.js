@@ -1,5 +1,6 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
+const { checkBlockStatusSocket } = require('./blockCheck');
 
 const initSocket = (io) => {
   const onlineUsers = new Map(); // userId -> socketId
@@ -57,8 +58,33 @@ const initSocket = (io) => {
     // Envoyer un message
     socket.on('send-message', async (data) => {
       try {
+        
         console.log('📤 Réception send-message:', data);
         const { conversationId, sender, content, type, fileUrl, fileName, fileSize } = data;
+            if (conversationId) {
+      const conversation = await Conversation.findById(conversationId)
+        .select('participants isGroup')
+        .lean();
+      
+      if (conversation && !conversation.isGroup) {
+        const recipientId = conversation.participants.find(
+          p => p.toString() !== sender.toString()
+        );
+        
+        if (recipientId) {
+          const isBlocked = await checkBlockStatusSocket(sender, recipientId.toString());
+          
+          if (isBlocked) {
+            console.log('🚫 Message bloqué par socket');
+            socket.emit('message-error', {
+              error: 'Message bloqué',
+              blocked: true
+            });
+            return; // ✅ IMPORTANT : Arrêter l'exécution ici
+          }
+        }
+      }
+    }
 
         // Créer le message en base de données
         const message = new Message({
@@ -228,6 +254,39 @@ const initSocket = (io) => {
         console.log(`🗑️ Notification d'annulation INSTANTANÉE envoyée à ${receiverId}`);
       } else {
         console.log(`⚠️ Destinataire ${receiverId} hors ligne, notification stockée`);
+      }
+    });
+
+
+    // ============================================
+    // 🆕 SUPPRESSION DE MESSAGE EN TEMPS RÉEL
+    // ============================================
+    socket.on('delete-message', async ({ messageId, conversationId }) => {
+      try {
+        console.log('🗑️ Réception delete-message:', messageId);
+        
+        // L'événement sera émis depuis le controller après vérification
+        // On peut ajouter une logique supplémentaire ici si nécessaire
+        
+      } catch (error) {
+        console.error('❌ Erreur delete-message socket:', error);
+        socket.emit('message-error', { error: error.message });
+      }
+    });
+
+    // ============================================
+    // 🆕 MODIFICATION DE MESSAGE EN TEMPS RÉEL
+    // ============================================
+    socket.on('edit-message', async ({ messageId, content, conversationId }) => {
+      try {
+        console.log('✏️ Réception edit-message:', messageId);
+        
+        // L'événement sera émis depuis le controller après vérification
+        // On peut ajouter une logique supplémentaire ici si nécessaire
+        
+      } catch (error) {
+        console.error('❌ Erreur edit-message socket:', error);
+        socket.emit('message-error', { error: error.message });
       }
     });
 

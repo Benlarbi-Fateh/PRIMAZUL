@@ -2,14 +2,18 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const checkBlockStatus = require('../middleware/blockCheck');
+const messageController = require('../controllers/messageController');
 
 
-const {
-  getMessages,
-  sendMessage,
+const { 
+  getMessages, 
+  sendMessage, 
   markAsDelivered, // 🆕
   markAsRead,      // 🆕
-  getUnreadCount   // 🆕
+  getUnreadCount ,  // 🆕
+  deleteMessage,    // 🆕 AJOUT
+  editMessage,      // 🆕 AJOUT
+  translateMessage  // 🆕 AJOUT
 } = require('../controllers/messageController');
 
 
@@ -38,5 +42,10 @@ router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
   return res.json({ success: true, typing: isTyping || true });
 });
 
+
+module.exports = router;
+router.delete('/:messageId', authMiddleware, deleteMessage);
+router.put('/:messageId', authMiddleware, editMessage);
+router.post('/:messageId/translate', authMiddleware, translateMessage );
 
 module.exports = router;

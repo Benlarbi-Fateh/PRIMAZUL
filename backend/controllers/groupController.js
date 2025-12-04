@@ -21,15 +21,17 @@ exports.createGroup = async (req, res) => {
     }
 
 
+
+
+
     // 🆕 VÉRIFICATION : Minimum 3 personnes (créateur + 2 autres participants)
     const allParticipants = [...new Set([userId.toString(), ...participantIds])];
-   
+    
     if (allParticipants.length < 3) {
-      return res.status(400).json({
-        error: 'Un groupe doit contenir au minimum 3 personnes (vous + 2 autres participants)'
+      return res.status(400).json({ 
+        error: 'Un groupe doit contenir au minimum 3 personnes (vous + 2 autres participants)' 
       });
     }
-
 
     // Vérifier que tous les participants existent
     const participants = await User.find({ _id: { $in: participantIds } });
@@ -57,6 +59,7 @@ exports.createGroup = async (req, res) => {
 
     console.log('✅ Groupe créé:', group._id, '- Nom:', groupName, `(${allParticipants.length} participants)`);
 
+    console.log('✅ Groupe créé:', group._id, '- Nom:', groupName, `(${allParticipants.length} participants)`);
 
     // Émettre un événement Socket pour notifier les participants
     const io = req.app.get('io');
@@ -200,6 +203,15 @@ exports.leaveGroup = async (req, res) => {
     // Retirer l'utilisateur des participants
     group.participants = remainingParticipants;
 
+
+    if (remainingParticipants.length < 2) {
+      return res.status(400).json({ 
+        error: 'Impossible de quitter le groupe : il doit rester au minimum 2 personnes' 
+      });
+    }
+
+    // Retirer l'utilisateur des participants
+    group.participants = remainingParticipants;
 
     // Si c'est l'admin qui part et qu'il reste des participants, transférer l'admin
     if (group.groupAdmin.toString() === userId.toString() && group.participants.length > 0) {

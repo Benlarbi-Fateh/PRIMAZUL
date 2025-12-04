@@ -38,6 +38,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [typingUsers, setTypingUsers] = useState([]);
+
+  // 🆕 États pour la modification
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
   
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -147,6 +151,25 @@ export default function ChatPage() {
         console.log('📊 Statut conversation mis à jour:', { conversationId: updatedConvId, status });
       });
 
+// 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
+      socket.off('message-deleted');
+      socket.on('message-deleted', ({ messageId }) => {
+        console.log('🗑️ Message supprimé reçu:', messageId);
+        setMessages((prev) => prev.filter(msg => msg._id !== messageId));
+      });
+
+      // 🆕 ÉCOUTER LES MODIFICATIONS EN TEMPS RÉEL
+      socket.off('message-edited');
+      socket.on('message-edited', ({ messageId, content, isEdited, editedAt }) => {
+        console.log('✏️ Message modifié reçu:', messageId);
+        setMessages((prev) => prev.map(msg => 
+          msg._id === messageId 
+            ? { ...msg, content, isEdited, editedAt }
+            : msg
+        ));
+      });
+
+
       onUserTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
@@ -239,6 +262,105 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
+
+  
+// ========================================
+  // 🆕 FONCTION SUPPRIMER
+  // ========================================
+  const handleDeleteMessage = async (messageId) => {
+    console.log('🗑️ ChatPage: Suppression demandée pour:', messageId);
+    
+    if (!window.confirm('Voulez-vous vraiment supprimer ce message ?')) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/messages/${messageId}`);
+      console.log('📦 Réponse suppression:', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Message supprimé avec succès');
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression:', error);
+      alert('Impossible de supprimer le message');
+    }
+  };
+
+  // ========================================
+  // 🆕 FONCTION MODIFIER (ACTIVER LE MODE)
+  // ========================================
+  const handleEditMessage = (messageId, currentContent) => {
+    console.log('✏️ ChatPage: Mode édition activé pour:', messageId);
+    setEditingMessageId(messageId);
+    setEditingContent(currentContent);
+  };
+
+  // ========================================
+  // 🆕 FONCTION CONFIRMER LA MODIFICATION
+  // ========================================
+  const handleConfirmEdit = async (newContent) => {
+    if (!editingMessageId || !newContent.trim()) {
+      console.log('❌ Contenu vide');
+      setEditingMessageId(null);
+      setEditingContent('');
+      return;
+    }
+
+    console.log('✏️ Confirmation modification:', editingMessageId);
+
+    try {
+      const response = await api.put(`/messages/${editingMessageId}`, {
+        content: newContent.trim()
+      });
+      
+      console.log('📦 Réponse modification:', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Message modifié avec succès');
+        setEditingMessageId(null);
+        setEditingContent('');
+      }
+    } catch (error) {
+      console.error('❌ Erreur modification:', error);
+      alert('Impossible de modifier le message');
+    }
+  };
+
+  // ========================================
+  // 🆕 FONCTION ANNULER LA MODIFICATION
+  // ========================================
+  const handleCancelEdit = () => {
+    console.log('❌ Annulation édition');
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  // ========================================
+  // 🆕 FONCTION TRADUIRE
+  // ========================================
+  const handleTranslateMessage = async (content, messageId, targetLang) => {
+    console.log('🌍 ChatPage: Traduction demandée pour:', messageId, 'en', targetLang);
+    
+    try {
+      const response = await api.post(`/messages/${messageId}/translate`, {
+        targetLang
+      });
+      
+      console.log('📦 Réponse traduction:', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Message traduit:', response.data.translatedContent);
+        return response.data.translatedContent;
+      } else {
+        throw new Error(response.data.error || 'Erreur de traduction');
+      }
+    } catch (error) {
+      console.error('❌ Erreur traduction:', error);
+      throw error;
+    }
+  };
+ 
   const getOtherParticipant = () => {
     if (!conversation || !user) return null;
     const userId = user._id || user.id;
@@ -387,6 +509,10 @@ export default function ChatPage() {
                       message={message}
                       isMine={message.sender?._id === userId}
                       isGroup={conversation?.isGroup || false}
+                      // 🆕 Props pour la modification ghiles
+                       onDelete={handleDeleteMessage}
+                      onEdit={handleEditMessage}
+                      onTranslate={handleTranslateMessage}
                     />
                   );
                 })}
@@ -405,6 +531,11 @@ export default function ChatPage() {
             onTyping={handleTyping}
             onStopTyping={handleStopTyping}
             contactId={contact?._id}
+            // 🆕 Props pour la modification ghiles
+            editingMessageId={editingMessageId}
+            editingContent={editingContent}
+            onConfirmEdit={handleConfirmEdit}
+            onCancelEdit={handleCancelEdit}
           />
         </div>
       </div>

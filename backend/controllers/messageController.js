@@ -302,3 +302,249 @@ exports.getUnreadCount = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+// ========================================
+// 🆕 SUPPRIMER UN MESSAGE
+// ========================================
+exports.deleteMessage = async (req, res) => {
+  console.log('🔍 ========== DELETE MESSAGE APPELÉ ==========');
+  console.log('📋 Params:', req.params);
+  console.log('👤 User ID:', req.user?._id);
+  
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    console.log('🗑️ Suppression du message:', messageId, 'par user:', userId);
+
+    // Vérifier que l'utilisateur est bien l'expéditeur
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      console.log('❌ Message non trouvé:', messageId);
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    console.log('📨 Message trouvé, sender:', message.sender.toString());
+
+    if (message.sender.toString() !== userId.toString()) {
+      console.log('❌ Non autorisé - sender:', message.sender.toString(), 'user:', userId.toString());
+      return res.status(403).json({ error: 'Non autorisé à supprimer ce message' });
+    }
+
+    const conversationId = message.conversationId.toString();
+
+    // Supprimer le message
+    await Message.findByIdAndDelete(messageId);
+    console.log('✅ Message supprimé de la BDD');
+
+    // 🔥 Émettre un événement Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to(conversationId).emit('message-deleted', {
+        messageId,
+        conversationId
+      });
+      console.log(`✅ Événement message-deleted émis pour conversation ${conversationId}`);
+    }
+
+    console.log('✅ Message supprimé avec succès');
+    res.json({ success: true, messageId });
+  } catch (error) {
+    console.error('❌ Erreur deleteMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ========================================
+// 🆕 MODIFIER UN MESSAGE
+// ========================================
+exports.editMessage = async (req, res) => {
+  console.log('🔍 ========== EDIT MESSAGE APPELÉ ==========');
+  console.log('📋 Params:', req.params);
+  console.log('📦 Body:', req.body);
+  console.log('👤 User ID:', req.user?._id);
+  
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id;
+
+    console.log('✏️ Modification du message:', messageId);
+
+    if (!content || content.trim() === '') {
+      console.log('❌ Contenu vide');
+      return res.status(400).json({ error: 'Le contenu ne peut pas être vide' });
+    }
+
+    // Vérifier que l'utilisateur est bien l'expéditeur
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      console.log('❌ Message non trouvé:', messageId);
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    console.log('📨 Message trouvé, sender:', message.sender.toString());
+
+    if (message.sender.toString() !== userId.toString()) {
+      console.log('❌ Non autorisé - sender:', message.sender.toString(), 'user:', userId.toString());
+      return res.status(403).json({ error: 'Non autorisé à modifier ce message' });
+    }
+
+    // Modifier le message
+    message.content = content.trim();
+    message.isEdited = true;
+    message.editedAt = new Date();
+    await message.save();
+    console.log('✅ Message modifié dans la BDD');
+
+    await message.populate('sender', 'name profilePicture');
+
+    // 🔥 Émettre un événement Socket.IO
+    const io = req.app.get('io');
+    if (io) {
+      io.to(message.conversationId.toString()).emit('message-edited', {
+        messageId: message._id,
+        content: message.content,
+        isEdited: message.isEdited,
+        editedAt: message.editedAt,
+        conversationId: message.conversationId
+      });
+      console.log(`✅ Événement message-edited émis pour conversation ${message.conversationId}`);
+    }
+
+    console.log('✅ Message modifié avec succès');
+    res.json({ success: true, message });
+  } catch (error) {
+    console.error('❌ Erreur editMessage:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+// ========================================
+// 🆕 FONCTION DE TRADUCTION VIA DEEPL
+// ========================================
+const axios = require('axios');
+
+// ========================================
+// 🆕 TRADUIRE UN MESSAGE AVEC DEEPL
+// ========================================
+// ========================================
+// 🆕 TRADUIRE UN MESSAGE AVEC DEEPL
+// ========================================
+exports.translateMessage = async (req, res) => {
+  console.log('🔍 ========== TRANSLATE MESSAGE APPELÉ ==========');
+  console.log('📋 Params:', req.params);
+  console.log('📦 Body:', req.body);
+  console.log('👤 User ID:', req.user?._id); // ✅ CORRECTION ICI
+  
+  try {
+    const { messageId } = req.params;
+    const { targetLang } = req.body;
+
+    console.log('🌍 Message ID:', messageId);
+    console.log('🌍 Target Lang:', targetLang);
+
+    // Validation
+    if (!targetLang || typeof targetLang !== 'string') {
+      console.log('❌ targetLang manquant ou invalide');
+      return res.status(400).json({ error: 'targetLang requis' });
+    }
+
+    // Récupérer le message
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      console.log('❌ Message non trouvé:', messageId);
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    if (!message.content || message.content.trim() === '') {
+      console.log('❌ Aucun contenu à traduire');
+      return res.status(400).json({ error: 'Aucun contenu à traduire' });
+    }
+
+    console.log('📨 Contenu à traduire:', message.content);
+
+    // 🌍 TRADUCTION AVEC DEEPL
+    const apiKey = process.env.DEEPL_API_KEY;
+    
+    if (!apiKey) {
+      console.error('❌ DEEPL_API_KEY manquante dans .env');
+      return res.status(500).json({ error: 'API DeepL non configurée' });
+    }
+
+    // Mapping des codes de langue (DeepL utilise des codes spécifiques)
+    const langMap = {
+      'en': 'EN-GB',
+      'fr': 'FR',
+      'es': 'ES',
+      'de': 'DE',
+      'it': 'IT',
+      'pt': 'PT-PT',
+      'nl': 'NL',
+      'pl': 'PL',
+      'ru': 'RU',
+      'ja': 'JA',
+      'zh': 'ZH',
+      'ar': 'AR' // ✅ Arabe ajouté
+    };
+
+    const deeplLang = langMap[targetLang.toLowerCase()] || targetLang.toUpperCase();
+    console.log('🌍 Code DeepL utilisé:', deeplLang);
+
+    // Appel à l'API DeepL
+    const response = await axios.post(
+      'https://api-free.deepl.com/v2/translate',
+      new URLSearchParams({
+        text: message.content,
+        target_lang: deeplLang
+        
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `DeepL-Auth-Key ${apiKey}`
+        }
+      }
+    );
+
+    const translatedContent = response.data.translations[0].text;
+    const detectedSourceLang = response.data.translations[0].detected_source_language;
+    
+    console.log('✅ Traduction réussie:', translatedContent);
+    console.log('🔍 Langue source détectée:', detectedSourceLang);
+
+    // Retourner la traduction SANS modifier le message en base
+    res.json({ 
+      success: true, 
+      originalContent: message.content,
+      translatedContent,
+      targetLang,
+      messageId: message._id,
+      detectedSourceLang
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur translateMessage:', error.response?.data || error.message);
+    
+    // Gestion des erreurs DeepL spécifiques
+    if (error.response?.status === 403) {
+      console.error('🚫 Erreur 403: Clé API DeepL invalide');
+      return res.status(403).json({ error: 'Clé API DeepL invalide' });
+    }
+    if (error.response?.status === 456) {
+      console.error('📊 Erreur 456: Quota DeepL dépassé');
+      return res.status(456).json({ error: 'Quota DeepL dépassé' });
+    }
+    
+    res.status(500).json({ error: 'Erreur lors de la traduction' });
+  }
+};
+
+
