@@ -1,392 +1,653 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useContext, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
-import Link from "next/link";
-import {
-  Mail,
-  ArrowLeft,
-  KeyRound,
-  Shield,
-  Sparkles,
-  MessageCircle,
-  Zap,
-} from "lucide-react";
+import { AuthContext } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { searchUsers, createGroup } from "@/lib/api";
+import ProtectedRoute from "@/components/Auth/ProtectedRoute";
+import {
+  Users,
+  Search,
+  X,
+  ArrowLeft,
+  Check,
+  Sparkles,
+  UserPlus,
+  Image as ImageIcon,
+  AlertCircle,
+} from "lucide-react";
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
+export default function CreateGroupPage() {
   const router = useRouter();
+  const { user } = useContext(AuthContext);
+  const { isDark } = useTheme();
 
-  // === Thème global ===
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const [groupName, setGroupName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
 
-  // Styles généraux dépendants du thème
-  const pageBgStyle = {
-    background: isDark
-      ? "linear-gradient(135deg,#020617,#020617,#0b1120)" // sombre
-      : "linear-gradient(135deg,#eff6ff,#ffffff,#e5e7eb)", // clair
-  };
+  // Styles basés sur le thème
+  const pageBg = isDark
+    ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
+    : "bg-gradient-to-br from-blue-50 via-white to-cyan-50";
 
-  const sidebarStyle = {
-    background: isDark
-      ? "linear-gradient(135deg,#1d4ed8,#020617)"
-      : "linear-gradient(135deg,#2563eb,#1d4ed8)",
-  };
+  const cardBg = isDark
+    ? "bg-blue-900/80 backdrop-blur-xl border-blue-800"
+    : "bg-white/80 backdrop-blur-xl border-blue-100";
 
-  const contentBgStyle = {
-    background: isDark
-      ? "linear-gradient(135deg,#020617,#020617,#020617)"
-      : "linear-gradient(135deg,#eff6ff,#f3f4f6)",
-  };
+  const textPrimary = isDark ? "text-blue-50" : "text-blue-900";
+  const textSecondary = isDark ? "text-blue-300" : "text-blue-600";
+  const textMuted = isDark ? "text-blue-400" : "text-blue-400";
 
-  const mainCardClass =
-    "backdrop-blur-sm rounded-3xl shadow-lg border p-8 " +
-    (isDark
-      ? "bg-slate-900/90 border-slate-700 text-slate-50"
-      : "bg-white/80 border-white/60 text-gray-900");
+  const buttonStyle = isDark
+    ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
+    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white shadow-2xl hover:shadow-blue-500/50";
 
-  const leftTextMuted = isDark ? "text-blue-100" : "text-blue-100";
-  const textMuted = isDark ? "text-slate-300" : "text-gray-600";
-  const textStrong = isDark ? "text-slate-50" : "text-gray-900";
+  const backButtonBg = isDark
+    ? "bg-blue-800 hover:bg-blue-700 border-blue-700"
+    : "bg-white hover:bg-blue-50 border-blue-100 hover:border-blue-300";
 
-  const inputClass =
-    "w-full pl-12 pr-4 py-4 rounded-2xl outline-none border transition-all text-sm " +
-    (isDark
-      ? "bg-slate-900/80 border-slate-700 text-slate-50 placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-      : "bg-white/80 border-gray-200 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent");
+  const backButtonText = isDark ? "text-cyan-400" : "text-blue-600";
 
-  const errorAlertClass =
-    "mb-6 p-4 rounded-2xl text-sm flex items-center gap-3 border " +
-    (isDark
-      ? "bg-rose-950/60 border-rose-700 text-rose-200"
-      : "bg-red-50 border-red-200 text-red-700");
+  const inputBg = isDark
+    ? "bg-blue-800 border-blue-700 focus:ring-cyan-500 focus:border-cyan-400"
+    : "bg-white border-blue-200 focus:ring-blue-300 focus:border-blue-400";
 
-  const secondaryButtonClass =
-    "mt-6 w-full py-3 rounded-2xl font-medium flex items-center justify-center gap-2 transition-all duration-300 border " +
-    (isDark
-      ? "bg-slate-900/70 border-slate-700 text-slate-200 hover:bg-slate-800 hover:border-slate-500"
-      : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 hover:border-gray-400");
+  const inputText = isDark
+    ? "text-blue-100 placeholder-blue-400"
+    : "text-blue-900 placeholder-blue-400";
 
-  const sidebarCardClass =
-    "flex items-center gap-4 p-4 rounded-2xl backdrop-blur-sm border " +
-    (isDark ? "bg-white/5 border-white/15" : "bg-white/10 border-white/20");
+  const errorBg = isDark
+    ? "bg-red-900/30 border-red-800"
+    : "bg-red-50 border-red-200";
 
-  const mobileFeatureCard =
-    "flex flex-col items-center p-3 rounded-2xl backdrop-blur-sm text-xs font-medium " +
-    (isDark
-      ? "bg-slate-900/70 text-slate-200"
-      : "bg-white/50 text-gray-600");
+  const errorText = isDark ? "text-red-300" : "text-red-700";
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const selectedUserBg = isDark
+    ? "bg-gradient-to-r from-blue-800 to-blue-900 border-blue-700"
+    : "bg-gradient-to-r from-purple-100 to-pink-100 border-purple-200";
+
+  const selectedUserText = isDark ? "text-blue-200" : "text-purple-900";
+
+  const creatorBadgeBg = isDark
+    ? "bg-gradient-to-r from-blue-800 to-cyan-800 border-blue-700"
+    : "bg-gradient-to-r from-green-100 to-emerald-100 border-green-200";
+
+  const creatorText = isDark ? "text-cyan-200" : "text-green-900";
+
+  const progressBarBg = isDark ? "bg-blue-700" : "bg-purple-200";
+
+  const progressBarFill = isDark
+    ? "bg-gradient-to-r from-cyan-500 to-blue-500"
+    : "bg-gradient-to-r from-purple-500 to-pink-500";
+
+  const searchResultBg = isDark
+    ? "hover:bg-blue-800/50 border-blue-800"
+    : "hover:bg-blue-50 border-blue-200";
+
+  const searchResultSelectedBg = isDark
+    ? "bg-gradient-to-r from-blue-800 to-cyan-800 border-cyan-500"
+    : "bg-gradient-to-r from-blue-100 to-cyan-100 border-blue-500";
+
+  // Calcul du nombre total de participants
+  const totalParticipants = selectedUsers.length + 1;
+
+  // Recherche d'utilisateurs
+  useEffect(() => {
+    const delaySearch = setTimeout(async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await searchUsers(searchQuery);
+        const results = response.data.users || [];
+
+        const filtered = results.filter((u) => u._id !== (user._id || user.id));
+        setSearchResults(filtered);
+      } catch (error) {
+        console.error("❌ Erreur recherche:", error);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delaySearch);
+  }, [searchQuery, user]);
+
+  const toggleUserSelection = (selectedUser) => {
+    setSelectedUsers((prev) => {
+      const isSelected = prev.some((u) => u._id === selectedUser._id);
+      if (isSelected) {
+        return prev.filter((u) => u._id !== selectedUser._id);
+      }
+      return [...prev, selectedUser];
+    });
     setError("");
-    setLoading(true);
+  };
+
+  const handleCreateGroup = async () => {
+    setError("");
+
+    if (!groupName.trim()) {
+      setError("Veuillez entrer un nom de groupe");
+      return;
+    }
+
+    if (selectedUsers.length < 2) {
+      setError(
+        "Vous devez sélectionner au moins 2 autres personnes pour créer un groupe"
+      );
+      return;
+    }
 
     try {
-      const response = await api.post("/auth/forgot-password", { email });
+      setCreating(true);
 
-      if (response.data.success) {
-        setSuccess(true);
-        setTimeout(() => {
-          router.push(`/reset-password?email=${encodeURIComponent(email)}`);
-        }, 2000);
-      }
+      const participantIds = selectedUsers.map((u) => u._id);
+
+      const response = await createGroup({
+        groupName: groupName.trim(),
+        participantIds,
+      });
+
+      console.log("✅ Groupe créé:", response.data.group);
+      router.push(`/chat/${response.data.group._id}`);
     } catch (error) {
-      console.error("Erreur:", error);
-      setError(
-        error.response?.data?.error || "Une erreur est survenue"
-      );
+      console.error("❌ Erreur création groupe:", error);
+      const errorMessage =
+        error.response?.data?.error || "Erreur lors de la création du groupe";
+      setError(errorMessage);
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
 
-  // ==== ÉTAT : email envoyé ====
-  if (success) {
-    return (
-      <div
-        className={`min-h-screen flex ${
-          isDark ? "text-slate-50" : "text-gray-900"
-        }`}
-        style={pageBgStyle}
-      >
-        {/* Sidebar - Desktop */}
-        <div
-          className="hidden lg:flex lg:w-2/5 p-8 flex-col justify-between"
-          style={sidebarStyle}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <MessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">PrimAzul</h1>
-              <p className="text-blue-100 text-sm">
-                Making distance disappear
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div className={sidebarCardClass}>
-              <Shield className="w-8 h-8 text-white" />
-              <div>
-                <h3 className="text-white font-semibold">
-                  Sécurité renforcée
-                </h3>
-                <p className={`${leftTextMuted} text-sm`}>
-                  Votre compte est protégé
-                </p>
-              </div>
-            </div>
-
-            <div className={sidebarCardClass}>
-              <Sparkles className="w-8 h-8 text-white" />
-              <div>
-                <h3 className="text-white font-semibold">
-                  Processus sécurisé
-                </h3>
-                <p className={`${leftTextMuted} text-sm`}>
-                  Réinitialisation en toute sécurité
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <p className="text-white/80 text-sm">
-              Vérification en cours
-            </p>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div
-          className="flex-1 flex items-center justify-center p-6"
-          style={contentBgStyle}
-        >
-          <div className="w-full max-w-md text-center">
-            <div className={mainCardClass}>
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl shadow-lg mb-6 bg-gradient-to-br from-green-400 to-green-600">
-                <Mail className="w-10 h-10 text-white" />
-              </div>
-
-              <h2 className={`text-2xl font-bold mb-4 ${textStrong}`}>
-                Email envoyé !
-              </h2>
-              <p className={`mb-2 ${textMuted}`}>
-                Un code de vérification a été envoyé à
-              </p>
-              <p className={`font-semibold mb-6 ${textStrong}`}>
-                {email}
-              </p>
-              <p className={`text-sm ${textMuted}`}>
-                Redirection en cours...
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ==== ÉTAT : formulaire ====
   return (
-    <div
-      className={`min-h-screen flex ${
-        isDark ? "text-slate-50" : "text-gray-900"
-      }`}
-      style={pageBgStyle}
-    >
-      {/* Sidebar - Desktop */}
-      <div
-        className="hidden lg:flex lg:w-2/5 p-8 flex-col justify-between"
-        style={sidebarStyle}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-            <MessageCircle className="w-6 h-6 text-white" />
+    <ProtectedRoute>
+      <div className={`min-h-screen ${pageBg} relative overflow-hidden`}>
+        {/* Background décoratif */}
+        {!isDark && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">PrimAzul</h1>
-            <p className="text-blue-100 text-sm">
-              Making distance disappear
-            </p>
-          </div>
-        </div>
+        )}
 
-        <div className="space-y-6">
-          <div className={sidebarCardClass}>
-            <KeyRound className="w-8 h-8 text-white" />
-            <div>
-              <h3 className="text-white font-semibold">
-                Réinitialisation sécurisée
-              </h3>
-              <p className={`${leftTextMuted} text-sm`}>
-                Code de vérification requis
+        <div className="max-w-3xl mx-auto p-4 sm:p-6 relative z-10">
+          {/* Header moderne */}
+          <div className="mb-8 animate-fade-in">
+            <div className="flex items-center gap-4 mb-6">
+              <button
+                onClick={() => router.push("/")}
+                className={`p-3 rounded-2xl border-2 transition-all transform hover:scale-105 active:scale-95 shadow-md ${backButtonBg}`}
+              >
+                <ArrowLeft className={`w-6 h-6 ${backButtonText}`} />
+              </button>
+
+              <div className="flex-1">
+                <h1
+                  className={`text-3xl font-bold flex items-center gap-3 ${
+                    isDark
+                      ? "text-cyan-50"
+                      : "text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-cyan-500"
+                  }`}
+                >
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                      isDark
+                        ? "bg-linear-to-br from-blue-700 to-cyan-700"
+                        : "bg-linear-to-br from-purple-500 to-pink-500"
+                    }`}
+                  >
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  Créer un groupe
+                </h1>
+                <p
+                  className={`mt-1 ml-1 flex items-center gap-2 ${textSecondary}`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Réunissez vos amis en un seul endroit
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Message d'erreur */}
+          {error && (
+            <div
+              className={`mb-6 p-4 rounded-2xl border-2 flex items-center gap-3 animate-shake ${errorBg}`}
+            >
+              <AlertCircle
+                className={`w-6 h-6 ${
+                  isDark ? "text-red-400" : "text-red-500"
+                } shrink-0`}
+              />
+              <p className={`font-medium ${errorText}`}>{error}</p>
+            </div>
+          )}
+
+          {/* Carte: Nom du groupe */}
+          <div
+            className={`rounded-3xl p-6 sm:p-8 shadow-xl border-2 mb-6 animate-slide-in-left hover:shadow-2xl transition-all ${cardBg}`}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
+                  isDark
+                    ? "bg-linear-to-br from-blue-600 to-cyan-600"
+                    : "bg-linear-to-br from-blue-500 to-cyan-500"
+                }`}
+              >
+                <ImageIcon className="w-5 h-5 text-white" />
+              </div>
+              <label className={`text-lg font-bold ${textPrimary}`}>
+                Nom du groupe
+              </label>
+            </div>
+
+            <div className="relative group">
+              {!isDark && (
+                <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-sm group-focus-within:blur-md transition-all"></div>
+              )}
+              <input
+                type="text"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                placeholder="Ex: Famille, Amis, Travail..."
+                className={`relative w-full px-5 py-4 rounded-2xl border-2 focus:ring-4 outline-none font-medium transition-all ${inputBg} ${inputText}`}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="flex justify-between items-center mt-3">
+              <p
+                className={`text-xs font-medium flex items-center gap-1.5 ${textSecondary}`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    groupName.length > 0
+                      ? isDark
+                        ? "bg-cyan-500 animate-pulse"
+                        : "bg-green-500 animate-pulse"
+                      : isDark
+                      ? "bg-blue-400"
+                      : "bg-blue-300"
+                  }`}
+                ></span>
+                {groupName.length > 0
+                  ? "Nom valide !"
+                  : "Donnez un nom à votre groupe"}
+              </p>
+              <p
+                className={`text-sm font-bold ${
+                  groupName.length > 40
+                    ? isDark
+                      ? "text-orange-400"
+                      : "text-orange-500"
+                    : textSecondary
+                }`}
+              >
+                {groupName.length}/50
               </p>
             </div>
           </div>
 
-          <div className={sidebarCardClass}>
-            <Shield className="w-8 h-8 text-white" />
-            <div>
-              <h3 className="text-white font-semibold">
-                Protection du compte
+          {/* Participants sélectionnés */}
+          {selectedUsers.length > 0 && (
+            <div
+              className={`rounded-3xl p-6 sm:p-8 shadow-xl border-2 mb-6 animate-scale-in hover:shadow-2xl transition-all ${
+                isDark
+                  ? "bg-blue-900/80 border-blue-800"
+                  : "bg-white/80 border-purple-100"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3
+                  className={`text-lg font-bold flex items-center gap-2 ${textPrimary}`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md ${
+                      isDark
+                        ? "bg-linear-to-br from-blue-600 to-cyan-600"
+                        : "bg-linear-to-br from-purple-500 to-pink-500"
+                    }`}
+                  >
+                    {totalParticipants}
+                  </div>
+                  Participants ({totalParticipants} au total)
+                </h3>
+                <button
+                  onClick={() => setSelectedUsers([])}
+                  className={`text-sm font-semibold hover:underline flex items-center gap-1 ${
+                    isDark
+                      ? "text-red-400 hover:text-red-300"
+                      : "text-red-500 hover:text-red-600"
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                  Tout supprimer
+                </button>
+              </div>
+
+              {/* Affichage du créateur */}
+              <div className="mb-4">
+                <p className={`text-sm font-medium mb-2 ${textSecondary}`}>
+                  Créateur du groupe :
+                </p>
+                <div
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full border-2 max-w-max ${creatorBadgeBg}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={
+                      user.profilePicture ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        user.name
+                      )}&background=${
+                        isDark ? "0ea5e9" : "10b981"
+                      }&color=fff&bold=true&size=32`
+                    }
+                    alt={user.name}
+                    className="w-6 h-6 rounded-full ring-2 ring-white shadow-sm"
+                  />
+                  <span className={`text-sm font-bold ${creatorText}`}>
+                    {user.name} (Vous)
+                  </span>
+                  <div
+                    className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                      isDark ? "bg-cyan-500" : "bg-green-500"
+                    }`}
+                  >
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Participants sélectionnés */}
+              <div className="flex flex-wrap gap-2">
+                {selectedUsers.map((u) => (
+                  <div
+                    key={u._id}
+                    className={`group flex items-center gap-2 px-4 py-2.5 rounded-full border-2 shadow-sm hover:shadow-md transition-all transform hover:scale-105 ${selectedUserBg} ${
+                      isDark
+                        ? "hover:border-blue-500"
+                        : "hover:border-purple-400"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        u.profilePicture ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          u.name
+                        )}&background=${
+                          isDark ? "0ea5e9" : "a855f7"
+                        }&color=fff&bold=true&size=32`
+                      }
+                      alt={u.name}
+                      className="w-6 h-6 rounded-full ring-2 ring-white shadow-sm"
+                    />
+                    <span className={`text-sm font-bold ${selectedUserText}`}>
+                      {u.name}
+                    </span>
+                    <button
+                      onClick={() => toggleUserSelection(u)}
+                      className={`ml-1 rounded-full p-1 transition-colors ${
+                        isDark
+                          ? "hover:bg-blue-700/50 text-blue-300"
+                          : "hover:bg-purple-200 text-purple-700"
+                      }`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Indicateur de progression */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span
+                    className={`font-medium ${
+                      isDark ? "text-blue-300" : "text-purple-700"
+                    }`}
+                  >
+                    {selectedUsers.length >= 2
+                      ? "✅ Minimum atteint"
+                      : `Encore ${
+                          2 - selectedUsers.length
+                        } personne(s) à sélectionner`}
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      isDark ? "text-blue-400" : "text-purple-600"
+                    }`}
+                  >
+                    {selectedUsers.length}/2 minimum
+                  </span>
+                </div>
+                <div className={`w-full rounded-full h-2 ${progressBarBg}`}>
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${progressBarFill}`}
+                    style={{
+                      width: `${Math.min(
+                        (selectedUsers.length / 2) * 100,
+                        100
+                      )}%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Recherche d'utilisateurs */}
+          <div
+            className={`rounded-3xl p-6 sm:p-8 shadow-xl border-2 animate-slide-in-right hover:shadow-2xl transition-all ${cardBg}`}
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
+                  isDark
+                    ? "bg-linear-to-br from-blue-600 to-cyan-600"
+                    : "bg-linear-to-br from-blue-500 to-cyan-500"
+                }`}
+              >
+                <UserPlus className="w-5 h-5 text-white" />
+              </div>
+              <h3 className={`text-lg font-bold ${textPrimary}`}>
+                Ajouter des participants
               </h3>
-              <p className={`${leftTextMuted} text-sm`}>
-                Vos données en sécurité
-              </p>
+            </div>
+
+            <div className="relative mb-5 group">
+              {!isDark && (
+                <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-sm group-focus-within:blur-md transition-all"></div>
+              )}
+              <Search
+                className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 z-10 ${
+                  isDark ? "text-blue-400" : "text-blue-400"
+                }`}
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher des utilisateurs..."
+                className={`relative w-full pl-12 pr-4 py-4 rounded-2xl border-2 focus:ring-4 outline-none font-medium transition-all ${inputBg} ${inputText}`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 ${
+                    isDark
+                      ? "text-blue-400 hover:text-cyan-300"
+                      : "text-blue-400 hover:text-blue-600"
+                  }`}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Résultats */}
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-transparent">
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center gap-3">
+                    <div
+                      className={`w-6 h-6 border-3 rounded-full animate-spin ${
+                        isDark
+                          ? "border-cyan-500 border-t-transparent"
+                          : "border-blue-500 border-t-transparent"
+                      }`}
+                    ></div>
+                    <span className={`font-medium ${textSecondary}`}>
+                      Recherche en cours...
+                    </span>
+                  </div>
+                </div>
+              ) : searchResults.length === 0 && searchQuery.length >= 2 ? (
+                <div className="text-center py-12">
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                      isDark ? "bg-blue-800" : "bg-blue-100"
+                    }`}
+                  >
+                    <Search
+                      className={`w-8 h-8 ${
+                        isDark ? "text-blue-400" : "text-blue-400"
+                      }`}
+                    />
+                  </div>
+                  <p className={`font-medium ${textSecondary}`}>
+                    Aucun utilisateur trouvé
+                  </p>
+                  <p className={`text-sm mt-1 ${textMuted}`}>
+                    Essayez avec un autre nom ou email
+                  </p>
+                </div>
+              ) : searchQuery.length < 2 ? (
+                <div className="text-center py-12">
+                  <div
+                    className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                      isDark
+                        ? "bg-linear-to-br from-blue-800 to-cyan-800"
+                        : "bg-linear-to-br from-blue-100 to-cyan-100"
+                    }`}
+                  >
+                    <UserPlus
+                      className={`w-8 h-8 ${
+                        isDark ? "text-cyan-400" : "text-blue-500"
+                      }`}
+                    />
+                  </div>
+                  <p className={`font-medium ${textSecondary}`}>
+                    Commencez à taper...
+                  </p>
+                  <p className={`text-sm mt-1 ${textMuted}`}>
+                    Recherchez par nom ou email
+                  </p>
+                </div>
+              ) : (
+                searchResults.map((u) => {
+                  const isSelected = selectedUsers.some(
+                    (su) => su._id === u._id
+                  );
+                  return (
+                    <button
+                      key={u._id}
+                      onClick={() => toggleUserSelection(u)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all transform hover:scale-[1.02] border-2 ${
+                        isSelected
+                          ? searchResultSelectedBg
+                          : `${searchResultBg} border-transparent`
+                      } ${
+                        isSelected ? "shadow-lg" : "shadow-sm hover:shadow-md"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={
+                          u.profilePicture ||
+                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            u.name
+                          )}&background=${
+                            isDark ? "0ea5e9" : "3b82f6"
+                          }&color=fff&bold=true&size=48`
+                        }
+                        alt={u.name}
+                        className="w-12 h-12 rounded-2xl object-cover ring-2 ring-white shadow-md"
+                      />
+                      <div className="flex-1 text-left">
+                        <p className={`font-bold ${textPrimary}`}>{u.name}</p>
+                        <p className={`text-sm ${textSecondary}`}>{u.email}</p>
+                      </div>
+                      {isSelected && (
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                            isDark
+                              ? "bg-linear-to-br from-cyan-500 to-blue-500"
+                              : "bg-linear-to-br from-blue-500 to-cyan-500"
+                          }`}
+                        >
+                          <Check
+                            className="w-5 h-5 text-white"
+                            strokeWidth={3}
+                          />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 
-          <div className={sidebarCardClass}>
-            <Sparkles className="w-8 h-8 text-white" />
-            <div>
-              <h3 className="text-white font-semibold">
-                Processus rapide
-              </h3>
-              <p className={`${leftTextMuted} text-sm`}>
-                Retrouvez l&apos;accès en quelques minutes
-              </p>
-            </div>
-          </div>
-        </div>
+          {/* Bouton Créer */}
+          <button
+            onClick={handleCreateGroup}
+            disabled={creating || !groupName.trim() || selectedUsers.length < 2}
+            className={`w-full mt-8 group relative overflow-hidden py-5 rounded-2xl font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 ${buttonStyle}`}
+          >
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
 
-        <div className="text-center">
-          <p className="text-white/80 text-sm">
-            Sécurisez votre compte
+            {creating ? (
+              <>
+                <div
+                  className={`w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin`}
+                ></div>
+                <span className="animate-pulse">Création en cours...</span>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Users className="w-6 h-6" />
+                </div>
+                <span>Créer le groupe ({totalParticipants} personnes)</span>
+                <Sparkles className="w-5 h-5 animate-pulse" />
+              </>
+            )}
+          </button>
+
+          {/* Info aide */}
+          <p
+            className={`text-center text-sm mt-6 flex items-center justify-center gap-2 ${textSecondary}`}
+          >
+            <Sparkles className="w-4 h-4" />
+            Un groupe doit contenir au minimum 3 personnes (vous + 2 autres)
           </p>
         </div>
       </div>
-
-      {/* Main Content */}
-      <div
-        className="flex-1 flex items-center justify-center p-6"
-        style={contentBgStyle}
-      >
-        <div className="w-full max-w-md">
-          {/* Mobile Header */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-700">
-                <MessageCircle className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <h1 className={`text-2xl font-bold ${textStrong}`}>
-                  PrimAzul
-                </h1>
-                <p className={`text-sm ${textMuted}`}>
-                  Making distance disappear
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Card */}
-          <div className={mainCardClass}>
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl shadow-lg mb-4 bg-gradient-to-br from-blue-500 to-blue-600">
-                <KeyRound className="w-8 h-8 text-white" />
-              </div>
-
-              <h2 className={`text-3xl font-bold mb-2 ${textStrong}`}>
-                Mot de passe oublié ?
-              </h2>
-              <p className={textMuted}>
-                Pas de problème, on va arranger ça !
-              </p>
-            </div>
-
-            {error && (
-              <div className={errorAlertClass}>
-                <div className="w-2 h-2 rounded-full bg-current" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    isDark ? "text-slate-200" : "text-gray-700"
-                  }`}
-                >
-                  Adresse email
-                </label>
-                <div className="relative">
-                  <Mail
-                    className={
-                      "absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 " +
-                      (isDark ? "text-slate-500" : "text-gray-400")
-                    }
-                  />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                    placeholder="votre@email.com"
-                    required
-                    disabled={loading}
-                  />
-                </div>
-                <p className={`text-sm mt-2 ${textMuted}`}>
-                  Entrez votre email pour recevoir un code de
-                  réinitialisation
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 rounded-2xl font-semibold transition-all duration-300 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Envoi en cours...</span>
-                  </div>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Envoyer le code
-                  </span>
-                )}
-              </button>
-            </form>
-
-            {/* Retour à la connexion */}
-            <Link href="/login" className={secondaryButtonClass}>
-              <ArrowLeft className="w-5 h-5" />
-              Retour à la connexion
-            </Link>
-          </div>
-
-          {/* Mobile Features */}
-          <div className="lg:hidden mt-8 grid grid-cols-3 gap-4 text-center">
-            <div className={mobileFeatureCard}>
-              <KeyRound className="w-5 h-5 mb-1 text-blue-500" />
-              <span>Sécurisé</span>
-            </div>
-            <div className={mobileFeatureCard}>
-              <Shield className="w-5 h-5 mb-1 text-green-500" />
-              <span>Protégé</span>
-            </div>
-            <div className={mobileFeatureCard}>
-              <Zap className="w-5 h-5 mb-1 text-yellow-500" />
-              <span>Rapide</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </ProtectedRoute>
   );
 }
