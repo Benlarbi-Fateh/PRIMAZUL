@@ -251,12 +251,29 @@ exports.saveCallHistory = async (req, res) => {
   try {
     const { conversationId, callType, status, duration } = req.body;
     const callerId = req.user._id;
-
+    // 🔥 NOUVELLE VÉRIFICATION CRITIQUE POUR L'ID (Ajoutée)
+    if (
+      !conversationId ||
+      typeof conversationId !== "string" ||
+      conversationId.length < 10
+    ) {
+      console.error(
+        "❌ Erreur 400 (Cause: Conversation ID invalide ou manquant):",
+        conversationId
+      );
+      return res.status(400).json({
+        error:
+          "Conversation ID manquant ou invalide pour l'enregistrement de l'historique.",
+      });
+    }
+    //creation et sauvegarde du message
     const message = new Message({
       conversationId,
       sender: callerId,
       type: "call",
-      content: "",
+      content: `Appel ${callType === "audio" ? "vocal" : "vidéo"} ${
+        status === "missed" ? "manqué" : "terminé"
+      }`,
       callType, // "audio" ou "video"
       callStatus: status, // "missed", "ended"
       duration: duration || 0,
@@ -274,6 +291,7 @@ exports.saveCallHistory = async (req, res) => {
       },
       { new: true }
     )
+      //Retablissement des populate pour les notifications completes
       .populate("participants", "name email profilePicture isOnline lastSeen")
       .populate({
         path: "lastMessage",
@@ -295,13 +313,25 @@ exports.saveCallHistory = async (req, res) => {
       // Émettre le nouvel événement d'appel à la discussion
       io.to(conversationId).emit("receive-message", message);
 
-      // Notifier les participants que la conversation a changé (pour la ConversationList)
+      //correction critique du crash 500
       conversation.participants.forEach((participant) => {
-        const participantId = participant._id.toString();
+        // Si la population a réussi, participant est un objet, on utilise ._id
+        const participantId = participant._id
+          ? participant._id.toString()
+          : participant.toString(); // Fallback au cas où
+
         io.to(participantId).emit("conversation-updated", conversation);
         io.to(participantId).emit("should-refresh-conversations");
       });
     }
+
+    // Notifier les participants que la conversation a changé (pour la ConversationList)
+    //conversation.participants.forEach((participant) => {
+    //const participantId = participant._id.toString();
+    // io.to(participantId).emit("conversation-updated", conversation);
+    // io.to(participantId).emit("should-refresh-conversations");
+    //});
+    // }
 
     // 3. ENVOYER LA RÉPONSE UNE SEULE FOIS (dans le bloc try)
     res.status(201).json({ success: true, message });

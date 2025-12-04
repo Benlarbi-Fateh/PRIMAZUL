@@ -298,7 +298,8 @@ const initSocket = (io) => {
     // Dans socketHandler.js - call-initiate
     // Dans socketHandler.js - Version simplifiée
     socket.on("call-initiate", (data) => {
-      const { receiverId, callType, channelName, caller } = data;
+      const { receiverId, callType, channelName, caller, conversationId } =
+        data;
 
       console.log(`📞 Appel ${callType} initié vers ${receiverId}`);
       console.log("📞 Caller reçu:", caller);
@@ -317,6 +318,7 @@ const initSocket = (io) => {
           caller, // Caller avec uniquement { id, name, profilePicture }
           callType,
           channelName,
+          conversationId,
           callId: Date.now().toString(),
         });
 
