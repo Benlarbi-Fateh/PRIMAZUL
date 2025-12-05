@@ -439,7 +439,7 @@ export default function ProfilePage() {
             {/* Colonne de gauche - Profil */}
             <div className="lg:w-1/3 xl:w-1/4 flex flex-col">
               <div className={sideCard}>
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-center shrink-0">
+                <div className="bg-linear-to-r from-blue-600 to-indigo-600 p-4 text-center shrink-0">
                   <div className="relative inline-block">
                     <div className="relative w-20 h-20 rounded-xl overflow-hidden shadow-2xl ring-4 ring-white/60 mx-auto">
                       {profilePicture ? (

@@ -9,7 +9,6 @@ import { formatMessageDate } from "@/utils/dateFormatter";
 import Image from "next/image";
 import { useTheme } from "@/context/ThemeContext";
 
-// ✅ 1. AJOUT DE onAudioCall DANS LES PROPS
 export default function MobileHeader({
   contact,
   conversation,
@@ -206,30 +205,27 @@ export default function MobileHeader({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {!isGroup && (
-            <>
-              {/* ✅ 2. AJOUT DU onClick POUR AUDIO */}
-              <button
-                onClick={onAudioCall}
-                className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-                title="Appel audio"
-              >
-                <Phone className="w-4 h-4" />
-              </button>
+          {/* ✅ SUPPRIMEZ LA CONDITION {!isGroup && (...)} ICI */}
+          {/* Les boutons d'appel sont maintenant visibles pour tous */}
+          <button
+            onClick={onAudioCall}
+            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+            title={isGroup ? "Appel audio de groupe" : "Appel audio"}
+          >
+            <Phone className="w-4 h-4" />
+          </button>
 
-              {/* ✅ BOUTON VIDÉO */}
-              <button
-                onClick={onVideoCall}
-                className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-                title="Appel vidéo"
-              >
-                <Video className="w-4 h-4" />
-              </button>
-            </>
-          )}
+          <button
+            onClick={onVideoCall}
+            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+            title={isGroup ? "Appel vidéo de groupe" : "Appel vidéo"}
+          >
+            <Video className="w-4 h-4" />
+          </button>
+
           <button
             className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-            title="Plus d'options"
+            title={isGroup ? "Détails du groupe" : "Détails"}
           >
             <Info className="w-4 h-4" />
           </button>

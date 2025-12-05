@@ -9,7 +9,6 @@ import { formatMessageDate } from "@/utils/dateFormatter";
 import Image from "next/image";
 import { useTheme } from "@/context/ThemeContext";
 
-// ✅ 1. AJOUT DE onAudioCall DANS LES PROPS
 export default function ChatHeader({
   contact,
   conversation,
@@ -143,7 +142,6 @@ export default function ChatHeader({
               {displayName}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
-              {/* ... status text ... */}
               <p className="text-xs text-blue-100 font-medium truncate">
                 {isGroup
                   ? `${participantsCount} participants`
@@ -156,27 +154,28 @@ export default function ChatHeader({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {!isGroup && (
-            <>
-              {/* ✅ 2. AJOUT DU ONCLICK ICI */}
-              <button
-                onClick={onAudioCall}
-                className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-                title="Appel audio"
-              >
-                <Phone className="w-4 h-4" />
-              </button>
+          {/* ✅ MODIFICATION ICI : Suppression de la condition !isGroup */}
+          {/* Les boutons d'appel sont maintenant visibles pour tous les types de conversation */}
+          <button
+            onClick={onAudioCall}
+            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+            title={isGroup ? "Appel audio de groupe" : "Appel audio"}
+          >
+            <Phone className="w-4 h-4" />
+          </button>
 
-              <button
-                onClick={onVideoCall}
-                className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-                title="Appel vidéo"
-              >
-                <Video className="w-4 h-4" />
-              </button>
-            </>
-          )}
-          <button className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm">
+          <button
+            onClick={onVideoCall}
+            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+            title={isGroup ? "Appel vidéo de groupe" : "Appel vidéo"}
+          >
+            <Video className="w-4 h-4" />
+          </button>
+
+          <button
+            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+            title={isGroup ? "Détails du groupe" : "Détails"}
+          >
             <Info className="w-4 h-4" />
           </button>
         </div>
