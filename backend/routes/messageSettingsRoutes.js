@@ -19,7 +19,6 @@ router.get('/check-blocked/:targetUserId', auth, ctrl.checkIfBlocked);
 
 // Conversation operations
 router.delete('/conversations/:id/delete', auth, ctrl.deleteConversationForUser);
-router.post('/conversations/:id/restore', auth, ctrl.restoreConversationForUser);
 router.post('/conversations/:id/mute', auth, ctrl.muteConversationForUser);
 router.post('/conversations/:id/unmute', auth, ctrl.unmuteConversationForUser);
 router.get('/conversations/:id/settings', auth, ctrl.getConversationSettings);

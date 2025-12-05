@@ -195,6 +195,7 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
+
   const handleSendMessage = async (content) => {
     try {
       let messageData;
@@ -231,7 +232,20 @@ export default function ChatPage() {
         };
       }
       
-      await sendMessage(messageData);
+      const response = await sendMessage(messageData);
+      if (response.data.conversationId && response.data.conversationId !== conversationId) {
+  console.log('🔄 Nouvelle conversation créée, redirection...');
+  
+  // 🔥 AJOUTEZ CES 3 LIGNES :
+  // 1. Émettre un événement global pour rafraîchir la sidebar
+  window.dispatchEvent(new CustomEvent('refresh-sidebar-conversations', {
+    detail: { newConversationId: response.data.conversationId }
+  }));
+  
+  // 2. Rediriger vers la nouvelle conversation
+  router.push(`/chat/${response.data.conversationId}`);
+  return;
+}
       
       if (user) {
         const userId = user._id || user.id;

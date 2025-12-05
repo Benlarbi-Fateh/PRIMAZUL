@@ -1,15 +1,20 @@
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const DeletedConversation = require('../models/DeletedConversation');
 
 
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
+    // ✅ RÉCUPÉRER LES IDs DES CONVERSATIONS SUPPRIMÉES
+    const deletedConvIds = await DeletedConversation.find({ deletedBy: userId })
+      .distinct('originalConversationId');
 
     const conversations = await Conversation.find({
-      participants: userId
+      participants: userId,
+      _id: { $nin: deletedConvIds } // ✅ EXCLURE LES CONVERSATIONS SUPPRIMÉES
     })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
       .populate('groupAdmin', 'name email profilePicture') // 🆕 AJOUTÉ
@@ -54,46 +59,62 @@ exports.getOrCreateConversation = async (req, res) => {
     const userId = req.user._id;
     const { contactId } = req.body;
 
-
-    // 🔧 CORRECTION : Vérifier que contactId existe
     if (!contactId) {
       return res.status(400).json({ error: 'Contact ID manquant' });
     }
 
-
-    // Vérifier que le contact existe
     const contactExists = await User.findById(contactId);
     if (!contactExists) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
 
+    // ✅ Récupérer les IDs des conversations supprimées par cet utilisateur
+    const deletedConvIds = await DeletedConversation.find({ deletedBy: userId })
+      .distinct('originalConversationId');
 
-    // 🆕 VÉRIFIER QUE CE N'EST PAS UN GROUPE (chercher conversations 1-1 uniquement)
+    // ✅ CHERCHER UNE CONVERSATION ACTIVE (non supprimée)
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, contactId], $size: 2 },
-      isGroup: false // 🆕 AJOUTÉ
+      isGroup: false,
+      _id: { $nin: deletedConvIds } // ✅ Exclure les conversations supprimées
     }).populate('participants', 'name email profilePicture isOnline lastSeen');
 
+    if (conversation) {
+      console.log('✅ Conversation active trouvée:', conversation._id);
+      return res.json({ success: true, conversation });
+    }
 
-    if (!conversation) {
-      conversation = new Conversation({
-        participants: [userId, contactId],
-        isGroup: false // 🆕 AJOUTÉ
+    // ✅ VÉRIFIER S'IL EXISTE UNE ANCIENNE CONVERSATION SUPPRIMÉE
+    const oldConversation = await Conversation.findOne({
+      participants: { $all: [userId, contactId], $size: 2 },
+      isGroup: false,
+      _id: { $in: deletedConvIds }
+    });
+
+    if (oldConversation) {
+      console.log('🔄 Restauration conversation supprimée:', oldConversation._id);
+      
+      // ✅ SUPPRIMER L'ENREGISTREMENT DE SUPPRESSION
+      await DeletedConversation.deleteOne({
+        originalConversationId: oldConversation._id,
+        deletedBy: userId
       });
-      await conversation.save();
-     
-      // 🔧 CORRECTION : Populate APRÈS save
-      await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
+
+      await oldConversation.populate('participants', 'name email profilePicture isOnline lastSeen');
+      
+      console.log('✅ Conversation restaurée:', oldConversation._id);
+      return res.json({ success: true, conversation: oldConversation });
     }
 
+    // ✅ CRÉER UNE NOUVELLE CONVERSATION VIERGE
+    conversation = new Conversation({
+      participants: [userId, contactId],
+      isGroup: false
+    });
+    await conversation.save();
+    await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
 
-    // 🔧 CORRECTION : S'assurer que tous les participants sont chargés
-    if (!conversation.participants || conversation.participants.length === 0) {
-      await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
-    }
-
-
-    console.log('✅ Conversation créée/récupérée:', conversation._id);
+    console.log('✅ Nouvelle conversation créée:', conversation._id);
     res.json({ success: true, conversation });
   } catch (error) {
     console.error('❌ Erreur getOrCreateConversation:', error);

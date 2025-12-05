@@ -1,16 +1,42 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const BlockedUser = require('../models/BlockedUser');
+const DeletedConversation = require('../models/DeletedConversation'); 
 
 
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const messages = await Message.find({ conversationId })
-      .populate('sender', 'name profilePicture')
-      .sort({ createdAt: 1 });
+    const userId = req.user.id || req.user._id;
+
+    // 🆕 VÉRIFIER à quelle date l'utilisateur a supprimé la conversation
+    const deletedRecord = await DeletedConversation.findOne({
+      originalConversationId: conversationId,
+      deletedBy: userId
+    });
+
+    let messages;
+
+    if (deletedRecord) {
+      // ✅ Afficher UNIQUEMENT les messages APRÈS la suppression
+      console.log(`📅 Conversation supprimée le ${deletedRecord.deletedAt}, filtrage des messages`);
+      
+      messages = await Message.find({ 
+        conversationId,
+        createdAt: { $gt: deletedRecord.deletedAt } // Messages après la suppression
+      })
+        .populate('sender', 'name profilePicture')
+        .sort({ createdAt: 1 });
+    } else {
+      // ✅ Afficher TOUS les messages
+      messages = await Message.find({ conversationId })
+        .populate('sender', 'name profilePicture')
+        .sort({ createdAt: 1 });
+    }
+
     res.json({ success: true, messages });
   } catch (error) {
+    console.error('❌ Erreur getMessages:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -32,31 +58,52 @@ exports.sendMessage = async (req, res) => {
 
 
     // verification de blockage avant envoi
-    if (!convCheck.isGroup) {
-      const otherParticipant = convCheck.participants.find(
-        p => p._id.toString() !== senderId.toString()
-      );
+    // verification de blockage avant envoi
+if (!convCheck.isGroup) {
+  const otherParticipant = convCheck.participants.find(
+    p => p._id.toString() !== senderId.toString()
+  );
 
+  if (otherParticipant) {
+    const blockExists = await BlockedUser.findOne({
+      $or: [
+        { userId: senderId, blockedUserId: otherParticipant._id },
+        { userId: otherParticipant._id, blockedUserId: senderId }
+      ]
+    });
 
-      if (otherParticipant) {
-        const blockExists = await BlockedUser.findOne({
-          $or: [
-            { userId: senderId, blockedUserId: otherParticipant._id },
-            { userId: otherParticipant._id, blockedUserId: senderId }
-          ]
-        });
-
-
-        if (blockExists) {
-          console.log('🚫 Message bloqué - relation bloquée détectée');
-          return res.status(403).json({
-            success: false,
-            message: 'Impossible d\'envoyer - Utilisateur bloqué',
-            blocked: true
-          });
-        }
-      }
+    if (blockExists) {
+      console.log('🚫 Message bloqué - relation bloquée détectée');
+      return res.status(403).json({
+        success: false,
+        message: 'Impossible d\'envoyer - Utilisateur bloqué',
+        blocked: true
+      });
     }
+  }
+
+  // 🆕 VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE (EN DEHORS DU IF)
+  // ✅ CORRECTION : Vérifier dans DeletedConversation
+// 🆕 VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE PAR L'EXPÉDITEUR
+      const isDeleted = await DeletedConversation.findOne({
+        originalConversationId: conversationId,
+        deletedBy: senderId
+      });
+
+      if (isDeleted) {
+        console.log('🔄 Conversation supprimée détectée - Restauration silencieuse pour l\'expéditeur');
+        
+        // ✅ SIMPLEMENT SUPPRIMER L'ENREGISTREMENT DE SUPPRESSION
+        // La conversation reste la même, mais redevient visible pour l'expéditeur
+        await DeletedConversation.deleteOne({
+          originalConversationId: conversationId,
+          deletedBy: senderId
+        });
+        
+        console.log('✅ Conversation restaurée pour l\'expéditeur, envoi du message dans la conversation existante');
+        // Le code continue normalement ci-dessous pour créer le message dans la conversation EXISTANTE
+      }
+}
 
 
     const message = new Message({
@@ -104,7 +151,8 @@ exports.sendMessage = async (req, res) => {
     }
 
 
-    res.status(201).json({ success: true, message });
+    res.status(201).json({ success: true, message,conversationId: conversationId });
+    
   } catch (error) {
     console.error('❌ Erreur sendMessage:', error);
     res.status(500).json({ error: error.message });

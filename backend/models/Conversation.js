@@ -11,7 +11,6 @@ const conversationSchema = new mongoose.Schema({
   groupImage: { type: String, default: '' },
   groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Créateur du groupe
   groupAdmins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],//plusieurs admin
-  deletedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // qu'elle utilisateur a fait le delete
   mutedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],  // qui a mis en silencieux
  
 

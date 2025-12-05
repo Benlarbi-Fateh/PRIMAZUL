@@ -1,6 +1,6 @@
 'use client'
 
-import { useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -91,16 +91,17 @@ export default function Sidebar({ activeConversationId }) {
     }
   };
 
-  const fetchConversations = async () => {
-    try {
-      const response = await getConversations();
-      setConversations(response.data.conversations || []);
-      setLoading(false);
-    } catch (error) {
-      console.error('Erreur lors du chargement des conversations:', error);
-      setLoading(false);
-    }
-  };
+  // REMPLACEZ LA FONCTION fetchConversations PAR CELLE-CI :
+const fetchConversations = useCallback(async () => {
+  try {
+    const response = await getConversations();
+    setConversations(response.data.conversations || []);
+    setLoading(false);
+  } catch (error) {
+    console.error('Erreur lors du chargement des conversations:', error);
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     if (user) {
@@ -242,6 +243,22 @@ export default function Sidebar({ activeConversationId }) {
 
     return () => clearTimeout(searchTimeoutRef.current);
   }, [searchTerm, activeTab]);
+
+useEffect(() => {
+  // Fonction pour rafraîchir les conversations
+  const handleRefreshConversations = (event) => {
+    console.log('🔄 Rafraîchissement des conversations déclenché');
+    fetchConversations(); // Cette fonction existe déjà dans votre code
+  };
+  
+  // Écouter l'événement
+  window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+  
+  // Nettoyer à la destruction
+  return () => {
+    window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+  };
+}, [fetchConversations]); // Dépendance : fetchConversations
 
   const handleTabChange = (tab) => {
     if (tab !== activeTab) {
@@ -642,6 +659,7 @@ export default function Sidebar({ activeConversationId }) {
                     const contactOnline = contactId && isUserOnline(contactId);
 
                     return (
+                      
                       <div
                         key={conv._id}
                         className="relative group animate-slide-in-left"

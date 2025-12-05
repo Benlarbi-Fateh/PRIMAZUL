@@ -1,6 +1,7 @@
 const Invitation = require('../models/Invitation');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
+const DeletedConversation = require('../models/DeletedConversation');
 
 // ============================================
 // 📤 ENVOYER UNE INVITATION
@@ -21,11 +22,29 @@ exports.sendInvitation = async (req, res) => {
       return res.status(400).json({ error: 'Vous ne pouvez pas vous envoyer une invitation' });
     }
 
-    // Vérifier s'il existe déjà une conversation entre les deux utilisateurs
+    // 🆕 VÉRIFIER si une conversation ACTIVE existe (non supprimée)
+    const deletedBySenderIds = await DeletedConversation.find({ 
+      deletedBy: senderId 
+    }).distinct('originalConversationId');
+
+    const deletedByReceiverIds = await DeletedConversation.find({ 
+      deletedBy: receiverId 
+    }).distinct('originalConversationId');
+
     const existingConversation = await Conversation.findOne({
       participants: { $all: [senderId, receiverId], $size: 2 },
-      isGroup: false
+      isGroup: false,
+      _id: { 
+        $nin: [...deletedBySenderIds, ...deletedByReceiverIds] 
+      }
     });
+
+    if (existingConversation) {
+      return res.status(400).json({ 
+        error: 'Une conversation existe déjà avec cet utilisateur',
+        conversation: existingConversation 
+      });
+    }
 
     if (existingConversation) {
       return res.status(400).json({ 
@@ -141,7 +160,7 @@ exports.acceptInvitation = async (req, res) => {
     invitation.status = 'accepted';
     await invitation.save();
 
-    // Créer la conversation
+    // ✅ TOUJOURS CRÉER UNE NOUVELLE CONVERSATION (pas de restauration)
     const conversation = new Conversation({
       participants: [invitation.sender._id, invitation.receiver._id],
       isGroup: false

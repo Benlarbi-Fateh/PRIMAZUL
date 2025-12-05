@@ -8,11 +8,14 @@ const BlockedUser = require('../models/BlockedUser');
 /**
  * Soft delete conversation FOR THE CURRENT USER
  */
+const DeletedConversation = require('../models/DeletedConversation'); // ✅ Garder cet import
+
 exports.deleteConversationForUser = async (req, res) => {
   try {
     const conversationId = req.params.id;
     const userId = req.user._id;
 
+    console.log('🗑️ Suppression conversation:', conversationId, 'par user:', userId);
 
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
@@ -21,25 +24,68 @@ exports.deleteConversationForUser = async (req, res) => {
         message: 'Conversation introuvable'
       });
     }
+      // Vérifier que l'utilisateur fait partie de la conversation
+    const isParticipant = conversation.participants.some(
+      p => p._id.toString() === userId.toString()
+    );
 
-
-    if (!Array.isArray(conversation.deletedBy)) {
-      conversation.deletedBy = [];
+    if (!isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vous ne faites pas partie de cette conversation'
+      });
     }
-   
-    if (!conversation.deletedBy.some(u => u.toString() === userId.toString())) {
-      conversation.deletedBy.push(userId);
-      await conversation.save();
+
+    // ✅ VÉRIFIER SI UNE SUPPRESSION EXISTE DÉJÀ
+    const existingDeletion = await DeletedConversation.findOne({
+      originalConversationId: conversation._id,
+      deletedBy: userId
+    });
+
+    if (existingDeletion) {
+      console.log('⚠️ Conversation déjà supprimée par cet utilisateur');
+      return res.json({
+        success: true,
+        message: 'Discussion déjà supprimée',
+        conversationId
+      });
     }
 
+    // ✅ Compter les messages
+    const messageCount = await Message.countDocuments({ conversationId });
+
+    // ✅ CRÉER UN ENREGISTREMENT DE SUPPRESSION
+    const deletedConv = new DeletedConversation({
+      originalConversationId: conversation._id,
+      participants: conversation.participants,
+      deletedBy: userId,
+      lastMessage: conversation.lastMessage,
+      isGroup: conversation.isGroup,
+      groupName: conversation.groupName,
+      groupImage: conversation.groupImage,
+      messageCount
+    });
+
+    await deletedConv.save();
+
+    console.log('✅ Conversation marquée comme supprimée pour:', userId);
+
+    // ✅ ÉMETTRE UN ÉVÉNEMENT SOCKET POUR RAFRAÎCHIR LA LISTE
+    const io = req.app.get('io');
+    if (io) {
+      io.to(userId.toString()).emit('conversation-deleted', {
+        conversationId: conversation._id
+      });
+      console.log('📡 Événement conversation-deleted émis');
+    }
 
     return res.json({
       success: true,
-      message: 'Discussion supprimée',
+      message: 'Discussion supprimée avec succès',
       conversationId
     });
   } catch (err) {
-    console.error('deleteConversationForUser error', err);
+    console.error('❌ deleteConversationForUser error:', err);
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur'
@@ -47,50 +93,11 @@ exports.deleteConversationForUser = async (req, res) => {
   }
 };
 
-
-/**
- * Restore conversation for current user
- */
-exports.restoreConversationForUser = async (req, res) => {
-  try {
-    const conversationId = req.params.id;
-    const userId = req.user._id;
-
-
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation) {
-      return res.status(404).json({
-        success: false,
-        message: 'Conversation introuvable'
-      });
-    }
-
-
-    if (Array.isArray(conversation.deletedBy)) {
-      conversation.deletedBy = conversation.deletedBy.filter(
-        u => u.toString() !== userId.toString()
-      );
-      await conversation.save();
-    }
-
-
-    return res.json({
-      success: true,
-      message: 'Discussion restaurée'
-    });
-  } catch (err) {
-    console.error('restoreConversationForUser error', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Erreur serveur'
-    });
-  }
-};
 
 
 exports.blockUser = async (req, res) => {
   try {
-    const userId = req.user.id; // CHANGÉ: .id au lieu de ._id
+    const userId = req.user._id;
     const { targetUserId, reason } = req.body;
    
     console.log('🔒 blockUser appelé:', { userId, targetUserId });
@@ -102,8 +109,7 @@ exports.blockUser = async (req, res) => {
       });
     }
 
-    // ✅ EMPÊCHER L'AUTO-BLOCAGE
-    if (userId.toString() === targetUserId) {
+    if (userId.toString() === targetUserId.toString()) {
       return res.status(400).json({
         success: false,
         message: "Vous ne pouvez pas vous bloquer vous-même"
@@ -118,9 +124,8 @@ exports.blockUser = async (req, res) => {
       });
     }
 
-    // ✅ UTILISEZ LA MÉTHODE DU MODÈLE
     const existingBlock = await BlockedUser.findOne({
-      userId,
+      userId: userId,
       blockedUserId: targetUserId
     });
 
@@ -133,7 +138,7 @@ exports.blockUser = async (req, res) => {
     }
 
     const blockedUser = new BlockedUser({
-      userId,
+      userId: userId,
       blockedUserId: targetUserId,
       reason: reason || ''
     });
@@ -142,7 +147,6 @@ exports.blockUser = async (req, res) => {
 
     console.log('✅ Utilisateur bloqué:', targetUser.name);
 
-    // ✅ ÉMETTRE L'ÉVÉNEMENT SOCKET
     const io = req.app.get('io');
     if (io) {
       io.to(targetUserId.toString()).emit('user-blocked', {
@@ -153,7 +157,7 @@ exports.blockUser = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Utilisateur bloqué',
+      message: 'Utilisateur bloqué avec succès',
       blockedUser: {
         _id: targetUser._id,
         name: targetUser.name,
@@ -165,7 +169,7 @@ exports.blockUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message // Ajouter pour débogage
+      error: err.message
     });
   }
 };
@@ -175,7 +179,7 @@ exports.blockUser = async (req, res) => {
  */
 exports.unblockUser = async (req, res) => {
   try {
-    const userId = req.user.id; // CHANGÉ: .id
+    const userId = req.user._id;
     const { targetUserId } = req.body;
    
     console.log('🔓 unblockUser appelé:', { userId, targetUserId });
@@ -188,7 +192,7 @@ exports.unblockUser = async (req, res) => {
     }
 
     const result = await BlockedUser.findOneAndDelete({
-      userId,
+      userId: userId,
       blockedUserId: targetUserId
     });
 
@@ -212,7 +216,7 @@ exports.unblockUser = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Utilisateur débloqué'
+      message: 'Utilisateur débloqué avec succès'
     });
   } catch (err) {
     console.error('❌ unblockUser error:', err);
@@ -269,7 +273,7 @@ exports.checkIfBlocked = async (req, res) => {
  */
 exports.getBlockedUsers = async (req, res) => {
   try {
-    const userId = req.user.id; // CHANGÉ: .id
+    const userId = req.user._id;
     
     console.log('📋 getBlockedUsers appelé pour:', userId);
    
