@@ -204,7 +204,7 @@ export default function RegisterPage() {
         className="hidden lg:flex lg:w-2/5 p-8 flex-col justify-between relative overflow-hidden"
         style={sidebarStyle}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(248,250,252,0.15)_0,_transparent_55%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.2)_0,_transparent_55%)] opacity-70" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(248,250,252,0.15)_0,transparent_55%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.2)_0,transparent_55%)] opacity-70" />
 
         {/* Logo */}
         <div className="flex flex-col items-center text-center relative z-10 mt-16">
@@ -270,7 +270,7 @@ export default function RegisterPage() {
           {/* Mobile Header */}
           <div className="lg:hidden text-center mb-6 sm:mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg shadow-blue-500/30">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-linear-to-r from-blue-600 to-blue-700 shadow-lg shadow-blue-500/30">
                 <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div className="text-left">
@@ -528,7 +528,7 @@ export default function RegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-600 to-sky-500 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 hover:from-blue-700 hover:to-sky-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:translate-y-[-1px] active:translate-y-[0px] shadow-lg shadow-blue-500/40 hover:shadow-blue-500/50 text-sm sm:text-base"
+                    className="w-full bg-linear-to-r from-blue-600 to-sky-500 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 hover:from-blue-700 hover:to-sky-500 disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-px active:translate-y-0 shadow-lg shadow-blue-500/40 hover:shadow-blue-500/50 text-sm sm:text-base"
                   >
                     {loading ? (
                       <div className="flex items-center justify-center gap-2 sm:gap-3">
@@ -550,7 +550,7 @@ export default function RegisterPage() {
                     Déjà un compte ?{" "}
                     <Link
                       href="/login"
-                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-sky-500 text-white hover:from-blue-700 hover:to-sky-500 transition-all shadow-md shadow-blue-500/40 hover:shadow-blue-500/60 transform hover:translate-y-[-1px]"
+                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-semibold bg-linear-to-r from-blue-600 to-sky-500 text-white hover:from-blue-700 hover:to-sky-500 transition-all shadow-md shadow-blue-500/40 hover:shadow-blue-500/60 transform hover:-translate-y-px"
                     >
                       <LogIn className="w-4 h-4" />
                       Se connecter
