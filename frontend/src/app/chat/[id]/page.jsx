@@ -92,19 +92,103 @@ export default function ChatPage() {
   // ============================================================
   // 📞 HANDLERS POUR LANCER L'APPEL (VIA CONTEXTE)
   // ============================================================
+  // À REMPLACER dans ton page.jsx (lignes ~95-110)
+
   const handleVideoCall = () => {
-    if (contact) {
-      initiateCall(conversationId, contact._id, "video");
+    if (!conversation) {
+      alert("Conversation introuvable.");
+      return;
+    }
+
+    // ✅ DÉTECTE : Groupe ou 1-to-1
+    if (conversation.isGroup) {
+      // ===== APPEL GROUPE =====
+      console.log("👥 Lancement appel groupe vidéo");
+
+      // Récupère tous les participants SAUF toi
+      const currentUserId = user._id || user.id;
+      const otherParticipants = conversation.participants
+        .filter((p) => p._id !== currentUserId)
+        .map((p) => p._id);
+
+      if (otherParticipants.length === 0) {
+        alert("Aucun autre participant dans ce groupe.");
+        return;
+      }
+
+      // Génère un channel name unique
+      const channelName = `group_${Date.now()}_${conversationId}`;
+
+      // Lance l'appel groupe
+      initiateCall(
+        channelName,
+        otherParticipants, // 🔄 Array pour groupe
+        "video",
+        conversation.name || "Appel Groupe" // Nom du groupe
+      );
     } else {
-      alert("Impossible d'appeler : contact introuvable.");
+      // ===== APPEL 1-to-1 =====
+      console.log("👤 Lancement appel vidéo 1-to-1");
+
+      if (contact) {
+        // Lance l'appel 1-to-1 (string, pas array)
+        initiateCall(
+          conversationId,
+          contact._id, // 🔄 String pour 1-to-1
+          "video"
+        );
+      } else {
+        alert("Impossible d'appeler : contact introuvable.");
+      }
     }
   };
 
   const handleAudioCall = () => {
-    if (contact) {
-      initiateCall(conversationId, contact._id, "audio");
+    if (!conversation) {
+      alert("Conversation introuvable.");
+      return;
+    }
+
+    // ✅ DÉTECTE : Groupe ou 1-to-1
+    if (conversation.isGroup) {
+      // ===== APPEL GROUPE =====
+      console.log("👥 Lancement appel groupe audio");
+
+      // Récupère tous les participants SAUF toi
+      const currentUserId = user._id || user.id;
+      const otherParticipants = conversation.participants
+        .filter((p) => p._id !== currentUserId)
+        .map((p) => p._id);
+
+      if (otherParticipants.length === 0) {
+        alert("Aucun autre participant dans ce groupe.");
+        return;
+      }
+
+      // Génère un channel name unique
+      const channelName = `group_${Date.now()}_${conversationId}`;
+
+      // Lance l'appel groupe
+      initiateCall(
+        channelName,
+        otherParticipants, // 🔄 Array pour groupe
+        "audio",
+        conversation.name || "Appel Groupe" // Nom du groupe
+      );
     } else {
-      alert("Impossible d'appeler : contact introuvable.");
+      // ===== APPEL 1-to-1 =====
+      console.log("👤 Lancement appel audio 1-to-1");
+
+      if (contact) {
+        // Lance l'appel 1-to-1 (string, pas array)
+        initiateCall(
+          conversationId,
+          contact._id, // 🔄 String pour 1-to-1
+          "audio"
+        );
+      } else {
+        alert("Impossible d'appeler : contact introuvable.");
+      }
     }
   };
 

@@ -152,7 +152,7 @@ const initSocket = (io) => {
     });
 
     // ============================================
-    // 📨 INVITATIONS - CORRIGÉ POUR INSTANTANÉITÉ
+    // 📨 INVITATIONS
     // ============================================
 
     // Nouvelle invitation envoyée
@@ -311,8 +311,10 @@ const initSocket = (io) => {
         });
       }
     });
-    // calls
-    // Dans ton io.on('connection') ...
+
+    // ============================================
+    // 📞 APPELS 1-to-1
+    // ============================================
 
     socket.on("call-user", (data) => {
       // data contient : { userToCallId, signalData, fromUserId, fromUserName }
@@ -322,16 +324,98 @@ const initSocket = (io) => {
         from: data.fromUserId,
         name: data.fromUserName,
       });
+      console.log(
+        `📞 Appel 1-to-1 : ${data.fromUserId} → ${data.userToCallId}`
+      );
     });
 
     socket.on("answer-call", (data) => {
       io.to(data.to).emit("call-answered", data.signal);
+      console.log(`✅ Appel accepté : ${data.to}`);
     });
 
     socket.on("end-call", (data) => {
       io.to(data.to).emit("call-ended");
+      console.log(`📴 Appel terminé : ${data.to}`);
     });
-  });
+
+    // ============================================
+    // 👥 APPELS GROUPE (✅ DANS LA CONNECTION)
+    // ============================================
+
+    // Initiateur lance un appel groupe
+    socket.on("group-call-initiated", (data) => {
+      const {
+        channelName,
+        callType,
+        initiator,
+        initiatorName,
+        participantIds,
+        groupName,
+      } = data;
+
+      console.log(
+        `👥 Appel groupe lancé: ${groupName} (${callType}) par ${initiatorName}`
+      );
+      console.log(
+        `📢 Envoi invitation à ${participantIds.length} participants`
+      );
+
+      // Envoie l'invitation à TOUS les participants
+      participantIds.forEach((participantId) => {
+        console.log(`📤 Envoi invitation à ${participantId}`);
+
+        io.to(participantId).emit("group-call-incoming", {
+          channelName,
+          callType,
+          initiator,
+          initiatorName,
+          groupName,
+          participants: [initiator, ...participantIds], // Tous les participants
+          isGroupCall: true,
+        });
+      });
+    });
+
+    // Un participant accepte l'appel groupe
+    socket.on("group-call-accepted", (data) => {
+      const { channelName, userId } = data;
+
+      console.log(`✅ ${userId} a accepté l'appel groupe ${channelName}`);
+
+      // Notifie TOUS les autres participants qu'un nouveau s'est joint
+      io.to(channelName).emit("group-participant-joined", {
+        userId,
+        channelName,
+      });
+    });
+
+    // Un participant refuse l'appel groupe
+    socket.on("group-call-rejected", (data) => {
+      const { channelName, userId } = data;
+
+      console.log(`❌ ${userId} a refusé l'appel groupe ${channelName}`);
+
+      // Optionnel : notifier les autres
+      io.to(channelName).emit("group-participant-rejected", {
+        userId,
+        channelName,
+      });
+    });
+
+    // Un utilisateur quitte le groupe
+    socket.on("user-left-group", (data) => {
+      const { channelName, userId } = data;
+
+      console.log(`👤 ${userId} a quitté l'appel groupe ${channelName}`);
+
+      // Notifie les autres participants
+      io.to(channelName).emit("user-left-group", {
+        userId,
+        channelName,
+      });
+    });
+  }); // ✅ FIN DE io.on("connection")
 
   // Heartbeat : Nettoyer les utilisateurs inactifs
   setInterval(() => {

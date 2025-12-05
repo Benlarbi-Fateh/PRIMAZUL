@@ -14,7 +14,6 @@ import { getSocket } from "@/services/socket";
 import api from "@/lib/api";
 import { PhoneIncoming, PhoneOff, Phone, Video } from "lucide-react";
 
-// Import du composant Vidéo (qui gère aussi l'audio)
 const VideoCall = dynamic(() => import("@/components/Chat/VideoCall"), {
   ssr: false,
 });
@@ -25,121 +24,203 @@ export const CallProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
   const { playMessageSound } = useNotifications();
 
-  // --- ÉTATS GLOBAUX ---
+  // --- ÉTATS ---
   const [inCall, setInCall] = useState(false);
   const [agoraToken, setAgoraToken] = useState(null);
   const [channelName, setChannelName] = useState(null);
-  const [callType, setCallType] = useState("video"); // 'video' | 'audio'
+  const [callType, setCallType] = useState("video");
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [callPartnerIds, setCallPartnerIds] = useState([]);
 
-  const [incomingCall, setIncomingCall] = useState(null); // L'appel qu'on reçoit
-  const [callPartnerId, setCallPartnerId] = useState(null); // Avec qui on parle
+  // État pour appels groupe
+  const [groupCallData, setGroupCallData] = useState({
+    channelName: null,
+    participants: [],
+    isGroupCall: false,
+    groupName: null,
+  });
 
-  // 1. NETTOYAGE GLOBAL (Fin d'appel)
+  // --- CLEANUP ---
   const endCallCleanup = useCallback(
     (emitSocket = true) => {
       console.log("📞 Fin de l'appel (Cleanup context)");
 
-      if (emitSocket) {
-        const socket = getSocket();
-        if (socket) {
-          // On priorise l'ID du partenaire actif, sinon l'appelant entrant
-          const targetId = callPartnerId || incomingCall?.from;
-          if (targetId) {
-            socket.emit("end-call", { to: targetId });
+      setInCall((prevInCall) => {
+        if (emitSocket && prevInCall) {
+          const socket = getSocket();
+          if (socket) {
+            setGroupCallData((prevGroupData) => {
+              if (prevGroupData.isGroupCall) {
+                socket.emit("user-left-group", {
+                  channelName: prevGroupData.channelName,
+                  userId: user._id || user.id,
+                });
+              } else {
+                setCallPartnerIds((prevPartnerIds) => {
+                  const targetId = prevPartnerIds[0];
+                  if (targetId) {
+                    socket.emit("end-call", { to: targetId });
+                  }
+                  return prevPartnerIds;
+                });
+              }
+              return prevGroupData;
+            });
           }
         }
-      }
+        return false;
+      });
 
-      // Reset total
-      setInCall(false);
       setAgoraToken(null);
       setChannelName(null);
       setIncomingCall(null);
-      setCallPartnerId(null);
-      setCallType("video"); // Reset défaut
+      setCallPartnerIds([]);
+      setGroupCallData({
+        channelName: null,
+        participants: [],
+        isGroupCall: false,
+        groupName: null,
+      });
+      setCallType("video");
     },
-    [callPartnerId, incomingCall]
+    [user]
   );
 
-  // 2. LANCER UN APPEL (Appelant)
-  const initiateCall = async (channel, contactId, type = "video") => {
-    if (!user) return;
+  // --- LANCER UN APPEL ---
+  const initiateCall = useCallback(
+    async (channel, contactIdOrIds, type = "video", groupName = null) => {
+      if (!user) return;
 
-    try {
-      // On définit le type tout de suite
-      setCallType(type);
-      setCallPartnerId(contactId);
+      try {
+        setCallType(type);
 
-      // Token
-      const { data } = await api.post("/agora/token", {
-        channelName: channel,
-        uid: 0,
-      });
-      setAgoraToken(data.token);
-      setChannelName(channel);
-      setInCall(true); // Affiche le composant VideoCall
+        const isGroup = Array.isArray(contactIdOrIds);
+        const partnerIds = isGroup ? contactIdOrIds : [contactIdOrIds];
 
-      // Signal Socket
-      const socket = getSocket();
-      socket.emit("call-user", {
-        userToCallId: contactId,
-        signalData: { channelName: channel, callType: type }, // ✅ On envoie le type !
-        fromUserId: user._id || user.id,
-        fromUserName: user.name || "Utilisateur",
-      });
-    } catch (error) {
-      console.error("Erreur appel:", error);
-      alert("Impossible de lancer l'appel.");
-      endCallCleanup(false);
-    }
-  };
+        if (isGroup) {
+          // APPEL GROUPE
+          setGroupCallData({
+            channelName: channel,
+            participants: [user._id || user.id, ...partnerIds],
+            isGroupCall: true,
+            groupName: groupName || "Appel Groupe",
+          });
 
-  // 3. RECEVOIR UN APPEL (Récepteur - Socket)
+          const { data } = await api.post("/agora/token", {
+            channelName: channel,
+            uid: 0,
+          });
+          setAgoraToken(data.token);
+          setChannelName(channel);
+          setInCall(true);
+
+          const socket = getSocket();
+          socket.emit("group-call-initiated", {
+            channelName: channel,
+            callType: type,
+            initiator: user._id || user.id,
+            initiatorName: user.name || "Utilisateur",
+            participantIds: partnerIds,
+            groupName: groupName || "Appel Groupe",
+          });
+        } else {
+          // APPEL 1-to-1
+          setCallPartnerIds([contactIdOrIds]);
+
+          const { data } = await api.post("/agora/token", {
+            channelName: channel,
+            uid: 0,
+          });
+          setAgoraToken(data.token);
+          setChannelName(channel);
+          setInCall(true);
+
+          const socket = getSocket();
+          socket.emit("call-user", {
+            userToCallId: contactIdOrIds,
+            signalData: { channelName: channel, callType: type },
+            fromUserId: user._id || user.id,
+            fromUserName: user.name || "Utilisateur",
+          });
+        }
+      } catch (error) {
+        console.error("Erreur appel:", error);
+        alert("Impossible de lancer l'appel.");
+        endCallCleanup(false);
+      }
+    },
+    [user, endCallCleanup]
+  );
+
+  // --- RECEVOIR UN APPEL ---
   useEffect(() => {
     const socket = getSocket();
     if (!socket || !user) return;
 
     const handleCallMade = (data) => {
-      if (inCall) {
-        // Occupé ? On pourrait émettre un signal "busy"
-        return;
-      }
+      if (inCall) return;
       console.log("📞 Appel reçu de type :", data.signal.callType);
       setIncomingCall(data);
       playMessageSound();
     };
 
-    const handleCallEnded = () => {
-      console.log("📴 L'autre a raccroché.");
-      endCallCleanup(false); // Ne pas renvoyer le signal
+    const handleGroupCallIncoming = (data) => {
+      if (inCall) return;
+      console.log("👥 Appel groupe reçu:", data.groupName);
+      setIncomingCall({
+        ...data,
+        isGroupCall: true,
+        signal: { callType: data.callType, channelName: data.channelName },
+      });
+      playMessageSound();
     };
 
-    const handleCallAnswered = (data) => {
-      // Optionnel : L'appelant reçoit confirmation que ça a décroché
-      console.log("Appel décroché");
+    const handleCallEnded = () => {
+      console.log("📴 L'autre a raccroché.");
+      endCallCleanup(false);
+    };
+
+    const handleUserLeftGroup = (data) => {
+      console.log(`👤 ${data.userId} a quitté le groupe`);
+      setGroupCallData((prev) => ({
+        ...prev,
+        participants: prev.participants.filter((p) => p !== data.userId),
+      }));
     };
 
     socket.on("call-made", handleCallMade);
+    socket.on("group-call-incoming", handleGroupCallIncoming);
     socket.on("call-ended", handleCallEnded);
-    socket.on("call-answered", handleCallAnswered);
+    socket.on("user-left-group", handleUserLeftGroup);
 
     return () => {
       socket.off("call-made", handleCallMade);
+      socket.off("group-call-incoming", handleGroupCallIncoming);
       socket.off("call-ended", handleCallEnded);
-      socket.off("call-answered", handleCallAnswered);
+      socket.off("user-left-group", handleUserLeftGroup);
     };
   }, [user, inCall, endCallCleanup, playMessageSound]);
 
-  // 4. ACCEPTER L'APPEL
-  const acceptCall = async () => {
+  // --- ACCEPTER APPEL ---
+  const acceptCall = useCallback(async () => {
     if (!incomingCall) return;
 
     try {
       const channel = incomingCall.signal.channelName;
-      const type = incomingCall.signal.callType || "video"; // ✅ Récupère le type reçu
+      const type = incomingCall.signal.callType || "video";
 
       setCallType(type);
-      setCallPartnerId(incomingCall.from);
+
+      if (incomingCall.isGroupCall) {
+        setGroupCallData({
+          channelName: channel,
+          participants: incomingCall.participants || [],
+          isGroupCall: true,
+          groupName: incomingCall.groupName,
+        });
+      } else {
+        setCallPartnerIds([incomingCall.from]);
+      }
 
       const { data } = await api.post("/agora/token", {
         channelName: channel,
@@ -148,31 +229,49 @@ export const CallProvider = ({ children }) => {
 
       setAgoraToken(data.token);
       setChannelName(channel);
-      setInCall(true); // Lance Agora
-      setIncomingCall(null); // Ferme la modale
+      setInCall(true);
+      setIncomingCall(null);
 
       const socket = getSocket();
-      socket.emit("answer-call", {
-        to: incomingCall.from,
-        signal: { channelName: channel },
-      });
+      if (incomingCall.isGroupCall) {
+        socket.emit("group-call-accepted", {
+          channelName: channel,
+          userId: user._id || user.id,
+        });
+      } else {
+        socket.emit("answer-call", {
+          to: incomingCall.from,
+          signal: { channelName: channel },
+        });
+      }
     } catch (error) {
       console.error("Erreur acceptation:", error);
     }
-  };
+  }, [incomingCall, user]);
 
-  // 5. REFUSER L'APPEL
-  const rejectCall = () => {
+  // --- REFUSER APPEL ---
+  const rejectCall = useCallback(() => {
     const socket = getSocket();
-    if (incomingCall) socket.emit("end-call", { to: incomingCall.from });
+    if (incomingCall) {
+      if (incomingCall.isGroupCall) {
+        socket.emit("group-call-rejected", {
+          channelName: incomingCall.signal.channelName,
+          userId: user._id || user.id,
+        });
+      } else {
+        socket.emit("end-call", { to: incomingCall.from });
+      }
+    }
     setIncomingCall(null);
-  };
+  }, [incomingCall, user]);
 
   return (
-    <CallContext.Provider value={{ initiateCall, inCall }}>
+    <CallContext.Provider
+      value={{ initiateCall, inCall, acceptCall, rejectCall, endCallCleanup }}
+    >
       {children}
 
-      {/* === MODALE APPEL ENTRANT (Globale) === */}
+      {/* === MODALE APPEL ENTRANT === */}
       {incomingCall && !inCall && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-white/10">
@@ -184,15 +283,31 @@ export const CallProvider = ({ children }) => {
               )}
             </div>
             <h3 className="text-xl font-bold mb-2 dark:text-white">
+              {incomingCall.isGroupCall ? "👥 Appel Groupe" : "Appel"}
               {incomingCall.signal?.callType === "audio"
-                ? "Appel Audio"
-                : "Appel Vidéo"}{" "}
+                ? " Audio"
+                : " Vidéo"}{" "}
               entrant...
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-8 text-center">
-              <span className="font-semibold text-blue-600 dark:text-blue-400">
-                {incomingCall.name}
-              </span>{" "}
+              {incomingCall.isGroupCall ? (
+                <>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    {incomingCall.groupName || "Appel Groupe"}
+                  </span>
+                  <br />
+                  <span className="text-sm">
+                    Lancé par{" "}
+                    <span className="font-semibold">
+                      {incomingCall.initiatorName}
+                    </span>
+                  </span>
+                </>
+              ) : (
+                <span className="font-semibold text-blue-600 dark:text-blue-400">
+                  {incomingCall.name}
+                </span>
+              )}{" "}
               vous appelle.
             </p>
             <div className="flex gap-4 w-full">
@@ -213,13 +328,13 @@ export const CallProvider = ({ children }) => {
         </div>
       )}
 
-      {/* === COMPOSANT AGORA (Global & Miniaturisable) === */}
+      {/* === COMPOSANT AGORA === */}
       {inCall && agoraToken && (
         <VideoCall
           channelName={channelName}
           token={agoraToken}
           uid={null}
-          callType={callType} // ✅ Passe le bon type (audio ou video)
+          callType={callType}
           onHangup={() => endCallCleanup(true)}
         />
       )}
