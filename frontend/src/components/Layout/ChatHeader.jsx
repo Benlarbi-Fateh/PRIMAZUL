@@ -5,21 +5,6 @@ import useBlockCheck from '../../hooks/useBlockCheck';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
-const THEME_STORAGE_KEY = (conversationId) => `chatTheme:${conversationId || 'global'}`;
-
-const PRESET_THEMES = [
-  { id: 'default', name: 'Bleu', primary: '#2563eb', bg: '', bubbleRadius: '14px' },
-  { id: 'sunset', name: 'Sunset', primary: '#ff7a59', bg: '', bubbleRadius: '20px' },
-  { id: 'dark', name: 'Sombre', primary: '#06b6d4', bg: '', bubbleRadius: '12px' },
-];
-
-const PRESET_BACKGROUNDS = [
-  '',
-  'https://images.unsplash.com/photo-1557683316-973673baf926?w=800',
-  'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800',
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800',
-  'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800'
-];
 
 export default function ChatHeader({ contact, conversation, onBack, user }) {
   const router = useRouter();
@@ -33,14 +18,10 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   const [settings, setSettings] = useState({
     muted: false
   });
-  const [theme, setTheme] = useState({ id: 'default', primary: '#2563eb', bg: '', bubbleRadius: '14px', darkMode: false });
   const [selectedImage, setSelectedImage] = useState(null);
   const [playingAudio, setPlayingAudio] = useState(null);
-  const [showCustomBgUpload, setShowCustomBgUpload] = useState(false);
-  const [savingTheme, setSavingTheme] = useState(false);
   const audioRef = useRef(null);
   const menuRef = useRef(null);
-  const urlInputRef = useRef(null);
   const fileInputRef = useRef(null);
   
   const { 
@@ -52,144 +33,6 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   } = useBlockCheck(contact?._id);
 
 
-
-  // Fonction pour charger le thème depuis le serveur
-  const loadThemeFromServer = async () => {
-    if (!conversation?._id) return;
-
-    // ✅ CHARGER DIRECTEMENT depuis le localStorage SEULEMENT
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY(conversation._id));
-    if (savedTheme) {
-      const parsed = JSON.parse(savedTheme);
-      setTheme(parsed);
-      applyThemeToDocument(parsed);
-      console.log('✅ Thème chargé depuis le localStorage');
-    }
-  };
-
-  // Fonction améliorée pour persister le thème
-  const persistTheme = async (t) => {
-    // Sauvegarder localement
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(THEME_STORAGE_KEY(conversation?._id || 'global'), JSON.stringify(t));
-    }
-    
-    // Appliquer le thème localement
-    applyThemeToDocument(t);
-    
-    console.log('🎨 Thème sauvegardé localement');
-  };
-
-  // Écouter les mises à jour de thème en temps réel
-  useEffect(() => {
-    if (!conversation?._id) return;
-
-    // Importer dynamiquement le service socket
-    import('../../services/socket').then((socketModule) => {
-      const socket = socketModule.getSocket();
-      
-      if (socket) {
-        // Écouter les mises à jour de thème
-        socket.on('theme-updated', ({ conversationId, theme: newTheme }) => {
-          if (conversationId === conversation._id) {
-            setTheme(newTheme);
-            applyThemeToDocument(newTheme);
-            console.log('🎨 Thème mis à jour par l autre utilisateur');
-          }
-        });
-
-        return () => {
-          socket.off('theme-updated');
-        };
-      }
-    });
-  }, [conversation?._id]);
-
-  // Charger le thème au démarrage
-  useEffect(() => {
-    if (conversation?._id) {
-      loadThemeFromServer();
-    }
-  }, [conversation?._id]);
-
-  // Fonction pour gérer l'upload d'image personnalisée
-  const handleCustomBackgroundUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      alert('Veuillez sélectionner une image valide');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('L\'image est trop volumineuse. Taille maximale: 5MB');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageUrl = e.target.result;
-      
-      const newTheme = {
-        ...theme,
-        bg: imageUrl,
-        id: 'custom-bg'
-      };
-      
-      setTheme(newTheme);
-      persistTheme(newTheme);
-      setShowCustomBgUpload(false);
-      
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    };
-
-    reader.onerror = () => {
-      alert('Erreur lors de la lecture du fichier');
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  // Fonction pour supprimer l'arrière-plan personnalisé
-  const removeCustomBackground = () => {
-    const newTheme = {
-      ...theme,
-      bg: '',
-      id: theme.id === 'custom-bg' ? 'default' : theme.id
-    };
-    
-    setTheme(newTheme);
-    persistTheme(newTheme);
-  };
-
-  // Fonction améliorée pour appliquer le thème
-  function applyThemeToDocument(t) {
-    const root = document.documentElement;
-    
-    root.style.setProperty('--chat-primary', t.primary || '#2563eb');
-    
-    if (t.bg && t.bg.trim() !== '') {
-      const safeUrl = t.bg.replace(/"/g, '%22');
-      root.style.setProperty('--chat-bg-image', `url("${safeUrl}")`);
-      root.style.setProperty('--chat-bg', 'transparent');
-    } else {
-      root.style.setProperty('--chat-bg-image', 'none');
-      root.style.setProperty('--chat-bg', t.darkMode ? '#0f172a' : '#ffffff');
-    }
-    
-    root.style.setProperty('--bubble-radius', t.bubbleRadius || '14px');
-    root.style.setProperty('--user-bubble-bg', t.primary || '#2563eb');
-    root.style.setProperty('--user-bubble-text', '#ffffff');
-    root.style.setProperty('--other-bubble-bg', t.darkMode ? '#334155' : '#f1f5f9');
-    root.style.setProperty('--other-bubble-text', t.darkMode ? '#f1f5f9' : '#0f172a');
-    
-    document.body.classList.add('chat-background');
-    
-    window.dispatchEvent(new CustomEvent('chat-theme-change', { detail: t }));
-  }
 
   const formatMessageDate = (date) => {
     if (!date) return '';
@@ -311,71 +154,34 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   };
 
   // Fonction corrigée pour charger les médias
-  const loadMedia = async (type) => {
+ const loadMedia = async (type) => {
   setLoadingMedia(true);
   setMediaType(type);
   try {
-    console.log(`📥 Chargement des médias de type: ${type}`);
+    console.log(`📥 Chargement des médias de type: ${type} pour conversation:`, conversation._id);
     
     const response = await api.get(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
     const data = response.data;
     
     console.log(`✅ Données reçues pour ${type}:`, data);
     
-    if (!data || Object.keys(data).length === 0) {
-      // Données mockées seulement si nécessaire
-      const mockData = {
-        images: type === 'images' ? [
-          { 
-            id: 1, 
-            url: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400', 
-            name: 'image1.jpg', 
-            size: 1024000,
-            createdAt: new Date()
-          }
-        ] : [],
-        files: type === 'files' ? [
-          { 
-            id: 1, 
-            url: '/api/files/1', 
-            name: 'document.pdf', 
-            size: 2500000, 
-            type: 'pdf',
-            createdAt: new Date()
-          }
-        ] : [],
-        audio: type === 'audio' ? [
-          { 
-            id: 1, 
-            url: '/api/audio/1', 
-            name: 'message_audio.mp3', 
-            duration: 45, 
-            size: 4500000,
-            createdAt: new Date()
-          }
-        ] : [],
-        videos: type === 'videos' ? [
-          { 
-            id: 1, 
-            url: '/api/videos/1', 
-            name: 'video.mp4', 
-            duration: 120, 
-            size: 15000000,
-            createdAt: new Date()
-          }
-        ] : [],
-        links: type === 'links' ? [
-          { 
-            id: 1, 
-            links: ['https://example.com', 'https://google.com'],
-            sender: { name: 'John Doe' },
-            createdAt: new Date(Date.now() - 3600000).toISOString()
-          }
-        ] : []
-      };
-      setMediaData(mockData);
+    // ✅ CORRECTION : Le backend retourne directement images, files, audio, videos, links
+    if (data && data.success) {
+      setMediaData({
+        images: data.images || [],
+        files: data.files || [],
+        audio: data.audio || [],
+        videos: data.videos || [], // ✅ AJOUT
+        links: data.links || []
+      });
     } else {
-      setMediaData(data);
+      setMediaData({
+        images: [],
+        files: [],
+        audio: [],
+        videos: [], // ✅ AJOUT
+        links: []
+      });
     }
   } catch (err) {
     console.error('❌ Erreur chargement média:', err);
@@ -383,7 +189,7 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
       images: [],
       files: [],
       audio: [],
-      videos: [],
+      videos: [], // ✅ AJOUT
       links: []
     });
   }
@@ -546,17 +352,6 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
     await loadMedia('images');
   };
 
-  const applyPreset = (preset) => {
-    const newTheme = {
-      ...theme,
-      id: preset.id,
-      primary: preset.primary || theme.primary,
-      bg: preset.bg || '',
-      bubbleRadius: preset.bubbleRadius || theme.bubbleRadius,
-    };
-    setTheme(newTheme);
-    persistTheme(newTheme);
-  };
   
   // ✅ CORRECTION : Écouter les changements de statut de blocage
   useEffect(() => {
@@ -942,224 +737,7 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
                       </button>
                     </div>
 
-                    {/* Section Personnalisation */}
-                    <div className="border-t-2 border-gray-100 pt-6">
-                      <div className="flex items-center gap-2 px-2 mb-4">
-                        <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-500 rounded-lg">
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                          </svg>
-                        </div>
-                        <h4 className="text-sm font-bold text-gray-900">Personnalisation</h4>
-                        {savingTheme && (
-                          <div className="ml-auto">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-4 px-2">
-                        {/* Thèmes Prédéfinis */}
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
-                            Thèmes
-                          </label>
-                          <div className="grid grid-cols-3 gap-3">
-                            {PRESET_THEMES.map((preset) => (
-                              <button 
-                                key={preset.id} 
-                                onClick={() => applyPreset(preset)}
-                                disabled={savingTheme}
-                                className={`relative h-20 rounded-2xl border-3 transition-all transform hover:scale-105 ${
-                                  theme.id === preset.id 
-                                    ? 'border-blue-500 ring-4 ring-blue-200 shadow-xl' 
-                                    : 'border-gray-200 hover:border-gray-300 shadow-md'
-                                } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                style={{ 
-                                  background: `linear-gradient(135deg, ${preset.primary}15, ${preset.primary}35)` 
-                                }}
-                              >
-                                {theme.id === preset.id && (
-                                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                                <div className="absolute bottom-0 left-0 right-0 h-2 rounded-b-2xl" style={{ backgroundColor: preset.primary }} />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <span className="text-xs font-bold text-gray-700">{preset.name}</span>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Sélecteur de Couleur */}
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
-                            Couleur Personnalisée
-                          </label>
-                          <div className="relative">
-                            <input 
-                              type="color" 
-                              value={theme.primary} 
-                              onChange={(e) => { 
-                                const newTheme = { ...theme, primary: e.target.value, id: 'custom' }; 
-                                setTheme(newTheme); 
-                                persistTheme(newTheme); 
-                              }} 
-                              disabled={savingTheme}
-                              className={`w-full h-14 rounded-2xl cursor-pointer border-3 border-gray-200 shadow-md hover:shadow-lg transition-all ${
-                                savingTheme ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                            />
-                            <div className="absolute inset-0 rounded-2xl pointer-events-none border-3 border-white/50"></div>
-                          </div>
-                        </div>
-
-                        {/* Arrière-plans */}
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wide">
-                            Arrière-plan
-                          </label>
-                          <div className="flex gap-2 mb-3 flex-wrap">
-                            {PRESET_BACKGROUNDS.map((bg, index) => (
-                              <button 
-                                key={index} 
-                                onClick={() => { 
-                                  if (savingTheme) return;
-                                  const newTheme = { ...theme, bg: bg || '' }; 
-                                  setTheme(newTheme); 
-                                  persistTheme(newTheme); 
-                                }} 
-                                disabled={savingTheme}
-                                className={`w-20 h-20 rounded-2xl border-3 ${
-                                  theme.bg === bg 
-                                    ? 'border-blue-500 ring-4 ring-blue-200 shadow-xl' 
-                                    : 'border-gray-200 hover:border-gray-300 shadow-md'
-                                } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''} relative group overflow-hidden transition-all transform hover:scale-105`}
-                              >
-                                {bg ? (
-                                  <>
-                                    <img src={bg} alt="" className="w-full h-full object-cover rounded-2xl" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-end justify-center pb-2">
-                                      <span className="text-white text-xs font-bold drop-shadow-lg">
-                                        {index === 1 ? 'Gradient' : index === 2 ? 'Coloré' : index === 3 ? 'Nature' : 'Plage'}
-                                      </span>
-                                    </div>
-                                  </>
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex flex-col items-center justify-center">
-                                    <X className="w-6 h-6 text-gray-400 mb-1" />
-                                    <span className="text-xs text-gray-500 font-medium">Aucun</span>
-                                  </div>
-                                )}
-                                {theme.bg === bg && (
-                                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </button>
-                            ))}
-
-                            {/* Bouton Upload Personnalisé */}
-                            <button 
-                              onClick={() => !savingTheme && setShowCustomBgUpload(!showCustomBgUpload)}
-                              disabled={savingTheme}
-                              className={`w-20 h-20 rounded-2xl border-3 border-dashed ${
-                                theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) 
-                                  ? 'border-blue-500 bg-blue-50 ring-4 ring-blue-200 shadow-xl' 
-                                  : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 shadow-md'
-                              } ${savingTheme ? 'opacity-50 cursor-not-allowed' : ''} flex flex-col items-center justify-center transition-all transform hover:scale-105 relative group`}
-                            >
-                              <Upload className="w-6 h-6 text-gray-400 group-hover:text-blue-500 transition-colors mb-1" />
-                              <span className="text-xs text-gray-500 group-hover:text-blue-600 font-medium transition-colors">Upload</span>
-                              
-                              {theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) && (
-                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                              )}
-                            </button>
-                          </div>
-
-                          {/* Panel Upload Personnalisé */}
-                          {showCustomBgUpload && (
-                            <div className="mt-3 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl border-2 border-blue-200 shadow-inner">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="p-2 bg-blue-500 rounded-lg">
-                                    <Upload className="w-4 h-4 text-white" />
-                                  </div>
-                                  <span className="text-sm font-bold text-blue-800">Image Personnalisée</span>
-                                </div>
-                                <button 
-                                  onClick={() => setShowCustomBgUpload(false)}
-                                  className="p-1.5 hover:bg-blue-200 rounded-lg transition-colors"
-                                >
-                                  <X className="w-4 h-4 text-blue-600" />
-                                </button>
-                              </div>
-
-                              <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={handleCustomBackgroundUpload}
-                                className="hidden"
-                              />
-
-                              <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-full py-3 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-                              >
-                                📁 Choisir une image
-                              </button>
-
-                              <p className="text-xs text-blue-700 mt-3 text-center font-medium">
-                                Format: PNG, JPG, WEBP • Taille max: 5MB
-                              </p>
-
-                              {/* Bouton Supprimer l'arrière-plan personnalisé */}
-                              {theme.bg && !PRESET_BACKGROUNDS.includes(theme.bg) && (
-                                <button
-                                  onClick={removeCustomBackground}
-                                  disabled={savingTheme}
-                                  className={`w-full mt-3 py-3 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 transform hover:scale-105 ${
-                                    savingTheme ? 'opacity-50 cursor-not-allowed' : ''
-                                  }`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Supprimer l'arrière-plan
-                                </button>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Info partagée */}
-                          <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border-2 border-blue-200 shadow-inner">
-                            <div className="flex items-start gap-3">
-                              <div className="p-2 bg-blue-500 rounded-lg shrink-0">
-                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-xs font-semibold text-blue-800 mb-1">Thème Partagé</p>
-                                <p className="text-xs text-blue-600 leading-relaxed">
-                                  Ce thème sera visible par tous les participants de cette conversation
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    
                   </div>
 
                   {/* Footer fixe */}

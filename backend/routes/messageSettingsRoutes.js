@@ -24,8 +24,5 @@ router.post('/conversations/:id/unmute', auth, ctrl.unmuteConversationForUser);
 router.get('/conversations/:id/settings', auth, ctrl.getConversationSettings);
 router.get('/conversations/:id/media', auth, ctrl.getMediaForConversation);
 
-// Theme operations
-router.post('/theme', auth, ctrl.saveTheme);
-router.put('/conversations/:id/theme', auth, ctrl.updateConversationTheme);
 
 module.exports = router;

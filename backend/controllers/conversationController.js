@@ -161,77 +161,7 @@ exports.getConversationById = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-//  FONCTIONS POUR LE THÈME
-exports.getConversationTheme = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user._id;
-   
-    const conversation = await Conversation.findById(id);
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation non trouvée' });
-    }
 
 
-    // Vérifier que l'utilisateur fait partie de la conversation
-    const isParticipant = conversation.participants.some(
-      p => p._id.toString() === userId.toString()
-    );
 
 
-    if (!isParticipant) {
-      return res.status(403).json({ error: 'Accès refusé' });
-    }
-
-
-    res.json({
-      success: true,
-      theme: conversation.theme
-    });
-  } catch (error) {
-    console.error('❌ Erreur getConversationTheme:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
-exports.updateConversationTheme = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user._id;
-    const { theme } = req.body;
-
-
-    const conversation = await Conversation.findById(id);
-   
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation non trouvée' });
-    }
-
-
-    // Vérifier que l'utilisateur fait partie de la conversation
-    const isParticipant = conversation.participants.some(
-      p => p._id.toString() === userId.toString()
-    );
-
-
-    if (!isParticipant) {
-      return res.status(403).json({ error: 'Accès refusé' });
-    }
-
-
-    // Mettre à jour le thème
-    conversation.theme = theme;
-    await conversation.save();
-
-
-    res.json({
-      success: true,
-      message: 'Thème mis à jour',
-      theme: conversation.theme
-    });
-  } catch (error) {
-    console.error('❌ Erreur updateConversationTheme:', error);
-    res.status(500).json({ error: error.message });
-  }
-};

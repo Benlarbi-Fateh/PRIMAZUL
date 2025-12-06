@@ -163,7 +163,7 @@ const handleSendMessage = async (messageContent) => {
   if (!file) return;
   
 
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 100 * 1024 * 1024) {
       alert('Fichier trop volumineux (max 10MB)');
       return;
     }
@@ -182,11 +182,13 @@ const handleSendMessage = async (messageContent) => {
 
       const fileType = getFileType(file.type);
 
-      handleSendMessage({
+ handleSendMessage({
   type: fileType,
   fileUrl: response.data.fileUrl,
   fileName: response.data.fileName,
   fileSize: response.data.fileSize,
+  videoDuration: response.data.videoDuration || 0, // 🆕 AJOUT
+  videoThumbnail: response.data.videoThumbnail || null, // 🆕 AJOUT
   content: message.trim()
 });
 
@@ -206,6 +208,7 @@ const handleSendMessage = async (messageContent) => {
   const getFileType = (mimeType) => {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('audio/')) return 'audio';
+    if (mimeType.startsWith('video/')) return 'video';
     return 'file';
   };
 
@@ -439,7 +442,7 @@ if (isBlocked) {
             type="file"
             onChange={handleFileSelect}
             className="hidden"
-            accept="image/*,audio/*,.pdf,.doc,.docx,.txt"
+           accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.txt"
             disabled={uploading}
           />
 

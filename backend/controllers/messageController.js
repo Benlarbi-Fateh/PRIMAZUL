@@ -106,17 +106,18 @@ if (!convCheck.isGroup) {
 }
 
 
-    const message = new Message({
-      conversationId,
-      sender: senderId,
-      content: content || '',
-      type: type || 'text',
-      fileUrl,
-      fileName,
-      fileSize,
-      status: 'sent'
-    });
-
+   const message = new Message({
+  conversationId,
+  sender: senderId,
+  content: content || '',
+  type: type || 'text',
+  fileUrl,
+  fileName,
+  fileSize,
+  videoDuration: req.body.videoDuration || 0, // 🆕 AJOUT ICI
+  videoThumbnail: req.body.videoThumbnail || null, // 🆕 AJOUT ICI
+  status: 'sent'
+});
 
     await message.save();
 

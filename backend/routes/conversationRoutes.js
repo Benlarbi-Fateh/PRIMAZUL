@@ -15,9 +15,4 @@ router.post('/get-or-create', authMiddleware, getOrCreateConversation);
 router.get('/:id', authMiddleware, getConversationById);  // 🆕 AJOUTÉ
 
 
-// 🆕 NOUVELLES ROUTES POUR LE THÈME
-router.get('/:id/theme', authMiddleware, getConversationTheme);
-router.post('/:id/theme', authMiddleware, updateConversationTheme);
-
-
 module.exports = router;

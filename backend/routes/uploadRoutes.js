@@ -3,8 +3,8 @@ const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const authMiddleware = require('../middleware/authMiddleware');
 const fs = require('fs');
-
 const router = express.Router();
+const { uploadFile, uploadProfilePicture, skipProfilePicture } = require('../controllers/uploadController');
 
 console.log('🔧 uploadRoutes chargé avec succès');
 
@@ -14,6 +14,7 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024
   }
 });
+
 
 router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
   try {
@@ -25,9 +26,14 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
 
     console.log('📁 Fichier reçu:', req.file.originalname);
     
+
+    let resourceType = 'auto';
+if (req.file.mimetype.startsWith('video/')) {
+  resourceType = 'video';}
+
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: 'whatsapp-clone',
-      resource_type: 'auto'
+      resource_type: resourceType
     });
 
     console.log('✅ Fichier uploadé vers Cloudinary');
@@ -35,11 +41,14 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
     fs.unlinkSync(req.file.path);
 
     res.json({
-      success: true,
-      fileUrl: result.secure_url,
-      fileName: req.file.originalname,
-      fileSize: req.file.size
-    });
+  success: true,
+  fileUrl: result.secure_url,
+  fileName: req.file.originalname,
+  fileSize: req.file.size,
+  fileType: req.file.mimetype, // 🆕 AJOUT
+  videoDuration: result.duration || 0, // 🆕 AJOUT
+  videoThumbnail: result.resource_type === 'video' ? result.secure_url.replace(/\.(mp4|webm|avi|mov)$/, '.jpg') : null // 🆕 AJOUT
+});
 
   } catch (error) {
     console.error('❌ Erreur upload:', error);

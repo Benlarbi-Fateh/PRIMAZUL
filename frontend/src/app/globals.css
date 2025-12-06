@@ -12,24 +12,3 @@ body {
 .animate-slide-left {
   animation: slide-left 0.3s ease forwards;
 }
-:root {
-  /* Thème par défaut */
-  --chat-primary: #2563eb;
-  --chat-bg: #ffffff;
-  --chat-bg-image: none;
-  --bubble-radius: 14px;
-  --chat-text-color: #0f172a;
-  --user-bubble-bg: #2563eb;
-  --user-bubble-text: #ffffff;
-  --other-bubble-bg: #f1f5f9;
-  --other-bubble-text: #0f172a;
-}
-
-/* Appliquer l'arrière-plan de chat */
-.chat-background {
-  background: var(--chat-bg);
-  background-image: var(--chat-bg-image);
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-}

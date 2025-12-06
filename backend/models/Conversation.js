@@ -2,9 +2,10 @@ const mongoose = require('mongoose');
 
 
 const conversationSchema = new mongoose.Schema({
-  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],  
   lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
  
+    
   // 🆕 NOUVEAUX CHAMPS POUR LES GROUPES
   isGroup: { type: Boolean, default: false },
   groupName: { type: String, default: '' },
@@ -15,17 +16,7 @@ const conversationSchema = new mongoose.Schema({
  
 
 
-  // AJOUTEZ CE CHAMP POUR LE THÈME
-  theme: {
-    type: Object,
-    default: {
-      id: 'default',
-      primary: '#2563eb',
-      bg: '',
-      bubbleRadius: '14px',
-      darkMode: false
-    }
-  },
+
  
   unreadCount: {
     type: Map,

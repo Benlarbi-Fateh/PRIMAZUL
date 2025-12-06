@@ -3,13 +3,11 @@ const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const BlockedUser = require('../models/BlockedUser');
-
+const DeletedConversation = require('../models/DeletedConversation');
 
 /**
  * Soft delete conversation FOR THE CURRENT USER
  */
-const DeletedConversation = require('../models/DeletedConversation'); // ✅ Garder cet import
-
 exports.deleteConversationForUser = async (req, res) => {
   try {
     const conversationId = req.params.id;
@@ -24,7 +22,7 @@ exports.deleteConversationForUser = async (req, res) => {
         message: 'Conversation introuvable'
       });
     }
-      // Vérifier que l'utilisateur fait partie de la conversation
+
     const isParticipant = conversation.participants.some(
       p => p._id.toString() === userId.toString()
     );
@@ -36,7 +34,6 @@ exports.deleteConversationForUser = async (req, res) => {
       });
     }
 
-    // ✅ VÉRIFIER SI UNE SUPPRESSION EXISTE DÉJÀ
     const existingDeletion = await DeletedConversation.findOne({
       originalConversationId: conversation._id,
       deletedBy: userId
@@ -51,10 +48,8 @@ exports.deleteConversationForUser = async (req, res) => {
       });
     }
 
-    // ✅ Compter les messages
     const messageCount = await Message.countDocuments({ conversationId });
 
-    // ✅ CRÉER UN ENREGISTREMENT DE SUPPRESSION
     const deletedConv = new DeletedConversation({
       originalConversationId: conversation._id,
       participants: conversation.participants,
@@ -70,7 +65,6 @@ exports.deleteConversationForUser = async (req, res) => {
 
     console.log('✅ Conversation marquée comme supprimée pour:', userId);
 
-    // ✅ ÉMETTRE UN ÉVÉNEMENT SOCKET POUR RAFRAÎCHIR LA LISTE
     const io = req.app.get('io');
     if (io) {
       io.to(userId.toString()).emit('conversation-deleted', {
@@ -92,8 +86,6 @@ exports.deleteConversationForUser = async (req, res) => {
     });
   }
 };
-
-
 
 exports.blockUser = async (req, res) => {
   try {
@@ -174,9 +166,6 @@ exports.blockUser = async (req, res) => {
   }
 };
 
-/**
- * Unblock a user
- */
 exports.unblockUser = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -228,9 +217,6 @@ exports.unblockUser = async (req, res) => {
   }
 };
 
-/**
- * Check if user is blocked
- */
 exports.checkIfBlocked = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -268,9 +254,6 @@ exports.checkIfBlocked = async (req, res) => {
   }
 };
 
-/**
- * Get blocked users
- */
 exports.getBlockedUsers = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -307,14 +290,10 @@ exports.getBlockedUsers = async (req, res) => {
   }
 };
 
-/**
- * Mute conversation
- */
 exports.muteConversationForUser = async (req, res) => {
   try {
     const conversationId = req.params.id;
     const userId = req.user._id;
-
 
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
@@ -324,7 +303,6 @@ exports.muteConversationForUser = async (req, res) => {
       });
     }
 
-
     if (!Array.isArray(conversation.mutedBy)) {
       conversation.mutedBy = [];
     }
@@ -333,7 +311,6 @@ exports.muteConversationForUser = async (req, res) => {
       conversation.mutedBy.push(userId);
       await conversation.save();
     }
-
 
     return res.json({
       success: true,
@@ -350,15 +327,10 @@ exports.muteConversationForUser = async (req, res) => {
   }
 };
 
-
-/**
- * Unmute conversation
- */
 exports.unmuteConversationForUser = async (req, res) => {
   try {
     const conversationId = req.params.id;
     const userId = req.user._id;
-
 
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
@@ -368,14 +340,12 @@ exports.unmuteConversationForUser = async (req, res) => {
       });
     }
 
-
     if (Array.isArray(conversation.mutedBy)) {
       conversation.mutedBy = conversation.mutedBy.filter(
         u => u.toString() !== userId.toString()
       );
       await conversation.save();
     }
-
 
     return res.json({
       success: true,
@@ -392,14 +362,11 @@ exports.unmuteConversationForUser = async (req, res) => {
   }
 };
 
-
-/**
- * Get media for conversation
- */
+// ✅ FONCTION POUR RÉCUPÉRER LES MÉDIAS
 exports.getMediaForConversation = async (req, res) => {
   try {
     const conversationId = req.params.id;
-    const { type = 'all' } = req.query; // Valeur par défaut
+    const { type = 'all' } = req.query;
 
     console.log(`📁 Chargement médias pour conversation ${conversationId}, type: ${type}`);
 
@@ -409,7 +376,6 @@ exports.getMediaForConversation = async (req, res) => {
 
     let result = {};
 
-    // 🎯 FILTRAGE CORRECT PAR TYPE
     if (type === 'all' || type === 'images') {
       result.images = messages
         .filter(m => m.type === 'image' && m.fileUrl)
@@ -474,6 +440,7 @@ exports.getMediaForConversation = async (req, res) => {
           name: m.fileName || `video-${m._id}.mp4`,
           size: m.fileSize || 0,
           duration: m.videoDuration || 0,
+          thumbnail: m.videoThumbnail || null,
           sender: {
             _id: m.sender._id,
             name: m.sender.name,
@@ -501,15 +468,14 @@ exports.getMediaForConversation = async (req, res) => {
             createdAt: m.createdAt
           };
         })
-        .filter(item => item.links.length > 0); // Filtrer les éléments sans liens
+        .filter(item => item.links.length > 0);
     }
 
-    // Stats
     result.stats = {
       totalImages: result.images?.length || 0,
       totalFiles: result.files?.length || 0,
       totalAudio: result.audio?.length || 0,
-      totalVideos: result.videos?.length || 0,
+      totalVideos: result.videos?.length || 0, // 🆕 AJOUT
       totalLinks: result.links?.length || 0
     };
 
@@ -528,20 +494,13 @@ exports.getMediaForConversation = async (req, res) => {
   }
 };
 
-
-
-/**
- * Get conversation settings
- */
 exports.getConversationSettings = async (req, res) => {
   try {
     const conversationId = req.params.id;
     const userId = req.user._id;
 
-
     const conversation = await Conversation.findById(conversationId)
       .populate('participants', 'name email profilePicture');
-
 
     if (!conversation) {
       return res.status(404).json({
@@ -550,16 +509,13 @@ exports.getConversationSettings = async (req, res) => {
       });
     }
 
-
     let otherParticipant = null;
     let blockStatus = { iBlocked: false, blockedMe: false };
-
 
     if (!conversation.isGroup) {
       otherParticipant = conversation.participants.find(
         p => p._id.toString() !== userId.toString()
       );
-
 
       if (otherParticipant) {
         const iBlocked = await BlockedUser.findOne({
@@ -567,12 +523,10 @@ exports.getConversationSettings = async (req, res) => {
           blockedUserId: otherParticipant._id
         });
 
-
         const blockedMe = await BlockedUser.findOne({
           userId: otherParticipant._id,
           blockedUserId: userId
         });
-
 
         blockStatus = {
           iBlocked: !!iBlocked,
@@ -581,16 +535,13 @@ exports.getConversationSettings = async (req, res) => {
       }
     }
 
-
     const isMuted = conversation.mutedBy?.some(
       u => u.toString() === userId.toString()
     );
 
-
     const isDeleted = conversation.deletedBy?.some(
       u => u.toString() === userId.toString()
     );
-
 
     return res.json({
       success: true,
@@ -609,100 +560,5 @@ exports.getConversationSettings = async (req, res) => {
       success: false,
       message: 'Erreur serveur'
     });
-  }
-};
-/**
- * Save user theme + wallpaper
- */
-exports.saveTheme = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { theme, wallpaperUrl } = req.body;
-
-
-    console.log('✅ saveTheme called with:', { theme, wallpaperUrl, userId });
-
-
-    if (!theme) {
-      return res.status(400).json({
-        success: false,
-        message: "Theme manquant"
-      });
-    }
-
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Utilisateur introuvable"
-      });
-    }
-
-
-    // Sauvegarde dans User
-    user.chatTheme = {
-      theme: theme,
-      wallpaperUrl: wallpaperUrl || null,
-    };
-
-
-    await user.save();
-   
-    console.log('✅ Thème sauvegardé pour user:', user._id);
-
-
-    return res.json({
-      success: true,
-      message: "Thème sauvegardé",
-      theme: user.chatTheme
-    });
-
-
-  } catch (err) {
-    console.error('❌ saveTheme error:', err);
-    return res.status(500).json({
-      success: false,
-      message: "Erreur serveur"
-    });
-  }
-};
-
-
-// 🆕 AJOUT : Mettre à jour le thème d'une conversation
-exports.updateConversationTheme = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { theme } = req.body;
-    const userId = req.user._id;
-
-
-    const conversation = await Conversation.findOne({
-      _id: id,
-      participants: userId
-    });
-
-
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation non trouvée' });
-    }
-
-
-    conversation.theme = theme;
-    await conversation.save();
-
-
-    if (req.io) {
-      req.io.to(id).emit('theme-updated', {
-        conversationId: id,
-        theme
-      });
-    }
-
-
-    res.json({ success: true, theme });
-  } catch (error) {
-    console.error('❌ Erreur sauvegarde thème:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
   }
 };
