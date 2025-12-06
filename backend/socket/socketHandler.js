@@ -300,6 +300,12 @@ const initSocket = (io) => {
         console.log(`📋 Utilisateurs restants:`, onlineUsers.size);
 
         const onlineUserIds = Array.from(onlineUsers.keys());
+         // 🆕 Si l'utilisateur était dans un appel de groupe, notifier les autres
+    if (socket.currentConversation) {
+      socket.to(socket.currentConversation).emit("user-left-group-call", {
+        userId: socket.userId,
+      });
+    }
 
         // Émettre à tous
         io.emit("online-users-update", onlineUserIds);
@@ -331,7 +337,75 @@ const initSocket = (io) => {
     socket.on("end-call", (data) => {
       io.to(data.to).emit("call-ended");
     });
+  
+// 
+// ============================================
+// ============================================
+// 📞 AJOUTEZ CES HANDLERS DANS votre socketHandler.js
+// (À placer APRÈS vos handlers d'appels existants)
+// ============================================
+
+// 🆕 1. LANCER UN APPEL DE GROUPE
+socket.on("call-group", (data) => {
+  const { conversationId, signalData, fromUserId, fromUserName, participants } = data;
+  
+  console.log(`📞 Appel de groupe lancé dans ${conversationId}`);
+  console.log(`👥 Participants:`, participants);
+  
+  // Émettre à TOUS les participants SAUF l'appelant
+  participants.forEach((participantId) => {
+    if (participantId !== fromUserId && onlineUsers.has(participantId)) {
+      const socketId = onlineUsers.get(participantId);
+      
+      io.to(socketId).emit("group-call-incoming", {
+        conversationId,
+        signal: signalData, // Contient { channelName, callType }
+        from: fromUserId,
+        name: fromUserName,
+      });
+      
+      console.log(`📨 Notification envoyée à ${participantId} (socket: ${socketId})`);
+    } else if (participantId !== fromUserId) {
+      console.log(`⚠️ Participant ${participantId} hors ligne`);
+    }
   });
+});
+
+// 🆕 2. REJOINDRE UN APPEL DE GROUPE
+socket.on("join-group-call", (data) => {
+  const { conversationId, userId, userName } = data;
+  
+  console.log(`✅ ${userName} (${userId}) a rejoint l'appel ${conversationId}`);
+  
+  // Notifier TOUS les autres participants dans le channel
+  socket.to(conversationId).emit("user-joined-group-call", {
+    userId,
+    userName,
+  });
+});
+
+// 🆕 3. QUITTER UN APPEL DE GROUPE
+socket.on("leave-group-call", (data) => {
+  const { conversationId, userId } = data;
+  
+  console.log(`❌ ${userId} a quitté l'appel ${conversationId}`);
+  
+  // Notifier tous les participants restants
+  socket.to(conversationId).emit("user-left-group-call", {
+    userId,
+  });
+});
+
+// 🆕 4. TERMINER UN APPEL DE GROUPE (Tout fermer)
+socket.on("end-group-call", (data) => {
+  const { conversationId } = data;
+  
+  console.log(`📴 Fin de l'appel de groupe ${conversationId}`);
+  
+  // Notifier TOUS les participants que l'appel est terminé
+  io.to(conversationId).emit("group-call-ended");
+});
+
 
   // Heartbeat : Nettoyer les utilisateurs inactifs
   setInterval(() => {
@@ -348,6 +422,7 @@ const initSocket = (io) => {
       }
     });
   }, 30000);
-};
-
+});
+}
 module.exports = initSocket;
+

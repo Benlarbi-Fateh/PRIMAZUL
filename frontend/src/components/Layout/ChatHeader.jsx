@@ -8,6 +8,7 @@ import { ArrowLeft, Phone, Video, Users, Info } from "lucide-react";
 import { formatMessageDate } from "@/utils/dateFormatter";
 import Image from "next/image";
 import { useTheme } from "@/context/ThemeContext";
+import { CallContext } from "@/context/CallContext";
 
 export default function ChatHeader({
   contact,
@@ -17,6 +18,7 @@ export default function ChatHeader({
   onAudioCall,
 }) {
   const { user } = useContext(AuthContext);
+  const { initiateGroupCall } = useContext(CallContext); // 🆕 Récupération de la fonction
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
@@ -66,6 +68,30 @@ export default function ChatHeader({
     if (conversation?.isGroup) return "Voir les détails du groupe";
     return "Voir le profil";
   };
+ // 🆕 HANDLERS POUR APPELS DE GROUPE
+  // ============================================
+  const handleGroupVideoCall = () => {
+    if (conversation?.isGroup && conversation?.participants) {
+      console.log("📞 Lancement appel vidéo de groupe");
+      initiateGroupCall(
+        conversation._id,
+        conversation.participants,
+        "video"
+      );
+    }
+  };
+
+ const handleGroupAudioCall = () => {
+    if (conversation?.isGroup && conversation?.participants) {
+      console.log("📞 Lancement appel audio de groupe");
+      initiateGroupCall(
+        conversation._id,
+        conversation.participants,
+        "audio"
+      );
+    }
+  };
+
 
   // === Aucune conversation sélectionnée ===
   if (!contact && !conversation) {
@@ -152,34 +178,54 @@ export default function ChatHeader({
             </div>
           </div>
         </div>
+  </div>
+  
+     <div className="flex items-center gap-1 shrink-0">
+  {isGroup ? (
+    <>
+      <button
+        onClick={handleGroupAudioCall}
+        className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+        title="Appel audio de groupe"
+      >
+        <Phone className="w-4 h-4" />
+      </button>
 
-        <div className="flex items-center gap-1 shrink-0">
-          {/* ✅ MODIFICATION ICI : Suppression de la condition !isGroup */}
-          {/* Les boutons d'appel sont maintenant visibles pour tous les types de conversation */}
-          <button
-            onClick={onAudioCall}
-            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-            title={isGroup ? "Appel audio de groupe" : "Appel audio"}
-          >
-            <Phone className="w-4 h-4" />
-          </button>
+      <button
+        onClick={handleGroupVideoCall}
+        className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+        title="Appel vidéo de groupe"
+      >
+        <Video className="w-4 h-4" />
+      </button>
+    </>
+  ) : (
+    <>
+      <button
+        onClick={onAudioCall}
+        className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+        title="Appel audio"
+      >
+        <Phone className="w-4 h-4" />
+      </button>
 
-          <button
-            onClick={onVideoCall}
-            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-            title={isGroup ? "Appel vidéo de groupe" : "Appel vidéo"}
-          >
-            <Video className="w-4 h-4" />
-          </button>
+      <button
+        onClick={onVideoCall}
+        className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+        title="Appel vidéo"
+      >
+        <Video className="w-4 h-4" />
+      </button>
+    </>
+  )}
 
-          <button
-            className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
-            title={isGroup ? "Détails du groupe" : "Détails"}
-          >
-            <Info className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+  <button
+    className="text-white p-2 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm"
+    title={isGroup ? "Détails du groupe" : "Détails"}
+  >
+    <Info className="w-4 h-4" />
+  </button>
+</div>
+</div>
   );
 }
