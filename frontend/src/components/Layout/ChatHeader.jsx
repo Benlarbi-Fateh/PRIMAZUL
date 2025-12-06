@@ -602,199 +602,214 @@ export default function ChatHeader({ contact, conversation, onBack }) {
                 <Info className="w-4 h-4" />
               </button>
               {showMenu && (
-                <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 max-h-[85vh] flex flex-col overflow-hidden">
-                  {/* Header avec dégradé */}
-                  <div className="relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500"></div>
-                    <div className="absolute inset-0 bg-black/10"></div>
-                    
-                    <div className="relative p-6">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <img 
-                            src={displayImage} 
-                            alt={displayName} 
-                            className="w-16 h-16 rounded-2xl object-cover shadow-xl ring-4 ring-white/30" 
-                          />
-                          {contactIsOnline && !isGroup && (
-                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-white shadow-lg"></div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h2 className="text-base sm:text-lg font-bold text-white truncate">
-                            {displayName}
-                          </h2>
-                          
-                          <div className="flex items-center gap-2 text-xs sm:text-sm">
-                            {isGroup ? (
-                              <div className="flex items-center gap-1.5 text-white/90">
-                                <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                <span>{participantsCount} participant{participantsCount > 1 ? 's' : ''}</span>
-                              </div>
-                            ) : blockLoading ? (
-                              <div className="flex items-center gap-1.5 text-white/70">
-                                <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></div>
-                                <span>Chargement...</span>
-                              </div>
-                            ) : (blockStatus?.blockedMe || false) ? (
-                              <div className="flex items-center gap-1.5 text-red-300">
-                                <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                <span>Vous êtes bloqué</span>
-                              </div>
-                            ) : (blockStatus?.iBlocked || false) ? (
-                              <div className="flex items-center gap-1.5 text-yellow-300">
-                                <Shield className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                <span>Bloqué</span>
-                              </div>
-                            ) : contactIsOnline ? (
-                              <>
-                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                <span className="text-white/90">En ligne</span>
-                              </>
-                            ) : (
-                              <span className="text-white/70">Hors ligne</span>
-                            )}
-                          </div>
-                        </div>
+  <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+    {/* 🆕 HEADER COMPACT - Plus simple, bouton X intégré */}
+    <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6">
+      {/* Pattern de fond subtil */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='none'/%3E%3Cpath d='M0 0L60 60M60 0L0 60' stroke='%23fff' stroke-width='1' opacity='0.1'/%3E%3C/svg%3E")`
+        }}></div>
+      </div>
 
-                        <button 
-                          onClick={() => setShowMenu(false)} 
-                          className="p-2 hover:bg-white/20 rounded-xl transition-all text-white backdrop-blur-sm"
-                        >
-                          <X className="w-6 h-6" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Contenu défilant */}
-                  <div className="flex-1 overflow-y-auto p-4">
-                    {/* Actions Principales */}
-                    <div className="space-y-2 mb-6">
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-3">
-                        Actions
-                      </div>
-
-                      <button 
-                        onClick={() => { setOpenPanel(true); setShowMenu(false); }} 
-                        className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 transition-all"
-                      >
-                        <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
-                          <Users className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <span className="font-semibold text-gray-800">Voir le profil</span>
-                          <p className="text-xs text-gray-500 mt-0.5">Informations détaillées</p>
-                        </div>
-                      </button>
-
-                      <button 
-                        onClick={openMediaPanel} 
-                        className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 transition-all"
-                      >
-                        <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
-                          <Image className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <span className="font-semibold text-gray-800">Multimédia</span>
-                          <p className="text-xs text-gray-500 mt-0.5">Photos, fichiers et liens</p>
-                        </div>
-                      </button>
-
-                      <button 
-                        onClick={toggleMute} 
-                        className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-all"
-                      >
-                        <div className={`p-3 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all ${
-                          settings.muted 
-                            ? 'bg-gradient-to-br from-orange-500 to-amber-500' 
-                            : 'bg-gradient-to-br from-orange-400 to-amber-400'
-                        }`}>
-                          <Phone className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <span className="font-semibold text-gray-800">
-                            {settings.muted ? 'Réactiver' : 'Mettre en silence'}
-                          </span>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {settings.muted ? 'Recevoir les notifications' : 'Masquer les notifications'}
-                          </p>
-                        </div>
-                      </button>
-
-                      {!isGroup && (
-                        <button
-                          onClick={toggleBlock}
-                          disabled={blockLoading}
-                          className={`group flex items-center gap-4 w-full p-4 rounded-2xl transition-all ${
-                            blockLoading 
-                              ? 'opacity-50 cursor-not-allowed bg-gray-100' 
-                              : 'hover:bg-gradient-to-r hover:from-red-50 hover:to-orange-50'
-                          }`}
-                        >
-                          <div className={`p-3 rounded-xl transition-all ${
-                            blockLoading 
-                              ? 'bg-gray-200' 
-                              : blockStatus?.iBlocked 
-                                ? 'bg-green-100 text-green-600 group-hover:bg-green-200' 
-                                : 'bg-red-100 text-red-600 group-hover:bg-red-200'
-                          }`}>
-                            {blockLoading ? (
-                              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                            ) : blockStatus?.iBlocked ? (
-                              <Unlock className="w-5 h-5" />
-                            ) : (
-                              <Shield className="w-5 h-5" />
-                            )}
-                          </div>
-                          <div className="text-left flex-1">
-                            <div className="font-semibold text-gray-900">
-                              {blockLoading 
-                                ? 'Chargement...' 
-                                : blockStatus?.iBlocked 
-                                  ? 'Débloquer' 
-                                  : 'Bloquer'
-                              }
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {blockLoading 
-                                ? 'Vérification du statut...' 
-                                : blockStatus?.iBlocked 
-                                  ? 'Autoriser les messages' 
-                                  : 'Empêcher les messages'
-                              }
-                            </div>
-                          </div>
-                        </button>
-                      )}
-
-                      <button 
-                        onClick={handleDeleteConversation} 
-                        className="group flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-gradient-to-r hover:from-red-50 hover:to-rose-50 transition-all"
-                      >
-                        <div className="p-3 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
-                          <Trash2 className="w-5 h-5 text-white" />
-                        </div>
-                        <div className="flex-1 text-left">
-                          <span className="font-semibold text-red-700">Supprimer</span>
-                          <p className="text-xs text-gray-500 mt-0.5">Supprimer pour vous uniquement</p>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Footer fixe */}
-                  <div className="p-4 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-white shrink-0">
-                    <button 
-                      onClick={() => setShowMenu(false)} 
-                      className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-                    >
-                      Fermer
-                    </button>
-                  </div>
+      {/* Contenu du header */}
+      <div className="relative flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {/* Photo de profil */}
+          <div className="relative">
+            <img 
+              src={displayImage} 
+              alt={displayName} 
+              className="w-14 h-14 rounded-2xl object-cover shadow-xl ring-4 ring-white/30" 
+            />
+            {contactIsOnline && !isGroup && (
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg"></div>
+            )}
+          </div>
+          
+          {/* Infos utilisateur */}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold text-white truncate drop-shadow-sm">
+              {displayName}
+            </h2>
+            
+            {/* Statut */}
+            <div className="flex items-center gap-2 text-sm mt-1">
+              {isGroup ? (
+                <div className="flex items-center gap-1.5 text-white/90">
+                  <Users className="w-3.5 h-3.5" />
+                  <span>{participantsCount} participant{participantsCount > 1 ? 's' : ''}</span>
                 </div>
+              ) : blockLoading ? (
+                <div className="flex items-center gap-1.5 text-white/70">
+                  <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></div>
+                  <span>Chargement...</span>
+                </div>
+              ) : (blockStatus?.blockedMe || false) ? (
+                <div className="flex items-center gap-1.5 text-red-200">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Vous êtes bloqué</span>
+                </div>
+              ) : (blockStatus?.iBlocked || false) ? (
+                <div className="flex items-center gap-1.5 text-yellow-200">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Bloqué</span>
+                </div>
+              ) : contactIsOnline ? (
+                <>
+                  <div className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse"></div>
+                  <span className="text-white/90">En ligne</span>
+                </>
+              ) : (
+                <span className="text-white/70">Hors ligne</span>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* 🆕 BOUTON X - Maintenant dans le header */}
+        <button 
+          onClick={() => setShowMenu(false)} 
+          className="p-2.5 hover:bg-white/20 rounded-xl transition-all text-white backdrop-blur-sm active:scale-95"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+
+
+    {/* 🆕 CONTENU - Actions sans scroll, design épuré */}
+    <div className="p-5 space-y-3 max-h-[calc(85vh-120px)] overflow-y-auto">
+      
+      {/* ✨ ACTION 1 : Multimédia */}
+      <button 
+        onClick={openMediaPanel} 
+        className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border border-purple-100/50 transition-all duration-300 hover:shadow-md active:scale-[0.98]"
+      >
+        <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+          <Image className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 text-left">
+          <div className="font-semibold text-gray-800">Multimédia</div>
+          <div className="text-xs text-gray-500 mt-0.5">Photos, fichiers et liens</div>
+        </div>
+        {/* Indicateur visuel */}
+        <div className="text-purple-400 group-hover:translate-x-1 transition-transform">
+          →
+        </div>
+      </button>
+
+      {/* ✨ ACTION 2 : Notifications */}
+      <button 
+        onClick={toggleMute} 
+        className={`group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98] ${
+          settings.muted 
+            ? 'bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 border-orange-100/50' 
+            : 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-100/50'
+        }`}
+      >
+        <div className={`p-3 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300 ${
+          settings.muted 
+            ? 'bg-gradient-to-br from-orange-500 to-amber-500' 
+            : 'bg-gradient-to-br from-blue-500 to-cyan-500'
+        }`}>
+          <Phone className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 text-left">
+          <div className="font-semibold text-gray-800">
+            {settings.muted ? 'Réactiver les notifications' : 'Désactiver les notifications'}
+          </div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            {settings.muted ? 'Recevoir les alertes' : 'Mode silencieux'}
+          </div>
+        </div>
+        {/* Badge de statut */}
+        <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+          settings.muted 
+            ? 'bg-orange-200 text-orange-700' 
+            : 'bg-blue-200 text-blue-700'
+        }`}>
+          {settings.muted ? 'OFF' : 'ON'}
+        </div>
+      </button>
+
+      {/* ✨ ACTION 3 : Bloquer/Débloquer (uniquement pour conversations individuelles) */}
+      {!isGroup && (
+        <button
+          onClick={toggleBlock}
+          disabled={blockLoading}
+          className={`group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98] ${
+            blockLoading 
+              ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
+              : blockStatus?.iBlocked 
+                ? 'bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-100/50' 
+                : 'bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border-red-100/50'
+          }`}
+        >
+          <div className={`p-3 rounded-xl shadow-md transition-all duration-300 ${
+            blockLoading 
+              ? 'bg-gray-300' 
+              : blockStatus?.iBlocked 
+                ? 'bg-gradient-to-br from-green-500 to-emerald-500 group-hover:shadow-lg group-hover:scale-110' 
+                : 'bg-gradient-to-br from-red-500 to-rose-500 group-hover:shadow-lg group-hover:scale-110'
+          }`}>
+            {blockLoading ? (
+              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            ) : blockStatus?.iBlocked ? (
+              <Unlock className="w-5 h-5 text-white" />
+            ) : (
+              <Shield className="w-5 h-5 text-white" />
+            )}
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-semibold text-gray-800">
+              {blockLoading 
+                ? 'Chargement...' 
+                : blockStatus?.iBlocked 
+                  ? 'Débloquer le contact' 
+                  : 'Bloquer le contact'
+              }
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5">
+              {blockLoading 
+                ? 'Vérification...' 
+                : blockStatus?.iBlocked 
+                  ? 'Autoriser les messages' 
+                  : 'Empêcher tout contact'
+              }
+            </div>
+          </div>
+          {/* Badge de statut */}
+          {!blockLoading && (
+            <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+              blockStatus?.iBlocked 
+                ? 'bg-green-200 text-green-700' 
+                : 'bg-red-200 text-red-700'
+            }`}>
+              {blockStatus?.iBlocked ? 'BLOQUÉ' : 'ACTIF'}
+            </div>
+          )}
+        </button>
+      )}
+
+      {/* ✨ ACTION 4 : Supprimer la conversation */}
+      <button 
+        onClick={handleDeleteConversation} 
+        className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border border-red-100/50 transition-all duration-300 hover:shadow-md active:scale-[0.98]"
+      >
+        <div className="p-3 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+          <Trash2 className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 text-left">
+          <div className="font-semibold text-red-700">Supprimer la discussion</div>
+          <div className="text-xs text-gray-500 mt-0.5">Uniquement pour vous</div>
+        </div>
+        {/* Icône d'avertissement */}
+        <AlertCircle className="w-5 h-5 text-red-400 group-hover:text-red-500" />
+      </button>
+    </div>
+  </div>
+)}
             </div>
           </div>
         </div>
@@ -836,253 +851,422 @@ export default function ChatHeader({ contact, conversation, onBack }) {
       )}
 
       {showMediaPanel && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
-          <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col">
-            <div className="p-5 bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-2xl">📁 Multimédia</h2>
-                  <p className="text-sm text-purple-100">Photos, fichiers et liens</p>
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
+    <div className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col">
+      
+      {/* 🔵 HEADER BLEU */}
+      <div className="relative overflow-hidden">
+        {/* Dégradé bleu */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')] opacity-30"></div>
+        
+        <div className="relative p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Image className="w-6 h-6 text-white" />
                 </div>
-                <button onClick={() => setShowMediaPanel(false)} className="p-2 hover:bg-white/20 rounded-xl">
-                  <X className="w-6 h-6" />
-                </button>
+                <div>
+                  <h2 className="text-2xl font-bold text-white drop-shadow-lg">
+                    Multimédia
+                  </h2>
+                  <p className="text-sm text-white/80 font-medium">
+                    Tous vos fichiers partagés
+                  </p>
+                </div>
               </div>
             </div>
             
-            {/* 🆕 NOUVELLE SECTION AVEC VIDÉOS - REMPLACE L'ANCIENNE */}
-            <div className="flex border-b bg-white overflow-x-auto">
-              {[
-                { id: 'images', label: 'Images', icon: Image },
-                { id: 'files', label: 'Fichiers', icon: FileText },
-                { id: 'audio', label: 'Audio', icon: Music },
-                { id: 'videos', label: 'Vidéos', icon: Play }, // 🆕 Nouvel onglet
-                { id: 'links', label: 'Liens', icon: Link }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => loadMedia(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-4 font-semibold whitespace-nowrap ${
-                    mediaType === tab.id 
-                      ? 'text-purple-600 border-b-2 border-purple-600' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className="text-sm sm:text-base">{tab.label}</span>
-                </button>
-              ))}
-            </div>
+            <button 
+              onClick={() => setShowMediaPanel(false)} 
+              className="p-2.5 hover:bg-white/20 rounded-xl transition-all backdrop-blur-sm text-white group active:scale-95"
+            >
+              <X className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+            </button>
+          </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-              {loadingMedia ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
-                </div>
-              ) : (
-                <>
-                  {mediaType === 'images' && (
-                    <div className="grid grid-cols-3 gap-3">
-                      {mediaData?.images?.length > 0 ? (
-                        mediaData.images.map((img) => (
-                          <div 
-                            key={img.id} 
-                            className="aspect-square rounded-xl overflow-hidden shadow-md group relative"
-                          >
-                            <img 
-                              src={img.url} 
-                              alt="" 
-                              className="w-full h-full object-cover cursor-pointer"
-                              onClick={() => openImage(img)}
-                            />
-                            {/* Overlay avec boutons */}
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                              {/* Bouton pour agrandir */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openImage(img);
-                                }}
-                                className="p-2 bg-white/90 hover:bg-white rounded-full transition-colors"
-                                title="Agrandir"
-                              >
-                                <Expand className="w-4 h-4 text-gray-700" />
-                              </button>
-                              
-                              {/* Bouton pour télécharger */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  downloadImage(img);
-                                }}
-                                className="p-2 bg-white/90 hover:bg-white rounded-full transition-colors"
-                                title="Télécharger"
-                              >
-                                <Download className="w-4 h-4 text-gray-700" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="col-span-3 text-center py-20">
-                          <Image className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">Aucune image</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {mediaType === 'files' && (
-                    <div className="space-y-2">
-                      {mediaData?.files?.length > 0 ? (
-                        mediaData.files.map((file) => (
-                          <div key={file.id} className="flex items-center gap-4 p-4 bg-white rounded-xl shadow">
-                            <FileText className="w-8 h-8 text-green-600" />
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">{file.name}</p>
-                              <p className="text-sm text-gray-500">
-                                {formatFileSize(file.size)} • {file.type?.toUpperCase() || 'FILE'}
-                              </p>
-                            </div>
-                            <button 
-                              onClick={() => downloadFile(file)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Télécharger"
-                            >
-                              <Download className="w-5 h-5 text-gray-600" />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-20">
-                          <FileText className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">Aucun fichier</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {mediaType === 'audio' && (
-                    <div className="space-y-2">
-                      {mediaData?.audio?.length > 0 ? (
-                        mediaData.audio.map((audio) => (
-                          <div key={audio.id} className="flex items-center gap-4 p-4 bg-white rounded-xl shadow">
-                            <Music className="w-8 h-8 text-purple-600" />
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">{audio.name || `Audio ${audio.duration}s`}</p>
-                              <p className="text-sm text-gray-500">
-                                {formatFileSize(audio.size)} • {audio.duration}s
-                              </p>
-                            </div>
-                            <button 
-                              onClick={() => playAudio(audio)}
-                              className={`p-3 rounded-full transition-all ${
-                                playingAudio === audio.id 
-                                  ? 'bg-purple-100 text-purple-600' 
-                                  : 'bg-gray-100 text-gray-600 hover:bg-purple-50'
-                              }`}
-                            >
-                              {playingAudio === audio.id ? (
-                                <Pause className="w-5 h-5" />
-                              ) : (
-                                <Play className="w-5 h-5" />
-                              )}
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-20">
-                          <Music className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">Aucun audio</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {mediaType === 'videos' && (
-                    <div className="space-y-3">
-                      {mediaData?.videos?.length > 0 ? (
-                        mediaData.videos.map((video) => (
-                          <div key={video.id} className="flex items-center gap-4 p-4 bg-white rounded-xl shadow">
-                            <div className="relative">
-                              <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                                <Play className="w-6 h-6 text-gray-600" />
-                              </div>
-                              <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
-                                {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900">{video.name}</p>
-                              <p className="text-sm text-gray-500">
-                                {formatFileSize(video.size)} • {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
-                              </p>
-                            </div>
-                            <button 
-                              onClick={() => window.open(video.url, '_blank')}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Ouvrir la vidéo"
-                            >
-                              <Play className="w-5 h-5 text-gray-600" />
-                            </button>
-                            <button 
-                              onClick={() => downloadFile(video)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Télécharger"
-                            >
-                              <Download className="w-5 h-5 text-gray-600" />
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-20">
-                          <Play className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">Aucune vidéo</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {mediaType === 'links' && (
-                    <div className="space-y-2">
-                      {mediaData?.links?.length > 0 ? (
-                        mediaData.links.map((link) => (
-                          <div key={link.id} className="p-4 bg-white rounded-xl shadow">
-                            <div className="flex items-start gap-3">
-                              <Link className="w-6 h-6 text-orange-600 shrink-0 mt-1" />
-                              <div className="flex-1 min-w-0">
-                                {link.links.map((url, idx) => (
-                                  <a
-                                    key={idx}
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="block text-blue-600 hover:underline truncate mb-1"
-                                  >
-                                    {url}
-                                  </a>
-                                ))}
-                                <p className="text-xs text-gray-500 mt-2">
-                                  Par {link.sender?.name} • {formatMessageDate(link.createdAt)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-20">
-                          <Link className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500">Aucun lien</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+          {/* Statistiques en bleu */}
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { label: 'Images', count: mediaData?.images?.length || 0, icon: Image },
+              { label: 'Fichiers', count: mediaData?.files?.length || 0, icon: FileText },
+              { label: 'Audio', count: mediaData?.audio?.length || 0, icon: Music },
+              { label: 'Vidéos', count: mediaData?.videos?.length || 0, icon: Play },
+              { label: 'Liens', count: mediaData?.links?.length || 0, icon: Link },
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white/20 backdrop-blur-sm rounded-xl p-2.5 text-center text-white">
+                <stat.icon className="w-4 h-4 mx-auto mb-1" />
+                <div className="text-xl font-bold">{stat.count}</div>
+                <div className="text-[10px] font-medium opacity-90">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Onglets en bleu */}
+      <div className="flex border-b bg-gradient-to-r from-gray-50 to-white overflow-x-auto scrollbar-hide">
+        {[
+          { id: 'images', label: 'Images', icon: Image },
+          { id: 'files', label: 'Fichiers', icon: FileText },
+          { id: 'audio', label: 'Audio', icon: Music },
+          { id: 'videos', label: 'Vidéos', icon: Play },
+          { id: 'links', label: 'Liens', icon: Link }
+        ].map((tab) => {
+          const count = mediaData?.[tab.id]?.length || 0;
+          const isActive = mediaType === tab.id;
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => loadMedia(tab.id)}
+              className={`relative flex items-center gap-2 px-5 py-4 font-semibold whitespace-nowrap transition-all duration-300 group ${
+                isActive 
+                  ? 'text-blue-600' 
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+              }`}
+            >
+              <div className={`p-1.5 rounded-lg transition-all duration-300 ${
+                isActive 
+                  ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-md' 
+                  : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
+              }`}>
+                <tab.icon className={`w-4 h-4 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-105'}`} />
+              </div>
+              
+              <span className="text-sm sm:text-base">{tab.label}</span>
+              
+              {count > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold transition-all ${
+                  isActive 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-gray-200 text-gray-600 group-hover:bg-gray-300'
+                }`}>
+                  {count}
+                </span>
+              )}
+              
+              {isActive && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100">
+        {loadingMedia ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="relative w-20 h-20 mb-4">
+              <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-ping"></div>
+              <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-gray-500 font-medium">Chargement...</p>
+          </div>
+        ) : (
+          <div className="p-6">
+            
+            {/* IMAGES */}
+            {mediaType === 'images' && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {mediaData?.images?.length > 0 ? (
+                  mediaData.images.map((img, index) => (
+                    <div 
+                      key={img.id} 
+                      className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
+                    >
+                      <img 
+                        src={img.url} 
+                        alt="" 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        onClick={() => openImage(img)}
+                      />
+                      
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <p className="text-white text-sm font-medium truncate mb-1">
+                            {img.name || 'Image'}
+                          </p>
+                          <p className="text-white/70 text-xs">
+                            {formatFileSize(img.size)}
+                          </p>
+                        </div>
+                        
+                        <div className="absolute top-3 right-3 flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openImage(img);
+                            }}
+                            className="p-2.5 bg-blue-500 hover:bg-blue-600 rounded-full transition-all shadow-lg hover:scale-110 active:scale-95"
+                          >
+                            <Expand className="w-4 h-4 text-white" />
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadImage(img);
+                            }}
+                            className="p-2.5 bg-blue-500 hover:bg-blue-600 rounded-full transition-all shadow-lg hover:scale-110 active:scale-95"
+                          >
+                            <Download className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-20">
+                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
+                      <Image className="w-16 h-16 text-blue-400" />
+                    </div>
+                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucune image</p>
+                    <p className="text-gray-400 text-sm">Les images partagées apparaîtront ici</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* FICHIERS */}
+            {mediaType === 'files' && (
+              <div className="space-y-3">
+                {mediaData?.files?.length > 0 ? (
+                  mediaData.files.map((file, index) => (
+                    <div 
+                      key={file.id} 
+                      className="group flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                    >
+                      <div className="relative">
+                        <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
+                          <FileText className="w-7 h-7 text-white" />
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-blue-600 text-white text-[9px] font-bold rounded-md shadow">
+                          {file.type?.toUpperCase() || 'FILE'}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                          {file.name}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm text-gray-500">
+                            {formatFileSize(file.size)}
+                          </span>
+                          {file.createdAt && (
+                            <>
+                              <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                              <span className="text-sm text-gray-400">
+                                {formatMessageDate(file.createdAt)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => downloadFile(file)}
+                        className="p-3 hover:bg-blue-50 rounded-xl transition-all group/btn active:scale-95"
+                      >
+                        <Download className="w-5 h-5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-20">
+                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
+                      <FileText className="w-16 h-16 text-blue-400" />
+                    </div>
+                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucun fichier</p>
+                    <p className="text-gray-400 text-sm">Les documents partagés apparaîtront ici</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AUDIO */}
+            {mediaType === 'audio' && (
+              <div className="space-y-3">
+                {mediaData?.audio?.length > 0 ? (
+                  mediaData.audio.map((audio, index) => (
+                    <div 
+                      key={audio.id} 
+                      className="group flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                    >
+                      <div className="relative">
+                        <div className={`p-4 rounded-xl shadow-md transition-all ${
+                          playingAudio === audio.id 
+                            ? 'bg-gradient-to-br from-blue-500 to-cyan-500 animate-pulse' 
+                            : 'bg-gradient-to-br from-blue-400 to-cyan-400 group-hover:scale-110'
+                        }`}>
+                          <Music className="w-7 h-7 text-white" />
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">
+                          {audio.name || `Audio ${audio.duration}s`}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm text-gray-500">
+                            {formatFileSize(audio.size)}
+                          </span>
+                          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                          <span className="text-sm text-blue-600 font-medium">
+                            {Math.floor(audio.duration / 60)}:{(audio.duration % 60).toString().padStart(2, '0')}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => playAudio(audio)}
+                        className={`p-3.5 rounded-full transition-all shadow-lg hover:shadow-xl active:scale-95 ${
+                          playingAudio === audio.id 
+                            ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white' 
+                            : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                        }`}
+                      >
+                        {playingAudio === audio.id ? (
+                          <Pause className="w-5 h-5" />
+                        ) : (
+                          <Play className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-20">
+                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
+                      <Music className="w-16 h-16 text-blue-400" />
+                    </div>
+                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucun audio</p>
+                    <p className="text-gray-400 text-sm">Les fichiers audio partagés apparaîtront ici</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* VIDÉOS */}
+            {mediaType === 'videos' && (
+              <div className="space-y-3">
+                {mediaData?.videos?.length > 0 ? (
+                  mediaData.videos.map((video, index) => (
+                    <div 
+                      key={video.id} 
+                      className="group flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                    >
+                      <div className="relative shrink-0">
+                        <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20"></div>
+                          <Play className="w-10 h-10 text-blue-500 relative z-10" />
+                        </div>
+                        <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs font-bold rounded-md backdrop-blur-sm">
+                          {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                          {video.name}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm text-gray-500">
+                            {formatFileSize(video.size)}
+                          </span>
+                          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                          <span className="text-sm text-blue-600 font-medium">
+                            {Math.floor(video.duration / 60)}min {video.duration % 60}s
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => window.open(video.url, '_blank')}
+                          className="p-3 hover:bg-blue-50 rounded-xl transition-all group/btn active:scale-95"
+                        >
+                          <Play className="w-5 h-5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
+                        </button>
+                        <button 
+                          onClick={() => downloadFile(video)}
+                          className="p-3 hover:bg-blue-50 rounded-xl transition-all group/btn active:scale-95"
+                        >
+                          <Download className="w-5 h-5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-20">
+                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
+                      <Play className="w-16 h-16 text-blue-400" />
+                    </div>
+                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucune vidéo</p>
+                    <p className="text-gray-400 text-sm">Les vidéos partagées apparaîtront ici</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* LIENS */}
+            {mediaType === 'links' && (
+              <div className="space-y-3">
+                {mediaData?.links?.length > 0 ? (
+                  mediaData.links.map((link, index) => (
+                    <div 
+                      key={link.id} 
+                      className="p-5 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-md shrink-0">
+                          <Link className="w-6 h-6 text-white" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0 space-y-2">
+                          {link.links.map((url, idx) => (
+                            <a
+                              key={idx}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group/link flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+                            >
+                              <span className="truncate font-medium">{url}</span>
+                              <svg className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                          ))}
+                          
+                          <div className="flex items-center gap-2 text-xs text-gray-400 pt-2 border-t">
+                            <span>Par {link.sender?.name}</span>
+                            <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                            <span>{formatMessageDate(link.createdAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-20">
+                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
+                      <Link className="w-16 h-16 text-blue-400" />
+                    </div>
+                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucun lien</p>
+                    <p className="text-gray-400 text-sm">Les liens partagés apparaîtront ici</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Modal pour l'image en plein écran */}
       {selectedImage && (
