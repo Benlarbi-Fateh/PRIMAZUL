@@ -167,13 +167,16 @@ const fetchConversations = useCallback(async () => {
     if (user) {
       fetchConversations();
       fetchInvitations();
+      
+      // Rafraîchir périodiquement SAUF les conversations (évite de recharger les supprimées)
       const interval = setInterval(() => {
-        fetchConversations();
+        // Ne rafraîchir QUE les invitations
         fetchInvitations();
       }, 60000);
+      
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, fetchConversations]);
 
   useEffect(() => {
     if (!user) return;
@@ -309,20 +312,61 @@ const fetchConversations = useCallback(async () => {
   }, [searchTerm, activeTab]);
 
 useEffect(() => {
-  // Fonction pour rafraîchir les conversations
-  const handleRefreshConversations = (event) => {
-    console.log('🔄 Rafraîchissement des conversations déclenché');
-    fetchConversations(); // Cette fonction existe déjà dans votre code
+    // Fonction pour rafraîchir les conversations UNIQUEMENT si demandé explicitement
+    const handleRefreshConversations = (event) => {
+      console.log('🔄 Rafraîchissement explicite des conversations');
+      fetchConversations();
+    };
+    
+    // Écouter l'événement
+    window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+    
+    // Nettoyer à la destruction
+    return () => {
+      window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+    };
+  }, [fetchConversations]);
+
+// ✅ ÉCOUTER LES SUPPRESSIONS DE CONVERSATIONS
+useEffect(() => {
+  const handleConversationDeleted = (event) => {
+    const { conversationId } = event.detail || {};
+    
+    if (conversationId) {
+      console.log('🗑️ Sidebar: Conversation supprimée localement:', conversationId);
+      
+      // Supprimer de la liste
+      setConversations((prev) => 
+        prev.filter(conv => conv._id !== conversationId)
+      );
+    }
   };
-  
-  // Écouter l'événement
-  window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-  
-  // Nettoyer à la destruction
+
+  window.addEventListener('conversation-deleted-local', handleConversationDeleted);
+
   return () => {
-    window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+    window.removeEventListener('conversation-deleted-local', handleConversationDeleted);
   };
-}, [fetchConversations]); // Dépendance : fetchConversations
+}, []);
+
+// ✅ ÉCOUTER LES SUPPRESSIONS VIA SOCKET.IO
+useEffect(() => {
+  const socket = getSocket();
+
+  if (socket && user) {
+    socket.on('conversation-deleted', ({ conversationId }) => {
+      console.log('🗑️ Sidebar: Conversation supprimée via Socket.io:', conversationId);
+      
+      setConversations((prev) => 
+        prev.filter(conv => conv._id !== conversationId)
+      );
+    });
+
+    return () => {
+      socket.off('conversation-deleted');
+    };
+  }
+}, [user]);
 
   const handleTabChange = (tab) => {
     if (tab !== activeTab) {
@@ -330,6 +374,9 @@ useEffect(() => {
       if (tab !== "contacts") {
         setSearchTerm("");
         setSearchResults([]);
+      } else {
+        // Rafraîchir les conversations quand on va dans l'onglet contacts
+        fetchConversations();
       }
     }
   };
@@ -549,14 +596,23 @@ useEffect(() => {
   const handleDeleteConversation = async (conversationId) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette conversation ?")) {
       try {
+        // Supprimer immédiatement de la sidebar
         setConversations((prev) =>
           prev.filter((conv) => conv._id !== conversationId)
         );
         setMenuOpen(null);
 
+        // Rediriger si c'est la conversation active
         if (activeConversationId === conversationId) {
           router.push("/");
         }
+
+        // Émettre l'événement pour informer les autres composants
+        window.dispatchEvent(
+          new CustomEvent('conversation-deleted-local', {
+            detail: { conversationId }
+          })
+        );
       } catch (error) {
         console.error("Erreur lors de la suppression:", error);
       }

@@ -1,7 +1,6 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const BlockedUser = require('../models/BlockedUser');
-const DeletedConversation = require('../models/DeletedConversation');
 const Contact = require('../models/Contact');
 const axios = require('axios');
 
@@ -10,34 +9,61 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id || req.user._id;
 
-    // 🆕 VÉRIFIER à quelle date l'utilisateur a supprimé la conversation
-    const deletedRecord = await DeletedConversation.findOne({
-      originalConversationId: conversationId,
-      deletedBy: userId
-    });
+    console.log('📥 getMessages appelé:', { conversationId, userId });
+
+    // ✅ VÉRIFIER la conversation
+    const conversation = await Conversation.findById(conversationId);
+    
+    if (!conversation) {
+      console.log('❌ Conversation non trouvée');
+      return res.status(404).json({ 
+        success: false,
+        error: 'Conversation non trouvée' 
+      });
+    }
+
+    // ✅ TROUVER la date de suppression pour cet utilisateur
+    let deletionDate = null;
+    
+    if (conversation.deletedBy && Array.isArray(conversation.deletedBy)) {
+      const deletion = conversation.deletedBy.find(
+        item => item.userId && item.userId.toString() === userId.toString()
+      );
+      
+      if (deletion && deletion.deletedAt) {
+        deletionDate = deletion.deletedAt;
+        console.log('📅 Conversation supprimée le:', deletionDate);
+      }
+    }
 
     let messages;
 
-    if (deletedRecord) {
+    if (deletionDate) {
       // ✅ Afficher UNIQUEMENT les messages APRÈS la suppression
-      console.log(`📅 Conversation supprimée le ${deletedRecord.deletedAt}, filtrage des messages`);
-      
       messages = await Message.find({ 
         conversationId,
-        createdAt: { $gt: deletedRecord.deletedAt } // Messages après la suppression
+        createdAt: { $gt: deletionDate }
       })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
+        .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
+      
+      console.log(`📊 ${messages.length} nouveaux messages après suppression`);
+      
     } else {
       // ✅ Afficher TOUS les messages
       messages = await Message.find({ conversationId })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
+        .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
+      
+      console.log(`📊 ${messages.length} messages au total`);
     }
 
     res.json({ success: true, messages });
+    
   } catch (error) {
     console.error('❌ Erreur getMessages:', error);
     res.status(500).json({ error: error.message });
@@ -70,7 +96,7 @@ exports.sendMessage = async (req, res) => {
       return res.status(404).json({ error: 'Conversation non trouvée' });
     }
 
-    // verification de blockage avant envoi
+    // ✅ Vérification de blocage AVANT envoi
     if (!convCheck.isGroup) {
       const otherParticipant = convCheck.participants.find(
         p => p._id.toString() !== senderId.toString()
@@ -94,21 +120,25 @@ exports.sendMessage = async (req, res) => {
         }
       }
 
-      // 🆕 VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE PAR L'EXPÉDITEUR
-      const isDeleted = await DeletedConversation.findOne({
-        originalConversationId: conversationId,
-        deletedBy: senderId
-      });
-
-      if (isDeleted) {
-        console.log('🔄 Conversation supprimée détectée - Restauration silencieuse pour l\'expéditeur');
+      // ✅ VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE PAR L'EXPÉDITEUR
+      const convCheck2 = await Conversation.findById(conversationId);
+      
+      if (convCheck2 && convCheck2.deletedBy && Array.isArray(convCheck2.deletedBy)) {
+        const senderDeletion = convCheck2.deletedBy.find(
+          item => item.userId && item.userId.toString() === senderId.toString()
+        );
         
-        await DeletedConversation.deleteOne({
-          originalConversationId: conversationId,
-          deletedBy: senderId
-        });
-        
-        console.log('✅ Conversation restaurée pour l\'expéditeur, envoi du message dans la conversation existante');
+        if (senderDeletion) {
+          console.log('🔄 Conversation supprimée détectée - Restauration pour l\'expéditeur');
+          
+          // Retirer l'entrée de suppression pour cet utilisateur
+          convCheck2.deletedBy = convCheck2.deletedBy.filter(
+            item => !item.userId || item.userId.toString() !== senderId.toString()
+          );
+          
+          await convCheck2.save();
+          console.log('✅ Conversation restaurée pour l\'expéditeur');
+        }
       }
     }
 
@@ -151,7 +181,8 @@ exports.sendMessage = async (req, res) => {
     });
 
     await message.populate('sender', 'name profilePicture');
-    // 🆕 Populate aussi les infos du message cité
+    
+    // ✅ Populate aussi les infos du message cité
     if (message.replyToSender) {
       await message.populate('replyToSender', 'name profilePicture');
     }
@@ -174,7 +205,6 @@ exports.sendMessage = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 exports.markAsDelivered = async (req, res) => {
   try {
     const { messageIds } = req.body;
@@ -343,47 +373,79 @@ exports.getUnreadCount = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
   console.log('🔍 ========== DELETE MESSAGE APPELÉ ==========');
   console.log('📋 Params:', req.params);
-  console.log('👤 User ID:', req.user?._id);
+  console.log('👤 User:', req.user);
   
   try {
     const { messageId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user._id || req.user.id;
 
-    console.log('🗑️ Suppression du message:', messageId, 'par user:', userId);
+    console.log('🗑️ Tentative suppression message:', messageId, 'par user:', userId);
 
+    // ✅ Trouver le message
     const message = await Message.findById(messageId);
     
     if (!message) {
       console.log('❌ Message non trouvé:', messageId);
-      return res.status(404).json({ error: 'Message non trouvé' });
+      return res.status(404).json({ 
+        success: false,
+        error: 'Message non trouvé' 
+      });
     }
 
-    console.log('📨 Message trouvé, sender:', message.sender.toString());
+    console.log('📨 Message trouvé:', {
+      _id: message._id,
+      sender: message.sender,
+      content: message.content?.substring(0, 50)
+    });
 
-    if (message.sender.toString() !== userId.toString()) {
-      console.log('❌ Non autorisé - sender:', message.sender.toString(), 'user:', userId.toString());
-      return res.status(403).json({ error: 'Non autorisé à supprimer ce message' });
+    // ✅ Vérifier que c'est bien l'expéditeur
+    const messageSenderId = message.sender._id || message.sender;
+    const currentUserId = userId._id || userId;
+    
+    if (messageSenderId.toString() !== currentUserId.toString()) {
+      console.log('❌ Non autorisé - sender:', messageSenderId, 'user:', currentUserId);
+      return res.status(403).json({ 
+        success: false,
+        error: 'Non autorisé à supprimer ce message' 
+      });
     }
 
     const conversationId = message.conversationId.toString();
 
+    // ✅ Supprimer le message de la base de données
     await Message.findByIdAndDelete(messageId);
     console.log('✅ Message supprimé de la BDD');
 
+    // ✅ Émettre l'événement Socket.io
     const io = req.app.get('io');
     if (io) {
+      console.log(`📡 Émission message-deleted pour conversation ${conversationId}`);
+      
+      // Émettre dans la room de la conversation
       io.to(conversationId).emit('message-deleted', {
         messageId,
         conversationId
       });
-      console.log(`✅ Événement message-deleted émis pour conversation ${conversationId}`);
+      
+      console.log(`✅ Événement message-deleted émis`);
+    } else {
+      console.warn('⚠️ Socket.io non disponible');
     }
 
-    console.log('✅ Message supprimé avec succès');
-    res.json({ success: true, messageId });
+    console.log('✅ Suppression terminée avec succès');
+    
+    res.json({ 
+      success: true, 
+      messageId,
+      conversationId 
+    });
+    
   } catch (error) {
     console.error('❌ Erreur deleteMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 };
 

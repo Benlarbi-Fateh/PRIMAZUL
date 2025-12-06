@@ -9,4 +9,10 @@ const contactSchema = new mongoose.Schema({
   addedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
+  // ✅ NOUVEAU FORMAT - Stocker userId + date de suppression
+  deletedBy: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    deletedAt: { type: Date, default: Date.now }
+  }],
+
 module.exports = mongoose.model("Contact", contactSchema);

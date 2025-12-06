@@ -175,11 +175,17 @@ if (!convData.isGroup) {
       });
 
       // 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
-      socket.off('message-deleted');
-      socket.on('message-deleted', ({ messageId }) => {
-        console.log('🗑️ Message supprimé reçu:', messageId);
-        setMessages((prev) => prev.filter(msg => msg._id !== messageId));
-      });
+     socket.off('message-deleted');
+socket.on('message-deleted', ({ messageId, conversationId: deletedConvId }) => {
+  console.log('🗑️ Message supprimé reçu:', messageId);
+  if (deletedConvId === conversationId || !deletedConvId) {
+    setMessages((prev) => {
+      const filtered = prev.filter(msg => msg._id !== messageId);
+      console.log(`✅ Message ${messageId} supprimé. Avant: ${prev.length}, Après: ${filtered.length}`);
+      return filtered;
+    });
+  }
+});
 
       // 🆕 ÉCOUTER LES MODIFICATIONS EN TEMPS RÉEL
       socket.off('message-edited');

@@ -1,7 +1,6 @@
 const Invitation = require('../models/Invitation');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
-const DeletedConversation = require('../models/DeletedConversation');
 const Contact = require('../models/Contact');
 
 // ============================================
@@ -148,11 +147,19 @@ exports.acceptInvitation = async (req, res) => {
       return res.status(400).json({ error: 'Invitation déjà traitée' });
     }
 
-    // Vérifier si conversation existe déjà
-    let conversation = await Conversation.findOne({
-      isGroup: false,
-      participants: { $all: [invitation.sender._id, invitation.receiver._id] }
-    });
+   // ✅ NOUVELLE VERSION - Ne considère QUE les conversations actives
+const deletedConvIds = await DeletedConversation.find({
+  $or: [
+    { deletedBy: invitation.sender._id },
+    { deletedBy: invitation.receiver._id }
+  ]
+}).distinct('originalConversationId');
+
+let conversation = await Conversation.findOne({
+  isGroup: false,
+  participants: { $all: [invitation.sender._id, invitation.receiver._id] },
+  _id: { $nin: deletedConvIds } // ✅ EXCLURE les conversations supprimées
+});
 
     // Créer conversation si elle n'existe pas
     if (!conversation) {

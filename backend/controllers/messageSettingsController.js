@@ -3,7 +3,6 @@ const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const BlockedUser = require('../models/BlockedUser');
-const DeletedConversation = require('../models/DeletedConversation');
 
 /**
  * Soft delete conversation FOR THE CURRENT USER
@@ -11,11 +10,12 @@ const DeletedConversation = require('../models/DeletedConversation');
 exports.deleteConversationForUser = async (req, res) => {
   try {
     if (!req.user || !req.user._id) {
-  return res.status(401).json({
-    success: false,
-    message: 'Non authentifié'
-  });
-}
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+    
     const conversationId = req.params.id;
     const userId = req.user._id;
 
@@ -40,37 +40,28 @@ exports.deleteConversationForUser = async (req, res) => {
       });
     }
 
-    const existingDeletion = await DeletedConversation.findOne({
-      originalConversationId: conversation._id,
-      deletedBy: userId
-    });
-
-    if (existingDeletion) {
-      console.log('⚠️ Conversation déjà supprimée par cet utilisateur');
-      return res.json({
-        success: true,
-        message: 'Discussion déjà supprimée',
-        conversationId
-      });
+    // ✅ NOUVEAU : Stocker userId + date
+    if (!conversation.deletedBy) {
+      conversation.deletedBy = [];
     }
 
-    const messageCount = await Message.countDocuments({ conversationId });
+    // Vérifier si déjà supprimé
+    const existingDeletion = conversation.deletedBy.find(
+      item => item.userId && item.userId.toString() === userId.toString()
+    );
 
-    const deletedConv = new DeletedConversation({
-      originalConversationId: conversation._id,
-      participants: conversation.participants,
-      deletedBy: userId,
-      lastMessage: conversation.lastMessage,
-      isGroup: conversation.isGroup,
-      groupName: conversation.groupName,
-      groupImage: conversation.groupImage,
-      messageCount
-    });
+    if (!existingDeletion) {
+      conversation.deletedBy.push({
+        userId: userId,
+        deletedAt: new Date()
+      });
+      await conversation.save();
+      console.log('✅ Conversation marquée comme supprimée pour:', userId);
+    } else {
+      console.log('⚠️ Conversation déjà supprimée par cet utilisateur');
+    }
 
-    await deletedConv.save();
-
-    console.log('✅ Conversation marquée comme supprimée pour:', userId);
-
+    // ✅ Émettre l'événement Socket.io
     const io = req.app.get('io');
     if (io) {
       io.to(userId.toString()).emit('conversation-deleted', {
@@ -84,11 +75,13 @@ exports.deleteConversationForUser = async (req, res) => {
       message: 'Discussion supprimée avec succès',
       conversationId
     });
+    
   } catch (err) {
     console.error('❌ deleteConversationForUser error:', err);
     return res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: 'Erreur serveur',
+      error: err.message
     });
   }
 };

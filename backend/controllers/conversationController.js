@@ -1,31 +1,26 @@
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
-const DeletedConversation = require('../models/DeletedConversation');
 
 
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // ✅ RÉCUPÉRER LES IDs DES CONVERSATIONS SUPPRIMÉES
-    const deletedConvIds = await DeletedConversation.find({ deletedBy: userId })
-      .distinct('originalConversationId');
-
+    // ✅ NOUVELLE LOGIQUE SIMPLIFIÉE
     const conversations = await Conversation.find({
       participants: userId,
-      _id: { $nin: deletedConvIds } // ✅ EXCLURE LES CONVERSATIONS SUPPRIMÉES
+      deletedBy: { $ne: userId } // ✅ Exclure les conversations que J'AI supprimées
     })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
-      .populate('groupAdmin', 'name email profilePicture') // 🆕 AJOUTÉ
+      .populate('groupAdmin', 'name email profilePicture')
       .populate({
         path: 'lastMessage',
         populate: { path: 'sender', select: 'name' }
       })
       .sort({ updatedAt: -1 });
 
-
-    // 🆕 CALCULER LE NOMBRE DE MESSAGES NON LUS POUR CHAQUE CONVERSATION
+    // Calculer les messages non lus
     const conversationsWithUnread = await Promise.all(
       conversations.map(async (conv) => {
         const unreadCount = await Message.countDocuments({
@@ -34,14 +29,12 @@ exports.getConversations = async (req, res) => {
           status: { $ne: 'read' }
         });
 
-
         return {
           ...conv.toObject(),
           unreadCount
         };
       })
     );
-
 
     res.json({
       success: true,
@@ -68,45 +61,28 @@ exports.getOrCreateConversation = async (req, res) => {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
 
-    // ✅ Récupérer les IDs des conversations supprimées par cet utilisateur
-    const deletedConvIds = await DeletedConversation.find({ deletedBy: userId })
-      .distinct('originalConversationId');
-
-    // ✅ CHERCHER UNE CONVERSATION ACTIVE (non supprimée)
+    // ✅ CHERCHER UNE CONVERSATION EXISTANTE (même si supprimée par l'un des deux)
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, contactId], $size: 2 },
-      isGroup: false,
-      _id: { $nin: deletedConvIds } // ✅ Exclure les conversations supprimées
+      isGroup: false
     }).populate('participants', 'name email profilePicture isOnline lastSeen');
 
     if (conversation) {
-      console.log('✅ Conversation active trouvée:', conversation._id);
+      console.log('✅ Conversation trouvée:', conversation._id);
+      
+      // ✅ SI l'utilisateur actuel l'avait supprimée, on la restaure pour lui
+      if (conversation.deletedBy && conversation.deletedBy.includes(userId)) {
+        conversation.deletedBy = conversation.deletedBy.filter(
+          id => id.toString() !== userId.toString()
+        );
+        await conversation.save();
+        console.log('🔄 Conversation restaurée pour:', userId);
+      }
+      
       return res.json({ success: true, conversation });
     }
 
-    // ✅ VÉRIFIER S'IL EXISTE UNE ANCIENNE CONVERSATION SUPPRIMÉE
-    const oldConversation = await Conversation.findOne({
-      participants: { $all: [userId, contactId], $size: 2 },
-      isGroup: false,
-      _id: { $in: deletedConvIds }
-    });
-
-    if (oldConversation) {
-      console.log('🔄 Restauration conversation supprimée:', oldConversation._id);
-      
-      // ✅ SUPPRIMER L'ENREGISTREMENT DE SUPPRESSION
-      await DeletedConversation.deleteOne({
-        originalConversationId: oldConversation._id,
-        deletedBy: userId
-      });
-
-      await oldConversation.populate('participants', 'name email profilePicture isOnline lastSeen');
-      
-      console.log('✅ Conversation restaurée:', oldConversation._id);
-      return res.json({ success: true, conversation: oldConversation });
-    }
-
-    // ✅ CRÉER UNE NOUVELLE CONVERSATION VIERGE
+    // ✅ CRÉER UNE NOUVELLE CONVERSATION
     conversation = new Conversation({
       participants: [userId, contactId],
       isGroup: false

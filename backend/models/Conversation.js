@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const conversationSchema = new mongoose.Schema({
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],  
   lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+  deletedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  mutedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
  
     
   // 🆕 NOUVEAUX CHAMPS POUR LES GROUPES
@@ -15,7 +17,11 @@ const conversationSchema = new mongoose.Schema({
   mutedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],  // qui a mis en silencieux
  
 
-
+  // ✅ NOUVEAU FORMAT - Stocker userId + date de suppression
+  deletedBy: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    deletedAt: { type: Date, default: Date.now }
+  }],
 
  
   unreadCount: {

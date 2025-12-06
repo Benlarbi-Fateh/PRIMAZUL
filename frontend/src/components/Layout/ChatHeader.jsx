@@ -332,18 +332,56 @@ export default function ChatHeader({ contact, conversation, onBack }) {
   };
 
   const handleDeleteConversation = async () => {
-    if (!confirm('Supprimer cette discussion ? Elle ne sera supprimée que pour vous.')) return;
-    try {
-      const response = await api.delete(`/message-settings/conversations/${conversation._id}/delete`);
-      const data = response.data;
-      if (data.success && onBack) {
+  if (!conversation?._id) {
+    alert('❌ Conversation non définie');
+    return;
+  }
+
+  if (!confirm('Supprimer cette discussion ? Elle ne sera supprimée que pour vous.')) {
+    return;
+  }
+
+  try {
+    console.log('🗑️ Suppression conversation:', conversation._id);
+    
+    const response = await api.delete(`/message-settings/conversations/${conversation._id}/delete`);
+    
+    console.log('📦 Réponse suppression:', response.data);
+    
+    if (response.data.success) {
+      console.log('✅ Conversation supprimée avec succès');
+      
+      // ✅ Fermer le menu
+      setShowMenu(false);
+      
+      // ✅ Émettre un événement pour rafraîchir la sidebar
+      window.dispatchEvent(new CustomEvent('conversation-deleted-local', {
+        detail: { conversationId: conversation._id }
+      }));
+      
+      // ✅ Rediriger vers la page d'accueil
+      if (onBack) {
         onBack();
+      } else {
+        router.push('/');
       }
-    } catch (err) {
-      console.error('Erreur suppression:', err);
-      alert('Erreur lors de la suppression');
+      
+      alert('✅ Discussion supprimée');
+    } else {
+      throw new Error(response.data.message || 'Erreur inconnue');
     }
-  };
+    
+  } catch (err) {
+    console.error('❌ Erreur suppression:', err);
+    console.error('Détails:', {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
+    
+    alert('❌ Erreur lors de la suppression: ' + (err.response?.data?.message || err.message));
+  }
+};
 
   const openMediaPanel = async () => {
     setShowMediaPanel(true);
