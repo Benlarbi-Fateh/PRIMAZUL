@@ -139,7 +139,18 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Rejet non géré:', reason);
 });
+//ghiles programmation message
+// ========================================
+// ⏰ CRON JOB POUR MESSAGES PROGRAMMÉS
+// ========================================
+const { checkScheduledMessages } = require('./controllers/messageController');
 
+// Vérifier toutes les 30 secondes (vous pouvez ajuster)
+setInterval(() => {
+  checkScheduledMessages(io);
+}, 30000); // 30 secondes
+
+console.log('⏰ CRON job pour messages programmés activé (toutes les 30s)');
 // Démarrage du serveur
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, '0.0.0.0', () => {
