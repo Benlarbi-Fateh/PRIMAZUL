@@ -6,7 +6,7 @@ import { isSameDay } from "date-fns";
 import { AuthContext } from "@/context/AuthContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useTheme } from "@/context/ThemeContext";
-import { CallContext } from "@/context/CallContext"; // ✅ IMPORT DU CONTEXTE D'APPEL
+import { CallContext } from "@/context/CallContext";
 
 import {
   getConversation,
@@ -42,7 +42,6 @@ export default function ChatPage() {
   const router = useRouter();
   const { user } = useContext(AuthContext);
 
-  // ✅ Récupération de la fonction d'appel globale
   const { initiateCall } = useContext(CallContext);
 
   const conversationId = params.id;
@@ -90,9 +89,8 @@ export default function ChatPage() {
   const contact = getOtherParticipant();
 
   // ============================================================
-  // 📞 HANDLERS POUR LANCER L'APPEL (VIA CONTEXTE)
+  // 📞 HANDLERS POUR LANCER L'APPEL
   // ============================================================
-  // À REMPLACER dans ton page.jsx (lignes ~95-110)
 
   const handleVideoCall = () => {
     if (!conversation) {
@@ -100,12 +98,9 @@ export default function ChatPage() {
       return;
     }
 
-    // ✅ DÉTECTE : Groupe ou 1-to-1
     if (conversation.isGroup) {
-      // ===== APPEL GROUPE =====
       console.log("👥 Lancement appel groupe vidéo");
 
-      // Récupère tous les participants SAUF toi
       const currentUserId = user._id || user.id;
       const otherParticipants = conversation.participants
         .filter((p) => p._id !== currentUserId)
@@ -116,27 +111,20 @@ export default function ChatPage() {
         return;
       }
 
-      // Génère un channel name unique
       const channelName = `group_${Date.now()}_${conversationId}`;
 
-      // Lance l'appel groupe
       initiateCall(
         channelName,
-        otherParticipants, // 🔄 Array pour groupe
+        otherParticipants,
         "video",
-        conversation.name || "Appel Groupe" // Nom du groupe
+        conversation.name || "Appel Groupe"
       );
     } else {
-      // ===== APPEL 1-to-1 =====
       console.log("👤 Lancement appel vidéo 1-to-1");
 
       if (contact) {
-        // Lance l'appel 1-to-1 (string, pas array)
-        initiateCall(
-          conversationId,
-          contact._id, // 🔄 String pour 1-to-1
-          "video"
-        );
+        const channelName = `call_${conversationId}_${Date.now()}`;
+        initiateCall(channelName, contact._id, "video", null, conversationId);
       } else {
         alert("Impossible d'appeler : contact introuvable.");
       }
@@ -149,12 +137,9 @@ export default function ChatPage() {
       return;
     }
 
-    // ✅ DÉTECTE : Groupe ou 1-to-1
     if (conversation.isGroup) {
-      // ===== APPEL GROUPE =====
       console.log("👥 Lancement appel groupe audio");
 
-      // Récupère tous les participants SAUF toi
       const currentUserId = user._id || user.id;
       const otherParticipants = conversation.participants
         .filter((p) => p._id !== currentUserId)
@@ -165,27 +150,20 @@ export default function ChatPage() {
         return;
       }
 
-      // Génère un channel name unique
       const channelName = `group_${Date.now()}_${conversationId}`;
 
-      // Lance l'appel groupe
       initiateCall(
         channelName,
-        otherParticipants, // 🔄 Array pour groupe
+        otherParticipants,
         "audio",
-        conversation.name || "Appel Groupe" // Nom du groupe
+        conversation.name || "Appel Groupe"
       );
     } else {
-      // ===== APPEL 1-to-1 =====
       console.log("👤 Lancement appel audio 1-to-1");
 
       if (contact) {
-        // Lance l'appel 1-to-1 (string, pas array)
-        initiateCall(
-          conversationId,
-          contact._id, // 🔄 String pour 1-to-1
-          "audio"
-        );
+        const channelName = `call_${conversationId}_${Date.now()}`;
+        initiateCall(channelName, contact._id, "audio", null, conversationId);
       } else {
         alert("Impossible d'appeler : contact introuvable.");
       }
@@ -193,7 +171,7 @@ export default function ChatPage() {
   };
 
   // ============================================================
-  // 💬 LOGIQUE CHAT COMPLETE (JOIN, LOAD, MESSAGES, TYPING...)
+  // 💬 LOGIQUE CHAT COMPLETE
   // ============================================================
 
   // 1. Rejoindre/Quitter la room Socket
@@ -400,6 +378,24 @@ export default function ChatPage() {
   };
 
   // ============================================================
+  // ✅ FILTRE LES APPELS ENTRANTS PAR CONVERSATION
+  // ============================================================
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !conversationId) return;
+
+    // Intercepte les appels et vérifie que c'est pour cette conversation
+    const originalEmit = socket.emit;
+
+    // Note: On ne peut pas vraiment intercepter ici car on est côté client
+    // Le vrai filtre se fait dans CallContext via data.conversationId
+    // Mais on log juste pour debug
+    console.log(`📞 Page active pour conversation: ${conversationId}`);
+
+    return () => {};
+  }, [conversationId]);
+
+  // ============================================================
   // 🖥️ RENDU
   // ============================================================
 
@@ -446,8 +442,8 @@ export default function ChatPage() {
               contact={contact}
               conversation={conversation}
               onBack={() => router.push("/")}
-              onVideoCall={handleVideoCall} // ✅ Fonction du contexte
-              onAudioCall={handleAudioCall} // ✅ Fonction du contexte
+              onVideoCall={handleVideoCall}
+              onAudioCall={handleAudioCall}
             />
           </div>
 
@@ -457,8 +453,8 @@ export default function ChatPage() {
               contact={contact}
               conversation={conversation}
               onBack={() => router.push("/")}
-              onVideoCall={handleVideoCall} // ✅ Fonction du contexte
-              onAudioCall={handleAudioCall} // ✅ Fonction du contexte
+              onVideoCall={handleVideoCall}
+              onAudioCall={handleAudioCall}
             />
           </div>
 

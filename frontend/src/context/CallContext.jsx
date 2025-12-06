@@ -88,7 +88,13 @@ export const CallProvider = ({ children }) => {
 
   // --- LANCER UN APPEL ---
   const initiateCall = useCallback(
-    async (channel, contactIdOrIds, type = "video", groupName = null) => {
+    async (
+      channel,
+      contactIdOrIds,
+      type = "video",
+      groupName = null,
+      conversationIdForCall = null
+    ) => {
       if (!user) return;
 
       try {
@@ -141,6 +147,7 @@ export const CallProvider = ({ children }) => {
             signalData: { channelName: channel, callType: type },
             fromUserId: user._id || user.id,
             fromUserName: user.name || "Utilisateur",
+            conversationId: conversationIdForCall, // ✅ Passe le conversationId
           });
         }
       } catch (error) {

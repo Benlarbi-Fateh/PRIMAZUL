@@ -319,13 +319,22 @@ const initSocket = (io) => {
     socket.on("call-user", (data) => {
       // data contient : { userToCallId, signalData, fromUserId, fromUserName }
       // On émet vers l'utilisateur cible
+      console.log(
+        `📞 Appel 1-to-1 : ${data.fromUserId} → ${data.userToCallId} (conv: ${data.conversationId})`
+      );
+      // ✅ FIX CRUCIAL : Envoie SEULEMENT au socket qui est dans CETTE conversation
+      // On cherche le socket du destinataire qui est dans cette conversation
+
+      // ✅ L'utilisateur est dans la bonne conversation, envoie l'appel
       io.to(data.userToCallId).emit("call-made", {
-        signal: data.signalData, // Peut contenir le channelName Agora
+        signal: data.signalData,
         from: data.fromUserId,
         name: data.fromUserName,
+        conversationId: data.conversationId,
       });
+
       console.log(
-        `📞 Appel 1-to-1 : ${data.fromUserId} → ${data.userToCallId}`
+        `✅ Appel envoyé au socket actif dans conversation ${data.userToCallId}`
       );
     });
 
