@@ -20,10 +20,11 @@ exports.uploadProfilePicture = async (req, res) => {
     console.log('📤 Upload en cours pour userId:', userId);
     console.log('📁 Fichier:', req.file.path);
 
-let resourceType = 'auto';
-if (req.file.mimetype.startsWith('video/')) {
-  resourceType = 'video';
-}
+    let resourceType = 'auto';
+    if (req.file.mimetype.startsWith('video/')) {
+      resourceType = 'video';
+    }
+    
     // Upload vers Cloudinary
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: 'whatsapp-clone/profile-pictures',
@@ -35,10 +36,8 @@ if (req.file.mimetype.startsWith('video/')) {
 
     console.log('✅ Upload Cloudinary réussi:', result.secure_url);
 
-    // Supprimer le fichier temporaire
     fs.unlinkSync(req.file.path);
 
-    // Mettre à jour l'utilisateur
     const user = await User.findByIdAndUpdate(
       userId,
       { profilePicture: result.secure_url },
@@ -64,8 +63,6 @@ if (req.file.mimetype.startsWith('video/')) {
     });
   } catch (error) {
     console.error('❌ Erreur upload photo:', error);
-    
-    // Supprimer le fichier temporaire en cas d'erreur
     if (req.file && req.file.path) {
       try {
         fs.unlinkSync(req.file.path);
@@ -73,12 +70,11 @@ if (req.file.mimetype.startsWith('video/')) {
         console.error('Erreur suppression fichier temp:', unlinkError);
       }
     }
-    
     res.status(500).json({ error: error.message });
   }
 };
 
-// Ignorer la photo de profil (garder les initiales)
+// Ignorer la photo de profil
 exports.skipProfilePicture = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -110,6 +106,7 @@ exports.skipProfilePicture = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 // Configuration Multer pour les fichiers de messages
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -143,7 +140,7 @@ const uploadMessage = multer({
   }
 }).single('file');
 
-// Upload de fichier pour les messages
+// ✅ Upload de fichiers génériques (images, audio, vidéos, documents)
 exports.uploadFile = async (req, res) => {
   try {
     uploadMessage(req, res, async (err) => {
@@ -153,49 +150,95 @@ exports.uploadFile = async (req, res) => {
       }
 
       if (!req.file) {
-        return res.status(400).json({ error: 'Aucun fichier uploadé' });
+        return res.status(400).json({ error: 'Aucun fichier fourni' });
       }
 
-      const file = req.file;
-      const filePath = file.path;
+      console.log('📤 Upload fichier:', req.file.originalname);
+      console.log('📁 Type:', req.file.mimetype);
+      console.log('📦 Taille:', (req.file.size / 1024 / 1024).toFixed(2), 'MB');
 
-      console.log('📁 Fichier reçu:', file.originalname, '| Type:', file.mimetype);
+      const fileType = req.file.mimetype.split('/')[0]; // image, video, audio, application
 
-      let resourceType = 'auto';
-      if (file.mimetype.startsWith('video/')) {
-        resourceType = 'video';
-      } else if (file.mimetype.startsWith('image/')) {
-        resourceType = 'image';
-      } else if (file.mimetype.startsWith('audio/')) {
-        resourceType = 'video';
-      } else {
-        resourceType = 'raw';
-      }
-
-      const result = await cloudinary.uploader.upload(filePath, {
-        resource_type: resourceType,
+      let uploadOptions = {
         folder: 'whatsapp-clone/messages',
-        quality: 'auto',
-        fetch_format: 'auto'
-      });
+        resource_type: 'auto',
+      };
 
-      console.log('✅ Upload Cloudinary réussi:', result.secure_url);
+      // ✅ Configuration spécifique pour les vidéos
+      if (fileType === 'video') {
+        uploadOptions = {
+          ...uploadOptions,
+          resource_type: 'video',
+          folder: 'whatsapp-clone/videos',
+          chunk_size: 6000000, // Upload par morceaux de 6MB
+          eager: [
+            { 
+              format: 'mp4', 
+              transformation: [
+                { width: 640, height: 480, crop: 'limit', quality: 'auto' }
+              ]
+            }
+          ],
+          eager_async: true, // Transformation asynchrone
+        };
+      } 
+      // Configuration pour les images
+      else if (fileType === 'image') {
+        uploadOptions = {
+          ...uploadOptions,
+          resource_type: 'image',
+          folder: 'whatsapp-clone/images',
+          transformation: [
+            { quality: 'auto', fetch_format: 'auto' }
+          ]
+        };
+      }
+      // Configuration pour l'audio
+      else if (fileType === 'audio') {
+        uploadOptions = {
+          ...uploadOptions,
+          resource_type: 'video', // Cloudinary utilise 'video' pour l'audio aussi
+          folder: 'whatsapp-clone/audio',
+        };
+      }
 
-      fs.unlinkSync(filePath);
+      // Upload vers Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, uploadOptions);
+
+      console.log('✅ Upload Cloudinary réussi');
+      console.log('🔗 URL:', result.secure_url);
+
+      // Supprimer le fichier temporaire
+      fs.unlinkSync(req.file.path);
 
       res.json({
         success: true,
+        message: 'Fichier uploadé avec succès',
         fileUrl: result.secure_url,
-        fileName: file.originalname,
-        fileSize: file.size,
-        fileType: file.mimetype,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: fileType,
         cloudinaryId: result.public_id,
-        videoDuration: result.duration || 0,
-        videoThumbnail: result.resource_type === 'video' ? result.secure_url.replace(/\.(mp4|webm|avi|mov)$/, '.jpg') : null
+        // ✅ Informations spécifiques pour les vidéos
+        ...(fileType === 'video' && {
+          duration: result.duration, // Durée en secondes
+          width: result.width,
+          height: result.height,
+          format: result.format
+        })
       });
     });
   } catch (error) {
-    console.error('❌ Erreur uploadFile:', error);
+    console.error('❌ Erreur upload fichier:', error);
+    
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkError) {
+        console.error('Erreur suppression fichier temp:', unlinkError);
+      }
+    }
+    
     res.status(500).json({ error: error.message });
   }
 };

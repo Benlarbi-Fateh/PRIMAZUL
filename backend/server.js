@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const connectDB = require('./config/db');
 
+
 const app = express();
 const server = http.createServer(app);
 
@@ -27,6 +28,7 @@ app.use((req, res, next) => {
   console.log('====================');
   next();
 });
+//app.use(express.json());
 
 // ✅ Socket.IO Configuration
 const io = new Server(server, {

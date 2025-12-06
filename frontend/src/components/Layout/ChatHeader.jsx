@@ -1,12 +1,18 @@
 'use client'
-import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock } from 'lucide-react';
+import { useState, useEffect, useRef, useContext } from 'react';
+import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock, Info } from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { AuthContext } from '@/context/AuthProvider';
+import { useTheme } from '@/hooks/useTheme';
+import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
+import { formatMessageDate } from '@/utils/dateFormatter';
+import ImageComponent from 'next/image';
 
-
-export default function ChatHeader({ contact, conversation, onBack, user }) {
+export default function ChatHeader({ contact, conversation, onBack }) {
+  const { user } = useContext(AuthContext);
+  const { isDark } = useTheme();
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [showMenu, setShowMenu] = useState(false);
@@ -32,9 +38,7 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
     refresh: refreshBlockStatus 
   } = useBlockCheck(contact?._id);
 
-
-
-  const formatMessageDate = (date) => {
+  const formatMessageDateLocal = (date) => {
     if (!date) return '';
     const d = new Date(date);
     const now = new Date();
@@ -154,27 +158,37 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   };
 
   // Fonction corrigée pour charger les médias
- const loadMedia = async (type) => {
-  setLoadingMedia(true);
-  setMediaType(type);
-  try {
-    console.log(`📥 Chargement des médias de type: ${type} pour conversation:`, conversation._id);
-    
-    const response = await api.get(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
-    const data = response.data;
-    
-    console.log(`✅ Données reçues pour ${type}:`, data);
-    
-    // ✅ CORRECTION : Le backend retourne directement images, files, audio, videos, links
-    if (data && data.success) {
-      setMediaData({
-        images: data.images || [],
-        files: data.files || [],
-        audio: data.audio || [],
-        videos: data.videos || [], // ✅ AJOUT
-        links: data.links || []
-      });
-    } else {
+  const loadMedia = async (type) => {
+    setLoadingMedia(true);
+    setMediaType(type);
+    try {
+      console.log(`📥 Chargement des médias de type: ${type} pour conversation:`, conversation._id);
+      
+      const response = await api.get(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
+      const data = response.data;
+      
+      console.log(`✅ Données reçues pour ${type}:`, data);
+      
+      // ✅ CORRECTION : Le backend retourne directement images, files, audio, videos, links
+      if (data && data.success) {
+        setMediaData({
+          images: data.images || [],
+          files: data.files || [],
+          audio: data.audio || [],
+          videos: data.videos || [], // ✅ AJOUT
+          links: data.links || []
+        });
+      } else {
+        setMediaData({
+          images: [],
+          files: [],
+          audio: [],
+          videos: [], // ✅ AJOUT
+          links: []
+        });
+      }
+    } catch (err) {
+      console.error('❌ Erreur chargement média:', err);
       setMediaData({
         images: [],
         files: [],
@@ -183,18 +197,8 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
         links: []
       });
     }
-  } catch (err) {
-    console.error('❌ Erreur chargement média:', err);
-    setMediaData({
-      images: [],
-      files: [],
-      audio: [],
-      videos: [], // ✅ AJOUT
-      links: []
-    });
-  }
-  setLoadingMedia(false);
-};
+    setLoadingMedia(false);
+  };
 
   // Nettoyer l'audio quand le composant est démonté
   useEffect(() => {
@@ -210,16 +214,16 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
     if (!conversation?._id) return;
     
     const loadMutedStatus = async () => {
-  try {
-    const response = await api.get(`/message-settings/conversations/${conversation._id}/settings`);
-    const data = response.data;
-    if (data.success) {
-      setSettings({ muted: data.settings.isMuted });
-    }
-  } catch (err) {
-    console.error('Erreur chargement settings:', err);
-  }
-};
+      try {
+        const response = await api.get(`/message-settings/conversations/${conversation._id}/settings`);
+        const data = response.data;
+        if (data.success) {
+          setSettings({ muted: data.settings.isMuted });
+        }
+      } catch (err) {
+        console.error('Erreur chargement settings:', err);
+      }
+    };
     
     loadMutedStatus();
   }, [conversation?._id]);
@@ -241,110 +245,110 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   }, [showMenu]);
 
   const toggleMute = async () => {
-  if (!conversation?._id) {
-    alert('❌ Conversation non définie');
-    return;
-  }
-
-  try {
-    const endpoint = settings.muted 
-      ? `/message-settings/conversations/${conversation._id}/unmute`
-      : `/message-settings/conversations/${conversation._id}/mute`;
-    
-    const response = await api.post(endpoint);
-    const data = response.data;
-    
-    if (data.success) {
-      setSettings(prev => ({ ...prev, muted: !prev.muted }));
-      
-      const msg = settings.muted 
-        ? '✅ Notifications réactivées' 
-        : '🔕 Notifications désactivées';
-      
-      alert(msg);
+    if (!conversation?._id) {
+      alert('❌ Conversation non définie');
+      return;
     }
-  } catch (err) {
-    console.error('❌ Erreur toggle mute:', err);
-    alert('Erreur lors de la modification des notifications');
-  }
-};
+
+    try {
+      const endpoint = settings.muted 
+        ? `/message-settings/conversations/${conversation._id}/unmute`
+        : `/message-settings/conversations/${conversation._id}/mute`;
+      
+      const response = await api.post(endpoint);
+      const data = response.data;
+      
+      if (data.success) {
+        setSettings(prev => ({ ...prev, muted: !prev.muted }));
+        
+        const msg = settings.muted 
+          ? '✅ Notifications réactivées' 
+          : '🔕 Notifications désactivées';
+        
+        alert(msg);
+      }
+    } catch (err) {
+      console.error('❌ Erreur toggle mute:', err);
+      alert('Erreur lors de la modification des notifications');
+    }
+  };
 
   const toggleBlock = async () => {
-  if (!contact?._id) {
-    alert('❌ Contact non défini');
-    return;
-  }
+    if (!contact?._id) {
+      alert('❌ Contact non défini');
+      return;
+    }
 
-  const action = blockStatus?.iBlocked ? 'débloquer' : 'bloquer';
-  const confirmMsg = blockStatus?.iBlocked 
-    ? `Êtes-vous sûr de vouloir débloquer ${contact.name} ?`
-    : `Êtes-vous sûr de vouloir bloquer ${contact.name} ? Vous ne recevrez plus ses messages.`;
+    const action = blockStatus?.iBlocked ? 'débloquer' : 'bloquer';
+    const confirmMsg = blockStatus?.iBlocked 
+      ? `Êtes-vous sûr de vouloir débloquer ${contact.name} ?`
+      : `Êtes-vous sûr de vouloir bloquer ${contact.name} ? Vous ne recevrez plus ses messages.`;
 
-  if (!confirm(confirmMsg)) {
-    return;
-  }
+    if (!confirm(confirmMsg)) {
+      return;
+    }
 
-  try {
-    const endpoint = blockStatus?.iBlocked 
-      ? '/message-settings/unblock' 
-      : '/message-settings/block';
-    
-    const response = await api.post(endpoint, { targetUserId: contact._id });
-    
-    if (response.data.success) {
-      await refreshBlockStatus();
+    try {
+      const endpoint = blockStatus?.iBlocked 
+        ? '/message-settings/unblock' 
+        : '/message-settings/block';
       
-      window.dispatchEvent(new CustomEvent('block-status-changed'));
+      const response = await api.post(endpoint, { targetUserId: contact._id });
       
-      setShowMenu(false);
-      
-      const successMsg = blockStatus?.iBlocked 
-        ? `✅ ${contact.name} a été débloqué` 
-        : `🚫 ${contact.name} a été bloqué`;
-      
-      alert(successMsg);
-      
-      if (action === 'bloquer') {
-        setTimeout(() => {
-          router.push('/');
-        }, 1500);
+      if (response.data.success) {
+        await refreshBlockStatus();
+        
+        window.dispatchEvent(new CustomEvent('block-status-changed'));
+        
+        setShowMenu(false);
+        
+        const successMsg = blockStatus?.iBlocked 
+          ? `✅ ${contact.name} a été débloqué` 
+          : `🚫 ${contact.name} a été bloqué`;
+        
+        alert(successMsg);
+        
+        if (action === 'bloquer') {
+          setTimeout(() => {
+            router.push('/');
+          }, 1500);
+        }
+      } else {
+        throw new Error(response.data.message || 'Erreur inconnue');
       }
-    } else {
-      throw new Error(response.data.message || 'Erreur inconnue');
+    } catch (err) {
+      console.error('❌ Erreur toggle block:', err);
+      
+      let errorMessage = `Erreur lors du ${action} : `;
+      
+      if (err.response?.status === 404) {
+        errorMessage += 'Route API non trouvée.';
+      } else if (err.response?.status === 401) {
+        errorMessage += 'Non autorisé. Reconnectez-vous.';
+        setTimeout(() => router.push('/login'), 2000);
+      } else if (err.response?.status === 500) {
+        errorMessage += 'Erreur serveur.';
+      } else {
+        errorMessage += err.message || 'Erreur réseau';
+      }
+      
+      alert(errorMessage);
     }
-  } catch (err) {
-    console.error('❌ Erreur toggle block:', err);
-    
-    let errorMessage = `Erreur lors du ${action} : `;
-    
-    if (err.response?.status === 404) {
-      errorMessage += 'Route API non trouvée.';
-    } else if (err.response?.status === 401) {
-      errorMessage += 'Non autorisé. Reconnectez-vous.';
-      setTimeout(() => router.push('/login'), 2000);
-    } else if (err.response?.status === 500) {
-      errorMessage += 'Erreur serveur.';
-    } else {
-      errorMessage += err.message || 'Erreur réseau';
-    }
-    
-    alert(errorMessage);
-  }
-};
+  };
 
   const handleDeleteConversation = async () => {
-  if (!confirm('Supprimer cette discussion ? Elle ne sera supprimée que pour vous.')) return;
-  try {
-    const response = await api.delete(`/message-settings/conversations/${conversation._id}/delete`);
-    const data = response.data;
-    if (data.success && onBack) {
-      onBack();
+    if (!confirm('Supprimer cette discussion ? Elle ne sera supprimée que pour vous.')) return;
+    try {
+      const response = await api.delete(`/message-settings/conversations/${conversation._id}/delete`);
+      const data = response.data;
+      if (data.success && onBack) {
+        onBack();
+      }
+    } catch (err) {
+      console.error('Erreur suppression:', err);
+      alert('Erreur lors de la suppression');
     }
-  } catch (err) {
-    console.error('Erreur suppression:', err);
-    alert('Erreur lors de la suppression');
-  }
-};
+  };
 
   const openMediaPanel = async () => {
     setShowMediaPanel(true);
@@ -392,6 +396,35 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
     return onlineUsers.has(userId);
   };
 
+  // Styles basés sur le thème (comme dans la sidebar)
+  const headerBg = isDark
+    ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950"
+    : "bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800";
+
+  const buttonStyle = isDark
+    ? "hover:bg-blue-800/50 text-blue-200"
+    : "hover:bg-white/20 text-white";
+
+  const textPrimary = isDark ? "text-blue-50" : "text-white";
+  const textSecondary = isDark ? "text-blue-200" : "text-blue-100";
+  const textMuted = isDark ? "text-blue-300" : "text-blue-200";
+
+  const ringStyle = isDark
+    ? "ring-blue-700/50 group-hover:ring-blue-500/80"
+    : "ring-white/50 group-hover:ring-white/80";
+
+  const borderStyle = isDark
+    ? "border-blue-600"
+    : "border-blue-700";
+
+  const onlineDot = isDark
+    ? "bg-cyan-400"
+    : "bg-emerald-400";
+
+  const groupBadge = isDark
+    ? "bg-gradient-to-br from-blue-700 to-blue-800 border-blue-600"
+    : "bg-gradient-to-br from-purple-500 to-pink-500 border-blue-700";
+
   // Fonction pour obtenir l'autre participant
   const getOtherParticipant = (conv) => {
     const userId = user?._id || user?.id;
@@ -401,13 +434,10 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   // Fonction pour gérer le clic sur la photo
   const handleProfileClick = () => {
     if (!contact && !conversation) {
-      // Cas sans contact = votre profil
       router.push('/profile');
     } else if (conversation?.isGroup) {
-      // Groupe : aller vers les détails du groupe (vous pouvez créer cette page plus tard)
       // router.push(`/group/${conversation._id}`);
     } else {
-      // Conversation individuelle : aller vers le profil du contact
       const contactUser = contact || getOtherParticipant(conversation);
       if (contactUser?._id) {
         router.push(`/profile/${contactUser._id}`);
@@ -424,31 +454,37 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
 
   if (!contact && !conversation) {
     return (
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
-        <div className="relative p-5">
-          <div className="flex items-center gap-4">
+      <div className={`relative overflow-hidden ${headerBg} shadow-lg`}>
+        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
+        
+        <div className="relative p-4">
+          <div className="flex items-center gap-3">
             {/* VOTRE photo de profil */}
             <div 
               className="relative shrink-0 cursor-pointer group" 
               onClick={handleProfileClick}
               title={getProfileTitle()}
             >
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ring-4 ring-white/40 shadow-2xl overflow-hidden group-hover:ring-white/60 transition">
-                <img
-                  src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`}
+              <div className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}>
+                <ImageComponent
+                  src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`}
                   alt={user?.name || 'Utilisateur'}
+                  width={40}
+                  height={40}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`;
                   }}
                 />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-white shadow-lg"></div>
+              <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDot} rounded-full border-2 ${borderStyle}`}></div>
             </div>
-            <div className="text-white flex-1 min-w-0">
-              <h2 className="font-bold text-lg sm:text-xl drop-shadow-lg truncate">{user?.name || 'Utilisateur'}</h2>
-              <p className="text-sm text-blue-100 font-semibold flex items-center gap-2">
-                <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg"></span>
+            <div className="flex-1 min-w-0">
+              <h2 className={`font-bold text-base drop-shadow truncate ${textPrimary}`}>
+                {user?.name}
+              </h2>
+              <p className={`text-xs font-medium flex items-center gap-2 ${textSecondary}`}>
+                <span className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}></span>
                 En ligne
               </p>
             </div>
@@ -459,25 +495,29 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
   }
 
   const isGroup = conversation?.isGroup || false;
-  const displayName = isGroup ? (conversation?.groupName || 'Groupe sans nom') : (contact?.name || 'Utilisateur');
-  const displayImage = isGroup ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`) : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=3b82f6&color=fff&bold=true&size=128`);
+  const displayName = isGroup 
+    ? (conversation?.groupName || 'Groupe sans nom')
+    : (contact?.name || 'Utilisateur');
+  
+  const displayImage = isGroup
+    ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`)
+    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`);
+
   const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
   
   return (
     <>
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
-        <div className="absolute inset-0" style={{
-          background: "radial-gradient(circle at top right, rgba(6, 182, 212, 0.3), transparent)"
-        }}></div>
-
-        <div className="relative p-4 sm:p-5 flex items-center justify-between gap-3">
+      <div className={`relative overflow-hidden ${headerBg} shadow-lg`}>
+        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
+        
+        <div className="relative p-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={onBack || (() => router.push('/'))}
-              className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 shadow-md"
+              className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 ${buttonStyle}`}
             >
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
 
             {/* Photo du CONTACT ou GROUPE */}
@@ -486,74 +526,85 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
               onClick={handleProfileClick}
               title={getProfileTitle()}
             >
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl ring-4 ring-white/40 shadow-2xl overflow-hidden group-hover:ring-white/60 transition">
-                <img
+              <div className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}>
+                <ImageComponent
                   src={displayImage}
                   alt={displayName}
+                  width={40}
+                  height={40}
                   className="w-full h-full object-cover"
+                  unoptimized={true}
                   onError={(e) => {
                     e.target.src = isGroup
-                      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`
-                      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=3b82f6&bold=true&size=128`;
+                      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`
+                      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`;
                   }}
                 />
               </div>
               {isGroup && (
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                  <Users className="w-3 h-3 text-white" />
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${groupBadge} rounded-full border-2 flex items-center justify-center`}>
+                  <Users className="w-2 h-2 text-white" />
                 </div>
               )}
-              {contactIsOnline && (
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg"></div>
+              {!isGroup && contactIsOnline && (
+                <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDot} rounded-full border-2 ${borderStyle}`}></div>
               )}
             </div>
-            <div className="text-white flex-1 min-w-0">
-              <h2 className="font-bold text-base sm:text-lg drop-shadow-lg truncate">{displayName}</h2>
+            <div className="flex-1 min-w-0">
+              <h2 className={`font-bold text-base drop-shadow truncate ${textPrimary}`}>
+                {displayName}
+              </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 {isGroup ? (
-                  <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
+                  <p className={`text-xs truncate font-medium ${textSecondary}`}>
                     {participantsCount} participant{participantsCount > 1 ? 's' : ''}
                   </p>
                 ) : blockLoading ? (
-                  <p className="text-xs sm:text-sm text-white/70 truncate flex items-center gap-1">
+                  <p className={`text-xs truncate ${textMuted} flex items-center gap-1`}>
                     <span className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></span>
                     Chargement...
                   </p>
                 ) : blockStatus?.blockedMe ? ( // ✅ CORRIGÉ
-                  <p className="text-xs sm:text-sm text-red-200 font-semibold truncate flex items-center gap-1">
+                  <p className={`text-xs truncate font-medium text-red-200 flex items-center gap-1`}>
                     <Lock className="w-3 h-3" />
                     Vous êtes bloqué
                   </p>
                 ) : blockStatus?.iBlocked ? ( // ✅ CORRIGÉ
-                  <p className="text-xs sm:text-sm text-yellow-200 font-semibold truncate flex items-center gap-1">
+                  <p className={`text-xs truncate font-medium text-yellow-200 flex items-center gap-1`}>
                     <Shield className="w-3 h-3" />
                     Bloqué
                   </p>
                 ) : contactIsOnline ? (
                   <>
-                    <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg shrink-0"></span>
-                    <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">En ligne</p>
+                    <span className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}></span>
+                    <p className={`text-xs truncate font-medium ${textSecondary}`}>
+                      En ligne
+                    </p>
                   </>
                 ) : (
-                  <p className="text-xs sm:text-sm text-blue-100 truncate">Hors ligne</p>
+                  <p className={`text-xs truncate ${textMuted}`}>
+                    {contact?.lastSeen ? `Vu ${formatMessageDate(contact.lastSeen)}` : 'Hors ligne'}
+                  </p>
                 )}
               </div>
             </div>
           </div>
+          
           <div className="flex items-center gap-1 shrink-0">
             {!isGroup && (
               <>
-                <button className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all">
-                  <Phone className="w-5 h-5" />
+                <button className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+                  <Phone className="w-4 h-4" />
                 </button>
-                <button className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all">
-                  <Video className="w-5 h-5" />
+                <button className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+                  <Video className="w-4 h-4" />
                 </button>
               </>
             )}
+
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setShowMenu(!showMenu)} className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all">
-                <MoreVertical className="w-5 h-5" />
+              <button onClick={() => setShowMenu(!showMenu)} className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+                <Info className="w-4 h-4" />
               </button>
               {showMenu && (
                 <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 max-h-[85vh] flex flex-col overflow-hidden">
@@ -736,8 +787,6 @@ export default function ChatHeader({ contact, conversation, onBack, user }) {
                         </div>
                       </button>
                     </div>
-
-                    
                   </div>
 
                   {/* Footer fixe */}

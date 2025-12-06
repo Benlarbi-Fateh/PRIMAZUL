@@ -1,7 +1,7 @@
-const express = require('express');
-const { 
-  register, 
-  login, 
+const express = require("express");
+const {
+  register,
+  login,
   verifyRegistration,
   verifyLogin,
   resendCode,
@@ -9,13 +9,18 @@ const {
   verifyResetCode,
   resetPassword,
   finalizeRegistration,
-  searchUsers, 
+  searchUsers,
   getUsers,
-  updateLastLogin // 🆕 AJOUTER CET IMPORT
-} = require('../controllers/authController');
-const { uploadProfilePicture, skipProfilePicture } = require('../controllers/uploadController');
-const authMiddleware = require('../middleware/authMiddleware');
-const upload = require('../middleware/upload');
+  updateLastLogin,
+  requestPasswordChangeOTP,
+  verifyAndChangePassword, // 🆕 AJOUTER CET IMPORT
+} = require("../controllers/authcontroller");
+const {
+  uploadProfilePicture,
+  skipProfilePicture,
+} = require("../controllers/uploadController");
+const authMiddleware = require("../middleware/authMiddleware");
+const upload = require("../middleware/upload");
 
 const router = express.Router();
 
@@ -27,7 +32,11 @@ router.post("/login", login);
 router.post("/resend-code", resendCode);
 
 // 🆕 ROUTES PHOTO DE PROFIL
-router.post("/upload-profile-picture", upload.single('profilePicture'), uploadProfilePicture);
+router.post(
+  "/upload-profile-picture",
+  upload.single("profilePicture"),
+  uploadProfilePicture
+);
 router.post("/skip-profile-picture", skipProfilePicture);
 router.post("/finalize-registration", finalizeRegistration);
 
@@ -44,3 +53,18 @@ router.get("/search", authMiddleware, searchUsers);
 router.get("/users", authMiddleware, getUsers);
 
 module.exports = router;
+
+// 🆕 ROUTES POUR LA GESTION DU CHANGEMENT DE MOT DE PASS
+// 2. Demande d'envoi du code OTP pour changer le mot de passe
+router.post(
+  "/settings/send-password-otp",
+  authMiddleware,
+  requestPasswordChangeOTP
+);
+
+// 3. Vérification du code OTP et changement effectif du mot de passe
+router.put(
+  "/settings/verify-change-password",
+  authMiddleware,
+  verifyAndChangePassword
+);

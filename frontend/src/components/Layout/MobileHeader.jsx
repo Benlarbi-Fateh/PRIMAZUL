@@ -2,14 +2,16 @@
 
 import { useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
+import { useTheme } from '@/hooks/useTheme';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
-import { ArrowLeft, MoreVertical, Phone, Video, Users } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Video, Users, Info } from 'lucide-react';
 import { formatMessageDate } from '@/utils/dateFormatter';
 import Image from 'next/image';
 
 export default function MobileHeader({ contact, conversation, onBack }) {
   const { user } = useContext(AuthContext);
+  const { isDark } = useTheme();
   const router = useRouter();
   const [onlineUsers, setOnlineUsers] = useState(new Set());
 
@@ -27,6 +29,39 @@ export default function MobileHeader({ contact, conversation, onBack }) {
     return onlineUsers.has(userId);
   };
 
+  // Styles basés sur le thème (mêmes couleurs que sidebar)
+  const headerBg = isDark
+    ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950"
+    : "bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800";
+
+  const buttonStyle = isDark
+    ? "hover:bg-blue-800/50 text-blue-200"
+    : "hover:bg-white/20 text-white";
+
+  const textPrimary = isDark ? "text-blue-50" : "text-white";
+  const textSecondary = isDark ? "text-blue-200" : "text-blue-100";
+  const textMuted = isDark ? "text-blue-300" : "text-blue-200";
+
+  const ringStyle = isDark
+    ? "ring-blue-700/50 group-hover:ring-blue-500/80"
+    : "ring-white/50 group-hover:ring-white/70";
+
+  const borderStyle = isDark
+    ? "border-blue-600"
+    : "border-blue-700";
+
+  const onlineDot = isDark
+    ? "bg-cyan-400"
+    : "bg-emerald-300";
+
+  const onlineDotBg = isDark
+    ? "bg-cyan-400"
+    : "bg-emerald-400";
+
+  const groupBadge = isDark
+    ? "bg-gradient-to-br from-blue-700 to-blue-800 border-blue-600"
+    : "bg-gradient-to-br from-purple-500 to-pink-500 border-blue-700";
+
   // Fonction pour obtenir l'autre participant
   const getOtherParticipant = (conv) => {
     const userId = user?._id || user?.id;
@@ -36,13 +71,10 @@ export default function MobileHeader({ contact, conversation, onBack }) {
   // Fonction pour gérer le clic sur la photo
   const handleProfileClick = () => {
     if (!contact && !conversation) {
-      // Cas sans contact = votre profil
       router.push('/profile');
     } else if (conversation?.isGroup) {
-      // Groupe : aller vers les détails du groupe
       // router.push(`/group/${conversation._id}`);
     } else {
-      // Conversation individuelle : aller vers le profil du contact
       const contactUser = contact || getOtherParticipant(conversation);
       if (contactUser?._id) {
         router.push(`/profile/${contactUser._id}`);
@@ -59,46 +91,40 @@ export default function MobileHeader({ contact, conversation, onBack }) {
 
   if (!contact && !conversation) {
     return (
-      <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+      <div className={`lg:hidden relative overflow-hidden ${headerBg} shadow-lg`}>
+        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
         
-        <div className="absolute inset-0" style={{
-          background: "radial-gradient(circle at top right, rgba(6, 182, 212, 0.3), transparent)"
-        }}></div>
-
-        <div className="relative p-5">
-          <div className="flex items-center gap-4">
+        <div className="relative p-4">
+          <div className="flex items-center gap-3">
             {/* VOTRE photo de profil */}
             <div 
-              className="relative shrink-0 cursor-pointer group"
+              className="relative shrink-0 cursor-pointer group" 
               onClick={handleProfileClick}
               title={getProfileTitle()}
             >
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ring-4 ring-white/40 shadow-2xl overflow-hidden group-hover:ring-white/60 transition">
+              <div className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}>
                 <Image
-                  src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`}
+                  src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`}
                   alt={user?.name || 'Utilisateur'}
-                  width={56}
-                  height={56}
+                  width={40}
+                  height={40}
                   className="w-full h-full object-cover"
                   unoptimized={true}
                 />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-400 rounded-full border-3 border-white shadow-lg"></div>
+              <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDotBg} rounded-full border-2 ${borderStyle}`}></div>
             </div>
-            <div className="text-white flex-1 min-w-0">
-              <h2 className="font-bold text-lg sm:text-xl drop-shadow-lg truncate">
+            <div className="flex-1 min-w-0">
+              <h2 className={`font-bold text-base drop-shadow truncate ${textPrimary}`}>
                 {user?.name}
               </h2>
-              <p className="text-sm text-blue-100 font-semibold flex items-center gap-2">
-                <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg"></span>
+              <p className={`text-xs font-medium flex items-center gap-2 ${textSecondary}`}>
+                <span className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}></span>
                 En ligne
               </p>
             </div>
           </div>
         </div>
-
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
       </div>
     );
   }
@@ -109,8 +135,8 @@ export default function MobileHeader({ contact, conversation, onBack }) {
     : (contact?.name || 'Utilisateur');
   
   const displayImage = isGroup
-    ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=6366f1&color=fff&bold=true&size=128`)
-    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`);
+    ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`)
+    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`);
 
   const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
   
@@ -118,20 +144,16 @@ export default function MobileHeader({ contact, conversation, onBack }) {
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
 
   return (
-    <div className="lg:hidden relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 shadow-xl">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+    <div className={`lg:hidden relative overflow-hidden ${headerBg} shadow-lg`}>
+      <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
       
-      <div className="absolute inset-0" style={{
-        background: "radial-gradient(circle at top right, rgba(6, 182, 212, 0.3), transparent)"
-      }}></div>
-
-      <div className="relative p-4 sm:p-5 flex items-center justify-between gap-3">
+      <div className="relative p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button
             onClick={onBack || (() => router.push('/'))}
-            className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 shadow-md"
+            className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 ${buttonStyle}`}
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
 
           {/* Photo du CONTACT ou GROUPE avec clic */}
@@ -140,53 +162,51 @@ export default function MobileHeader({ contact, conversation, onBack }) {
             onClick={handleProfileClick}
             title={getProfileTitle()}
           >
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl ring-4 ring-white/40 shadow-2xl overflow-hidden group-hover:ring-white/60 transition">
+            <div className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}>
               <Image
                 src={displayImage}
                 alt={displayName}
-                width={48}
-                height={48}
+                width={40}
+                height={40}
                 className="w-full h-full object-cover"
                 unoptimized={true}
                 onError={(e) => {
                   e.target.src = isGroup
-                    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff&bold=true&size=128`
-                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=fff&color=3b82f6&bold=true&size=128`;
+                    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`
+                    : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`;
                 }}
               />
             </div>
             {isGroup && (
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-                <Users className="w-3 h-3 text-white" />
+              <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${groupBadge} rounded-full border-2 flex items-center justify-center`}>
+                <Users className="w-2 h-2 text-white" />
               </div>
             )}
-            {contactIsOnline && (
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg">
-                <div className="w-full h-full bg-emerald-400 rounded-full animate-ping opacity-75"></div>
-              </div>
+            {!isGroup && contactIsOnline && (
+              <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDotBg} rounded-full border-2 ${borderStyle}`}></div>
             )}
           </div>
 
-          <div className="text-white flex-1 min-w-0">
-            <h2 className="font-bold text-base sm:text-lg drop-shadow-lg truncate">
+          <div className="flex-1 min-w-0">
+            <h2 className={`font-bold text-base drop-shadow truncate ${textPrimary}`}>
               {displayName}
             </h2>
             <div className="flex items-center gap-2 mt-0.5">
               {isGroup ? (
-                <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
+                <p className={`text-xs font-medium truncate ${textSecondary}`}>
                   {participantsCount} participant{participantsCount > 1 ? 's' : ''}
                 </p>
               ) : (
                 <>
                   {contactIsOnline ? (
                     <>
-                      <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse shadow-lg shrink-0"></span>
-                      <p className="text-xs sm:text-sm text-blue-100 font-semibold truncate">
+                      <span className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}></span>
+                      <p className={`text-xs font-medium truncate ${textSecondary}`}>
                         En ligne
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs sm:text-sm text-blue-100 truncate">
+                    <p className={`text-xs truncate ${textMuted}`}>
                       {contact?.lastSeen ? `Vu ${formatMessageDate(contact.lastSeen)}` : 'Hors ligne'}
                     </p>
                   )}
@@ -200,31 +220,29 @@ export default function MobileHeader({ contact, conversation, onBack }) {
           {!isGroup && (
             <>
               <button
-                className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
+                className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
                 title="Appel audio"
               >
-                <Phone className="w-5 h-5" />
+                <Phone className="w-4 h-4" />
               </button>
 
               <button
-                className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
+                className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
                 title="Appel vidéo"
               >
-                <Video className="w-5 h-5" />
+                <Video className="w-4 h-4" />
               </button>
             </>
           )}
 
           <button
-            className="text-white p-2 sm:p-2.5 hover:bg-white/20 rounded-xl transition-all active:scale-95 backdrop-blur-sm shadow-md"
+            className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
             title="Plus d'options"
           >
-            <MoreVertical className="w-5 h-5" />
+            <Info className="w-4 h-4" />
           </button>
         </div>
       </div>
-
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent"></div>
     </div>
   );
 }

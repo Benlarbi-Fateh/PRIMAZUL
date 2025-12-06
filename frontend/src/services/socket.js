@@ -5,11 +5,10 @@ let socket = null;
 let currentUserId = null;
 let onlineUsersCache = [];
 let onlineUsersCallbacks = [];
-//ghiles
+
 let onUpdateMessageCallback = null;
 
 // Fonction pour que le composant React puisse s'abonner aux messages mis à jour
-// socket.js
 export const onUpdateMessage = (callback) => {
   if (socket) {
     socket.off("update-message"); // évite les doublons
@@ -22,11 +21,8 @@ export const onUpdateMessage = (callback) => {
   }
 };
 
-
 export const initSocket = (userId) => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  if (typeof window === 'undefined') return null;
     
   currentUserId = userId;
 
@@ -57,16 +53,13 @@ export const initSocket = (userId) => {
     console.log('✅ Connexion confirmée pour:', userId);
     console.log('👥 Utilisateurs en ligne:', onlineUsers);
     onlineUsersCache = onlineUsers;
-    // Notifier tous les callbacks
-    onlineUsersCallbacks.forEach(callback => callback(onlineUsers));
+    onlineUsersCallbacks.forEach(cb => cb(onlineUsers));
   });
 
-  // 🆕 AJOUT CRITIQUE : Écouter les mises à jour des utilisateurs en ligne
   socket.on('online-users-update', (userIds) => {
     console.log('📡 Socket.js - Mise à jour utilisateurs en ligne:', userIds);
     onlineUsersCache = userIds;
-    // Notifier tous les callbacks enregistrés
-    onlineUsersCallbacks.forEach(callback => callback(userIds));
+    onlineUsersCallbacks.forEach(cb => cb(userIds));
   });
 
   socket.on('conversation-joined', ({ conversationId }) => {
@@ -90,31 +83,25 @@ export const initSocket = (userId) => {
   });
 
   socket.on("update-message", (updatedMessage) => {
-  if (onUpdateMessageCallback) {
-    onUpdateMessageCallback(updatedMessage);
-  }
-});
-
-
-
+    if (onUpdateMessageCallback) {
+      onUpdateMessageCallback(updatedMessage);
+    }
+  });
 
   return socket;
 };
 
-// 🆕 FONCTION POUR ÉCOUTER LES MISES À JOUR DES UTILISATEURS EN LIGNE
 export const onOnlineUsersUpdate = (callback) => {
   if (socket) {
-    // Ajouter le callback à la liste
     onlineUsersCallbacks.push(callback);
-    
-    // Retourner une fonction pour se désabonner
     return () => {
       onlineUsersCallbacks = onlineUsersCallbacks.filter(cb => cb !== callback);
     };
   }
+  // Retourner une fonction vide si pas de socket
+  return () => {};
 };
 
-// 🆕 FONCTION POUR OBTENIR LES UTILISATEURS EN LIGNE ACTUELS
 export const getCurrentOnlineUsers = () => onlineUsersCache;
 
 const waitForConnection = (maxAttempts = 50) => {
@@ -123,7 +110,6 @@ const waitForConnection = (maxAttempts = 50) => {
       resolve();
       return;
     }
-
     let attempts = 0;
     const checkConnection = setInterval(() => {
       attempts++;
@@ -167,12 +153,8 @@ export const getOnlineUsersCache = () => onlineUsersCache;
 
 export const sendMessage = (messageData) => {
   waitForConnection()
-    .then(() => {
-      socket.emit('send-message', messageData);
-    })
-    .catch((error) => {
-      console.error('❌ Impossible d\'envoyer:', error);
-    });
+    .then(() => socket.emit('send-message', messageData))
+    .catch((error) => console.error('❌ Impossible d\'envoyer:', error));
 };
 
 export const onReceiveMessage = (callback) => {
@@ -215,7 +197,7 @@ export const onConversationStatusUpdated = (callback) => {
   }
 };
 
-// 🆕 REMPLACER les fonctions existantes typing par celles-ci :
+// 🆕 Fonctions typing CORRIGÉES
 export const emitTyping = (conversationId, recipientId) => {
   if (socket?.connected) {
     socket.emit('typing', { conversationId, recipientId });
@@ -263,10 +245,9 @@ export const onUserStoppedTyping = (callback) => {
 };
 
 // ============================================
-// 📨 INVITATIONS - FONCTIONS AJOUTÉES
+// 📨 INVITATIONS
 // ============================================
 
-// Écouter les nouvelles invitations reçues
 export const onInvitationReceived = (callback) => {
   if (socket) {
     socket.off('invitation-received');
@@ -277,7 +258,6 @@ export const onInvitationReceived = (callback) => {
   }
 };
 
-// Écouter les invitations acceptées
 export const onInvitationAccepted = (callback) => {
   if (socket) {
     socket.off('invitation-accepted-notification');
@@ -288,7 +268,6 @@ export const onInvitationAccepted = (callback) => {
   }
 };
 
-// Écouter les invitations refusées
 export const onInvitationRejected = (callback) => {
   if (socket) {
     socket.off('invitation-rejected-notification');
@@ -299,7 +278,6 @@ export const onInvitationRejected = (callback) => {
   }
 };
 
-// Écouter les invitations annulées
 export const onInvitationCancelled = (callback) => {
   if (socket) {
     socket.off('invitation-cancelled-notification');
@@ -310,69 +288,78 @@ export const onInvitationCancelled = (callback) => {
   }
 };
 
-// Émettre un événement d'invitation envoyée
 export const emitInvitationSent = (data) => {
   waitForConnection()
     .then(() => {
       console.log('📨 Émission invitation envoyée:', data);
       socket.emit('invitation-sent', data);
     })
-    .catch((error) => {
-      console.error('❌ Impossible d\'émettre invitation:', error);
-    });
+    .catch((error) => console.error('❌ Impossible d\'émettre invitation:', error));
 };
 
-// Émettre un événement d'invitation acceptée
 export const emitInvitationAccepted = (data) => {
   waitForConnection()
     .then(() => {
       console.log('✅ Émission invitation acceptée:', data);
       socket.emit('invitation-accepted', data);
     })
-    .catch((error) => {
-      console.error('❌ Impossible d\'émettre acceptation:', error);
-    });
+    .catch((error) => console.error('❌ Impossible d\'émettre acceptation:', error));
 };
 
-// Émettre un événement d'invitation refusée
 export const emitInvitationRejected = (data) => {
   waitForConnection()
     .then(() => {
       console.log('❌ Émission invitation refusée:', data);
       socket.emit('invitation-rejected', data);
     })
-    .catch((error) => {
-      console.error('❌ Impossible d\'émettre refus:', error);
-    });
+    .catch((error) => console.error('❌ Impossible d\'émettre refus:', error)); // ✅ CORRECTION ICI
 };
 
-// Émettre un événement d'invitation annulée
 export const emitInvitationCancelled = (data) => {
   waitForConnection()
     .then(() => {
       console.log('🗑️ Émission invitation annulée:', data);
       socket.emit('invitation-cancelled', data);
     })
-    .catch((error) => {
-      console.error('❌ Impossible d\'émettre annulation:', error);
+    .catch((error) => console.error('❌ Impossible d\'émettre annulation:', error));
+};
+
+// ============================================
+// 🆕 RÉACTIONS
+// ============================================
+
+export const emitToggleReaction = (data) => {
+  waitForConnection()
+    .then(() => {
+      console.log('😊 Émission toggle-reaction:', data);
+      socket.emit('toggle-reaction', data);
+    })
+    .catch((error) => console.error('❌ Impossible d\'émettre réaction:', error));
+};
+
+export const onReactionUpdated = (callback) => {
+  if (socket) {
+    socket.off('reaction-updated');
+    socket.on('reaction-updated', (data) => {
+      console.log('😊 Réaction mise à jour:', data);
+      callback(data);
     });
-};
-
-// ============================================
-// 🎨 THÈME - FONCTIONS AJOUTÉES
-// ============================================
-
-export const onThemeUpdated = (callback) => {
-  if (socket) {
-    socket.on('theme-updated', callback);
   }
 };
 
-export const offThemeUpdated = () => {
+export const onReactionError = (callback) => {
   if (socket) {
-    socket.off('theme-updated');
+    socket.off('reaction-error');
+    socket.on('reaction-error', (error) => {
+      console.error('❌ Erreur réaction:', error);
+      callback(error);
+    });
   }
 };
+
+// ============================================
+// UTILITAIRES
+// ============================================
 
 export const disconnectSocket = () => {
   if (socket) {

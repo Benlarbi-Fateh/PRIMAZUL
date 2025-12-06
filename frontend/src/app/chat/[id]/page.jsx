@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '@/context/AuthProvider';
 import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
 import api from '@/lib/api';
 import { 
@@ -194,6 +194,7 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
+
 
 
   const handleSendMessage = async (content) => {

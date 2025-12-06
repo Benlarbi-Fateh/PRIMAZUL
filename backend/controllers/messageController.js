@@ -1,8 +1,8 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const BlockedUser = require('../models/BlockedUser');
-const DeletedConversation = require('../models/DeletedConversation'); 
-
+const DeletedConversation = require('../models/DeletedConversation');
+const Contact = require('../models/Contact');
 
 exports.getMessages = async (req, res) => {
   try {
@@ -26,11 +26,13 @@ exports.getMessages = async (req, res) => {
         createdAt: { $gt: deletedRecord.deletedAt } // Messages après la suppression
       })
         .populate('sender', 'name profilePicture')
+        .populate('reactions.userId', 'name profilePicture')
         .sort({ createdAt: 1 });
     } else {
       // ✅ Afficher TOUS les messages
       messages = await Message.find({ conversationId })
         .populate('sender', 'name profilePicture')
+        .populate('reactions.userId', 'name profilePicture')
         .sort({ createdAt: 1 });
     }
 
@@ -41,50 +43,54 @@ exports.getMessages = async (req, res) => {
   }
 };
 
-
 exports.sendMessage = async (req, res) => {
   try {
-    const { conversationId, content, type, fileUrl, fileName, fileSize } = req.body;
-   const senderId = req.user.id || req.user._id;
+    const { 
+      conversationId, 
+      content, 
+      type, 
+      fileUrl, 
+      fileName, 
+      fileSize,
+      videoDuration,
+      videoThumbnail
+    } = req.body;
+    
+    const senderId = req.user.id || req.user._id;
 
-        const convCheck = await Conversation.findById(conversationId)
+    const convCheck = await Conversation.findById(conversationId)
       .populate('participants', '_id')
       .lean();
-
 
     if (!convCheck) {
       return res.status(404).json({ error: 'Conversation non trouvée' });
     }
 
-
     // verification de blockage avant envoi
-    // verification de blockage avant envoi
-if (!convCheck.isGroup) {
-  const otherParticipant = convCheck.participants.find(
-    p => p._id.toString() !== senderId.toString()
-  );
+    if (!convCheck.isGroup) {
+      const otherParticipant = convCheck.participants.find(
+        p => p._id.toString() !== senderId.toString()
+      );
 
-  if (otherParticipant) {
-    const blockExists = await BlockedUser.findOne({
-      $or: [
-        { userId: senderId, blockedUserId: otherParticipant._id },
-        { userId: otherParticipant._id, blockedUserId: senderId }
-      ]
-    });
+      if (otherParticipant) {
+        const blockExists = await BlockedUser.findOne({
+          $or: [
+            { userId: senderId, blockedUserId: otherParticipant._id },
+            { userId: otherParticipant._id, blockedUserId: senderId }
+          ]
+        });
 
-    if (blockExists) {
-      console.log('🚫 Message bloqué - relation bloquée détectée');
-      return res.status(403).json({
-        success: false,
-        message: 'Impossible d\'envoyer - Utilisateur bloqué',
-        blocked: true
-      });
-    }
-  }
+        if (blockExists) {
+          console.log('🚫 Message bloqué - relation bloquée détectée');
+          return res.status(403).json({
+            success: false,
+            message: 'Impossible d\'envoyer - Utilisateur bloqué',
+            blocked: true
+          });
+        }
+      }
 
-  // 🆕 VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE (EN DEHORS DU IF)
-  // ✅ CORRECTION : Vérifier dans DeletedConversation
-// 🆕 VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE PAR L'EXPÉDITEUR
+      // 🆕 VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE PAR L'EXPÉDITEUR
       const isDeleted = await DeletedConversation.findOne({
         originalConversationId: conversationId,
         deletedBy: senderId
@@ -93,34 +99,35 @@ if (!convCheck.isGroup) {
       if (isDeleted) {
         console.log('🔄 Conversation supprimée détectée - Restauration silencieuse pour l\'expéditeur');
         
-        // ✅ SIMPLEMENT SUPPRIMER L'ENREGISTREMENT DE SUPPRESSION
-        // La conversation reste la même, mais redevient visible pour l'expéditeur
         await DeletedConversation.deleteOne({
           originalConversationId: conversationId,
           deletedBy: senderId
         });
         
         console.log('✅ Conversation restaurée pour l\'expéditeur, envoi du message dans la conversation existante');
-        // Le code continue normalement ci-dessous pour créer le message dans la conversation EXISTANTE
       }
-}
+    }
 
+    // ✅ Création du message avec support vidéo
+    const messageData = {
+      conversationId,
+      sender: senderId,
+      content: content || '',
+      type: type || 'text',
+      fileUrl,
+      fileName,
+      fileSize,
+      status: 'sent'
+    };
 
-   const message = new Message({
-  conversationId,
-  sender: senderId,
-  content: content || '',
-  type: type || 'text',
-  fileUrl,
-  fileName,
-  fileSize,
-  videoDuration: req.body.videoDuration || 0, // 🆕 AJOUT ICI
-  videoThumbnail: req.body.videoThumbnail || null, // 🆕 AJOUT ICI
-  status: 'sent'
-});
+    // ✅ Ajouter les champs spécifiques aux vidéos si présents
+    if (type === 'video') {
+      if (videoDuration) messageData.videoDuration = videoDuration;
+      if (videoThumbnail) messageData.videoThumbnail = videoThumbnail;
+    }
 
+    const message = new Message(messageData);
     await message.save();
-
 
     const conversation = await Conversation.findByIdAndUpdate(
       conversationId,
@@ -136,9 +143,7 @@ if (!convCheck.isGroup) {
       populate: { path: 'sender', select: 'name' }
     });
 
-
     await message.populate('sender', 'name profilePicture');
-
 
     const io = req.app.get('io');
     if (io) {
@@ -151,8 +156,7 @@ if (!convCheck.isGroup) {
       });
     }
 
-
-    res.status(201).json({ success: true, message,conversationId: conversationId });
+    res.status(201).json({ success: true, message, conversationId: conversationId });
     
   } catch (error) {
     console.error('❌ Erreur sendMessage:', error);
@@ -160,15 +164,12 @@ if (!convCheck.isGroup) {
   }
 };
 
-
 exports.markAsDelivered = async (req, res) => {
   try {
     const { messageIds } = req.body;
-   const userId = req.user.id || req.user._id; // ✅ CORRECTION
-
+    const userId = req.user.id || req.user._id;
 
     console.log('📬 Marquage comme délivré:', messageIds);
-
 
     const result = await Message.updateMany(
       {
@@ -181,16 +182,13 @@ exports.markAsDelivered = async (req, res) => {
       }
     );
 
-
     console.log(`✅ ${result.modifiedCount} messages marqués comme délivrés`);
-
 
     const io = req.app.get('io');
     if (io && result.modifiedCount > 0) {
       const updatedMessages = await Message.find({
         _id: { $in: messageIds }
       }).select('sender conversationId').lean();
-
 
       const senderIds = new Set();
       const conversationIds = new Set();
@@ -200,14 +198,12 @@ exports.markAsDelivered = async (req, res) => {
         conversationIds.add(msg.conversationId.toString());
       });
 
-
       senderIds.forEach(senderId => {
         io.to(senderId).emit('message-status-updated', {
           messageIds,
           status: 'delivered'
         });
       });
-
 
       conversationIds.forEach(convId => {
         io.to(convId).emit('conversation-status-updated', {
@@ -217,7 +213,6 @@ exports.markAsDelivered = async (req, res) => {
       });
     }
 
-
     res.json({ success: true, modifiedCount: result.modifiedCount });
   } catch (error) {
     console.error('❌ Erreur markAsDelivered:', error);
@@ -225,14 +220,12 @@ exports.markAsDelivered = async (req, res) => {
   }
 };
 
-
 exports.markAsRead = async (req, res) => {
   try {
     const { conversationId } = req.body;
-    const userId = req.user.id || req.user._id; // ✅ CORRECTION
+    const userId = req.user.id || req.user._id;
 
     console.log('👁️ Marquage comme lu pour conversation:', conversationId, 'par user:', userId);
-
 
     const messagesToUpdate = await Message.find({
       conversationId,
@@ -240,44 +233,32 @@ exports.markAsRead = async (req, res) => {
       status: { $ne: 'read' }
     }).select('_id sender').lean();
 
-
     const messageIds = messagesToUpdate.map(m => m._id);
-
 
     if (messageIds.length === 0) {
       console.log('✅ Aucun message à marquer comme lu');
       return res.json({ success: true, modifiedCount: 0 });
     }
 
-
     // Vérifier si l'utilisateur est réellement dans la conversation
     const io = req.app.get('io');
     const sockets = await io.in(conversationId).fetchSockets();
     const userIsInConversation = sockets.some(s => s.userId === userId.toString());
-
 
     if (!userIsInConversation) {
       console.log('⚠️ User pas dans la conversation, on ne marque PAS comme lu');
       return res.json({ success: true, modifiedCount: 0 });
     }
 
-
     const result = await Message.updateMany(
-      {
-        _id: { $in: messageIds }
-      },
-      {
-        $set: { status: 'read' }
-      }
+      { _id: { $in: messageIds } },
+      { $set: { status: 'read' } }
     );
-
 
     console.log(`✅ ${result.modifiedCount} messages marqués comme lus`);
 
-
     if (io && result.modifiedCount > 0) {
       const senderIds = [...new Set(messagesToUpdate.map(m => m.sender.toString()))];
-
 
       senderIds.forEach(senderId => {
         io.to(senderId).emit('message-status-updated', {
@@ -288,15 +269,12 @@ exports.markAsRead = async (req, res) => {
         io.to(senderId).emit('should-refresh-conversations');
       });
 
-
       io.to(conversationId).emit('conversation-status-updated', {
         conversationId,
         status: 'read'
       });
 
-
       // 🆕 ÉVÉNEMENT CRITIQUE : Notifier immédiatement TOUS les participants
-      // que cette conversation a été lue par userId
       const conversation = await Conversation.findById(conversationId)
         .select('participants')
         .lean();
@@ -310,7 +288,6 @@ exports.markAsRead = async (req, res) => {
       }
     }
 
-
     res.json({ success: true, modifiedCount: result.modifiedCount });
   } catch (error) {
     console.error('❌ Erreur markAsRead:', error);
@@ -318,10 +295,9 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-
 exports.getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.id || req.user._id; // ✅ CORRECTION
+    const userId = req.user.id || req.user._id;
 
     const unreadCounts = await Message.aggregate([
       {
@@ -338,12 +314,10 @@ exports.getUnreadCount = async (req, res) => {
       }
     ]);
 
-
     const result = {};
     unreadCounts.forEach(item => {
       result[item._id] = item.count;
     });
-
 
     res.json({ success: true, unreadCounts: result });
   } catch (error) {
@@ -351,8 +325,6 @@ exports.getUnreadCount = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 // ========================================
 // 🆕 SUPPRIMER UN MESSAGE
@@ -368,7 +340,6 @@ exports.deleteMessage = async (req, res) => {
 
     console.log('🗑️ Suppression du message:', messageId, 'par user:', userId);
 
-    // Vérifier que l'utilisateur est bien l'expéditeur
     const message = await Message.findById(messageId);
     
     if (!message) {
@@ -385,11 +356,9 @@ exports.deleteMessage = async (req, res) => {
 
     const conversationId = message.conversationId.toString();
 
-    // Supprimer le message
     await Message.findByIdAndDelete(messageId);
     console.log('✅ Message supprimé de la BDD');
 
-    // 🔥 Émettre un événement Socket.IO
     const io = req.app.get('io');
     if (io) {
       io.to(conversationId).emit('message-deleted', {
@@ -428,7 +397,6 @@ exports.editMessage = async (req, res) => {
       return res.status(400).json({ error: 'Le contenu ne peut pas être vide' });
     }
 
-    // Vérifier que l'utilisateur est bien l'expéditeur
     const message = await Message.findById(messageId);
     
     if (!message) {
@@ -443,7 +411,6 @@ exports.editMessage = async (req, res) => {
       return res.status(403).json({ error: 'Non autorisé à modifier ce message' });
     }
 
-    // Modifier le message
     message.content = content.trim();
     message.isEdited = true;
     message.editedAt = new Date();
@@ -452,7 +419,6 @@ exports.editMessage = async (req, res) => {
 
     await message.populate('sender', 'name profilePicture');
 
-    // 🔥 Émettre un événement Socket.IO
     const io = req.app.get('io');
     if (io) {
       io.to(message.conversationId.toString()).emit('message-edited', {
@@ -473,24 +439,16 @@ exports.editMessage = async (req, res) => {
   }
 };
 
-
-
 // ========================================
-// 🆕 FONCTION DE TRADUCTION VIA DEEPL
+// 🆕 TRADUIRE UN MESSAGE AVEC DEEPL
 // ========================================
 const axios = require('axios');
 
-// ========================================
-// 🆕 TRADUIRE UN MESSAGE AVEC DEEPL
-// ========================================
-// ========================================
-// 🆕 TRADUIRE UN MESSAGE AVEC DEEPL
-// ========================================
 exports.translateMessage = async (req, res) => {
   console.log('🔍 ========== TRANSLATE MESSAGE APPELÉ ==========');
   console.log('📋 Params:', req.params);
   console.log('📦 Body:', req.body);
-  console.log('👤 User ID:', req.user?._id); // ✅ CORRECTION ICI
+  console.log('👤 User ID:', req.user?._id);
   
   try {
     const { messageId } = req.params;
@@ -499,13 +457,11 @@ exports.translateMessage = async (req, res) => {
     console.log('🌍 Message ID:', messageId);
     console.log('🌍 Target Lang:', targetLang);
 
-    // Validation
     if (!targetLang || typeof targetLang !== 'string') {
       console.log('❌ targetLang manquant ou invalide');
       return res.status(400).json({ error: 'targetLang requis' });
     }
 
-    // Récupérer le message
     const message = await Message.findById(messageId);
     
     if (!message) {
@@ -520,7 +476,6 @@ exports.translateMessage = async (req, res) => {
 
     console.log('📨 Contenu à traduire:', message.content);
 
-    // 🌍 TRADUCTION AVEC DEEPL
     const apiKey = process.env.DEEPL_API_KEY;
     
     if (!apiKey) {
@@ -528,7 +483,6 @@ exports.translateMessage = async (req, res) => {
       return res.status(500).json({ error: 'API DeepL non configurée' });
     }
 
-    // Mapping des codes de langue (DeepL utilise des codes spécifiques)
     const langMap = {
       'en': 'EN-GB',
       'fr': 'FR',
@@ -541,19 +495,17 @@ exports.translateMessage = async (req, res) => {
       'ru': 'RU',
       'ja': 'JA',
       'zh': 'ZH',
-      'ar': 'AR' // ✅ Arabe ajouté
+      'ar': 'AR'
     };
 
     const deeplLang = langMap[targetLang.toLowerCase()] || targetLang.toUpperCase();
     console.log('🌍 Code DeepL utilisé:', deeplLang);
 
-    // Appel à l'API DeepL
     const response = await axios.post(
       'https://api-free.deepl.com/v2/translate',
       new URLSearchParams({
         text: message.content,
         target_lang: deeplLang
-        
       }),
       {
         headers: {
@@ -569,7 +521,6 @@ exports.translateMessage = async (req, res) => {
     console.log('✅ Traduction réussie:', translatedContent);
     console.log('🔍 Langue source détectée:', detectedSourceLang);
 
-    // Retourner la traduction SANS modifier le message en base
     res.json({ 
       success: true, 
       originalContent: message.content,
@@ -582,7 +533,6 @@ exports.translateMessage = async (req, res) => {
   } catch (error) {
     console.error('❌ Erreur translateMessage:', error.response?.data || error.message);
     
-    // Gestion des erreurs DeepL spécifiques
     if (error.response?.status === 403) {
       console.error('🚫 Erreur 403: Clé API DeepL invalide');
       return res.status(403).json({ error: 'Clé API DeepL invalide' });
@@ -596,4 +546,83 @@ exports.translateMessage = async (req, res) => {
   }
 };
 
+// ============================================
+// RÉACTIONS
+// ============================================
 
+exports.toggleReaction = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    const existingReactionIndex = message.reactions.findIndex(
+      r => r.userId.toString() === userId.toString()
+    );
+
+    let action = '';
+
+    if (existingReactionIndex > -1) {
+      const existingEmoji = message.reactions[existingReactionIndex].emoji;
+      
+      if (existingEmoji === emoji) {
+        message.reactions.splice(existingReactionIndex, 1);
+        action = 'removed';
+      } else {
+        message.reactions[existingReactionIndex].emoji = emoji;
+        action = 'updated';
+      }
+    } else {
+      message.reactions.push({ userId, emoji });
+      action = 'added';
+    }
+
+    await message.save();
+    await message.populate('reactions.userId', 'name profilePicture');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(message.conversationId.toString()).emit('reaction-updated', {
+        messageId: message._id,
+        reactions: message.reactions,
+        action,
+        userId,
+        emoji
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      reactions: message.reactions,
+      action 
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur toggleReaction:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getReactions = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    
+    const message = await Message.findById(messageId)
+      .select('reactions')
+      .populate('reactions.userId', 'name profilePicture');
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    res.json({ success: true, reactions: message.reactions });
+  } catch (error) {
+    console.error('❌ Erreur getReactions:', error);
+    res.status(500).json({ error: error.message });
+  }
+};

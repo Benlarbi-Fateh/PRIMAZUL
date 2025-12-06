@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+const reactionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  emoji: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
 
 const messageSchema = new mongoose.Schema({
   conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation', required: true },
@@ -7,7 +12,7 @@ const messageSchema = new mongoose.Schema({
   content: { type: String, default: '' },
   type: {
     type: String,
-    enum: ['text', 'image', 'file', 'audio', 'voice', 'video'], // 🆕 Ajout de 'voice'
+    enum: ['text', 'image', 'file', 'audio', 'voice', 'video'],
     default: 'text'
   },
   fileUrl: { type: String, default: '' },
@@ -16,9 +21,13 @@ const messageSchema = new mongoose.Schema({
  
   // 🆕 NOUVEAUX CHAMPS POUR LES MESSAGES VOCAUX
   voiceUrl: { type: String, default: '' },
-  voiceDuration: { type: Number, default: 0 }, // Durée en secondes
-  cloudinaryId: { type: String, default: '' }, // Pour pouvoir supprimer le fichier si besoin
- 
+  voiceDuration: { type: Number, default: 0 },
+  
+  // ✅ NOUVEAU : Pour les vidéos
+  videoDuration: { type: Number, default: 0 },
+  videoThumbnail: { type: String, default: '' },
+  
+  cloudinaryId: { type: String, default: '' },
 
   // 🆕 CHAMPS POUR LA MODIFICATION
   isEdited: { type: Boolean, default: false },
@@ -31,8 +40,15 @@ const messageSchema = new mongoose.Schema({
     translatedAt: { type: Date, default: Date.now }
   }],
   
-  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' }
+  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
+  
+  // Réactions
+  reactions: [reactionSchema]
+  
 }, { timestamps: true });
 
+// Index pour optimiser les requêtes
+messageSchema.index({ 'reactions.userId': 1 });
+messageSchema.index({ conversationId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);

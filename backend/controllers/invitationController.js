@@ -2,6 +2,7 @@ const Invitation = require('../models/Invitation');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const DeletedConversation = require('../models/DeletedConversation');
+const Contact = require('../models/Contact');
 
 // ============================================
 // 📤 ENVOYER UNE INVITATION
@@ -46,13 +47,6 @@ exports.sendInvitation = async (req, res) => {
       });
     }
 
-    if (existingConversation) {
-      return res.status(400).json({ 
-        error: 'Une conversation existe déjà avec cet utilisateur',
-        conversation: existingConversation 
-      });
-    }
-
     // Vérifier s'il existe déjà une invitation en attente
     const existingInvitation = await Invitation.findOne({
       $or: [
@@ -74,7 +68,7 @@ exports.sendInvitation = async (req, res) => {
 
     await invitation.save();
     
-    // Populate les infos de l'expéditeur
+    // Populate les infos de l'expéditeur et du destinataire
     await invitation.populate('sender', 'name email profilePicture');
     await invitation.populate('receiver', 'name email profilePicture');
 
@@ -135,7 +129,7 @@ exports.getSentInvitations = async (req, res) => {
 // ============================================
 exports.acceptInvitation = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user._id; // Correction: utiliser _id au lieu de id
     const { invitationId } = req.params;
 
     const invitation = await Invitation.findById(invitationId)
@@ -146,35 +140,68 @@ exports.acceptInvitation = async (req, res) => {
       return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
-    // Vérifier que l'utilisateur est bien le destinataire
     if (invitation.receiver._id.toString() !== userId.toString()) {
-      return res.status(403).json({ error: 'Accès refusé' });
+      return res.status(403).json({ error: 'Non autorisé' });
     }
 
-    // Vérifier que l'invitation est en attente
     if (invitation.status !== 'pending') {
-      return res.status(400).json({ error: 'Cette invitation a déjà été traitée' });
+      return res.status(400).json({ error: 'Invitation déjà traitée' });
+    }
+
+    // Vérifier si conversation existe déjà
+    let conversation = await Conversation.findOne({
+      isGroup: false,
+      participants: { $all: [invitation.sender._id, invitation.receiver._id] }
+    });
+
+    // Créer conversation si elle n'existe pas
+    if (!conversation) {
+      conversation = new Conversation({
+        participants: [invitation.sender._id, invitation.receiver._id],
+        isGroup: false
+      });
+      await conversation.save();
+    }
+
+    // 🆕 CRÉER AUTOMATIQUEMENT LES CONTACTS MUTUELS
+    try {
+      // Contact pour l'utilisateur qui accepte (receiver -> sender)
+      await Contact.create({
+        owner: invitation.receiver._id,
+        contact: invitation.sender._id,
+        conversation: conversation._id,
+        addedAt: new Date()
+      });
+
+      // Contact pour l'utilisateur qui a envoyé (sender -> receiver)
+      await Contact.create({
+        owner: invitation.sender._id,
+        contact: invitation.receiver._id,
+        conversation: conversation._id,
+        addedAt: new Date()
+      });
+
+      console.log('✅ Contacts mutuels créés');
+    } catch (contactError) {
+      console.error('⚠️ Erreur création contacts:', contactError.message);
+      // On continue même si erreur (contacts déjà existants par exemple)
     }
 
     // Mettre à jour le statut de l'invitation
     invitation.status = 'accepted';
     await invitation.save();
 
-    // ✅ TOUJOURS CRÉER UNE NOUVELLE CONVERSATION (pas de restauration)
-    const conversation = new Conversation({
-      participants: [invitation.sender._id, invitation.receiver._id],
-      isGroup: false
+    // Peupler la conversation
+    await conversation.populate('participants', 'name email profilePicture isOnline');
+
+    res.json({
+      success: true,
+      message: 'Invitation acceptée',
+      invitation,
+      conversation
     });
-
-    await conversation.save();
-    
-    // Populate les participants
-    await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
-
-    console.log('✅ Invitation acceptée, conversation créée:', conversation._id);
-    res.json({ success: true, invitation, conversation });
   } catch (error) {
-    console.error('❌ Erreur acceptInvitation:', error);
+    console.error('Erreur acceptInvitation:', error);
     res.status(500).json({ error: error.message });
   }
 };

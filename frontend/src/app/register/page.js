@@ -133,19 +133,21 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Sidebar - Version Desktop */}
-      <div className="hidden lg:flex lg:w-2/5 bg-linear-to-br from-blue-600 to-blue-800 p-8 flex-col justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+      {/* Sidebar - Version Desktop - MÊME BLEU QUE CHATHEADER */}
+      <div className="hidden lg:flex lg:w-2/5 bg-linear-to-br from-blue-600 via-blue-700 to-blue-800 p-8 flex-col justify-between relative overflow-hidden">
+        {/* Pattern de fond identique au ChatHeader */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-20"></div>
+        
+        {/* Logo centré en haut avec marge */}
+        <div className="flex flex-col items-center justify-center text-center relative z-10 mt-12">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm mb-3 border border-white/30">
             <MessageCircle className="w-6 h-6 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white">PrimAzul</h1>
-            <p className="text-blue-100 text-sm">Making distance disappear</p>
-          </div>
+          <h1 className="text-xl font-bold text-white mb-1">PrimAzul</h1>
+          <p className="text-blue-100 text-sm">Making distance disappear</p>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-10">
           <div className="flex items-center gap-4 p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/20">
             <Users className="w-8 h-8 text-white" />
             <div>
@@ -171,7 +173,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <div className="text-center">
+        <div className="text-center relative z-10">
           <p className="text-white/80 text-sm">Commencez votre aventure</p>
         </div>
       </div>
@@ -260,7 +262,7 @@ export default function RegisterPage() {
                         name="name"
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
+                        className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
                         placeholder="Votre pseudo"
                         required
                         disabled={loading}
@@ -279,7 +281,7 @@ export default function RegisterPage() {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
+                        className="w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
                         placeholder="votre@email.com"
                         required
                         disabled={loading}
@@ -298,7 +300,7 @@ export default function RegisterPage() {
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
+                        className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
                         placeholder="••••••••"
                         required
                         disabled={loading}
@@ -325,7 +327,7 @@ export default function RegisterPage() {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
-                        className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
+                        className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-4 bg-white/80 border border-gray-200 rounded-xl sm:rounded-2xl outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-gray-900 placeholder-gray-500 text-sm sm:text-base"
                         placeholder="••••••••"
                         required
                         disabled={loading}
@@ -344,7 +346,7 @@ export default function RegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-linear-to-r from-blue-500 to-blue-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl text-sm sm:text-base"
+                    className="w-full bg-linear-to-r from-blue-600 to-blue-700 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl text-sm sm:text-base"
                   >
                     {loading ? (
                       <div className="flex items-center justify-center gap-2 sm:gap-3">
@@ -365,7 +367,7 @@ export default function RegisterPage() {
                     Déjà un compte ?{' '}
                     <Link 
                       href="/login" 
-                      className="bg-linear-to-r from-blue-500 to-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-300 inline-flex items-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105 text-sm sm:text-base"
+                      className="bg-linear-to-r from-blue-600 to-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-300 inline-flex items-center gap-2 shadow-md hover:shadow-lg transform hover:scale-105 text-sm sm:text-base"
                     >
                       <LogIn className="w-4 h-4" />
                       Se connecter

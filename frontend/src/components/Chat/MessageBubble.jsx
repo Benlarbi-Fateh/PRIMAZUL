@@ -8,6 +8,12 @@ import VoiceMessage from './VoiceMessage';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 
 export default function MessageBubble({ message, isMine, isGroup }) {
+  // États pour la vidéo déplacés ici
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(false);
+  const videoRef = useRef(null);
+
   const formatTime = (date) => {
     try {
       return format(new Date(date), 'HH:mm', { locale: fr });
@@ -199,185 +205,180 @@ export default function MessageBubble({ message, isMine, isGroup }) {
   };
 
   const renderVideoMessage = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [showControls, setShowControls] = useState(false);
-  const videoRef = useRef(null);
+    const togglePlay = () => {
+      if (!videoRef.current) return;
+      
+      if (isPlaying) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        videoRef.current.play();
+        setIsPlaying(true);
+      }
+    };
 
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-    
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current.play();
-      setIsPlaying(true);
-    }
-  };
+    const toggleMute = () => {
+      if (!videoRef.current) return;
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    };
 
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
-  };
+    const handleVideoClick = () => {
+      if (!showControls) {
+        setShowControls(true);
+        setTimeout(() => setShowControls(false), 3000);
+      }
+    };
 
-  const handleVideoClick = () => {
-    if (!showControls) {
-      setShowControls(true);
-      setTimeout(() => setShowControls(false), 3000);
-    }
-  };
+    const handleFullscreen = () => {
+      if (!videoRef.current) return;
+      
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        videoRef.current.requestFullscreen().catch(err => {
+          console.error(`Erreur fullscreen: ${err.message}`);
+        });
+      }
+    };
 
-  const handleFullscreen = () => {
-    if (!videoRef.current) return;
-    
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      videoRef.current.requestFullscreen().catch(err => {
-        console.error(`Erreur fullscreen: ${err.message}`);
-      });
-    }
-  };
+    const formatDuration = (seconds) => {
+      if (!seconds) return '0:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
-  const formatDuration = (seconds) => {
-    if (!seconds) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  return (
-    <div className={`flex items-start gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
-      <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-        {!isMine && isGroup && (
-          <p className="text-xs font-bold text-blue-700 mb-1.5 ml-2 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-linear-to-r from-blue-500 to-cyan-500"></span>
-            {message.sender?.name}
-          </p>
-        )}
-        
-        <div 
-          className="relative w-full h-44 sm:h-52 bg-black rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 cursor-pointer"
-          onClick={handleVideoClick}
-        >
-          {/* Vidéo */}
-          <video
-            ref={videoRef}
-            preload="metadata"
-            className="w-full h-full object-contain"
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
-          >
-            <source src={message.fileUrl} type="video/mp4" />
-            <source src={message.fileUrl} type="video/webm" />
-            Votre navigateur ne supporte pas les vidéos.
-          </video>
+    return (
+      <div className={`flex items-start gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+        <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
+          {!isMine && isGroup && (
+            <p className="text-xs font-bold text-blue-700 mb-1.5 ml-2 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-linear-to-r from-blue-500 to-cyan-500"></span>
+              {message.sender?.name}
+            </p>
+          )}
           
-          {/* Bouton Play/Pause central */}
-          {!isPlaying && (
+          <div 
+            className="relative w-full h-44 sm:h-52 bg-black rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 cursor-pointer"
+            onClick={handleVideoClick}
+          >
+            {/* Vidéo */}
+            <video
+              ref={videoRef}
+              preload="metadata"
+              className="w-full h-full object-contain"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
+            >
+              <source src={message.fileUrl} type="video/mp4" />
+              <source src={message.fileUrl} type="video/webm" />
+              Votre navigateur ne supporte pas les vidéos.
+            </video>
+            
+            {/* Bouton Play/Pause central */}
+            {!isPlaying && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePlay();
+                }}
+                className="absolute inset-0 flex items-center justify-center bg-black/40 transition-all hover:bg-black/50"
+              >
+                <div className="w-14 h-14 flex items-center justify-center bg-white/90 rounded-full hover:scale-105 transition-transform">
+                  <Play className="w-8 h-8 text-black ml-1" fill="black" />
+                </div>
+              </button>
+            )}
+
+            {/* Contrôles vidéo */}
+            {(showControls || isPlaying) && (
+              <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 to-transparent p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePlay();
+                      }}
+                      className="text-white hover:bg-white/20 p-2 rounded-full"
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5" fill="white" />
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleMute();
+                      }}
+                      className="text-white hover:bg-white/20 p-2 rounded-full"
+                    >
+                      {isMuted ? (
+                        <VolumeX className="w-5 h-5" />
+                      ) : (
+                        <Volume2 className="w-5 h-5" />
+                      )}
+                    </button>
+                    
+                    {/* Durée */}
+                    <span className="text-xs text-white font-medium">
+                      {formatDuration(message.videoDuration || 0)}
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFullscreen();
+                    }}
+                    className="text-white hover:bg-white/20 p-2 rounded-full"
+                  >
+                    <Maximize2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Badge vidéo */}
+            <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-white text-xs font-medium">
+              VIDÉO
+            </div>
+
+            {/* Téléchargement */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                togglePlay();
+                handleDownload();
               }}
-              className="absolute inset-0 flex items-center justify-center bg-black/40 transition-all hover:bg-black/50"
+              className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
+              title="Télécharger"
             >
-              <div className="w-14 h-14 flex items-center justify-center bg-white/90 rounded-full hover:scale-105 transition-transform">
-                <Play className="w-8 h-8 text-black ml-1" fill="black" />
-              </div>
+              <Download className="w-4 h-4" />
             </button>
-          )}
-
-          {/* Contrôles vidéo */}
-          {(showControls || isPlaying) && (
-            <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 to-transparent p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePlay();
-                    }}
-                    className="text-white hover:bg-white/20 p-2 rounded-full"
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-5 h-5" />
-                    ) : (
-                      <Play className="w-5 h-5" fill="white" />
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleMute();
-                    }}
-                    className="text-white hover:bg-white/20 p-2 rounded-full"
-                  >
-                    {isMuted ? (
-                      <VolumeX className="w-5 h-5" />
-                    ) : (
-                      <Volume2 className="w-5 h-5" />
-                    )}
-                  </button>
-                  
-                  {/* Durée */}
-                  <span className="text-xs text-white font-medium">
-                    {formatDuration(message.videoDuration || 0)}
-                  </span>
-                </div>
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleFullscreen();
-                  }}
-                  className="text-white hover:bg-white/20 p-2 rounded-full"
-                >
-                  <Maximize2 className="w-5 h-5" />
-                </button>
-              </div>
+          </div>
+          
+          {/* Texte sous la vidéo */}
+          {message.content && (
+            <div className={`p-4 rounded-b-3xl border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30 ${
+              isMine ? 'bg-linear-to-r from-blue-50 to-cyan-50' : 'bg-white'
+            }`}>
+              <p className="text-sm text-slate-700 font-medium">{message.content}</p>
             </div>
           )}
-
-          {/* Badge vidéo */}
-          <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-white text-xs font-medium">
-            VIDÉO
-          </div>
-
-          {/* Téléchargement */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDownload();
-            }}
-            className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
-            title="Télécharger"
-          >
-            <Download className="w-4 h-4" />
-          </button>
+          
+          <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
+            {formatTime(message.createdAt)}
+            {renderStatus()}
+          </span>
         </div>
-        
-        {/* Texte sous la vidéo */}
-        {message.content && (
-          <div className={`p-4 rounded-b-3xl border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30 ${
-            isMine ? 'bg-linear-to-r from-blue-50 to-cyan-50' : 'bg-white'
-          }`}>
-            <p className="text-sm text-slate-700 font-medium">{message.content}</p>
-          </div>
-        )}
-        
-        <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
-          {formatTime(message.createdAt)}
-          {renderStatus()}
-        </span>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   const renderTextMessage = () => {
     return (
@@ -433,8 +434,8 @@ export default function MessageBubble({ message, isMine, isGroup }) {
   }
 
   if (fileType === 'video') {
-  return renderVideoMessage();
-}
+    return renderVideoMessage();
+  }
   
   if (fileType !== 'text') {
     return renderFileMessage();

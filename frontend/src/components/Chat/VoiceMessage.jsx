@@ -1,47 +1,47 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Mic, Volume2 } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Play, Pause, Mic } from 'lucide-react';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function VoiceMessage({ voiceUrl, voiceDuration, isMine }) {
+  const { isDark } = useTheme();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [loading, setLoading] = useState(true);
-  
+  const [duration, setDuration] = useState(voiceDuration || 0);
   const audioRef = useRef(null);
+  const progressRef = useRef(null);
+
+  // Generate deterministic wave bars using useMemo
+  const bars = useMemo(() => {
+    return Array.from({ length: 28 }, (_, i) => {
+      const h = Math.abs(Math.sin(i * 1.2) * 40 + Math.cos(i * 0.8) * 25) + 15;
+      return Math.min(90, Math.max(20, h));
+    });
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const onEnd = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-    const onCanPlay = () => setLoading(false);
-    const onError = () => {
-      console.error('Erreur de chargement audio');
-      setLoading(false);
-    };
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onLoadedMetadata = () => setDuration(audio.duration || voiceDuration || 0);
+    const onEnded = () => { setIsPlaying(false); setCurrentTime(0); };
 
-    audio.addEventListener('timeupdate', updateTime);
-    audio.addEventListener('ended', onEnd);
-    audio.addEventListener('canplay', onCanPlay);
-    audio.addEventListener('error', onError);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('ended', onEnded);
 
     return () => {
-      audio.removeEventListener('timeupdate', updateTime);
-      audio.removeEventListener('ended', onEnd);
-      audio.removeEventListener('canplay', onCanPlay);
-      audio.removeEventListener('error', onError);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('ended', onEnded);
     };
-  }, []);
+  }, [voiceDuration]);
 
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
-
     try {
       if (isPlaying) {
         audio.pause();
@@ -50,162 +50,141 @@ export default function VoiceMessage({ voiceUrl, voiceDuration, isMine }) {
         await audio.play();
         setIsPlaying(true);
       }
-    } catch (error) {
-      console.error('Erreur lecture audio:', error);
+    } catch (e) {
+      console.error('Audio error:', e);
     }
   };
 
-  const formatTime = (seconds) => {
-    if (isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const handleSeek = (e) => {
+    if (!progressRef.current || !audioRef.current || !duration) return;
+    const rect = progressRef.current.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audioRef.current.currentTime = percent * duration;
+    setCurrentTime(percent * duration);
   };
 
-  const progress = voiceDuration ? (currentTime / voiceDuration) * 100 : 0;
+  const formatTime = (s) => {
+    if (isNaN(s) || s === 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const progress = duration ? (currentTime / duration) * 100 : 0;
+
+  // Styles basés sur le thème
+  const getBackgroundClass = () => {
+    if (isMine) {
+      return 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md';
+    } else {
+      if (isDark) {
+        return 'bg-slate-800 text-slate-100 shadow-sm border border-slate-700 rounded-bl-md';
+      } else {
+        return 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md';
+      }
+    }
+  };
+
+  const getButtonClass = () => {
+    if (isMine) {
+      return 'bg-white/20 hover:bg-white/30';
+    } else {
+      if (isDark) {
+        return 'bg-slate-700 hover:bg-slate-600 text-slate-100';
+      } else {
+        return 'bg-blue-50 hover:bg-blue-100 text-blue-700';
+      }
+    }
+  };
+
+  const getWaveColor = (isActive) => {
+    if (isMine) {
+      return isActive ? 'bg-white' : 'bg-white/30';
+    } else {
+      if (isDark) {
+        return isActive ? 'bg-blue-400' : 'bg-slate-600';
+      } else {
+        return isActive ? 'bg-blue-600' : 'bg-slate-200';
+      }
+    }
+  };
+
+  const getTimeTextClass = (isPrimary = true) => {
+    if (isMine) {
+      return isPrimary ? 'text-white/70' : 'text-white/50';
+    } else {
+      if (isDark) {
+        return isPrimary ? 'text-slate-300' : 'text-slate-500';
+      } else {
+        return isPrimary ? 'text-slate-400' : 'text-slate-300';
+      }
+    }
+  };
+
+  const getMicIconClass = () => {
+    if (isMine) {
+      return 'bg-white/10 text-white/60';
+    } else {
+      if (isDark) {
+        return 'bg-slate-700 text-slate-300';
+      } else {
+        return 'bg-slate-50 text-slate-400';
+      }
+    }
+  };
 
   return (
-    <div className={`group flex items-center gap-4 p-4 rounded-3xl max-w-xs transition-all transform hover:scale-[1.02] ${
-      isMine 
-        ? 'bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 text-white ml-auto shadow-lg hover:shadow-xl' 
-        : 'bg-white text-blue-900 shadow-md hover:shadow-lg border-2 border-blue-100'
-    }`}>
-      <audio 
-        ref={audioRef} 
-        src={voiceUrl} 
-        preload="metadata"
-      />
+    <div className={`px-3 py-2.5 rounded-2xl min-w-[200px] max-w-[260px] ${getBackgroundClass()}`}>
+      <audio ref={audioRef} src={voiceUrl} preload="metadata" />
       
-      {/* BOUTON PLAY/PAUSE avec animation */}
-      <button
-        onClick={togglePlay}
-        disabled={loading}
-        className={`relative shrink-0 w-14 h-14 rounded-2xl transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center ${
-          isMine
-            ? 'bg-white/20 hover:bg-white/30 backdrop-blur-sm'
-            : 'bg-linear-to-br from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
-        } ${loading ? 'opacity-50 cursor-not-allowed' : 'shadow-lg hover:shadow-xl'}`}
-        title={loading ? 'Chargement...' : isPlaying ? 'Pause' : 'Lecture'}
-      >
-        {/* Effet de pulse pendant la lecture */}
-        {isPlaying && (
-          <div className="absolute inset-0 rounded-2xl bg-white/20 animate-ping"></div>
-        )}
-        
-        {loading ? (
-          <div className={`w-6 h-6 border-3 rounded-full animate-spin ${
-            isMine ? 'border-white border-t-transparent' : 'border-blue-600 border-t-transparent'
-          }`} />
-        ) : isPlaying ? (
-          <Pause size={24} className={isMine ? 'text-white' : 'text-white'} fill="currentColor" />
-        ) : (
-          <Play size={24} className={isMine ? 'text-white' : 'text-white'} fill="currentColor" />
-        )}
-      </button>
-      
-      {/* INFORMATIONS ET BARRE */}
-      <div className="flex-1 min-w-0">
-        {/* Header avec icône */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className={`p-1.5 rounded-lg ${
-            isMine ? 'bg-white/20' : 'bg-blue-100'
-          }`}>
-            {isPlaying ? (
-              <Volume2 size={16} className={isMine ? 'text-white animate-pulse' : 'text-blue-600 animate-pulse'} />
-            ) : (
-              <Mic size={16} className={isMine ? 'text-blue-200' : 'text-blue-500'} />
-            )}
-          </div>
-          <span className={`text-xs font-bold tracking-wide ${
-            isMine ? 'text-blue-100' : 'text-blue-600'
-          }`}>
-            MESSAGE VOCAL
-          </span>
-        </div>
-        
-        {/* Barre de progression moderne */}
-        <div className="relative mb-3">
-          {/* Background de la barre */}
-          <div className={`h-2 rounded-full overflow-hidden ${
-            isMine ? 'bg-blue-800/50' : 'bg-blue-100'
-          }`}>
-            {/* Progression */}
-            <div 
-              className={`h-full rounded-full transition-all duration-300 relative overflow-hidden ${
-                isMine 
-                  ? 'bg-linear-to-r from-white to-blue-100' 
-                  : 'bg-linear-to-rrom-blue-500 to-cyan-500'
-              }`}
-              style={{ width: `${progress}%` }}
-            >
-              {/* Effet de shimmer */}
-              <div className={`absolute inset-0 ${
-                isMine ? 'bg-linear-to-r from-transparent via-white/40 to-transparent' : 'bg-linear-to-r from-transparent via-white/30 to-transparent'
-              } animate-shimmer`}></div>
-            </div>
+      <div className="flex items-center gap-3">
+        {/* Play Button */}
+        <button
+          onClick={togglePlay}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95 ${getButtonClass()}`}
+        >
+          {isPlaying ? (
+            <Pause className="w-4 h-4" fill="currentColor" />
+          ) : (
+            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+          )}
+        </button>
+
+        {/* Waveform */}
+        <div className="flex-1 min-w-0">
+          <div 
+            ref={progressRef}
+            onClick={handleSeek}
+            className="flex items-center gap-0.5 h-8 cursor-pointer"
+          >
+            {bars.map((h, i) => {
+              const isActive = (i / bars.length) * 100 <= progress;
+              return (
+                <div
+                  key={i}
+                  className={`w-[3px] rounded-full transition-all duration-100 ${getWaveColor(isActive)}`}
+                  style={{ height: `${h}%` }}
+                />
+              );
+            })}
           </div>
           
-          {/* Point de progression */}
-          {progress > 0 && (
-            <div 
-              className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-all shadow-lg ${
-                isMine ? 'bg-white' : 'bg-blue-600'
-              }`}
-              style={{ left: `calc(${progress}% - 8px)` }}
-            >
-              <div className={`absolute inset-0 rounded-full ${
-                isMine ? 'bg-white' : 'bg-blue-600'
-              } animate-ping opacity-75`}></div>
-            </div>
-          )}
-        </div>
-        
-        {/* Temps */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className={`text-sm font-mono font-bold ${
-              isMine ? 'text-white' : 'text-blue-700'
-            }`}>
+          {/* Time */}
+          <div className="flex justify-between mt-1">
+            <span className={`text-[10px] font-medium ${getTimeTextClass(true)}`}>
               {formatTime(currentTime)}
             </span>
-            {isPlaying && (
-              <div className="flex gap-0.5">
-                <span className={`w-1 h-3 rounded-full animate-wave ${
-                  isMine ? 'bg-white' : 'bg-blue-600'
-                }`} style={{animationDelay: '0s'}}></span>
-                <span className={`w-1 h-4 rounded-full animate-wave ${
-                  isMine ? 'bg-white' : 'bg-blue-600'
-                }`} style={{animationDelay: '0.1s'}}></span>
-                <span className={`w-1 h-3 rounded-full animate-wave ${
-                  isMine ? 'bg-white' : 'bg-blue-600'
-                }`} style={{animationDelay: '0.2s'}}></span>
-              </div>
-            )}
+            <span className={`text-[10px] ${getTimeTextClass(false)}`}>
+              {formatTime(duration)}
+            </span>
           </div>
-          <span className={`text-sm font-mono font-bold ${
-            isMine ? 'text-blue-200' : 'text-blue-500'
-          }`}>
-            {formatTime(voiceDuration)}
-          </span>
+        </div>
+
+        {/* Mic Icon */}
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${getMicIconClass()}`}>
+          <Mic className="w-3.5 h-3.5" />
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        @keyframes wave {
-          0%, 100% { height: 0.75rem; }
-          50% { height: 1.25rem; }
-        }
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-        }
-        .animate-wave {
-          animation: wave 0.8s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }
