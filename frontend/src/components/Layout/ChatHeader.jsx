@@ -308,11 +308,6 @@ export default function ChatHeader({ contact, conversation, onBack }) {
         
         alert(successMsg);
         
-        if (action === 'bloquer') {
-          setTimeout(() => {
-            router.push('/');
-          }, 1500);
-        }
       } else {
         throw new Error(response.data.message || 'Erreur inconnue');
       }

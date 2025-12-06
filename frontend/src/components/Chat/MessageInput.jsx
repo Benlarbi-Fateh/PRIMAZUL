@@ -8,7 +8,7 @@ import VoiceRecorder from './VoiceRecorder';
 import CameraCapture from './CameraCapture';
 import EmojiPicker from './EmojiPicker';
 import ScheduleModal from './ScheduleModal';
-import useBlockCheck from '../../hooks/useBlockCheck';
+import useBlockCheck from '@/hooks/useBlockCheck';
 
 export default function MessageInput({ 
   onSendMessage, 

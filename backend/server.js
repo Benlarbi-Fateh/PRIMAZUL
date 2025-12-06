@@ -58,6 +58,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const audioRoutes = require('./routes/audioRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const invitationRoutes = require('./routes/invitationRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 
 // 🆕 NOUVELLE ROUTE PROFILE
 const profileRoutes = require('./routes/profileRoutes');
@@ -72,6 +73,7 @@ app.use('/api/audio', audioRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/message-settings', messageSettingsRoutes);
+app.use('/api/contacts', contactRoutes);
 
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use('/api/profile', profileRoutes);
@@ -139,18 +141,7 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Rejet non géré:', reason);
 });
-//ghiles programmation message
-// ========================================
-// ⏰ CRON JOB POUR MESSAGES PROGRAMMÉS
-// ========================================
-const { checkScheduledMessages } = require('./controllers/messageController');
 
-// Vérifier toutes les 30 secondes (vous pouvez ajuster)
-setInterval(() => {
-  checkScheduledMessages(io);
-}, 30000); // 30 secondes
-
-console.log('⏰ CRON job pour messages programmés activé (toutes les 30s)');
 // Démarrage du serveur
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, '0.0.0.0', () => {

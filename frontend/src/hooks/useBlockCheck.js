@@ -1,30 +1,32 @@
-'use client'
+'use client';
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 
 export default function useBlockCheck(targetUserId) {
-  // ✅ INITIALISATION COMPLÈTE pour éviter undefined
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockStatus, setBlockStatus] = useState({
     iBlocked: false,
     blockedMe: false,
     isBlocked: false
   });
-  const [loading, setLoading] = useState(false); // false au début
+  const [loading, setLoading] = useState(true);
+  const lastTargetRef = useRef(null);
   const [error, setError] = useState(null);
   
   const isCheckingRef = useRef(false);
+  const mountedRef = useRef(true);
 
-  const checkBlockStatus = async () => {
+const checkBlockStatus = async (forceCheck = false) => {
     if (!targetUserId) {
-      // ✅ Valeurs par défaut si pas d'ID
       setBlockStatus({ iBlocked: false, blockedMe: false, isBlocked: false });
       setIsBlocked(false);
       setLoading(false);
       return;
     }
-
-    if (isCheckingRef.current) return;
+if (isCheckingRef.current && !forceCheck) {
+  console.log('⏳ Vérification déjà en cours');
+  return;
+}
     
     try {
       isCheckingRef.current = true;
@@ -34,69 +36,79 @@ export default function useBlockCheck(targetUserId) {
       console.log('🔍 Vérification blocage pour:', targetUserId);
       
       const response = await api.get(`/message-settings/check-blocked/${targetUserId}`, {
-  timeout: 5000
+  timeout: 8000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
+      
+      if (!mountedRef.current) return;
+
       if (response.data?.success) {
         const { iBlocked, blockedMe, isBlocked: blocked } = response.data;
         
-        console.log('✅ Statut blocage reçu:', { iBlocked, blockedMe, blocked });
+        console.log('✅ Statut reçu:', { iBlocked, blockedMe, blocked });
         
         const newStatus = { 
-          iBlocked: !!iBlocked, 
-          blockedMe: !!blockedMe, 
-          isBlocked: !!blocked 
+          iBlocked: Boolean(iBlocked), 
+          blockedMe: Boolean(blockedMe), 
+          isBlocked: Boolean(blocked || iBlocked || blockedMe)
         };
         
         setBlockStatus(newStatus);
-        setIsBlocked(!!blocked);
+        setIsBlocked(newStatus.isBlocked);
       }
     } catch (err) {
       console.error('❌ Erreur vérification blocage:', err);
       
-      // ✅ GESTION DES ERREURS SPÉCIFIQUES
+      if (!mountedRef.current) return;
+      
       if (err.response?.status === 404) {
-        console.warn('⚠️ Route /check-blocked non trouvée (404)');
-        setError('Fonction de blocage non disponible');
+        setError('Route non trouvée');
       } else if (err.code === 'ECONNABORTED') {
-        console.warn('⏱️ Timeout - Le serveur ne répond pas');
         setError('Délai dépassé');
       } else {
         setError(err.message || 'Erreur inconnue');
       }
       
-      // ✅ TOUJOURS définir des valeurs par défaut
       setBlockStatus({ iBlocked: false, blockedMe: false, isBlocked: false });
       setIsBlocked(false);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
       isCheckingRef.current = false;
     }
   };
 
-  useEffect(() => {
-    checkBlockStatus();
+ useEffect(() => {
+  mountedRef.current = true;
+  
+  // Vérifier seulement si le targetUserId a changé
+  if (targetUserId !== lastTargetRef.current) {
+    console.log('🔄 Nouvelle cible:', targetUserId);
+    lastTargetRef.current = targetUserId;
+    checkBlockStatus(true);
+  }
 
-    const handleBlockChange = () => {
-      console.log('🔄 Événement block-status-changed détecté');
-      checkBlockStatus();
-    };
+  const handleBlockChange = (event) => {
+    console.log('🔄 Événement block-status-changed reçu', event?.detail);
+    setTimeout(() => checkBlockStatus(true), 200);
+  };
 
-    window.addEventListener('block-status-changed', handleBlockChange);
+  window.addEventListener('block-status-changed', handleBlockChange);
 
-    return () => {
-      window.removeEventListener('block-status-changed', handleBlockChange);
-    };
-  }, [targetUserId]);
-
-  // ✅ RETOURNER LES VALEURS SÉCURISÉES
-  const safeBlockStatus = blockStatus || { iBlocked: false, blockedMe: false, isBlocked: false };
-  const safeIsBlocked = isBlocked || false;
+  return () => {
+    mountedRef.current = false;
+    window.removeEventListener('block-status-changed', handleBlockChange);
+  };
+}, [targetUserId]);
 
   return { 
-    isBlocked: safeIsBlocked,
-    blockStatus: safeBlockStatus,
+   isBlocked: Boolean(isBlocked),
+    blockStatus: blockStatus || { iBlocked: false, blockedMe: false, isBlocked: false },
     loading, 
     error,
-    refresh: checkBlockStatus
+   refresh: () => checkBlockStatus(true)
   };
 }

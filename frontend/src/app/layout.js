@@ -19,8 +19,8 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="fr" className="h-full">
-      <body className="h-full m-0 p-0 antialiased">
+    <html lang="fr" className="h-full" suppressHydrationWarning>
+      <body className="h-full m-0 p-0 antialiased" suppressHydrationWarning>
         <AuthProvider>
           <BlockProvider>
             <ThemeProvider>

@@ -10,6 +10,12 @@ const DeletedConversation = require('../models/DeletedConversation');
  */
 exports.deleteConversationForUser = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+  return res.status(401).json({
+    success: false,
+    message: 'Non authentifié'
+  });
+}
     const conversationId = req.params.id;
     const userId = req.user._id;
 
@@ -89,6 +95,14 @@ exports.deleteConversationForUser = async (req, res) => {
 
 exports.blockUser = async (req, res) => {
   try {
+    // ✅ Vérifier authentification
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
     const userId = req.user._id;
     const { targetUserId, reason } = req.body;
    
@@ -168,6 +182,13 @@ exports.blockUser = async (req, res) => {
 
 exports.unblockUser = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
     const userId = req.user._id;
     const { targetUserId } = req.body;
    
@@ -219,6 +240,15 @@ exports.unblockUser = async (req, res) => {
 
 exports.checkIfBlocked = async (req, res) => {
   try {
+    // ✅ Vérifier que l'utilisateur est authentifié
+    if (!req.user || !req.user._id) {
+      console.error('❌ Utilisateur non authentifié');
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
     const userId = req.user._id;
     const targetUserId = req.params.targetUserId || req.query.targetUserId;
 
@@ -230,6 +260,15 @@ exports.checkIfBlocked = async (req, res) => {
         message: 'targetUserId requis'
       });
     }
+    // ✅ Vérifier si l'utilisateur cible existe
+const targetUser = await User.findById(targetUserId);
+if (!targetUser) {
+  console.warn('⚠️ Utilisateur cible introuvable:', targetUserId);
+  return res.status(404).json({
+    success: false,
+    message: 'Utilisateur introuvable'
+  });
+}
 
     const blockStatus = await BlockedUser.getBlockStatus(
       userId.toString(), 
@@ -256,6 +295,13 @@ exports.checkIfBlocked = async (req, res) => {
 
 exports.getBlockedUsers = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
     const userId = req.user._id;
     
     console.log('📋 getBlockedUsers appelé pour:', userId);
@@ -292,6 +338,12 @@ exports.getBlockedUsers = async (req, res) => {
 
 exports.muteConversationForUser = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+  return res.status(401).json({
+    success: false,
+    message: 'Non authentifié'
+  });
+}
     const conversationId = req.params.id;
     const userId = req.user._id;
 
@@ -329,6 +381,12 @@ exports.muteConversationForUser = async (req, res) => {
 
 exports.unmuteConversationForUser = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+  return res.status(401).json({
+    success: false,
+    message: 'Non authentifié'
+  });
+}
     const conversationId = req.params.id;
     const userId = req.user._id;
 
@@ -496,6 +554,12 @@ exports.getMediaForConversation = async (req, res) => {
 
 exports.getConversationSettings = async (req, res) => {
   try {
+    if (!req.user || !req.user._id) {
+  return res.status(401).json({
+    success: false,
+    message: 'Non authentifié'
+  });
+}
     const conversationId = req.params.id;
     const userId = req.user._id;
 
