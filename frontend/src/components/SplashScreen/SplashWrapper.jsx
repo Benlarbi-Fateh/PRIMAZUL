@@ -16,33 +16,23 @@ export default function SplashWrapper({ children, duration = 3000 }) {
   const [showSplash, setShowSplash] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    // Affiche splash pendant 'duration'
-    const timer = setTimeout(() => {
-      // Checker token / authentification
-      // On teste plusieurs clés courantes ; adapte si besoin.
-      const token =
-        typeof window !== "undefined" &&
-        (localStorage.getItem("token") ||
-         localStorage.getItem("authToken") ||
-         localStorage.getItem("user") ||
-         sessionStorage.getItem("token"));
+ useEffect(() => {
+  const timer = setTimeout(() => {
+    const token =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("token") ||
+       localStorage.getItem("authToken") ||
+       localStorage.getItem("user") ||
+       sessionStorage.getItem("token"));
 
-      if (token) {
-        // connecté → home
-        router.replace("/");
-      } else {
-        // non connecté → login
-        router.replace("/login");
-      }
+    if (token) router.replace("/");
+    else router.replace("/login");
 
-      // On masque le splash et on rend les enfants (même si on a navigué).
-      setShowSplash(false);
-    }, duration);
+    setShowSplash(false);
+  }, duration);
 
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  return () => clearTimeout(timer);
+}, [router, duration]); // ✅ on ajoute router et duration
 
   // Tant que splash visible, on affiche uniquement SplashScreen
   if (showSplash) return <SplashScreen />;

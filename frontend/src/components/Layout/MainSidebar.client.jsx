@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { MessageCircle, Users, Settings, User, LogOut } from "lucide-react";
+import { MessageCircle, Users, Settings, User, LogOut,Trash } from "lucide-react";
 import { useContext } from "react";
 import { AuthContext } from "@/context/AuthContext";
 
@@ -34,7 +34,19 @@ export default function MainSidebar() {
     router.push("/login");
   };
   if (!user) return null;
+ //suppression 
+ const deleteAccount = async () => {
+  const confirmDelete = confirm("Es-tu sûr de vouloir supprimer définitivement ton compte ?");
+  if (!confirmDelete) return;
 
+  await fetch("http://localhost:3000/user/delete", {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  logout(); 
+  router.push("/login");
+};
 
   return (
     <aside className="fixed 
@@ -94,6 +106,30 @@ export default function MainSidebar() {
           Déconnexion
         </span>
       </div>
+      {/*supprimer */}
+
+      <div className="relative group mb-4">
+        <button
+           onClick={deleteAccount}
+           className="p-3 rounded-xl hover:bg-red-600/20 text-red-600 transition"
+        >
+        <Trash className="w-6 h-6" />
+        </button>
+
+         <span
+          className="
+             absolute left-20 top-1/2 -translate-y-1/2 
+            bg-red-600 text-white text-sm font-medium 
+            py-1.5 px-3 rounded-lg shadow-lg 
+            opacity-0 translate-x-2 pointer-events-none
+            group-hover:opacity-100 group-hover:translate-x-0 
+           transition-all duration-200 whitespace-nowrap
+           "
+        >
+           Supprimer le compte
+        </span>
+    </div>
+
     </aside>
   );
 }
