@@ -1,4 +1,4 @@
-// ✅ Importe des icônes supplémentaires si nécessaire
+"use client";
 import { useEffect, useState, useRef } from "react";
 import {
   Mic,
@@ -9,10 +9,21 @@ import {
   User,
   Minimize2,
   Maximize2,
-  Users, // 🆕 Pour afficher le nombre de participants
+  Clock,
+  Wifi,
+  Users,
 } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
+};
 
 export default function VideoCall({
   channelName,
@@ -20,18 +31,49 @@ export default function VideoCall({
   uid,
   onHangup,
   callType = "video",
+  callData,
 }) {
-  // ✅ État pour gérer TOUS les utilisateurs distants (pas juste users[0])
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const [users, setUsers] = useState([]);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(callType === "video");
   const [ready, setReady] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
 
   const clientRef = useRef(null);
   const localTracksRef = useRef({ audio: null, video: null });
   const localVideoDiv = useRef(null);
   const mountedRef = useRef(false);
+
+  // Helper pour trouver les infos
+  const getParticipantInfo = (agoraUid) => {
+    if (callData?.isGroup && Array.isArray(callData.participants)) {
+      const found = callData.participants.find(
+        (p) => String(p._id) === String(agoraUid)
+      );
+      if (found) return found;
+    }
+    if (!callData?.isGroup && callData) {
+      return callData;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    let interval;
+    if (isConnected) {
+      interval = setInterval(() => setCallDuration((p) => p + 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isConnected]);
+
+  useEffect(() => {
+    if (users.length > 0) setIsConnected(true);
+  }, [users]);
 
   useEffect(() => {
     setReady(true);
@@ -40,7 +82,6 @@ export default function VideoCall({
     const initAgora = async () => {
       try {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-
         if (!clientRef.current) {
           clientRef.current = AgoraRTC.createClient({
             mode: "rtc",
@@ -50,47 +91,33 @@ export default function VideoCall({
         const client = clientRef.current;
         client.removeAllListeners();
 
-        // --- Événements (Inchangés) ---
         client.on("user-published", async (user, mediaType) => {
-          if (client.uid === user.uid) return;
+          if (String(client.uid) === String(user.uid)) return;
           await client.subscribe(user, mediaType);
 
-          // ✅ AJOUT : Ajoute l'utilisateur même si c'est juste audio
           setUsers((prev) => {
             if (prev.find((u) => String(u.uid) === String(user.uid)))
               return prev;
             return [...prev, user];
           });
 
-          if (mediaType === "video") {
-            // Vidéo déjà dans users via setUsers ci-dessus
-          }
           if (mediaType === "audio") user.audioTrack.play();
         });
 
-        client.on("user-unpublished", (user, mediaType) => {
-          if (mediaType === "video")
-            setUsers((prev) =>
-              prev.filter((u) => String(u.uid) !== String(user.uid))
-            );
-        });
+        client.on("user-unpublished", (user, mediaType) => {});
 
         client.on("user-left", (user) => {
-          console.log(`👤 Utilisateur ${user.uid} parti`);
           setUsers((prev) =>
             prev.filter((u) => String(u.uid) !== String(user.uid))
           );
         });
 
-        // --- Connexion (Inchangée) ---
         if (client.connectionState === "DISCONNECTED") {
           await client.join(APP_ID, channelName, token, uid || null);
         }
 
-        // --- Tracks (Inchangé) ---
         if (!localTracksRef.current.audio) {
           let audioTrack, videoTrack;
-
           if (callType === "video") {
             [audioTrack, videoTrack] =
               await AgoraRTC.createMicrophoneAndCameraTracks();
@@ -124,7 +151,6 @@ export default function VideoCall({
     };
 
     const timer = setTimeout(() => initAgora(), 100);
-
     return () => {
       mountedRef.current = false;
       clearTimeout(timer);
@@ -177,114 +203,189 @@ export default function VideoCall({
         user.videoTrack.play(ref.current);
       }
     }, [user]);
-    return <div ref={ref} className="w-full h-full object-cover bg-black" />;
+
+    const info = getParticipantInfo(user.uid);
+    const displayName =
+      info?.name || `Utilisateur ${String(user.uid).slice(-4)}`;
+    const displayImage = info?.profilePicture;
+
+    return (
+      <div
+        className={`relative w-full h-full flex items-center justify-center overflow-hidden ${styles.videoBg}`}
+      >
+        <div ref={ref} className="w-full h-full object-cover"></div>
+        {!user.videoTrack && (
+          <div
+            className={`absolute inset-0 flex flex-col items-center justify-center ${styles.videoBg}`}
+          >
+            {displayImage ? (
+              <img
+                src={displayImage}
+                alt={displayName}
+                className="w-24 h-24 rounded-full object-cover border-4 border-white/10 shadow-xl"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-xl">
+                <span className="text-2xl font-bold text-white">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <p className="mt-4 text-white/70 animate-pulse font-medium">
+              Audio uniquement
+            </p>
+          </div>
+        )}
+        <div
+          className={`absolute bottom-3 left-3 px-3 py-1 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 ${styles.badgeBg}`}
+        >
+          <User size={12} />
+          <span className="text-xs font-bold">{displayName}</span>
+        </div>
+      </div>
+    );
   };
 
   if (!ready) return null;
 
-  // ✅ MODIFICATION : Layout responsive pour N utilisateurs
-  // Calcule le nombre de colonnes selon le nombre d'utilisateurs
-  const totalParticipants = users.length + 1; // +1 pour l'utilisateur local
-  const getGridLayout = () => {
-    if (totalParticipants <= 2) return "grid-cols-2"; // 1-2 users = 2 colonnes
-    if (totalParticipants <= 4) return "grid-cols-2"; // 3-4 users = 2x2
-    if (totalParticipants <= 9) return "grid-cols-3"; // 5-9 users = 3x3
-    return "grid-cols-4"; // 10+ users = 4x4
+  // --- STYLES DYNAMIQUES ---
+  const styles = {
+    container: isDark ? "bg-slate-950/95" : "bg-gray-100/95",
+    card: isDark
+      ? "bg-slate-900 border-white/10"
+      : "bg-white border-gray-200 shadow-2xl",
+    textMain: isDark ? "text-white" : "text-gray-900",
+    textSub: isDark ? "text-gray-400" : "text-gray-500",
+    videoBg: isDark ? "bg-black" : "bg-gray-900",
+    controlsBg: isDark
+      ? "bg-black/60 border-white/10"
+      : "bg-white/80 border-gray-200 shadow-lg",
+    iconColor: isDark ? "text-white" : "text-gray-700",
+    badgeBg: isDark
+      ? "bg-black/60 text-white"
+      : "bg-white/80 text-gray-800 shadow-sm",
   };
 
+  // --- CALCUL DE LA GRILLE (Variable qui manquait) ---
+  const totalUsers = users.length + 1;
+  let gridLayout = "grid-cols-1";
+  if (totalUsers === 2) gridLayout = "grid-cols-1 md:grid-cols-2";
+  else if (totalUsers > 2 && totalUsers <= 4) gridLayout = "grid-cols-2";
+  else if (totalUsers > 4) gridLayout = "grid-cols-2 md:grid-cols-3";
+
+  // Classes conteneur
   const containerClass = isMinimized
-    ? "fixed bottom-4 right-4 w-72 h-auto z-[9999] rounded-2xl shadow-2xl overflow-hidden transition-all duration-500 border border-white/20 bg-slate-900 pointer-events-auto"
-    : "fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all duration-500 pointer-events-auto";
+    ? `fixed bottom-4 right-4 w-72 h-auto z-[9999] rounded-2xl shadow-2xl overflow-hidden border pointer-events-auto transition-all duration-300 hover:scale-105 ${styles.card}`
+    : `fixed inset-0 z-[9999] backdrop-blur-md flex flex-col pointer-events-auto transition-all duration-300 ${styles.container}`;
 
   return (
     <div className={containerClass}>
       <div
-        className={`
-         relative flex flex-col bg-slate-950 overflow-hidden
-         ${
-           isMinimized
-             ? "w-full h-full"
-             : "w-full max-w-6xl h-[90vh] rounded-3xl border border-white/10 shadow-2xl"
-         }
-      `}
+        className={`relative flex flex-col overflow-hidden ${
+          isMinimized
+            ? "w-full h-full"
+            : `w-full max-w-6xl h-[90vh] rounded-3xl border shadow-2xl ${styles.card}`
+        }`}
       >
-        {/* Header (Modifié pour afficher le nombre de participants) */}
-        <div className="absolute top-0 left-0 right-0 z-20 p-3 flex justify-between items-start bg-gradient-to-b from-black/70 to-transparent">
-          <div className="flex items-center gap-2 px-3 py-1 bg-black/40 backdrop-blur rounded text-xs text-white/80 border border-white/10">
-            <Users size={14} />
+        {/* HEADER */}
+        <div
+          className={`absolute top-0 left-0 right-0 z-20 p-3 flex justify-between items-start ${
+            isDark
+              ? "bg-gradient-to-b from-black/80 to-transparent"
+              : "bg-gradient-to-b from-white/90 to-transparent"
+          }`}
+        >
+          <div
+            className={`flex items-center gap-2 px-3 py-1 backdrop-blur rounded-full text-xs border border-white/10 ${styles.badgeBg}`}
+          >
+            {callData?.isGroup ? <Users size={14} /> : <Wifi size={14} />}
+            <span className="font-bold">
+              {callData?.isGroup ? callData.name : "Appel en cours"}
+            </span>
+            <span className="opacity-70 mx-1">|</span>
+            <Clock size={12} />
             <span>
-              {totalParticipants} {callType === "video" ? "📹" : "🎙️"}
+              {isConnected ? formatTime(callDuration) : "Connexion..."}
             </span>
           </div>
           <button
             onClick={() => setIsMinimized(!isMinimized)}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur transition"
+            className={`p-2 rounded-full backdrop-blur transition border border-white/10 ${styles.badgeBg}`}
           >
             {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={18} />}
           </button>
         </div>
 
-        {/* ✅ MODIFICATION : Grille pour afficher TOUS les utilisateurs */}
+        {/* --- GRILLE PRINCIPALE --- */}
         <div
-          className={`relative flex-1 bg-gray-900 p-2 overflow-auto ${
+          className={`relative flex-1 p-2 overflow-auto ${
             isMinimized ? "h-40" : ""
-          }`}
+          } ${isDark ? "bg-gray-900" : "bg-gray-100"}`}
         >
-          {/* === MODE GROUPE : Grid Layout === */}
           {users.length > 0 ? (
-            <div
-              className={`
-                grid gap-2 h-full
-                ${getGridLayout()}
-                auto-rows-fr
-              `}
-            >
-              {/* MOI (ma vidéo locale) */}
-              <div className="relative rounded-xl overflow-hidden bg-black border border-white/20 shadow-lg">
+            <div className={`grid gap-2 h-full ${gridLayout} auto-rows-fr`}>
+              {/* MOI */}
+              <div
+                className={`relative rounded-xl overflow-hidden shadow-lg border ${
+                  isDark ? "border-white/10" : "border-gray-300"
+                } ${styles.videoBg}`}
+              >
                 {callType === "video" ? (
                   <div
                     ref={localVideoDiv}
                     className="w-full h-full object-cover transform scale-x-[-1]"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-blue-900/50">
-                    <Mic className="w-8 h-8 text-white animate-pulse" />
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-700">
+                    <div className="p-6 rounded-full bg-white/20 border border-white/30 animate-pulse">
+                      <Mic className="w-8 h-8 text-white" />
+                    </div>
                   </div>
                 )}
-                {/* Badge utilisateur local */}
-                <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white border border-white/20">
-                  Vous
+                <div
+                  className={`absolute bottom-2 left-2 px-2 py-1 rounded text-xs border border-white/20 ${styles.badgeBg}`}
+                >
+                  Moi
                 </div>
               </div>
 
-              {/* LES AUTRES (vidéos distantes) */}
-              {users.map((remoteUser) => (
+              {/* AUTRES */}
+              {users.map((remoteUser, idx) => (
                 <div
                   key={remoteUser.uid}
-                  className="relative rounded-xl overflow-hidden bg-black border border-white/20 shadow-lg"
+                  className={`relative rounded-xl overflow-hidden shadow-lg border ${
+                    isDark ? "border-white/10" : "border-gray-300"
+                  }`}
                 >
-                  {remoteUser.videoTrack ? (
-                    <RemoteVideoPlayer user={remoteUser} />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                      <User className="w-8 h-8 text-gray-500 animate-pulse" />
-                    </div>
-                  )}
-                  {/* Badge utilisateur distant */}
-                  <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white border border-white/20">
-                    {remoteUser.uid}
-                  </div>
+                  <RemoteVideoPlayer user={remoteUser} />
                 </div>
               ))}
             </div>
           ) : (
-            // En attente des autres participants
+            // EN ATTENTE
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex flex-col items-center animate-pulse">
-                <Users className="w-16 h-16 text-gray-600 mb-2" />
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 shadow-xl border-4 ${
+                    isDark
+                      ? "bg-slate-800 border-white/10"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  {callData?.isGroup ? (
+                    <Users size={40} className={styles.textSub} />
+                  ) : callData?.profilePicture ? (
+                    <img
+                      src={callData.profilePicture}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User size={40} className={styles.textSub} />
+                  )}
+                </div>
                 {!isMinimized && (
-                  <p className="text-gray-400 text-sm">
-                    En attente des participants...
+                  <p className={`font-medium ${styles.textMain} animate-pulse`}>
+                    En attente de réponse...
                   </p>
                 )}
               </div>
@@ -292,28 +393,32 @@ export default function VideoCall({
           )}
         </div>
 
-        {/* Contrôles (Inchangés) */}
+        {/* FOOTER */}
         <div
-          className={`
-            flex items-center justify-center gap-4 bg-slate-900 border-t border-white/10
-            ${isMinimized ? "p-2" : "p-6"}
-        `}
+          className={`flex items-center justify-center gap-4 border-t ${
+            styles.card
+          } ${isMinimized ? "p-2" : "p-6"}`}
         >
           <button
             onClick={toggleMic}
             className={`rounded-full flex items-center justify-center transition ${
-              isMinimized
-                ? "p-2 bg-slate-800"
-                : "p-4 bg-slate-800 hover:bg-slate-700"
+              isMinimized ? "p-2" : "p-4 hover:scale-105"
+            } ${
+              micOn
+                ? `${
+                    isDark
+                      ? "bg-white/10 text-white"
+                      : "bg-gray-200 text-gray-700"
+                  }`
+                : "bg-red-500 text-white shadow-lg shadow-red-500/30"
             }`}
           >
             {micOn ? (
-              <Mic size={isMinimized ? 16 : 24} className="text-white" />
+              <Mic size={isMinimized ? 16 : 24} />
             ) : (
-              <MicOff size={isMinimized ? 16 : 24} className="text-red-500" />
+              <MicOff size={isMinimized ? 16 : 24} />
             )}
           </button>
-
           <button
             onClick={handleHangup}
             className={`rounded-full flex items-center justify-center bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/30 ${
@@ -322,26 +427,25 @@ export default function VideoCall({
           >
             <PhoneOff size={isMinimized ? 18 : 32} fill="currentColor" />
           </button>
-
           {callType === "video" && (
             <button
               onClick={toggleCam}
               className={`rounded-full flex items-center justify-center transition ${
-                isMinimized
-                  ? "p-2 bg-slate-800"
-                  : "p-4 bg-slate-800 hover:bg-slate-700"
+                isMinimized ? "p-2" : "p-4 hover:scale-105"
+              } ${
+                camOn
+                  ? `${
+                      isDark
+                        ? "bg-white/10 text-white"
+                        : "bg-gray-200 text-gray-700"
+                    }`
+                  : "bg-red-500 text-white shadow-lg shadow-red-500/20"
               }`}
             >
               {camOn ? (
-                <VideoIcon
-                  size={isMinimized ? 16 : 24}
-                  className="text-white"
-                />
+                <VideoIcon size={isMinimized ? 16 : 24} />
               ) : (
-                <VideoOff
-                  size={isMinimized ? 16 : 24}
-                  className="text-red-500"
-                />
+                <VideoOff size={isMinimized ? 16 : 24} />
               )}
             </button>
           )}

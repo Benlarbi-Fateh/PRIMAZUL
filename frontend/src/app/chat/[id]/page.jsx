@@ -465,7 +465,7 @@ export default function ChatPage() {
           >
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <p>Aucun message pour l'instant</p>
+                <p>Aucun message pour l&rsquo;instant</p>
               </div>
             ) : (
               <>
