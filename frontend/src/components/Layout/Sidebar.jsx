@@ -435,9 +435,38 @@ useEffect(() => {
             owner: user._id || user.id,
             contact: invitation.sender._id,
           });
-        } catch (err) {
-          console.error("Erreur addContact:", err);
-        }
+          } catch (error) {
+    console.error("Erreur acceptation invitation (brute):", error);
+    
+    // ✅ AJOUTEZ CE BLOQUET ICI
+    if (error.response?.status === 409) {
+      console.log("Invitation déjà traitée:", error.response.data);
+      
+      // Afficher message utilisateur
+      alert("Cette invitation a déjà été acceptée ou n'est plus valable.");
+      
+      // Rafraîchir les invitations
+      await fetchInvitations();
+      
+      // Rafraîchir les conversations
+      await fetchConversations();
+      
+      return;
+    }
+    
+    // Gestion des autres erreurs
+    if (error?.response) {
+      console.error("Status:", error.response.status);
+      console.error("Data:", error.response.data);
+      alert(
+        error?.response?.data?.error ||
+          error?.message ||
+          "Erreur lors de l'acceptation de l'invitation"
+      );
+    } else {
+      alert("Erreur réseau ou serveur inaccessible");
+    }
+  }
       }
 
       if (invitation && conversation) {

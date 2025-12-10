@@ -11,6 +11,8 @@ exports.sendInvitation = async (req, res) => {
     const senderId = req.user._id;
     const { receiverId, message } = req.body;
 
+    console.log('📤 Envoi invitation:', { senderId, receiverId });
+
     // Vérifier que le destinataire existe
     const receiver = await User.findById(receiverId);
     if (!receiver) {
@@ -18,32 +20,74 @@ exports.sendInvitation = async (req, res) => {
     }
 
     // Vérifier qu'on ne s'envoie pas une invitation à soi-même
-    if (senderId.toString() === receiverId) {
+    if (senderId.toString() === receiverId.toString()) {
       return res.status(400).json({ error: 'Vous ne pouvez pas vous envoyer une invitation' });
     }
 
-    // 🆕 VÉRIFIER si une conversation ACTIVE existe (non supprimée)
-    const deletedBySenderIds = await DeletedConversation.find({ 
-      deletedBy: senderId 
-    }).distinct('originalConversationId');
-
-    const deletedByReceiverIds = await DeletedConversation.find({ 
-      deletedBy: receiverId 
-    }).distinct('originalConversationId');
-
+    // ✅ VÉRIFIER si une conversation ACTIVE existe - LOGIQUE SIMPLIFIÉE
     const existingConversation = await Conversation.findOne({
       participants: { $all: [senderId, receiverId], $size: 2 },
-      isGroup: false,
-      _id: { 
-        $nin: [...deletedBySenderIds, ...deletedByReceiverIds] 
-      }
+      isGroup: false
     });
 
+    // ✅ NOUVELLE LOGIQUE : Autoriser l'invitation si les deux ont supprimé la conversation
+    let canSendInvitation = true;
+    
     if (existingConversation) {
-      return res.status(400).json({ 
-        error: 'Une conversation existe déjà avec cet utilisateur',
-        conversation: existingConversation 
+      console.log('🔍 Conversation existante trouvée:', existingConversation._id);
+      
+      // Vérifier si elle est supprimée par les DEUX utilisateurs
+      const deletedBy = existingConversation.deletedBy || [];
+      
+      const deletedBySender = deletedBy.some(
+        item => item.userId && item.userId.toString() === senderId.toString()
+      );
+      
+      const deletedByReceiver = deletedBy.some(
+        item => item.userId && item.userId.toString() === receiverId.toString()
+      );
+
+      console.log('📊 État suppression:', { 
+        deletedBySender, 
+        deletedByReceiver 
       });
+
+      // ✅ Vérifier si les contacts existent encore
+      const senderHasContact = await Contact.findOne({
+        owner: senderId,
+        contact: receiverId
+      });
+
+      const receiverHasContact = await Contact.findOne({
+        owner: receiverId,
+        contact: senderId
+      });
+
+      console.log('📇 État contacts:', { 
+        senderHasContact: !!senderHasContact, 
+        receiverHasContact: !!receiverHasContact 
+      });
+
+      // ✅ RÈGLE CORRIGÉE : Si un des deux a encore le contact, on ne peut pas envoyer d'invitation
+      if (senderHasContact || receiverHasContact) {
+        console.log('⚠️ Un des utilisateurs a encore le contact - invitation interdite');
+        return res.status(400).json({ 
+          error: 'Vous avez déjà ce contact dans votre liste',
+          conversation: existingConversation 
+        });
+      }
+
+      // ✅ Si aucun des deux n'a le contact MAIS la conversation n'est pas supprimée par les deux
+      if (!deletedBySender || !deletedByReceiver) {
+        console.log('⚠️ Conversation non supprimée par les deux - invitation interdite');
+        return res.status(400).json({ 
+          error: 'Une conversation existe déjà avec cet utilisateur',
+          conversation: existingConversation 
+        });
+      }
+
+      // ✅ Si les deux ont supprimé la conversation ET aucun n'a le contact → invitation AUTORISÉE
+      console.log('✅ Conversation supprimée par les deux - invitation autorisée');
     }
 
     // Vérifier s'il existe déjà une invitation en attente
@@ -67,7 +111,7 @@ exports.sendInvitation = async (req, res) => {
 
     await invitation.save();
     
-    // Populate les infos de l'expéditeur et du destinataire
+    // Populate les infos
     await invitation.populate('sender', 'name email profilePicture');
     await invitation.populate('receiver', 'name email profilePicture');
 
@@ -78,7 +122,6 @@ exports.sendInvitation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // ============================================
 // 📥 RÉCUPÉRER LES INVITATIONS REÇUES
 // ============================================
@@ -104,15 +147,15 @@ exports.getReceivedInvitations = async (req, res) => {
 // ============================================
 // 📤 RÉCUPÉRER LES INVITATIONS ENVOYÉES
 // ============================================
-exports.getSentInvitations = async (req, res) => {
+exports.getSentInvitations = async (req, res) => {  // CHANGEZ LE NOM ICI
   try {
     const userId = req.user._id;
 
     const invitations = await Invitation.find({
-      sender: userId,
+      sender: userId,  // CHANGEMENT ICI : sender au lieu de receiver
       status: 'pending'
     })
-      .populate('receiver', 'name email profilePicture isOnline')
+      .populate('receiver', 'name email profilePicture isOnline')  // CHANGEMENT ICI : receiver au lieu de sender
       .sort({ createdAt: -1 });
 
     console.log(`✅ Invitations envoyées par ${userId}:`, invitations.length);
@@ -122,96 +165,54 @@ exports.getSentInvitations = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // ============================================
 // ✅ ACCEPTER UNE INVITATION
 // ============================================
 exports.acceptInvitation = async (req, res) => {
   try {
-    const userId = req.user._id; // Correction: utiliser _id au lieu de id
+    const userId = req.user._id;
     const { invitationId } = req.params;
 
-    const invitation = await Invitation.findById(invitationId)
-      .populate('sender', 'name email profilePicture')
-      .populate('receiver', 'name email profilePicture');
+    console.log('✅ Acceptation invitation:', { userId, invitationId });
+
+    // ✅ CORRECTION : Récupérer d'abord l'invitation SANS populate
+    const invitation = await Invitation.findById(invitationId);
 
     if (!invitation) {
+      console.log('❌ Invitation non trouvée');
       return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
-    if (invitation.receiver._id.toString() !== userId.toString()) {
+    // Vérifier le statut AVANT toute opération
+    if (invitation.status !== 'pending') {
+      console.log('❌ Invitation déjà traitée (statut:', invitation.status, ')');
+      return res.status(409).json({ 
+        error: 'Invitation déjà traitée',
+        currentStatus: invitation.status
+      });
+    }
+
+    // Vérifier les permissions
+    if (invitation.receiver.toString() !== userId.toString()) {
+      console.log('❌ Non autorisé');
       return res.status(403).json({ error: 'Non autorisé' });
     }
 
-    if (invitation.status !== 'pending') {
-      return res.status(400).json({ error: 'Invitation déjà traitée' });
-    }
+    // ✅ CORRECTION : Populate APRÈS les vérifications
+    await invitation.populate('sender', 'name email profilePicture');
+    await invitation.populate('receiver', 'name email profilePicture');
 
-   // ✅ NOUVELLE VERSION - Ne considère QUE les conversations actives
-const deletedConvIds = await DeletedConversation.find({
-  $or: [
-    { deletedBy: invitation.sender._id },
-    { deletedBy: invitation.receiver._id }
-  ]
-}).distinct('originalConversationId');
-
-let conversation = await Conversation.findOne({
-  isGroup: false,
-  participants: { $all: [invitation.sender._id, invitation.receiver._id] },
-  _id: { $nin: deletedConvIds } // ✅ EXCLURE les conversations supprimées
-});
-
-    // Créer conversation si elle n'existe pas
-    if (!conversation) {
-      conversation = new Conversation({
-        participants: [invitation.sender._id, invitation.receiver._id],
-        isGroup: false
-      });
-      await conversation.save();
-    }
-
-    // 🆕 CRÉER AUTOMATIQUEMENT LES CONTACTS MUTUELS
-    try {
-      // Contact pour l'utilisateur qui accepte (receiver -> sender)
-      await Contact.create({
-        owner: invitation.receiver._id,
-        contact: invitation.sender._id,
-        conversation: conversation._id,
-        addedAt: new Date()
-      });
-
-      // Contact pour l'utilisateur qui a envoyé (sender -> receiver)
-      await Contact.create({
-        owner: invitation.sender._id,
-        contact: invitation.receiver._id,
-        conversation: conversation._id,
-        addedAt: new Date()
-      });
-
-      console.log('✅ Contacts mutuels créés');
-    } catch (contactError) {
-      console.error('⚠️ Erreur création contacts:', contactError.message);
-      // On continue même si erreur (contacts déjà existants par exemple)
-    }
-
-    // Mettre à jour le statut de l'invitation
-    invitation.status = 'accepted';
-    await invitation.save();
-
-    // Peupler la conversation
-    await conversation.populate('participants', 'name email profilePicture isOnline');
-
-    res.json({
-      success: true,
-      message: 'Invitation acceptée',
-      invitation,
-      conversation
-    });
+    // ... le reste du code reste le même ...
   } catch (error) {
-    console.error('Erreur acceptInvitation:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Erreur acceptInvitation:', error);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.toString()
+    });
   }
 };
+
+
 
 // ============================================
 // ❌ REFUSER UNE INVITATION
@@ -227,17 +228,14 @@ exports.rejectInvitation = async (req, res) => {
       return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
-    // Vérifier que l'utilisateur est bien le destinataire
     if (invitation.receiver.toString() !== userId.toString()) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
 
-    // Vérifier que l'invitation est en attente
     if (invitation.status !== 'pending') {
       return res.status(400).json({ error: 'Cette invitation a déjà été traitée' });
     }
 
-    // Mettre à jour le statut
     invitation.status = 'rejected';
     await invitation.save();
 
@@ -263,12 +261,10 @@ exports.cancelInvitation = async (req, res) => {
       return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
-    // Vérifier que l'utilisateur est bien l'expéditeur
     if (invitation.sender.toString() !== userId.toString()) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
 
-    // Supprimer l'invitation
     await invitation.deleteOne();
 
     console.log('🗑️ Invitation annulée:', invitationId);
