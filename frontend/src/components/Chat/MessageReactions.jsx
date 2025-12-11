@@ -49,8 +49,7 @@ export default function MessageReactions({ reactions = [], onReactionClick, curr
             {showTooltip === emoji && data.users.length > 0 && (
               <div className={`absolute bottom-full mb-1 px-2 py-1 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap z-50
                 ${isMine ? 'right-0' : 'left-0'}`}
-              >
-                {data.users.map(u => u?.name || 'Utilisateur').join(', ')}
+              >{data.users.map(u => (typeof u === 'object' ? u?.name : 'Utilisateur')).join(', ')}
               </div>
             )}
           </div>

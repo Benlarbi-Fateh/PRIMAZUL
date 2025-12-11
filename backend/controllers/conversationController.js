@@ -1,16 +1,23 @@
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
+const Contact = require('../models/Contact');
 
 
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // ✅ NOUVELLE LOGIQUE SIMPLIFIÉE
+    // ✅ RÉCUPÉRER TOUS MES CONTACTS D'UN COUP
+    const myContacts = await Contact.find({ owner: userId }).select('contact').lean();
+    const contactIds = myContacts.map(c => c.contact.toString());
+
+    console.log(`📇 ${contactIds.length} contacts trouvés pour ${userId}`);
+
+    // ✅ RÉCUPÉRER les conversations où deletedBy NE contient PAS mon userId
     const conversations = await Conversation.find({
       participants: userId,
-      deletedBy: { $ne: userId } // ✅ Exclure les conversations que J'AI supprimées
+      'deletedBy.userId': { $ne: userId }
     })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
       .populate('groupAdmin', 'name email profilePicture')
@@ -20,9 +27,36 @@ exports.getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
+    // ✅ FILTRER rapidement avec un Set
+    const contactSet = new Set(contactIds);
+    
+    const filteredConversations = conversations.filter(conv => {
+      // Si c'est un groupe, on garde
+      if (conv.isGroup) {
+        return true;
+      }
+      
+      // Si c'est une conversation 1-1, vérifier si on est contacts
+      const otherParticipant = conv.participants.find(
+        p => p._id.toString() !== userId.toString()
+      );
+      
+      if (otherParticipant) {
+        const isContact = contactSet.has(otherParticipant._id.toString());
+        
+        if (!isContact) {
+          console.log(`⚠️ Conversation ${conv._id} ignorée - Pas un contact`);
+        }
+        
+        return isContact;
+      }
+      
+      return false;
+    });
+
     // Calculer les messages non lus
     const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
+      filteredConversations.map(async (conv) => {
         const unreadCount = await Message.countDocuments({
           conversationId: conv._id,
           sender: { $ne: userId },
@@ -35,6 +69,8 @@ exports.getConversations = async (req, res) => {
         };
       })
     );
+
+    console.log(`✅ ${conversationsWithUnread.length} conversations actives trouvées`);
 
     res.json({
       success: true,

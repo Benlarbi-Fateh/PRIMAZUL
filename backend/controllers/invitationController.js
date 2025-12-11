@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Contact = require('../models/Contact');
 
 // ============================================
-// 📤 ENVOYER UNE INVITATION
+// 📤 ENVOYER UNE INVITATION - LOGIQUE CORRIGÉE
 // ============================================
 exports.sendInvitation = async (req, res) => {
   try {
@@ -24,73 +24,31 @@ exports.sendInvitation = async (req, res) => {
       return res.status(400).json({ error: 'Vous ne pouvez pas vous envoyer une invitation' });
     }
 
-    // ✅ VÉRIFIER si une conversation ACTIVE existe - LOGIQUE SIMPLIFIÉE
-    const existingConversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId], $size: 2 },
-      isGroup: false
+  // ✅ NOUVELLE LOGIQUE : Vérifier UNIQUEMENT si un contact existe
+    const senderHasContact = await Contact.findOne({
+      owner: senderId,
+      contact: receiverId
     });
 
-    // ✅ NOUVELLE LOGIQUE : Autoriser l'invitation si les deux ont supprimé la conversation
-    let canSendInvitation = true;
-    
-    if (existingConversation) {
-      console.log('🔍 Conversation existante trouvée:', existingConversation._id);
-      
-      // Vérifier si elle est supprimée par les DEUX utilisateurs
-      const deletedBy = existingConversation.deletedBy || [];
-      
-      const deletedBySender = deletedBy.some(
-        item => item.userId && item.userId.toString() === senderId.toString()
-      );
-      
-      const deletedByReceiver = deletedBy.some(
-        item => item.userId && item.userId.toString() === receiverId.toString()
-      );
+    const receiverHasContact = await Contact.findOne({
+      owner: receiverId,
+      contact: senderId
+    });
 
-      console.log('📊 État suppression:', { 
-        deletedBySender, 
-        deletedByReceiver 
+    console.log('📇 État contacts:', { 
+      senderHasContact: !!senderHasContact, 
+      receiverHasContact: !!receiverHasContact 
+    });
+
+    // ✅ SI UN DES DEUX A LE CONTACT → INTERDIRE l'invitation
+    if (senderHasContact || receiverHasContact) {
+      console.log('⚠️ Contact existe déjà - invitation interdite');
+      return res.status(400).json({ 
+        error: 'Vous avez déjà ce contact dans votre liste. Cherchez-le dans vos conversations.'
       });
-
-      // ✅ Vérifier si les contacts existent encore
-      const senderHasContact = await Contact.findOne({
-        owner: senderId,
-        contact: receiverId
-      });
-
-      const receiverHasContact = await Contact.findOne({
-        owner: receiverId,
-        contact: senderId
-      });
-
-      console.log('📇 État contacts:', { 
-        senderHasContact: !!senderHasContact, 
-        receiverHasContact: !!receiverHasContact 
-      });
-
-      // ✅ RÈGLE CORRIGÉE : Si un des deux a encore le contact, on ne peut pas envoyer d'invitation
-      if (senderHasContact || receiverHasContact) {
-        console.log('⚠️ Un des utilisateurs a encore le contact - invitation interdite');
-        return res.status(400).json({ 
-          error: 'Vous avez déjà ce contact dans votre liste',
-          conversation: existingConversation 
-        });
-      }
-
-      // ✅ Si aucun des deux n'a le contact MAIS la conversation n'est pas supprimée par les deux
-      if (!deletedBySender || !deletedByReceiver) {
-        console.log('⚠️ Conversation non supprimée par les deux - invitation interdite');
-        return res.status(400).json({ 
-          error: 'Une conversation existe déjà avec cet utilisateur',
-          conversation: existingConversation 
-        });
-      }
-
-      // ✅ Si les deux ont supprimé la conversation ET aucun n'a le contact → invitation AUTORISÉE
-      console.log('✅ Conversation supprimée par les deux - invitation autorisée');
     }
 
-    // Vérifier s'il existe déjà une invitation en attente
+    // ✅ VÉRIFIER S'IL EXISTE DÉJÀ UNE INVITATION EN ATTENTE
     const existingInvitation = await Invitation.findOne({
       $or: [
         { sender: senderId, receiver: receiverId, status: 'pending' },
@@ -102,7 +60,7 @@ exports.sendInvitation = async (req, res) => {
       return res.status(400).json({ error: 'Une invitation est déjà en attente' });
     }
 
-    // Créer la nouvelle invitation
+    // ✅ CRÉER LA NOUVELLE INVITATION
     const invitation = new Invitation({
       sender: senderId,
       receiver: receiverId,
@@ -122,51 +80,9 @@ exports.sendInvitation = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-// ============================================
-// 📥 RÉCUPÉRER LES INVITATIONS REÇUES
-// ============================================
-exports.getReceivedInvitations = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const invitations = await Invitation.find({
-      receiver: userId,
-      status: 'pending'
-    })
-      .populate('sender', 'name email profilePicture isOnline')
-      .sort({ createdAt: -1 });
-
-    console.log(`✅ Invitations reçues pour ${userId}:`, invitations.length);
-    res.json({ success: true, invitations });
-  } catch (error) {
-    console.error('❌ Erreur getReceivedInvitations:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
 
 // ============================================
-// 📤 RÉCUPÉRER LES INVITATIONS ENVOYÉES
-// ============================================
-exports.getSentInvitations = async (req, res) => {  // CHANGEZ LE NOM ICI
-  try {
-    const userId = req.user._id;
-
-    const invitations = await Invitation.find({
-      sender: userId,  // CHANGEMENT ICI : sender au lieu de receiver
-      status: 'pending'
-    })
-      .populate('receiver', 'name email profilePicture isOnline')  // CHANGEMENT ICI : receiver au lieu de sender
-      .sort({ createdAt: -1 });
-
-    console.log(`✅ Invitations envoyées par ${userId}:`, invitations.length);
-    res.json({ success: true, invitations });
-  } catch (error) {
-    console.error('❌ Erreur getSentInvitations:', error);
-    res.status(500).json({ error: error.message });
-  }
-};
-// ============================================
-// ✅ ACCEPTER UNE INVITATION
+// ✅ ACCEPTER UNE INVITATION - LOGIQUE CORRIGÉE
 // ============================================
 exports.acceptInvitation = async (req, res) => {
   try {
@@ -175,8 +91,10 @@ exports.acceptInvitation = async (req, res) => {
 
     console.log('✅ Acceptation invitation:', { userId, invitationId });
 
-    // ✅ CORRECTION : Récupérer d'abord l'invitation SANS populate
-    const invitation = await Invitation.findById(invitationId);
+    // ✅ Récupérer l'invitation AVEC populate
+    const invitation = await Invitation.findById(invitationId)
+      .populate('sender', 'name email profilePicture')
+      .populate('receiver', 'name email profilePicture');
 
     if (!invitation) {
       console.log('❌ Invitation non trouvée');
@@ -193,16 +111,85 @@ exports.acceptInvitation = async (req, res) => {
     }
 
     // Vérifier les permissions
-    if (invitation.receiver.toString() !== userId.toString()) {
+    if (invitation.receiver._id.toString() !== userId.toString()) {
       console.log('❌ Non autorisé');
       return res.status(403).json({ error: 'Non autorisé' });
     }
 
-    // ✅ CORRECTION : Populate APRÈS les vérifications
-    await invitation.populate('sender', 'name email profilePicture');
-    await invitation.populate('receiver', 'name email profilePicture');
+    const senderId = invitation.sender._id;
+    const receiverId = invitation.receiver._id;
 
-    // ... le reste du code reste le même ...
+    // ✅ CHERCHER OU CRÉER LA CONVERSATION
+    let conversation = await Conversation.findOne({
+      participants: { $all: [senderId, receiverId], $size: 2 },
+      isGroup: false
+    });
+
+    if (conversation) {
+      console.log('🔄 Conversation existante trouvée:', conversation._id);
+      
+      // ✅ SI SUPPRIMÉE, ON RESTAURE
+      if (conversation.deletedBy && conversation.deletedBy.length > 0) {
+        conversation.deletedBy = conversation.deletedBy.filter(
+          item => {
+            const itemUserId = item.userId?.toString();
+            return itemUserId !== senderId.toString() && itemUserId !== receiverId.toString();
+          }
+        );
+        
+        await conversation.save();
+        console.log('✅ Conversation restaurée');
+      }
+    } else {
+      // ✅ CRÉER UNE NOUVELLE CONVERSATION
+      conversation = new Conversation({
+        participants: [senderId, receiverId],
+        isGroup: false,
+        deletedBy: []
+      });
+      await conversation.save();
+      console.log('✅ Nouvelle conversation créée:', conversation._id);
+    }
+
+    // ✅ CRÉER OU METTRE À JOUR LES CONTACTS (SANS VÉRIFICATION PRÉALABLE)
+    // Contact 1 : sender -> receiver
+    await Contact.findOneAndUpdate(
+      { owner: senderId, contact: receiverId },
+      { 
+        conversation: conversation._id,
+        isFavorite: false,
+        isBlocked: false
+      },
+      { upsert: true, new: true }
+    );
+    console.log('✅ Contact créé/mis à jour: sender -> receiver');
+
+    // Contact 2 : receiver -> sender
+    await Contact.findOneAndUpdate(
+      { owner: receiverId, contact: senderId },
+      { 
+        conversation: conversation._id,
+        isFavorite: false,
+        isBlocked: false
+      },
+      { upsert: true, new: true }
+    );
+    console.log('✅ Contact créé/mis à jour: receiver -> sender');
+
+    // ✅ MARQUER L'INVITATION COMME ACCEPTÉE
+    invitation.status = 'accepted';
+    await invitation.save();
+
+    // Populate la conversation pour la réponse
+    await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
+
+    console.log('✅ Invitation acceptée avec succès');
+
+    res.json({
+      success: true,
+      invitation,
+      conversation
+    });
   } catch (error) {
     console.error('❌ Erreur acceptInvitation:', error);
     res.status(500).json({ 
@@ -211,8 +198,6 @@ exports.acceptInvitation = async (req, res) => {
     });
   }
 };
-
-
 
 // ============================================
 // ❌ REFUSER UNE INVITATION
@@ -271,6 +256,50 @@ exports.cancelInvitation = async (req, res) => {
     res.json({ success: true, message: 'Invitation annulée' });
   } catch (error) {
     console.error('❌ Erreur cancelInvitation:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ============================================
+// 📥 RÉCUPÉRER LES INVITATIONS REÇUES
+// ============================================
+exports.getReceivedInvitations = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const invitations = await Invitation.find({
+      receiver: userId,
+      status: 'pending'
+    })
+      .populate('sender', 'name email profilePicture isOnline')
+      .sort({ createdAt: -1 });
+
+    console.log(`✅ Invitations reçues pour ${userId}:`, invitations.length);
+    res.json({ success: true, invitations });
+  } catch (error) {
+    console.error('❌ Erreur getReceivedInvitations:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ============================================
+// 📤 RÉCUPÉRER LES INVITATIONS ENVOYÉES
+// ============================================
+exports.getSentInvitations = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const invitations = await Invitation.find({
+      sender: userId,
+      status: 'pending'
+    })
+      .populate('receiver', 'name email profilePicture isOnline')
+      .sort({ createdAt: -1 });
+
+    console.log(`✅ Invitations envoyées par ${userId}:`, invitations.length);
+    res.json({ success: true, invitations });
+  } catch (error) {
+    console.error('❌ Erreur getSentInvitations:', error);
     res.status(500).json({ error: error.message });
   }
 };

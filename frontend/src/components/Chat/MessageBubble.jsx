@@ -225,15 +225,9 @@ export default function MessageBubble({
 
   const handleReply = (e) => {
     e.stopPropagation();
-    console.log('🔍 DEBUT handleReply');
-    console.log('Message ID:', message._id);
-    console.log('Message content:', message.content);
     
     if (onReply) {
-      console.log('✅ onReply existe, appel en cours...');
       onReply(message._id, message.content, message.sender);
-    } else {
-      console.error('❌ onReply est undefined !');
     }
     
     setShowMenu(false);
@@ -265,7 +259,6 @@ export default function MessageBubble({
   };
 
   const handleTranslate = async (targetLang) => {
-    console.log('🔍 Traduction vers:', targetLang);
     setIsTranslating(true);
     setShowLanguageMenu(false);
     
@@ -276,7 +269,6 @@ export default function MessageBubble({
         }
         
         const translated = await onTranslate(message.content, message._id, targetLang);
-        console.log('✅ Traduction reçue:', translated);
         
         setTranslatedText(translated);
         setIsTranslated(true);
@@ -330,7 +322,7 @@ export default function MessageBubble({
   const renderReactions = () => {
     if (!message.reactions || message.reactions.length === 0) return null;
     return (
-      <div className={`flex ${isMine ? 'justify-start' : 'justify-end'} -mt-2 ${isMine ? 'mr-2' : 'ml-10'}`}>
+      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} mt-2 mb-1`}>
         <MessageReactions
           reactions={message.reactions}
           onReactionClick={handleReaction}
@@ -368,10 +360,51 @@ export default function MessageBubble({
             </div>
           )}
           <div 
-            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
+            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
+            {/* ORDRE: 3 POINTS → REACTION */}
+            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
+              {/* MENU 3 POINTS */}
+              <div className="relative">
+                <button
+                  onClick={handleMenuToggle}
+                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </button>
+
+                {showMenu && (
+                  <div 
+                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
+
+                    {isMine && (
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* REACTION PICKER */}
+              <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+            </div>
+
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
               <div 
                 className="relative w-full h-44 sm:h-52 bg-black rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 cursor-pointer"
@@ -483,7 +516,6 @@ export default function MessageBubble({
                 {renderStatus()}
               </span>
             </div>
-            <ReactionPicker onSelect={handleReaction} isMine={isMine} />
           </div>
         </div>
         {renderReactions()}
@@ -517,10 +549,51 @@ export default function MessageBubble({
             </div>
           )}
           <div 
-            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
+            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
+            {/* ORDRE: 3 POINTS → REACTION */}
+            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
+              {/* MENU 3 POINTS */}
+              <div className="relative">
+                <button
+                  onClick={handleMenuToggle}
+                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </button>
+
+                {showMenu && (
+                  <div 
+                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
+
+                    {isMine && (
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* REACTION PICKER */}
+              <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+            </div>
+
             <div className="flex flex-col max-w-xs lg:max-w-md">
               <VoiceMessage
                 voiceUrl={message.voiceUrl}
@@ -535,7 +608,6 @@ export default function MessageBubble({
                 {renderStatus()}
               </span>
             </div>
-            <ReactionPicker onSelect={handleReaction} isMine={isMine} />
           </div>
         </div>
         {renderReactions()}
@@ -570,10 +642,51 @@ export default function MessageBubble({
             </div>
           )}
           <div 
-            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
+            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
+            {/* ORDRE: 3 POINTS → REACTION */}
+            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
+              {/* MENU 3 POINTS */}
+              <div className="relative">
+                <button
+                  onClick={handleMenuToggle}
+                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </button>
+
+                {showMenu && (
+                  <div 
+                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
+
+                    {isMine && (
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* REACTION PICKER */}
+              <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+            </div>
+
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
               <div 
                 className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer"
@@ -594,108 +707,12 @@ export default function MessageBubble({
                   </div>
                 )}
               </div>
+              
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
             </div>
-            <ReactionPicker onSelect={handleReaction} isMine={isMine} />
-          </div>
-        </div>
-        {renderReactions()}
-      </div>
-    );
-  };
-
-  // ========================================
-  // 📁 RENDU MESSAGE FICHIER
-  // ========================================
-  const renderFileMessage = () => {
-    const fileType = getFileType();
-    const avatarUrl = message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=0ea5e9&color=fff`;
-
-    return (
-      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-        {!isMine && isGroup && (
-          <p className="text-xs font-semibold text-blue-700 mb-1 ml-2">
-            {message.sender?.name}
-          </p>
-        )}
-        <div className={`flex items-center gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
-          {!isMine && (
-            <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
-              <Image 
-                src={avatarUrl} 
-                alt={message.sender?.name || 'User'} 
-                fill 
-                sizes="32px"
-                className="object-cover" 
-              />
-            </div>
-          )}
-          <div 
-            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
-            <div className={`max-w-xs ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div className={`p-5 rounded-3xl flex items-center gap-4 shadow-lg transition-all transform hover:scale-[1.02] ${
-                isMine 
-                  ? 'bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 text-white' 
-                  : 'bg-white text-slate-800 border-2 border-blue-100'
-              }`}>
-                <div className="shrink-0 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-                  {fileType === 'audio' ? (
-                    <Mic className="w-6 h-6" />
-                  ) : (
-                    <File className="w-6 h-6" />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold truncate text-base">
-                    {message.fileName || 'Fichier'}
-                  </p>
-                  <p className="text-xs opacity-80 mt-1 font-medium">
-                    {formatFileSize(message.fileSize)}
-                  </p>
-                  {message.content && (
-                    <p className="text-xs mt-2 opacity-90">{message.content}</p>
-                  )}
-                </div>
-                
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={handleOpenFile}
-                    className={`p-2.5 rounded-xl transition transform hover:scale-110 active:scale-95 ${
-                      isMine 
-                        ? 'bg-white/20 hover:bg-white/30 text-white' 
-                        : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
-                    }`}
-                    title="Ouvrir le fichier"
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                  </button>
-                  
-                  <button
-                    onClick={handleDownload}
-                    className={`p-2.5 rounded-xl transition transform hover:scale-110 active:scale-95 ${
-                      isMine 
-                        ? 'bg-white/20 hover:bg-white/30 text-white' 
-                        : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
-                    }`}
-                    title="Télécharger le fichier"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              <span className={`text-xs mt-2 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
-                {formatTime(message.createdAt)}
-                {renderStatus()}
-              </span>
-            </div>
-            <ReactionPicker onSelect={handleReaction} isMine={isMine} />
           </div>
         </div>
         {renderReactions()}
@@ -716,17 +733,8 @@ export default function MessageBubble({
             {message.sender?.name}
           </span>
         )}
-        <div 
-          className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'} relative`}
-          onMouseEnter={() => {
-            setShowTranslateIcon(true);
-            setIsHovered(true);
-          }}
-          onMouseLeave={() => {
-            setShowTranslateIcon(false);
-            setIsHovered(false);
-          }}
-        >
+      
+        <div className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
           {!isMine && (
             <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
               <Image
@@ -739,61 +747,124 @@ export default function MessageBubble({
             </div>
           )}
 
-          <div className="relative flex items-center gap-2">
-            {/* MENU 3 POINTS - POUR TOUS LES MESSAGES */}
-            <div className="relative">
-              <button
-                onClick={handleMenuToggle}
-                className="p-1 rounded-full hover:bg-gray-200 transition"
-              >
-                <MoreVertical className="w-4 h-4 text-gray-600" />
-              </button>
-
-              {showMenu && (
-                <div 
-                  className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]"
-                  onClick={(e) => e.stopPropagation()}
+          {/* CONTENEUR PRINCIPAL AVEC GESTION DU SURVOL */}
+          <div 
+            className={`relative flex items-center gap-2 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
+            onMouseEnter={() => {
+              setShowTranslateIcon(true);
+              setIsHovered(true);
+            }}
+            onMouseLeave={() => {
+              setShowTranslateIcon(false);
+              setIsHovered(false);
+            }}
+          >
+            {/* ORDRE: 3 POINTS → REACTION → TRADUCTION */}
+            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
+              {/* MENU 3 POINTS */}
+              <div className="relative">
+                <button
+                  onClick={handleMenuToggle}
+                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
                 >
-                  {/* ✅ BOUTON RÉPONDRE - POUR TOUS */}
-                  <button
-                    onClick={handleReply}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </button>
+
+                {showMenu && (
+                  <div 
+                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <Reply className="w-4 h-4" />
-                    Répondre
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
+
+                    {isMine && (
+                      <>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Supprimer
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* REACTION PICKER - VISIBLE */}
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+              </div>
+
+              {/* BOUTON TRADUCTION */}
+              {showTranslateIcon && (
+                <div className="relative">
+                  <button
+                    onClick={handleTranslateClick}
+                    disabled={isTranslating}
+                    className={`p-2 rounded-full transition transform hover:scale-110 ${
+                      isTranslated 
+                        ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
+                    }`}
+                    title={isTranslated ? 'Voir le texte original' : 'Traduire ce message'}
+                  >
+                    {isTranslating ? (
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    ) : isTranslated ? (
+                      <RotateCcw className="w-4 h-4" />
+                    ) : (
+                      <Languages className="w-4 h-4" />
+                    )}
                   </button>
 
-                  {/* ✅ BOUTONS MODIFIER ET SUPPRIMER - UNIQUEMENT POUR MES MESSAGES */}
-                  {isMine && (
-                    <>
-                      <button
-                        onClick={handleEdit}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        Modifier
-                      </button>
-                      <button
-                        onClick={handleDelete}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer
-                      </button>
-                    </>
+                  {/* MENU LANGUES */}
+                  {showLanguageMenu && (
+                    <div 
+                      className={`absolute bottom-full mb-2 ${isMine ? 'right-0' : 'left-0'} bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50 min-w-[200px] max-h-[300px] overflow-y-auto`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-3 py-2 border-b border-gray-200">
+                        <p className="text-xs font-semibold text-gray-600">Traduire en :</p>
+                      </div>
+                      {languages.map((lang) => (
+                        <button
+                          key={lang.code}
+                          onClick={() => handleTranslate(lang.code)}
+                          className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
+                        >
+                          <span className="text-2xl">{lang.flag}</span>
+                          <span className="text-sm text-gray-700">{lang.name}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
+            {/* BULLE DE MESSAGE */}
             <div
               className={`max-w-xs lg:max-w-md xl:max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
                 isMine
-                  ? 'bg-linear-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
+                  ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
                   : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
               }`}
             >
-              {/* 🆕 AFFICHAGE DU MESSAGE CITÉ */}
               {message.replyTo && (
                 <div className={`mb-2 p-2 rounded-lg border-l-4 ${
                   isMine 
@@ -813,7 +884,6 @@ export default function MessageBubble({
                 </div>
               )}
               
-              {/* ✅ AFFICHAGE DU TEXTE : traduit ou original */}
               <p className="text-sm wrap-break-word whitespace-pre-wrap leading-relaxed">
                 {isTranslated ? translatedText : message.content}
               </p>
@@ -827,58 +897,256 @@ export default function MessageBubble({
                 {renderStatus()}
               </span>
             </div>
+          </div>
+        </div>
+        
+        {renderReactions()}
+        {renderTimestamp()}
+      </div>
+    );
+  };
 
-            {/* BOUTON TRADUCTION */}
-            {showTranslateIcon && (
+  // ========================================
+  // 📁 RENDU MESSAGE FICHIER
+  // ========================================
+  const renderFileMessage = () => {
+    const avatarUrl = message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+
+    return (
+      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+        {!isMine && isGroup && (
+          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+            {message.sender?.name}
+          </span>
+        )}
+        <div className={`flex items-start gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+          {!isMine && (
+            <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0 self-end">
+              <Image 
+                src={avatarUrl} 
+                alt={message.sender?.name || 'User'} 
+                fill 
+                sizes="32px"
+                className="object-cover" 
+              />
+            </div>
+          )}
+          <div 
+            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {/* ORDRE: 3 POINTS → REACTION */}
+            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
+              {/* MENU 3 POINTS */}
               <div className="relative">
                 <button
-                  onClick={handleTranslateClick}
-                  disabled={isTranslating}
-                  className={`p-2 rounded-full transition transform hover:scale-110 ${
-                    isTranslated 
-                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                      : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
-                  }`}
-                  title={isTranslated ? 'Voir le texte original' : 'Traduire ce message'}
+                  onClick={handleMenuToggle}
+                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
                 >
-                  {isTranslating ? (
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                  ) : isTranslated ? (
-                    <RotateCcw className="w-4 h-4" />
-                  ) : (
-                    <Languages className="w-4 h-4" />
-                  )}
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
                 </button>
 
-                {/* MENU LANGUES */}
-                {showLanguageMenu && (
+                {showMenu && (
                   <div 
-                    className="absolute bottom-full mb-2 right-0 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50 min-w-[200px] max-h-[300px] overflow-y-auto"
+                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="px-3 py-2 border-b border-gray-200">
-                      <p className="text-xs font-semibold text-gray-600">Traduire en :</p>
-                    </div>
-                    {languages.map((lang) => (
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
+
+                    {isMine && (
                       <button
-                        key={lang.code}
-                        onClick={() => handleTranslate(lang.code)}
-                        className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
+                        onClick={handleDelete}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
                       >
-                        <span className="text-2xl">{lang.flag}</span>
-                        <span className="text-sm text-gray-700">{lang.name}</span>
+                        <Trash2 className="w-4 h-4" />
+                        Supprimer
                       </button>
-                    ))}
+                    )}
                   </div>
                 )}
               </div>
-            )}
 
-            <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+              {/* REACTION PICKER */}
+              <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+            </div>
+
+            <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
+              <div 
+                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
+              >
+                <div className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
+                    <File className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate" title={message.fileName}>
+                      {message.fileName}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {formatFileSize(message.fileSize)}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={handleOpenFile}
+                      className="p-2 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
+                      title="Ouvrir"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handleDownload}
+                      className="p-2 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
+                      title="Télécharger"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                {message.content && (
+                  <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
+                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                  </div>
+                )}
+              </div>
+              
+              <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
+                {formatTime(message.createdAt)}
+                {renderStatus()}
+              </span>
+            </div>
           </div>
         </div>
         {renderReactions()}
-        {renderTimestamp()}
+      </div>
+    );
+  };
+
+  // ========================================
+  // 🎵 RENDU MESSAGE AUDIO
+  // ========================================
+  const renderAudioMessage = () => {
+    const avatarUrl = message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+
+    return (
+      <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+        {!isMine && isGroup && (
+          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+            {message.sender?.name}
+          </span>
+        )}
+        <div className={`flex items-start gap-2 ${isMine ? 'flex-row-reverse animate-slide-in-right' : 'flex-row animate-slide-in-left'}`}>
+          {!isMine && (
+            <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0 self-end">
+              <Image 
+                src={avatarUrl} 
+                alt={message.sender?.name || 'User'} 
+                fill 
+                sizes="32px"
+                className="object-cover" 
+              />
+            </div>
+          )}
+          <div 
+            className={`relative flex items-center gap-1 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {/* ORDRE: 3 POINTS → REACTION */}
+            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
+              {/* MENU 3 POINTS */}
+              <div className="relative">
+                <button
+                  onClick={handleMenuToggle}
+                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-600" />
+                </button>
+
+                {showMenu && (
+                  <div 
+                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
+
+                    {isMine && (
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Supprimer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* REACTION PICKER */}
+              <ReactionPicker onSelect={handleReaction} isMine={isMine} />
+            </div>
+
+            <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
+              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
+                <div className="p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
+                    <Mic className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate" title={message.fileName}>
+                      {message.fileName || 'Fichier audio'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {formatFileSize(message.fileSize)}
+                      {message.audioDuration && ` • ${formatDuration(message.audioDuration)}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={handleOpenFile}
+                      className="p-2 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
+                      title="Écouter"
+                    >
+                      <Play className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handleDownload}
+                      className="p-2 rounded-full hover:bg-blue-50 text-blue-600 transition-colors"
+                      title="Télécharger"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                {message.content && (
+                  <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
+                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                  </div>
+                )}
+              </div>
+              
+              <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
+                {formatTime(message.createdAt)}
+                {renderStatus()}
+              </span>
+            </div>
+          </div>
+        </div>
+        {renderReactions()}
       </div>
     );
   };
@@ -887,22 +1155,19 @@ export default function MessageBubble({
   // 🎯 RENDU PRINCIPAL
   // ========================================
   const fileType = getFileType();
-  
-  if (fileType === 'voice') {
-    return renderVoiceMessage();
-  }
 
-  if (fileType === 'video') {
-    return renderVideoMessage();
+  switch (fileType) {
+    case 'video':
+      return renderVideoMessage();
+    case 'voice':
+      return renderVoiceMessage();
+    case 'image':
+      return renderImageMessage();
+    case 'file':
+      return renderFileMessage();
+    case 'audio':
+      return renderAudioMessage();
+    default:
+      return renderTextMessage();
   }
-
-  if (fileType === 'image') {
-    return renderImageMessage();
-  }
-  
-  if (fileType !== 'text') {
-    return renderFileMessage();
-  }
-
-  return renderTextMessage();
 }

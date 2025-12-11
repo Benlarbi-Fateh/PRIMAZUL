@@ -417,83 +417,87 @@ useEffect(() => {
   };
 
   const handleAcceptInvitation = async (invitationId) => {
-    try {
-      const response = await acceptInvitation(invitationId);
-      const { invitation, conversation } = response.data || {};
-
-      setReceivedInvitations((prev) =>
-        prev.filter((inv) => inv._id !== invitationId)
-      );
-
-      if (conversation) {
-        setConversations((prev) => [conversation, ...prev]);
-      }
-
-      if (user && invitation?.sender?._id) {
-        try {
-          await addContact({
-            owner: user._id || user.id,
-            contact: invitation.sender._id,
-          });
-          } catch (error) {
-    console.error("Erreur acceptation invitation (brute):", error);
+  try {
+    setLoading(true);
     
-    // ✅ AJOUTEZ CE BLOQUET ICI
+    const response = await acceptInvitation(invitationId);
+    const { invitation, conversation } = response.data || {};
+
+    if (!invitation || invitation.status !== 'accepted') {
+      throw new Error('Invitation non valide');
+    }
+
+    // 1. Supprimer l'invitation des listes frontend
+    setReceivedInvitations((prev) =>
+      prev.filter((inv) => inv._id !== invitationId)
+    );
+
+    // 2. Ajouter la conversation à la liste SI elle n'existe pas déjà
+    if (conversation) {
+      setConversations((prev) => {
+        const exists = prev.some((conv) => conv._id === conversation._id);
+        if (!exists) {
+          return [conversation, ...prev];
+        }
+        return prev;
+      });
+    }
+
+    // 3. Émettre l'événement socket
+    if (invitation && conversation) {
+      emitInvitationAccepted({
+        senderId: invitation.sender._id,
+        invitation,
+        conversation,
+      });
+    }
+
+    // 4. Rafraîchir la liste des conversations (important)
+    setTimeout(() => {
+      fetchConversations();
+    }, 500);
+
+    // 5. Naviguer vers la conversation
+    setActiveTab("chats");
+    if (conversation?._id) {
+      router.push(`/chat/${conversation._id}`);
+    }
+
+    // 6. Afficher un message de succès
+    alert("✅ Invitation acceptée avec succès !");
+    
+  } catch (error) {
+    console.error("Erreur acceptation invitation:", error);
+    
+    // Gestion spécifique des erreurs
     if (error.response?.status === 409) {
-      console.log("Invitation déjà traitée:", error.response.data);
-      
-      // Afficher message utilisateur
+      // Invitation déjà traitée
       alert("Cette invitation a déjà été acceptée ou n'est plus valable.");
       
-      // Rafraîchir les invitations
+      // Rafraîchir les données
       await fetchInvitations();
-      
-      // Rafraîchir les conversations
       await fetchConversations();
       
-      return;
-    }
-    
-    // Gestion des autres erreurs
-    if (error?.response) {
-      console.error("Status:", error.response.status);
-      console.error("Data:", error.response.data);
-      alert(
-        error?.response?.data?.error ||
-          error?.message ||
-          "Erreur lors de l'acceptation de l'invitation"
-      );
+    } else if (error.response?.data?.error?.includes("déjà ce contact")) {
+      // Contact déjà existant (normal, car le backend l'a créé)
+      alert("✅ Contact ajouté avec succès !");
+      
+      // Rafraîchir quand même
+      await fetchInvitations();
+      await fetchConversations();
+      
     } else {
-      alert("Erreur réseau ou serveur inaccessible");
-    }
-  }
-      }
-
-      if (invitation && conversation) {
-        emitInvitationAccepted({
-          senderId: invitation.sender._id,
-          invitation,
-          conversation,
-        });
-      }
-
-      setActiveTab("chats");
-      if (conversation?._id) {
-        router.push(`/chat/${conversation._id}`);
-      }
-    } catch (error) {
-      console.error("Erreur acceptation invitation (brute):", error);
-      if (error?.response) {
-        console.error("Status:", error.response.status);
-        console.error("Data:", error.response.data);
-      }
+      // Erreur générale
       alert(
-        error?.response?.data?.error ||
-          error?.message ||
-          "Erreur lors de l'acceptation de l'invitation"
+        error.response?.data?.error ||
+        error.message ||
+        "Erreur lors de l'acceptation de l'invitation"
       );
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRejectInvitation = async (invitationId, senderId) => {
     try {

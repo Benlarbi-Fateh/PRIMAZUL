@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    turbo: false,   // <--- désactive Turbopack (corrige ton bug)
+  },
   reactCompiler: true,
   images: {
     remotePatterns: [
