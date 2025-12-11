@@ -148,6 +148,17 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 CORS autorisé pour: http://localhost:3000, http://192.168.1.7:3000`);
   console.log(`📊 Routes chargées: auth, users, conversations, messages, upload, audio, groups, invitations, contacts, status, profile`);
 });
-
+// Dans server.js, ajoutez une route test globale
+app.get('/api/test-simple', (req, res) => {
+  console.log('🧪 Route test simple appelée');
+  res.json({
+    success: true,
+    message: 'Backend fonctionne!',
+    data: [
+      { id: 1, text: 'Test 1' },
+      { id: 2, text: 'Test 2' }
+    ]
+  });
+});
 // Export pour les tests
 module.exports = { app, server, io };

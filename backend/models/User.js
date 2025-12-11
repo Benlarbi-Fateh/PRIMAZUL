@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema(
       maxlength: 100,
     },
 
-    // Statut et présence
+    // Statut et présence - ⚠️ CORRECTION : Enlever les doublons
     status: { type: String, default: "Hey there! I'm using PrimAzul" },
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
@@ -109,14 +109,23 @@ const userSchema = new mongoose.Schema(
     // Réinitialisation mot de passe
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
-    status: { type: String, default: "Hey there! I'm using WhatsApp" },
-    isOnline: { type: Boolean, default: false },
 
-
-    // 🔥 Champs ajoutés pour changement d’email
+    // 🔥 Champs ajoutés pour changement d'email
     pendingEmail: { type: String },
     emailVerificationCode: { type: String },
     emailCodeExpires: { type: Date },
+    
+    // ⭐ AJOUTEZ CE CHAMP POUR LES STATUS
+    statuses: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Status'
+    }],
+    
+    // ⭐ AJOUTEZ CE CHAMP POUR LES AMIS/CONTACTS
+    friends: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }]
   },
   {
     timestamps: true,
@@ -127,5 +136,26 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ username: 1 });
 userSchema.index({ email: 1 });
 userSchema.index({ name: "text" });
+
+// ⭐ AJOUTEZ CES MÉTHODES UTILES
+userSchema.methods.isContact = function(otherUserId) {
+  return this.friends.some(friendId => 
+    friendId.toString() === otherUserId.toString()
+  );
+};
+
+userSchema.methods.addFriend = async function(friendId) {
+  if (!this.friends.includes(friendId)) {
+    this.friends.push(friendId);
+    await this.save();
+  }
+};
+
+userSchema.methods.removeFriend = async function(friendId) {
+  this.friends = this.friends.filter(id => 
+    id.toString() !== friendId.toString()
+  );
+  await this.save();
+};
 
 module.exports = mongoose.model("User", userSchema);
