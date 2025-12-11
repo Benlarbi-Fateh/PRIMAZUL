@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Smile, Paperclip, Mic, X, Loader2 } from 'lucide-react';
+import { Send, Smile, Paperclip, Mic, X, Loader2, MessageCircle } from 'lucide-react';
 import api from '@/lib/api';
 import VoiceRecorder from './VoiceRecorder';
 
-export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) {
+export default function MessageInput({ onSendMessage, onTyping, onStopTyping, conversationId, storyReply }) {
   const [message, setMessage] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -15,6 +15,20 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
   const typingTimeoutRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  // 🆕 INITIALISER LE MESSAGE SI C'EST UNE RÉPONSE À UNE STORY
+  useEffect(() => {
+    if (storyReply) {
+      setMessage(`@story "${storyReply.preview}" `);
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(
+          textareaRef.current.value.length,
+          textareaRef.current.value.length
+        );
+      }, 100);
+    }
+  }, [storyReply]);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -42,7 +56,23 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
     
     if (!message.trim() && !uploading) return;
 
-    onSendMessage(message.trim());
+    // 🆕 SI C'EST UNE RÉPONSE À UNE STORY
+    if (storyReply) {
+      onSendMessage({
+        content: message.trim(),
+        type: 'story_reply',
+        isStoryReply: true,
+        storyId: storyReply.id,
+        storyType: storyReply.type,
+        storyPreview: storyReply.preview,
+        // Retirer le préfixe @story si présent
+        cleanContent: message.trim().replace(/^@story\s*"[^"]*"\s*/, '')
+      });
+    } else {
+      // Message normal
+      onSendMessage(message.trim());
+    }
+    
     setMessage('');
     
     if (onStopTyping) onStopTyping();
@@ -133,6 +163,14 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
   const frequentEmojis = ['😊', '😂', '❤️', '👍', '🙏', '🔥', '✨', '💯', '🎉', '👏'];
 
+  // 🆕 FONCTION POUR ANNULER LA RÉPONSE À LA STORY
+  const cancelStoryReply = () => {
+    setMessage('');
+    if (storyReply && storyReply.onCancel) {
+      storyReply.onCancel();
+    }
+  };
+
   if (showVoiceRecorder) {
     return (
       <VoiceRecorder
@@ -144,6 +182,30 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
   return (
     <div className="bg-slate-50 border-t border-slate-200">
+      {/* 🆕 BANNIÈRE POUR LES RÉPONSES AUX STORIES */}
+      {storyReply && (
+        <div className="bg-blue-50 border-b border-blue-200 p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-blue-600" />
+            <div>
+              <span className="text-sm text-blue-700 font-medium">
+                Réponse à une story
+              </span>
+              <p className="text-xs text-blue-600 truncate max-w-xs">
+                {storyReply.preview}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={cancelStoryReply}
+            className="text-blue-500 hover:text-blue-700 p-1 rounded-full hover:bg-blue-100 transition-colors"
+            title="Annuler la réponse"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {showEmojiPicker && (
         <div className="border-b border-slate-200 p-3 bg-white">
           <div className="flex items-center justify-between mb-2">
@@ -176,7 +238,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
           isFocused 
             ? 'ring-2 ring-blue-500 bg-white shadow-sm' 
             : 'bg-white border border-slate-300'
-        }`}>
+        } ${storyReply ? 'ring-2 ring-blue-300' : ''}`}>
           
           {/* Boutons d'actions */}
           <div className="flex items-center gap-1 shrink-0">
@@ -231,7 +293,11 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={uploading ? "Upload en cours..." : "Écrivez votre message..."}
+              placeholder={
+                uploading ? "Upload en cours..." : 
+                storyReply ? "Votre réponse à la story..." : 
+                "Écrivez votre message..."
+              }
               className="w-full bg-transparent px-3 py-2.5 text-slate-800 placeholder-slate-500 focus:outline-none resize-none rounded-lg text-sm leading-5 overflow-hidden"
               rows="1"
               style={{ 
@@ -244,19 +310,24 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
 
           {/* Bouton d'envoi ou vocal */}
           <div className="flex items-center gap-1 shrink-0">
-            {message.trim() || uploading ? (
+            {(message.trim() || uploading) ? (
               <button
                 type="submit"
                 disabled={uploading || (!message.trim() && !uploading)}
                 className={`p-2.5 rounded-xl transition ${
                   uploading 
                     ? 'bg-slate-400 cursor-not-allowed text-white' 
-                    : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
+                    : storyReply 
+                      ? 'bg-green-500 hover:bg-green-600 text-white shadow-md hover:shadow-lg'
+                      : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
                 }`}
-                title={uploading ? "Upload en cours..." : "Envoyer"}
+                title={uploading ? "Upload en cours..." : 
+                       storyReply ? "Envoyer la réponse" : "Envoyer"}
               >
                 {uploading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
+                ) : storyReply ? (
+                  <MessageCircle className="w-5 h-5" />
                 ) : (
                   <Send className="w-5 h-5" />
                 )}
@@ -265,7 +336,7 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
               <button
                 type="button"
                 onClick={() => setShowVoiceRecorder(true)}
-                className="p-2.5 rounded-xl bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition shadow-md hover:shadow-lg"
+                className="p-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white transition shadow-md hover:shadow-lg"
                 title="Enregistrer un message vocal"
                 disabled={uploading}
               >
@@ -274,6 +345,17 @@ export default function MessageInput({ onSendMessage, onTyping, onStopTyping }) 
             )}
           </div>
         </div>
+
+        {/* 🆕 INDICATEUR DE RÉPONSE À UNE STORY */}
+        {storyReply && !uploading && (
+          <div className="mt-2 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 rounded-lg text-green-700 text-xs border border-green-200">
+              <MessageCircle className="w-3 h-3" />
+              <span>Réponse à une story • {storyReply.type === 'text' ? '📝' : 
+                                           storyReply.type === 'image' ? '🖼️' : '🎥'}</span>
+            </div>
+          </div>
+        )}
 
         {uploading && (
           <div className="mt-2 text-center">

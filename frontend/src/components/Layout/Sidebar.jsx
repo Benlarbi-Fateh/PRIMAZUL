@@ -9,7 +9,6 @@ import {
   addContact,
   getConversations,
   searchUsers,
-  createConversation,
   sendInvitation,
   getReceivedInvitations,
   getSentInvitations,
@@ -51,7 +50,6 @@ import {
   UserCheck,
   UserX,
   Sparkles,
-  UsersRound,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -626,7 +624,7 @@ export default function Sidebar({ activeConversationId }) {
           </div>
         ) : activeTab === "contacts" ? (
           <div className="animate-fade-in">
-            <Contacts></Contacts>
+            <Contacts />
             {!searchTerm.trim() ? (
               <></>
             ) : usersToDisplay.length === 0 ? (

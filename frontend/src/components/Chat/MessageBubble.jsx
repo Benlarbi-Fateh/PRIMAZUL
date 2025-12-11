@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { File, Mic, Download, ExternalLink, Check, CheckCheck } from 'lucide-react';
+import { File, Mic, Download, ExternalLink, Check, CheckCheck, MessageCircle, Reply } from 'lucide-react';
 import Image from 'next/image';
 import VoiceMessage from './VoiceMessage';
 
@@ -25,7 +25,13 @@ export function DateSeparator({ date }) {
   );
 }
 
-export default function MessageBubble({ message, isMine, isGroup, isLast = false }) {
+export default function MessageBubble({ 
+  message, 
+  isMine, 
+  isGroup, 
+  isLast = false,
+  onReplyToStory // Nouvelle prop pour gérer les réponses aux stories
+}) {
   const [isHovered, setIsHovered] = useState(false);
 
   const formatTime = (date) => {
@@ -41,6 +47,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     if (message.type === 'audio') return 'audio';
     if (message.type === 'file') return 'file';
     if (message.type === 'voice') return 'voice';
+    if (message.type === 'story_reply') return 'story_reply';
     return 'text';
   };
 
@@ -64,9 +71,24 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     }
   };
 
+  const handleReplyToStory = () => {
+    if (onReplyToStory && (message.isStoryReply || message.isStoryReaction)) {
+      onReplyToStory({
+        id: message.storyId,
+        type: message.storyType,
+        preview: message.storyPreview,
+        messageId: message.id
+      });
+    }
+  };
+
   const status = message.status || 'sent';
   const fileType = getFileType();
   const avatarUrl = message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'U')}&background=6366f1&color=fff`;
+  
+  // Vérifier si c'est une réponse à une story
+  const isStoryReply = message.isStoryReply || message.type === 'story_reply';
+  const isStoryReaction = message.isStoryReaction;
 
   // Afficher le timestamp si hover OU si c'est le dernier message
   const showTimestamp = isHovered || isLast;
@@ -85,6 +107,22 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     </div>
   );
 
+  // En-tête pour les réponses aux stories
+  const renderStoryReplyHeader = () => {
+    if (!isStoryReply && !isStoryReaction) return null;
+    
+    return (
+      <div className={`mb-2 pb-2 ${isMine ? 'border-b border-blue-200/30' : 'border-b border-slate-200'}`}>
+        <div className={`flex items-center gap-2 text-xs font-medium ${isMine ? 'text-blue-100' : 'text-slate-500'}`}>
+          <MessageCircle className="w-3.5 h-3.5" />
+          <span>
+            {isStoryReaction ? 'Réaction à votre story' : 'Réponse à votre story'}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   // Voice Message
   if (fileType === 'voice') {
     return (
@@ -101,8 +139,15 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
           <div 
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            className={`${isStoryReply ? 'border-l-4 border-green-500' : ''}`}
           >
-            <VoiceMessage voiceUrl={message.voiceUrl} voiceDuration={message.voiceDuration} isMine={isMine} isGroup={isGroup} sender={message.sender} />
+            <VoiceMessage 
+              voiceUrl={message.voiceUrl} 
+              voiceDuration={message.voiceDuration} 
+              isMine={isMine} 
+              isGroup={isGroup} 
+              sender={message.sender} 
+            />
           </div>
         </div>
         {renderTimestamp()}
@@ -124,11 +169,12 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
             </div>
           )}
           <div 
-            className={`rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer group ${isMine ? 'rounded-br-md' : 'rounded-bl-md'}`}
+            className={`rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer group ${isMine ? 'rounded-br-md' : 'rounded-bl-md'} ${isStoryReply ? 'border-l-4 border-green-500' : ''}`}
             onClick={handleOpenFile}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
+            {renderStoryReplyHeader()}
             <div className="relative w-56 h-44 sm:w-64 sm:h-52 bg-slate-100">
               <Image 
                 src={message.fileUrl} 
@@ -150,7 +196,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
   }
 
   // File Message
-  if (fileType !== 'text') {
+  if (fileType !== 'text' && fileType !== 'story_reply') {
     return (
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
@@ -163,10 +209,11 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
             </div>
           )}
           <div 
-            className={`p-3 rounded-2xl flex items-center gap-3 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md'}`}
+            className={`p-3 rounded-2xl flex items-center gap-3 ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md'} ${isStoryReply ? 'border-l-4 border-green-500' : ''}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
+            {renderStoryReplyHeader()}
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isMine ? 'bg-white/20' : 'bg-blue-50'}`}>
               {fileType === 'audio' ? <Mic className="w-5 h-5" /> : <File className="w-5 h-5" />}
             </div>
@@ -189,7 +236,7 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
     );
   }
 
-  // Text Message
+  // Text Message (y compris les réponses aux stories)
   return (
     <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
       {!isMine && isGroup && (
@@ -202,11 +249,25 @@ export default function MessageBubble({ message, isMine, isGroup, isLast = false
           </div>
         )}
         <div 
-          className={`px-4 py-2.5 rounded-2xl max-w-xs lg:max-w-md ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md'}`}
+          className={`px-4 py-2.5 rounded-2xl max-w-xs lg:max-w-md ${isMine ? 'bg-linear-to-r from-blue-600 to-blue-800 text-white rounded-br-md' : 'bg-white text-slate-700 shadow-sm border border-slate-100 rounded-bl-md'} ${isStoryReply ? 'border-l-4 border-green-500' : ''}`}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
+          {/* En-tête pour les réponses aux stories */}
+          {renderStoryReplyHeader()}
+          
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          
+          {/* Bouton pour répondre à la story (si c'est une réaction ou réponse à une story) */}
+          {(isStoryReaction || isStoryReply) && !isMine && onReplyToStory && (
+            <button
+              onClick={handleReplyToStory}
+              className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <Reply className="w-3 h-3" />
+              Répondre à la story
+            </button>
+          )}
         </div>
       </div>
       {renderTimestamp()}

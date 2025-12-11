@@ -5,6 +5,7 @@ let socket = null;
 let currentUserId = null;
 let onlineUsersCache = [];
 let onlineUsersCallbacks = [];
+let statusCallbacks = new Map(); // 🆕 Callbacks pour les stories
 
 export const initSocket = (userId) => {
   if (typeof window === 'undefined') {
@@ -38,18 +39,69 @@ export const initSocket = (userId) => {
 
   socket.on('connection-confirmed', ({ userId, onlineUsers }) => {
     console.log('✅ Connexion confirmée pour:', userId);
-    console.log('👥 Utilisateurs en ligne:', onlineUsers);
     onlineUsersCache = onlineUsers;
-    // Notifier tous les callbacks
     onlineUsersCallbacks.forEach(callback => callback(onlineUsers));
   });
 
-  // 🆕 AJOUT CRITIQUE : Écouter les mises à jour des utilisateurs en ligne
   socket.on('online-users-update', (userIds) => {
-    console.log('📡 Socket.js - Mise à jour utilisateurs en ligne:', userIds);
+    console.log('📡 Mise à jour utilisateurs en ligne:', userIds);
     onlineUsersCache = userIds;
-    // Notifier tous les callbacks enregistrés
     onlineUsersCallbacks.forEach(callback => callback(userIds));
+  });
+
+  // 🆕 ÉVÉNEMENTS POUR LES STORIES
+  socket.on('status-reacted', (data) => {
+    console.log('🎭 Réaction à une story:', data);
+    const callbacks = statusCallbacks.get(data.statusId);
+    if (callbacks && callbacks.reaction) {
+      callbacks.reaction(data);
+    }
+  });
+
+  socket.on('status-replied', (data) => {
+    console.log('💬 Réponse à une story:', data);
+    const callbacks = statusCallbacks.get(data.statusId);
+    if (callbacks && callbacks.reply) {
+      callbacks.reply(data);
+    }
+  });
+
+  socket.on('status-reaction-update', (data) => {
+    console.log('🔄 Mise à jour réaction:', data);
+    const callbacks = statusCallbacks.get(data.statusId);
+    if (callbacks && callbacks.reactionUpdate) {
+      callbacks.reactionUpdate(data);
+    }
+  });
+
+  socket.on('status-reply-update', (data) => {
+    console.log('🔄 Mise à jour réponse:', data);
+    const callbacks = statusCallbacks.get(data.statusId);
+    if (callbacks && callbacks.replyUpdate) {
+      callbacks.replyUpdate(data);
+    }
+  });
+
+  socket.on('status-reaction-notification', (data) => {
+    console.log('📢 Notification réaction:', data);
+    // Ici vous pouvez afficher une notification à l'utilisateur
+    if (data.userId !== currentUserId) {
+      showNotification(`${data.userName} a réagi à votre story`, 'reaction');
+    }
+  });
+
+  socket.on('status-reply-notification', (data) => {
+    console.log('📢 Notification réponse:', data);
+    // Ici vous pouvez afficher une notification à l'utilisateur
+    if (data.userId !== currentUserId) {
+      showNotification(`${data.userName} a répondu à votre story`, 'reply');
+    }
+  });
+
+  socket.on('story-reply-notification', (data) => {
+    console.log('📢 Notification réponse dans le chat:', data);
+    // Notification pour les réponses aux stories dans les chats
+    showNotification(`Nouvelle réponse à votre story`, 'chat');
   });
 
   socket.on('conversation-joined', ({ conversationId }) => {
@@ -75,20 +127,99 @@ export const initSocket = (userId) => {
   return socket;
 };
 
-// 🆕 FONCTION POUR ÉCOUTER LES MISES À JOUR DES UTILISATEURS EN LIGNE
+// 🆕 FONCTIONS POUR LES STORIES
+export const joinStatus = (statusId) => {
+  if (socket?.connected) {
+    console.log('📥 Rejoindre story:', statusId);
+    socket.emit('join-status', statusId);
+  }
+};
+
+export const leaveStatus = (statusId) => {
+  if (socket?.connected) {
+    console.log('📤 Quitter story:', statusId);
+    socket.emit('leave-status', statusId);
+  }
+};
+
+export const onStatusReaction = (statusId, callback) => {
+  if (!statusCallbacks.has(statusId)) {
+    statusCallbacks.set(statusId, {});
+  }
+  statusCallbacks.get(statusId).reaction = callback;
+};
+
+export const onStatusReply = (statusId, callback) => {
+  if (!statusCallbacks.has(statusId)) {
+    statusCallbacks.set(statusId, {});
+  }
+  statusCallbacks.get(statusId).reply = callback;
+};
+
+export const onStatusReactionUpdate = (statusId, callback) => {
+  if (!statusCallbacks.has(statusId)) {
+    statusCallbacks.set(statusId, {});
+  }
+  statusCallbacks.get(statusId).reactionUpdate = callback;
+};
+
+export const onStatusReplyUpdate = (statusId, callback) => {
+  if (!statusCallbacks.has(statusId)) {
+    statusCallbacks.set(statusId, {});
+  }
+  statusCallbacks.get(statusId).replyUpdate = callback;
+};
+
+export const removeStatusCallbacks = (statusId) => {
+  statusCallbacks.delete(statusId);
+};
+
+export const emitStatusReaction = (statusId, userId, reactionType) => {
+  if (socket?.connected) {
+    socket.emit('status-react', {
+      statusId,
+      userId,
+      reactionType
+    });
+  }
+};
+
+export const emitStatusReply = (statusId, userId, message) => {
+  if (socket?.connected) {
+    socket.emit('status-reply', {
+      statusId,
+      userId,
+      message
+    });
+  }
+};
+
+// Fonction pour afficher des notifications
+const showNotification = (message, type = 'info') => {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (Notification.permission === 'granted') {
+      new Notification('PrimAzul', {
+        body: message,
+        icon: '/favicon.ico',
+        tag: type
+      });
+    }
+  }
+  
+  // Fallback pour les navigateurs sans Notification API
+  console.log('📢 Notification:', message);
+};
+
 export const onOnlineUsersUpdate = (callback) => {
   if (socket) {
-    // Ajouter le callback à la liste
     onlineUsersCallbacks.push(callback);
     
-    // Retourner une fonction pour se désabonner
     return () => {
       onlineUsersCallbacks = onlineUsersCallbacks.filter(cb => cb !== callback);
     };
   }
 };
 
-// 🆕 FONCTION POUR OBTENIR LES UTILISATEURS EN LIGNE ACTUELS
 export const getCurrentOnlineUsers = () => onlineUsersCache;
 
 const waitForConnection = (maxAttempts = 50) => {
@@ -215,11 +346,6 @@ export const onUserStoppedTyping = (callback) => {
   }
 };
 
-// ============================================
-// 📨 INVITATIONS - FONCTIONS AJOUTÉES
-// ============================================
-
-// Écouter les nouvelles invitations reçues
 export const onInvitationReceived = (callback) => {
   if (socket) {
     socket.off('invitation-received');
@@ -230,7 +356,6 @@ export const onInvitationReceived = (callback) => {
   }
 };
 
-// Écouter les invitations acceptées
 export const onInvitationAccepted = (callback) => {
   if (socket) {
     socket.off('invitation-accepted-notification');
@@ -241,7 +366,6 @@ export const onInvitationAccepted = (callback) => {
   }
 };
 
-// Écouter les invitations refusées
 export const onInvitationRejected = (callback) => {
   if (socket) {
     socket.off('invitation-rejected-notification');
@@ -252,7 +376,6 @@ export const onInvitationRejected = (callback) => {
   }
 };
 
-// Écouter les invitations annulées
 export const onInvitationCancelled = (callback) => {
   if (socket) {
     socket.off('invitation-cancelled-notification');
@@ -263,7 +386,6 @@ export const onInvitationCancelled = (callback) => {
   }
 };
 
-// Émettre un événement d'invitation envoyée
 export const emitInvitationSent = (data) => {
   waitForConnection()
     .then(() => {
@@ -275,7 +397,6 @@ export const emitInvitationSent = (data) => {
     });
 };
 
-// Émettre un événement d'invitation acceptée
 export const emitInvitationAccepted = (data) => {
   waitForConnection()
     .then(() => {
@@ -287,7 +408,6 @@ export const emitInvitationAccepted = (data) => {
     });
 };
 
-// Émettre un événement d'invitation refusée
 export const emitInvitationRejected = (data) => {
   waitForConnection()
     .then(() => {
@@ -299,7 +419,6 @@ export const emitInvitationRejected = (data) => {
     });
 };
 
-// Émettre un événement d'invitation annulée
 export const emitInvitationCancelled = (data) => {
   waitForConnection()
     .then(() => {
@@ -319,6 +438,7 @@ export const disconnectSocket = () => {
     currentUserId = null;
     onlineUsersCache = [];
     onlineUsersCallbacks = [];
+    statusCallbacks.clear();
   }
 };
 

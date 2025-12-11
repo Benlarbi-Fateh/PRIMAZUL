@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { Trash2, Heart, MessageCircle, ThumbsUp } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:5001';
 
@@ -13,7 +14,6 @@ const StatusList = () => {
   const [error, setError] = useState('');
   const { user } = useAuth();
 
-  // Récupérer l'ID utilisateur - essayer différentes propriétés
   const currentUserId = user?.id?.toString() || user?._id?.toString();
 
   const fetchStatuses = async () => {
@@ -56,7 +56,55 @@ const StatusList = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Filtrer les statuts
+  const handleDeleteStatus = async (statusId, e) => {
+    if (e) e.stopPropagation();
+    
+    if (!confirm('Voulez-vous vraiment supprimer ce statut ?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Vous devez être connecté');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/status/${statusId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        await fetchStatuses();
+        
+        if (selectedUser && selectedUser.statuses.some(s => s._id === statusId)) {
+          const updatedStatuses = selectedUser.statuses.filter(s => s._id !== statusId);
+          if (updatedStatuses.length === 0) {
+            setSelectedUser(null);
+          } else {
+            setSelectedUser(prev => ({
+              ...prev,
+              statuses: updatedStatuses
+            }));
+          }
+        }
+        
+        alert('✅ Statut supprimé avec succès');
+      } else {
+        alert(`❌ Erreur: ${result.error || 'Impossible de supprimer le statut'}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression:', error);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
   const myStatuses = allStatuses.filter(status => {
     const statusOwnerId = status.userId?._id?.toString();
     return statusOwnerId === currentUserId;
@@ -67,7 +115,6 @@ const StatusList = () => {
     return statusOwnerId !== currentUserId;
   });
 
-  // Grouper les statuts des contacts
   const groupedContactStatuses = contactStatuses.reduce((acc, status) => {
     const userId = status.userId?._id?.toString();
     if (!userId) return acc;
@@ -76,7 +123,9 @@ const StatusList = () => {
       acc[userId] = {
         user: status.userId,
         statuses: [],
-        hasUnviewed: false
+        hasUnviewed: false,
+        totalReactions: 0,
+        totalReplies: 0
       };
     }
     
@@ -89,35 +138,44 @@ const StatusList = () => {
     }
 
     acc[userId].statuses.push(status);
+    acc[userId].totalReactions += status.totalReactions || 0;
+    acc[userId].totalReplies += status.repliesCount || 0;
+    
     return acc;
   }, {});
 
   const contactStatusesGrouped = Object.values(groupedContactStatuses);
 
-  // Trier les statuts - MODIFICATION PRINCIPALE ICI
   contactStatusesGrouped.forEach(userStatus => {
-    // Anciens en premier : tri ascendant (du plus vieux au plus récent)
     userStatus.statuses.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   });
 
-  // Trier les statuts personnels aussi : anciens en premier
   const mySortedStatuses = [...myStatuses].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   const hasMyStatuses = myStatuses.length > 0;
+  const latestMyStatus = hasMyStatuses ? mySortedStatuses[mySortedStatuses.length - 1] : null;
 
-  // Trier les groupes d'utilisateurs par le statut le plus ancien
   const sortedContactStatusesGrouped = [...contactStatusesGrouped].sort((a, b) => {
     const aOldest = a.statuses.length > 0 ? new Date(a.statuses[0].createdAt) : new Date(0);
     const bOldest = b.statuses.length > 0 ? new Date(b.statuses[0].createdAt) : new Date(0);
-    return aOldest - bOldest; // Anciens en premier
+    return aOldest - bOldest;
   });
 
-  // Composants modals
+  const reactionIcons = {
+    like: '👍',
+    love: '❤️',
+    haha: '😄',
+    wow: '😮',
+    sad: '😢',
+    angry: '😠',
+    fire: '🔥',
+    clap: '👏'
+  };
+
   const StatusView = React.lazy(() => import('./StatusView.jsx'));
   const CreateStatus = React.lazy(() => import('./CreateStatus'));
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      {/* Header simple */}
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-800">Statuts</h2>
       </div>
@@ -134,16 +192,16 @@ const StatusList = () => {
         </div>
       )}
 
-      {/* SECTION 1 : MON STATUT */}
+      {/* Votre statut */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-all group">
+        <div className="flex items-center p-4 hover:bg-gray-50 rounded-lg cursor-pointer transition-all group border border-gray-200 shadow-sm hover:shadow-md">
           <div 
             className="relative"
             onClick={() => {
               if (hasMyStatuses) {
                 setSelectedUser({
                   user: user,
-                  statuses: mySortedStatuses // Utiliser le tableau trié
+                  statuses: mySortedStatuses
                 });
               } else {
                 setShowCreate(true);
@@ -179,33 +237,41 @@ const StatusList = () => {
             </button>
           </div>
           
-          <div 
-            className="ml-4 flex-1"
-            onClick={() => {
-              if (hasMyStatuses) {
-                setSelectedUser({
-                  user: user,
-                  statuses: mySortedStatuses // Utiliser le tableau trié
-                });
-              } else {
-                setShowCreate(true);
-              }
-            }}
-          >
-            <h3 className="font-medium text-gray-900 group-hover:text-green-600 transition-colors">
-              Mon statut
-            </h3>
-            <p className="text-sm text-gray-500">
-              {hasMyStatuses ? 
-                `${myStatuses.length} statut${myStatuses.length > 1 ? 's' : ''} • Ajouter` : 
-                'Ajouter un statut'
-              }
-            </p>
+          <div className="ml-4 flex-1">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-gray-900 group-hover:text-green-600 transition-colors">
+                Mon statut
+              </h3>
+              
+              {hasMyStatuses && (
+                <span className="text-xs text-gray-500">
+                  {myStatuses.length} statut{myStatuses.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            
+            {/* Afficher les réactions et réponses de mes statuts */}
+            {hasMyStatuses && (
+              <div className="flex items-center gap-2 mt-1">
+                {myStatuses.reduce((total, status) => total + (status.totalReactions || 0), 0) > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                    <ThumbsUp className="w-3 h-3" />
+                    <span>{myStatuses.reduce((total, status) => total + (status.totalReactions || 0), 0)}</span>
+                  </div>
+                )}
+                {myStatuses.reduce((total, status) => total + (status.repliesCount || 0), 0) > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                    <MessageCircle className="w-3 h-3" />
+                    <span>{myStatuses.reduce((total, status) => total + (status.repliesCount || 0), 0)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* SECTION 2 : STATUTS RÉCENTS */}
+      {/* Statuts des contacts */}
       <div className="p-4">
         <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
           Statuts récents ({sortedContactStatusesGrouped.length})
@@ -230,48 +296,57 @@ const StatusList = () => {
             </p>
           </div>
         ) : (
-          sortedContactStatusesGrouped.map((userStatus) => ( // Utiliser sortedContactStatusesGrouped
-            <div 
-              key={userStatus.user._id}
-              className="flex items-center p-3 hover:bg-gray-50 rounded-lg cursor-pointer mb-2 transition-all"
-              onClick={() => {
-                setSelectedUser(userStatus);
-              }}
-            >
-              <div className="relative">
-                <div className={`w-12 h-12 rounded-full p-0.5 ${
-                  userStatus.hasUnviewed 
-                    ? 'border-2 border-green-500' 
-                    : 'border border-gray-300'
-                }`}>
-                  <img 
-                    src={userStatus.user.profilePicture || '/default-avatar.png'} 
-                    alt={userStatus.user.name}
-                    className="w-full h-full rounded-full object-cover"
-                    onError={(e) => {
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        userStatus.user.name || "User"
-                      )}&background=3b82f6&color=fff&bold=true`;
-                    }}
-                  />
+          <div className="space-y-3">
+            {sortedContactStatusesGrouped.map((userStatus) => {
+              const latestStatus = userStatus.statuses[userStatus.statuses.length - 1];
+              const totalReactions = userStatus.totalReactions;
+              const totalReplies = userStatus.totalReplies;
+
+              return (
+                <div 
+                  key={userStatus.user._id}
+                  className="flex items-center p-4 hover:bg-gray-50 rounded-lg cursor-pointer mb-2 transition-all relative group border border-gray-200 shadow-sm hover:shadow-md"
+                  onClick={() => {
+                    setSelectedUser(userStatus);
+                  }}
+                >
+                  <div className="relative">
+                    <div className={`w-12 h-12 rounded-full p-0.5 ${
+                      userStatus.hasUnviewed 
+                        ? 'border-2 border-green-500' 
+                        : 'border border-gray-300'
+                    }`}>
+                      <img 
+                        src={userStatus.user.profilePicture || '/default-avatar.png'} 
+                        alt={userStatus.user.name}
+                        className="w-full h-full rounded-full object-cover"
+                        onError={(e) => {
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            userStatus.user.name || "User"
+                          )}&background=3b82f6&color=fff&bold=true`;
+                        }}
+                      />
+                    </div>
+                    {userStatus.hasUnviewed && (
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium text-gray-900">{userStatus.user.name}</h3>
+                      <span className="text-xs text-gray-500">
+                        {userStatus.statuses.length} statut{userStatus.statuses.length > 1 ? 's' : ''}
+                        
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                {userStatus.hasUnviewed && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                )}
-              </div>
-              <div className="ml-3">
-                <h3 className="font-medium text-gray-900">{userStatus.user.name}</h3>
-                <p className="text-sm text-gray-500">
-                  {userStatus.statuses.length} statut{userStatus.statuses.length > 1 ? 's' : ''}
-                  {userStatus.hasUnviewed && ' • Nouveau'}
-                </p>
-              </div>
-            </div>
-          ))
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Modals */}
       <React.Suspense fallback={
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
@@ -285,6 +360,7 @@ const StatusList = () => {
               fetchStatuses();
             }}
             onStatusUpdate={fetchStatuses}
+            onDeleteStatus={handleDeleteStatus}
           />
         )}
 

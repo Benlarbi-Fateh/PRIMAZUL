@@ -1,27 +1,25 @@
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
+const Status = require('../models/Status'); // 🆕 AJOUT
 
 const initSocket = (io) => {
-  const onlineUsers = new Map(); // userId -> socketId
+  const onlineUsers = new Map();
+  const statusWatchers = new Map(); // 🆕 Suivre qui regarde quelle story
 
   io.on('connection', (socket) => {
     console.log('✅ Socket connecté:', socket.id);
 
-    // User se connecte
     socket.on('user-online', (userId) => {
       onlineUsers.set(userId, socket.id);
       socket.userId = userId;
       socket.join(userId);
       
       console.log(`👤 User ${userId} est en ligne`);
-      console.log(`📋 Total utilisateurs en ligne:`, onlineUsers.size);
       
       const onlineUserIds = Array.from(onlineUsers.keys());
       
-      // Émettre à tous
       io.emit('online-users-update', onlineUserIds);
       
-      // Confirmer individuellement à chaque utilisateur en ligne
       onlineUserIds.forEach(uid => {
         io.to(uid).emit('online-users-update', onlineUserIds);
       });
@@ -32,14 +30,36 @@ const initSocket = (io) => {
       });
     });
 
-    // Demander la liste des utilisateurs en ligne
     socket.on('request-online-users', () => {
       const onlineUserIds = Array.from(onlineUsers.keys());
       socket.emit('online-users-update', onlineUserIds);
-      console.log('📤 Liste des utilisateurs en ligne envoyée:', onlineUserIds);
     });
 
-    // Rejoindre une conversation
+    // 🆕 REJOINDRE UNE STORY (pour voir les réactions en temps réel)
+    socket.on('join-status', (statusId) => {
+      socket.join(`status-${statusId}`);
+      console.log(`📥 User ${socket.userId} regarde la story ${statusId}`);
+      
+      // Stocker l'information
+      if (!statusWatchers.has(statusId)) {
+        statusWatchers.set(statusId, new Set());
+      }
+      statusWatchers.get(statusId).add(socket.userId);
+    });
+
+    // 🆕 QUITTER UNE STORY
+    socket.on('leave-status', (statusId) => {
+      socket.leave(`status-${statusId}`);
+      console.log(`📤 User ${socket.userId} a quitté la story ${statusId}`);
+      
+      if (statusWatchers.has(statusId)) {
+        statusWatchers.get(statusId).delete(socket.userId);
+        if (statusWatchers.get(statusId).size === 0) {
+          statusWatchers.delete(statusId);
+        }
+      }
+    });
+
     socket.on('join-conversation', (conversationId) => {
       socket.join(conversationId);
       socket.currentConversation = conversationId;
@@ -47,20 +67,17 @@ const initSocket = (io) => {
       socket.emit('conversation-joined', { conversationId });
     });
 
-    // Quitter une conversation
     socket.on('leave-conversation', (conversationId) => {
       socket.leave(conversationId);
       socket.currentConversation = null;
       console.log(`📤 Socket ${socket.id} a quitté la conversation ${conversationId}`);
     });
 
-    // Envoyer un message
     socket.on('send-message', async (data) => {
       try {
         console.log('📤 Réception send-message:', data);
-        const { conversationId, sender, content, type, fileUrl, fileName, fileSize } = data;
+        const { conversationId, sender, content, type, fileUrl, fileName, fileSize, isStoryReply, storyId } = data;
 
-        // Créer le message en base de données
         const message = new Message({
           conversationId,
           sender,
@@ -68,15 +85,16 @@ const initSocket = (io) => {
           type: type || 'text',
           fileUrl: fileUrl || '',
           fileName: fileName || '',
-          fileSize: fileSize || 0
+          fileSize: fileSize || 0,
+          isStoryReply: isStoryReply || false,
+          storyId: storyId || null,
+          storyType: data.storyType || null,
+          storyPreview: data.storyPreview || ''
         });
 
         await message.save();
-        
-        // Populate le sender AVANT d'émettre
         await message.populate('sender', 'name profilePicture');
 
-        // Mettre à jour la conversation
         const updatedConversation = await Conversation.findByIdAndUpdate(
           conversationId,
           {
@@ -93,14 +111,12 @@ const initSocket = (io) => {
 
         console.log('💾 Message sauvegardé en base:', message._id);
 
-        // Émettre le message à TOUS les participants de la conversation
         io.to(conversationId).emit('receive-message', {
           ...message.toObject(),
           conversationId,
           sender: message.sender
         });
 
-        // Émettre la mise à jour de la conversation
         if (updatedConversation) {
           updatedConversation.participants.forEach(participant => {
             const participantId = participant._id.toString();
@@ -108,7 +124,22 @@ const initSocket = (io) => {
               io.to(onlineUsers.get(participantId)).emit('conversation-updated', updatedConversation);
             }
           });
-          console.log('📢 Conversation mise à jour envoyée aux participants');
+        }
+
+        // 🆕 SI C'EST UNE RÉPONSE À UNE STORY, NOTIFIER LE PROPRIÉTAIRE
+        if (isStoryReply && storyId) {
+          const status = await Status.findById(storyId);
+          if (status && status.userId.toString() !== sender.toString()) {
+            const statusOwnerId = status.userId.toString();
+            if (onlineUsers.has(statusOwnerId)) {
+              io.to(onlineUsers.get(statusOwnerId)).emit('story-reply-notification', {
+                statusId: storyId,
+                senderId: sender,
+                message: content,
+                storyPreview: data.storyPreview || ''
+              });
+            }
+          }
         }
 
       } catch (error) {
@@ -117,7 +148,72 @@ const initSocket = (io) => {
       }
     });
 
-    // Typing indicators
+    // 🆕 ÉVÉNEMENT POUR LES RÉACTIONS AUX STORIES
+    socket.on('status-react', async (data) => {
+      try {
+        const { statusId, userId, reactionType } = data;
+        console.log('🎭 Réaction socket:', { statusId, userId, reactionType });
+
+        // Émettre à tous ceux qui regardent cette story
+        io.to(`status-${statusId}`).emit('status-reaction-update', {
+          statusId,
+          userId,
+          reactionType,
+          timestamp: new Date()
+        });
+
+        // Notifier le propriétaire de la story
+        const status = await Status.findById(statusId);
+        if (status && status.userId.toString() !== userId) {
+          const statusOwnerId = status.userId.toString();
+          if (onlineUsers.has(statusOwnerId)) {
+            io.to(onlineUsers.get(statusOwnerId)).emit('status-reaction-notification', {
+              statusId,
+              userId,
+              reactionType,
+              statusPreview: status.content?.substring(0, 50) || 'Story'
+            });
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Erreur status-react:', error);
+      }
+    });
+
+    // 🆕 ÉVÉNEMENT POUR LES RÉPONSES AUX STORIES
+    socket.on('status-reply', async (data) => {
+      try {
+        const { statusId, userId, message } = data;
+        console.log('💬 Réponse socket:', { statusId, userId, message });
+
+        // Émettre à tous ceux qui regardent cette story
+        io.to(`status-${statusId}`).emit('status-reply-update', {
+          statusId,
+          userId,
+          message,
+          timestamp: new Date()
+        });
+
+        // Notifier le propriétaire de la story
+        const status = await Status.findById(statusId);
+        if (status && status.userId.toString() !== userId) {
+          const statusOwnerId = status.userId.toString();
+          if (onlineUsers.has(statusOwnerId)) {
+            io.to(onlineUsers.get(statusOwnerId)).emit('status-reply-notification', {
+              statusId,
+              userId,
+              message,
+              statusPreview: status.content?.substring(0, 50) || 'Story'
+            });
+          }
+        }
+
+      } catch (error) {
+        console.error('❌ Erreur status-reply:', error);
+      }
+    });
+
     socket.on('typing', ({ conversationId, userId }) => {
       socket.to(conversationId).emit('user-typing', { conversationId, userId });
     });
@@ -126,40 +222,24 @@ const initSocket = (io) => {
       socket.to(conversationId).emit('user-stopped-typing', { conversationId, userId });
     });
 
-    // Refresh conversations
     socket.on('refresh-conversations', (userId) => {
       console.log(`🔄 Demande de refresh conversations pour ${userId}`);
       socket.emit('should-refresh-conversations');
     });
 
-    // ============================================
-    // 📨 INVITATIONS - CORRIGÉ POUR INSTANTANÉITÉ
-    // ============================================
-    
-    // Nouvelle invitation envoyée
     socket.on('invitation-sent', (data) => {
       const { receiverId, invitation } = data;
-      console.log(`📨 Tentative envoi invitation à ${receiverId}`, onlineUsers);
       
       if (onlineUsers.has(receiverId)) {
         const receiverSocketId = onlineUsers.get(receiverId);
-        console.log(`🎯 Utilisateur ${receiverId} trouvé avec socket: ${receiverSocketId}`);
-        
         io.to(receiverSocketId).emit('invitation-received', invitation);
-        console.log(`📨 Invitation envoyée INSTANTANÉMENT à l'utilisateur ${receiverId}`);
-      } else {
-        console.log(`⚠️ Utilisateur ${receiverId} hors ligne, invitation stockée seulement`);
       }
     });
 
-    // Invitation acceptée
     socket.on('invitation-accepted', async (data) => {
       try {
         const { senderId, invitation, conversation } = data;
         
-        console.log(`✅ Invitation acceptée, envoi à l'expéditeur: ${senderId}`);
-        
-        // Récupérer la conversation complète avec populate
         const populatedConversation = await Conversation.findById(conversation._id)
           .populate('participants', 'name email profilePicture isOnline lastSeen')
           .populate({
@@ -167,35 +247,24 @@ const initSocket = (io) => {
             populate: { path: 'sender', select: 'name profilePicture' }
           });
 
-        console.log('🔥 Conversation peuplée pour envoi:', populatedConversation?._id);
-
-        // Émettre à l'expéditeur SI EN LIGNE
         if (onlineUsers.has(senderId)) {
           const senderSocketId = onlineUsers.get(senderId);
-          
           io.to(senderSocketId).emit('invitation-accepted-notification', {
             invitation,
             conversation: populatedConversation || conversation
           });
           
-          // Émettre aussi la mise à jour de conversation
           if (populatedConversation) {
             io.to(senderSocketId).emit('conversation-updated', populatedConversation);
           }
-          
-          console.log(`✅ Notification d'acceptation INSTANTANÉE envoyée à ${senderId}`);
-        } else {
-          console.log(`⚠️ Expéditeur ${senderId} hors ligne, notification stockée`);
         }
 
-        // Émettre aussi à l'acceptant si en ligne
         const receiverId = invitation.receiver?._id || invitation.receiver;
         if (receiverId && onlineUsers.has(receiverId.toString())) {
           const receiverSocketId = onlineUsers.get(receiverId.toString());
           if (populatedConversation) {
             io.to(receiverSocketId).emit('conversation-updated', populatedConversation);
           }
-          console.log(`✅ Conversation ajoutée INSTANTANÉMENT à l'acceptant ${receiverId}`);
         }
 
       } catch (error) {
@@ -203,60 +272,55 @@ const initSocket = (io) => {
       }
     });
 
-    // Invitation refusée
     socket.on('invitation-rejected', (data) => {
       const { senderId, invitation } = data;
-      console.log(`❌ Invitation refusée, notification à: ${senderId}`);
       
       if (onlineUsers.has(senderId)) {
         const senderSocketId = onlineUsers.get(senderId);
         io.to(senderSocketId).emit('invitation-rejected-notification', invitation);
-        console.log(`❌ Notification de refus INSTANTANÉE envoyée à ${senderId}`);
-      } else {
-        console.log(`⚠️ Expéditeur ${senderId} hors ligne, notification stockée`);
       }
     });
 
-    // Invitation annulée
     socket.on('invitation-cancelled', (data) => {
       const { receiverId, invitationId } = data;
-      console.log(`🗑️ Invitation annulée, notification à: ${receiverId}`);
       
       if (onlineUsers.has(receiverId)) {
         const receiverSocketId = onlineUsers.get(receiverId);
         io.to(receiverSocketId).emit('invitation-cancelled-notification', invitationId);
-        console.log(`🗑️ Notification d'annulation INSTANTANÉE envoyée à ${receiverId}`);
-      } else {
-        console.log(`⚠️ Destinataire ${receiverId} hors ligne, notification stockée`);
       }
     });
 
-    // Déconnexion
     socket.on('disconnect', () => {
       if (socket.userId) {
         onlineUsers.delete(socket.userId);
         
         console.log(`❌ User ${socket.userId} déconnecté`);
-        console.log(`📋 Utilisateurs restants:`, onlineUsers.size);
         
         const onlineUserIds = Array.from(onlineUsers.keys());
         
-        // Émettre à tous
         io.emit('online-users-update', onlineUserIds);
         io.emit('user-disconnected', socket.userId);
         
-        // Confirmer individuellement
         onlineUserIds.forEach(uid => {
           io.to(uid).emit('online-users-update', onlineUserIds);
+        });
+
+        // 🆕 NETTOYER LES WATCHERS DE STORIES
+        statusWatchers.forEach((watchers, statusId) => {
+          if (watchers.has(socket.userId)) {
+            watchers.delete(socket.userId);
+            if (watchers.size === 0) {
+              statusWatchers.delete(statusId);
+            }
+          }
         });
       }
     });
   });
 
-  // Heartbeat : Nettoyer les utilisateurs inactifs
   setInterval(() => {
     const now = Date.now();
-    const TIMEOUT = 60000; // 60 secondes
+    const TIMEOUT = 60000;
     
     onlineUsers.forEach((data, userId) => {
       if (now - data.lastSeen > TIMEOUT) {
