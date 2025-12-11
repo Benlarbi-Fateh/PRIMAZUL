@@ -16,6 +16,16 @@ const StatusList = () => {
 
   const currentUserId = user?.id?.toString() || user?._id?.toString();
 
+  // 🔍 Debug useEffect
+  useEffect(() => {
+    console.log('🔍 allStatuses mis à jour:', {
+      valeur: allStatuses,
+      type: typeof allStatuses,
+      estTableau: Array.isArray(allStatuses),
+      longueur: Array.isArray(allStatuses) ? allStatuses.length : 'N/A'
+    });
+  }, [allStatuses]);
+
   const fetchStatuses = async () => {
     try {
       setLoading(true);
@@ -24,6 +34,7 @@ const StatusList = () => {
       
       if (!token) {
         setError('Vous devez être connecté');
+        setAllStatuses([]);
         setLoading(false);
         return;
       }
@@ -35,15 +46,45 @@ const StatusList = () => {
         }
       });
       
+      console.log('🔍 Réponse status/friends:', {
+        status: response.status,
+        ok: response.ok
+      });
+      
       if (response.ok) {
         const data = await response.json();
-        setAllStatuses(data);
+        console.log('📦 Données reçues de l\'API:', data);
+        
+        // ✅ Extraction sécurisée du tableau de statuts
+        let statusesArray = [];
+        
+        if (Array.isArray(data)) {
+          statusesArray = data;
+        } else if (data && Array.isArray(data.statuses)) {
+          statusesArray = data.statuses;
+        } else if (data && Array.isArray(data.data)) {
+          statusesArray = data.data;
+        } else if (data && data.success && Array.isArray(data.statuses)) {
+          statusesArray = data.statuses;
+        } else if (data && data.success && Array.isArray(data.data)) {
+          statusesArray = data.data;
+        } else if (data && data.statuses) {
+          // Si data.statuses existe mais n'est pas un tableau
+          statusesArray = Array.isArray(data.statuses) ? data.statuses : [];
+        }
+        
+        console.log(`✅ ${statusesArray.length} statuts chargés`);
+        setAllStatuses(statusesArray);
       } else {
-        setError(`Erreur ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Erreur API:', errorText);
+        setError(`Erreur ${response.status}: ${errorText}`);
+        setAllStatuses([]);
       }
     } catch (error) {
-      console.error('Erreur récupération statuts:', error);
+      console.error('❌ Erreur récupération statuts:', error);
       setError('Erreur de connexion au serveur');
+      setAllStatuses([]);
     } finally {
       setLoading(false);
     }
@@ -105,23 +146,26 @@ const StatusList = () => {
     }
   };
 
-  const myStatuses = allStatuses.filter(status => {
-    const statusOwnerId = status.userId?._id?.toString();
+  // ✅ Utilisation sécurisée avec vérification de tableau
+  const safeAllStatuses = Array.isArray(allStatuses) ? allStatuses : [];
+
+  const myStatuses = safeAllStatuses.filter(status => {
+    const statusOwnerId = status?.userId?._id?.toString() || status?.userId?.toString();
     return statusOwnerId === currentUserId;
   });
 
-  const contactStatuses = allStatuses.filter(status => {
-    const statusOwnerId = status.userId?._id?.toString();
+  const contactStatuses = safeAllStatuses.filter(status => {
+    const statusOwnerId = status?.userId?._id?.toString() || status?.userId?.toString();
     return statusOwnerId !== currentUserId;
   });
 
   const groupedContactStatuses = contactStatuses.reduce((acc, status) => {
-    const userId = status.userId?._id?.toString();
+    const userId = status?.userId?._id?.toString() || status?.userId?.toString();
     if (!userId) return acc;
     
     if (!acc[userId]) {
       acc[userId] = {
-        user: status.userId,
+        user: status.userId || { name: 'Utilisateur inconnu' },
         statuses: [],
         hasUnviewed: false,
         totalReactions: 0,
@@ -129,9 +173,10 @@ const StatusList = () => {
       };
     }
     
-    const hasViewed = status.views && status.views.some(view => 
-      view.userId && view.userId._id?.toString() === currentUserId
-    );
+    const hasViewed = status.views && status.views.some(view => {
+      const viewerId = view?.userId?._id?.toString() || view?.userId?.toString();
+      return viewerId === currentUserId;
+    });
     
     if (!hasViewed) {
       acc[userId].hasUnviewed = true;
@@ -292,8 +337,16 @@ const StatusList = () => {
             </div>
             <p className="text-gray-500">Aucun statut disponible</p>
             <p className="text-sm text-gray-400 mt-1">
-              Vos contacts n'ont pas encore publié de statuts
+              {safeAllStatuses.length === 0 
+                ? "Aucun statut chargé. Essayez de vous reconnecter."
+                : "Vos contacts n'ont pas encore publié de statuts"}
             </p>
+            <button
+              onClick={fetchStatuses}
+              className="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm"
+            >
+              Actualiser
+            </button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -304,7 +357,7 @@ const StatusList = () => {
 
               return (
                 <div 
-                  key={userStatus.user._id}
+                  key={userStatus.user?._id || userStatus.user?.id || Math.random()}
                   className="flex items-center p-4 hover:bg-gray-50 rounded-lg cursor-pointer mb-2 transition-all relative group border border-gray-200 shadow-sm hover:shadow-md"
                   onClick={() => {
                     setSelectedUser(userStatus);
@@ -317,12 +370,12 @@ const StatusList = () => {
                         : 'border border-gray-300'
                     }`}>
                       <img 
-                        src={userStatus.user.profilePicture || '/default-avatar.png'} 
-                        alt={userStatus.user.name}
+                        src={userStatus.user?.profilePicture || '/default-avatar.png'} 
+                        alt={userStatus.user?.name || 'Contact'}
                         className="w-full h-full rounded-full object-cover"
                         onError={(e) => {
                           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            userStatus.user.name || "User"
+                            userStatus.user?.name || "User"
                           )}&background=3b82f6&color=fff&bold=true`;
                         }}
                       />
@@ -333,12 +386,30 @@ const StatusList = () => {
                   </div>
                   <div className="ml-3 flex-1">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900">{userStatus.user.name}</h3>
+                      <h3 className="font-medium text-gray-900">
+                        {userStatus.user?.name || 'Contact'}
+                      </h3>
                       <span className="text-xs text-gray-500">
                         {userStatus.statuses.length} statut{userStatus.statuses.length > 1 ? 's' : ''}
-                        
                       </span>
                     </div>
+                    {/* Indicateurs de réactions et réponses */}
+                    {(totalReactions > 0 || totalReplies > 0) && (
+                      <div className="flex items-center gap-2 mt-1">
+                        {totalReactions > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                            <ThumbsUp className="w-2.5 h-2.5" />
+                            <span>{totalReactions}</span>
+                          </div>
+                        )}
+                        {totalReplies > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                            <MessageCircle className="w-2.5 h-2.5" />
+                            <span>{totalReplies}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

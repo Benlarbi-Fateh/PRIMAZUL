@@ -4,7 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const userRoutes = require("./routes/userRoutes")
+
 const app = express();
 const server = http.createServer(app);
 
@@ -15,9 +15,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
 
-// ✅ AUGMENTATION DE LA LIMITE POUR LES IMAGES EN BASE64
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// ✅ Augmentation de la limite pour les images en Base64
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 // Middleware de logging
 app.use((req, res, next) => {
@@ -28,9 +28,52 @@ app.use((req, res, next) => {
   next();
 });
 
+// Connexion à la base de données
+connectDB();
 
+// ============================================
+// 🔗 CHARGEMENT DES ROUTES
+// ============================================
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require("./routes/userRoutes");
+const conversationRoutes = require('./routes/conversationRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const audioRoutes = require('./routes/audioRoutes');
+const groupRoutes = require('./routes/groupRoutes');
+const invitationRoutes = require('./routes/invitationRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const statusRoutes = require('./routes/statusRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 
-// ✅ Socket.IO Configuration
+// Configuration des routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/audio', audioRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/invitations', invitationRoutes);
+app.use('/api/contacts', contactRoutes);
+app.use('/api/status', statusRoutes);
+app.use('/api/profile', profileRoutes);
+
+// Static uploads
+app.use("/uploads", express.static("uploads"));
+
+// 🆕 Route de santé
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ============================================
+// 🔥 CONFIGURATION SOCKET.IO
+// ============================================
 const io = new Server(server, {
   cors: {
     origin: ["http://localhost:3000", "http://192.168.1.7:3000"],
@@ -42,75 +85,7 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-// Connexion à la base de données
-connectDB();
-
-// ============================================
-// 🔗 CHARGEMENT DES ROUTES
-// ============================================
-console.log('🔍 Chargement des routes...');
-
-// Routes existantes
-const authRoutes = require('./routes/authRoutes');
-const conversationRoutes = require('./routes/conversationRoutes');
-const messageRoutes = require('./routes/messageRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
-const audioRoutes = require('./routes/audioRoutes');
-const groupRoutes = require('./routes/groupRoutes');
-const invitationRoutes = require('./routes/invitationRoutes');
-const contactRoutes = require('./routes/contactRoutes');
-const statusRoutes = require('./routes/statusRoutes');
-
-// 🆕 NOUVELLE ROUTE PROFILE
-const profileRoutes = require('./routes/profileRoutes');
-
-// Configuration des routes
-app.use('/api/auth', authRoutes);
-app.use('/api/conversations', conversationRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/audio', audioRoutes);
-app.use('/api/groups', groupRoutes);
-app.use('/api/invitations', invitationRoutes);
-app.use('/api/contacts', contactRoutes);
-//app.use("/api/stories", storyRoutes);
-// 🆕 AJOUT DE LA ROUTE PROFILE
-app.use('/api/profile', profileRoutes);
-
-app.use('/api/status', statusRoutes);
-
-// 🆕 ROUTE DE SANTÉ
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Backend is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.use('/api/upload', require('./routes/uploadRoutes'));
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/conversations', require('./routes/conversationRoutes'));
-app.use('/api/groups', require('./routes/groupRoutes')); // 🆕 AJOUTÉ
-app.use('/api/messages', require('./routes/messageRoutes'));
-app.use('/api/audio', require('./routes/audioRoutes'));
-//new
-app.use("/uploads", express.static("uploads"));
-app.use('/api/contacts', require('./routes/contactRoutes'));
-
-
-// 🆕 AJOUT DES ROUTES D'INVITATION - APRÈS LES AUTRES ROUTES
-app.use('/api/invitations', require('./routes/invitationRoutes'));
-
-app.use((error, req, res, next) => {
-  console.log('🚨 ERREUR SERVEUR:', error);
-  res.status(500).json({ error: error.message });
-});
-
-// ============================================
-// 🔥 CONFIGURATION SOCKET.IO
-// ============================================
+// Initialisation Socket.io
 const initSocket = require('./socket/socketHandler');
 initSocket(io);
 
@@ -120,9 +95,9 @@ io.use((socket, next) => {
   next();
 });
 
-// Événement quand le serveur Socket.io est prêt
-io.on("ready", () => {
-  console.log('🚀 Socket.IO server ready');
+// Événement pour chaque nouvelle connexion
+io.on("connection", (socket) => {
+  console.log(`🔌 Nouvelle connexion Socket.IO: ${socket.id}`);
 });
 
 // Gestion des erreurs globales Socket.io
@@ -134,7 +109,7 @@ io.engine.on("connection_error", (err) => {
 // ⚙️ CONFIGURATION DU SERVEUR
 // ============================================
 
-// Middleware de gestion d'erreurs
+// Middleware global pour gérer les erreurs
 app.use((error, req, res, next) => {
   console.log('🚨 ERREUR SERVEUR:', error);
   res.status(500).json({ error: error.message });
@@ -145,7 +120,7 @@ setInterval(() => {
   console.log('💓 Heartbeat serveur - ' + new Date().toISOString());
 }, 30000);
 
-// Gestion de la mémoire et nettoyage
+// Gestion de la mémoire et arrêt propre
 process.on('SIGINT', () => {
   console.log('🛑 Arrêt du serveur...');
   io.disconnectSockets();
@@ -171,9 +146,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Health check disponible sur: http://localhost:${PORT}/api/health`);
   console.log(`🔌 Socket.IO disponible sur: http://localhost:${PORT}`);
   console.log(`📡 CORS autorisé pour: http://localhost:3000, http://192.168.1.7:3000`);
-  console.log(`📊 Routes chargées: auth, conversations, messages, upload, audio, groups, invitations, profile`);
+  console.log(`📊 Routes chargées: auth, users, conversations, messages, upload, audio, groups, invitations, contacts, status, profile`);
 });
 
 // Export pour les tests
 module.exports = { app, server, io };
- 

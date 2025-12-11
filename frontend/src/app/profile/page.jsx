@@ -30,6 +30,7 @@ import {
   Zap,
   Heart,
 } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 // Composant ActivityIcon séparé (nom changé pour éviter le conflit)
 const ActivityIcon = ({ className }) => (
@@ -49,8 +50,131 @@ const ActivityIcon = ({ className }) => (
 );
 
 export default function ProfilePage() {
-  const { user, updateProfile, setUser } = useContext(AuthContext);
+  const { user, updateProfile } = useContext(AuthContext);
   const router = useRouter();
+
+  // === Thème global (clair / sombre) ===
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
+  // Classes dynamiques en fonction du thème
+  const pageBg =
+    (isDark
+      ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
+      : "bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100 text-slate-900") +
+    " min-h-screen";
+
+  const headerBar =
+    "flex items-center justify-between mb-6 p-4 rounded-2xl border shadow-lg " +
+    (isDark
+      ? "bg-slate-900/90 border-slate-800 shadow-[0_18px_60px_rgba(15,23,42,0.7)]"
+      : "bg-white border-blue-100 shadow-[0_18px_60px_rgba(15,23,42,0.12)]");
+
+  const sideCard =
+    "rounded-2xl shadow-lg border overflow-hidden flex-1 flex flex-col " +
+    (isDark
+      ? "bg-slate-900/95 border-slate-800"
+      : "bg-white border-blue-100");
+
+  const tabsCard =
+    "rounded-2xl shadow-lg border p-3 mt-4 " +
+    (isDark
+      ? "bg-slate-900/95 border-slate-800"
+      : "bg-white border-blue-100");
+
+  const mainPanel =
+    "rounded-2xl shadow-lg border overflow-hidden min-h-[600px] " +
+    (isDark
+      ? "bg-slate-900/95 border-slate-800"
+      : "bg-white border-blue-100");
+
+  const panelHeader =
+    "p-4 border-b " +
+    (isDark
+      ? "bg-slate-900/95 border-slate-800"
+      : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200");
+
+  const paleCard =
+    "rounded-xl p-4 border " +
+    (isDark
+      ? "bg-slate-900/70 border-slate-700"
+      : "bg-slate-50 border-slate-200");
+
+  const blueCard =
+    "rounded-xl p-4 border " +
+    (isDark
+      ? "bg-slate-900/70 border-blue-700"
+      : "bg-blue-50 border-blue-200");
+
+  const notifCard =
+    "rounded-xl p-4 border text-left " +
+    (isDark
+      ? "bg-slate-900/70 border-slate-700"
+      : "bg-slate-50 border-slate-200");
+
+  const textMuted = isDark ? "text-slate-400" : "text-slate-600";
+  const textStrong = isDark ? "text-slate-50" : "text-slate-800";
+
+  const inputBase =
+    "w-full px-3 py-2 text-sm rounded-lg border outline-none ring-0 transition " +
+    (isDark
+      ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+      : "bg-white border-slate-300 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500");
+
+  const textareaBase =
+    "w-full px-3 py-2 text-sm rounded-lg border outline-none ring-0 transition resize-none " +
+    (isDark
+      ? "bg-slate-900 border-slate-700 text-slate-100 focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+      : "bg-white border-slate-300 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500");
+
+  const chipOnline =
+    "flex items-center justify-center gap-1 mt-1 text-xs font-medium " +
+    (isDark ? "text-emerald-300" : "text-emerald-600");
+
+  const blueButton =
+    "flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all shadow-md " +
+    (isDark
+      ? "bg-sky-600 text-white hover:bg-sky-500"
+      : "bg-blue-600 text-white hover:bg-blue-700");
+
+  const ghostButton =
+    "flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl transition-all " +
+    (isDark
+      ? "bg-slate-800 text-slate-200 hover:bg-slate-700"
+      : "bg-slate-100 text-slate-700 hover:bg-slate-200");
+
+  const dangerAlert =
+    "mb-4 p-3 rounded-xl flex items-center gap-3 text-sm border " +
+    (isDark
+      ? "bg-rose-950/60 border-rose-700 text-rose-200"
+      : "bg-red-50 border-red-200 text-red-700");
+
+  const successAlert =
+    "mb-4 p-3 rounded-xl flex items-center gap-3 text-sm border " +
+    (isDark
+      ? "bg-emerald-950/60 border-emerald-700 text-emerald-200"
+      : "bg-green-50 border-green-200 text-green-700");
+
+  const tabActive =
+    "w-full flex items-center gap-2 p-2 font-semibold rounded-lg text-sm shadow-md " +
+    (isDark
+      ? "bg-sky-600 text-white"
+      : "bg-blue-600 text-white");
+
+  const tabInactive =
+    "w-full flex items-center gap-2 p-2 font-semibold rounded-lg text-sm transition-all " +
+    (isDark
+      ? "text-slate-300 hover:bg-slate-800"
+      : "text-slate-600 hover:text-slate-800 hover:bg-blue-50");
+
+  const sectionTitle =
+    "flex items-center text-sm font-bold mb-3 " + textStrong;
+
+  const smallLabel =
+    "flex items-center text-sm font-medium mb-3 " +
+    (isDark ? "text-slate-200" : "text-slate-700");
+
+  const { user: _userDummy } = useContext(AuthContext); // juste pour garder le contexte tel quel
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
@@ -68,9 +192,7 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState("");
 
   // Données simulées pour remplir l'espace
-  const userStats = {
-   
-  };
+  const userStats = {};
 
   const recentActivity = [
     { id: 1, action: "a partagé un clip", time: "2 min", icon: Zap },
@@ -198,17 +320,23 @@ export default function ProfilePage() {
     setSuccess("");
   };
 
+  // Loader
   if (!isMounted || !user) {
     return (
-      <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className={`min-h-screen flex items-center justify-center p-4 ${pageBg}`}>
         <div className="text-center">
           <div className="relative">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600/20 border-t-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-sky-400/30 border-t-sky-500 mx-auto" />
             <div className="absolute inset-0 flex items-center justify-center">
-              <User className="w-6 h-6 text-blue-600 animate-pulse" />
+              <User
+                className={
+                  "w-6 h-6 animate-pulse " +
+                  (isDark ? "text-sky-300" : "text-blue-600")
+                }
+              />
             </div>
           </div>
-          <p className="mt-6 text-slate-600 font-medium">
+          <p className={`mt-6 font-medium ${textMuted}`}>
             Chargement du profil...
           </p>
         </div>
@@ -217,23 +345,23 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
+    <div className={pageBg}>
       {/* Container principal avec padding */}
       <div className="min-h-screen p-4">
         <div className="max-w-7xl mx-auto h-full">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6 p-4 bg-white rounded-2xl shadow-lg border border-blue-100">
+          <div className={headerBar}>
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all shadow-md"
+              className={blueButton}
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Retour</span>
             </button>
 
             <div className="text-center">
-              <h1 className="text-xl font-bold text-slate-800">Mon Profil</h1>
-              <p className="text-slate-600 text-sm">
+              <h1 className={`text-xl font-bold ${textStrong}`}>Mon Profil</h1>
+              <p className={`text-sm ${textMuted}`}>
                 Gérez vos informations personnelles
               </p>
             </div>
@@ -242,7 +370,7 @@ export default function ProfilePage() {
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl font-semibold transition-all shadow-md"
+                  className={blueButton}
                 >
                   <Edit3 className="w-4 h-4" />
                   <span>Modifier</span>
@@ -252,7 +380,7 @@ export default function ProfilePage() {
                   <button
                     onClick={handleCancel}
                     disabled={isLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl font-semibold transition-all"
+                    className={ghostButton}
                   >
                     <X className="w-4 h-4" />
                     <span>Annuler</span>
@@ -260,10 +388,15 @@ export default function ProfilePage() {
                   <button
                     onClick={handleSave}
                     disabled={isLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-xl font-semibold transition-all shadow-md"
+                    className={
+                      "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-md transition-all " +
+                      (isDark
+                        ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                        : "bg-green-600 text-white hover:bg-green-700")
+                    }
                   >
                     {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                     ) : (
                       <Save className="w-4 h-4" />
                     )}
@@ -276,12 +409,12 @@ export default function ProfilePage() {
 
           {/* Messages d'alerte */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-3 text-sm">
+            <div className={dangerAlert}>
               <span className="text-lg">❌</span>
               <span className="flex-1">{error}</span>
               <button
                 onClick={() => setError("")}
-                className="text-red-500 hover:text-red-700"
+                className={isDark ? "text-rose-300 hover:text-rose-100" : "text-red-500 hover:text-red-700"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -289,12 +422,12 @@ export default function ProfilePage() {
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-green-700 flex items-center gap-3 text-sm">
+            <div className={successAlert}>
               <span className="text-lg">✅</span>
               <span className="flex-1">{success}</span>
               <button
                 onClick={() => setSuccess("")}
-                className="text-green-500 hover:text-green-700"
+                className={isDark ? "text-emerald-300 hover:text-emerald-100" : "text-green-500 hover:text-green-700"}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -305,10 +438,10 @@ export default function ProfilePage() {
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Colonne de gauche - Profil */}
             <div className="lg:w-1/3 xl:w-1/4 flex flex-col">
-              <div className="bg-white rounded-2xl shadow-lg border border-blue-100 overflow-hidden flex-1 flex flex-col">
+              <div className={sideCard}>
                 <div className="bg-linear-to-r from-blue-600 to-indigo-600 p-4 text-center shrink-0">
                   <div className="relative inline-block">
-                    <div className="relative w-20 h-20 rounded-xl overflow-hidden shadow-2xl ring-4 ring-white/50 mx-auto">
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden shadow-2xl ring-4 ring-white/60 mx-auto">
                       {profilePicture ? (
                         <Image
                           src={profilePicture}
@@ -326,7 +459,7 @@ export default function ProfilePage() {
                     </div>
 
                     {isEditing && (
-                      <label className="absolute -bottom-1 -right-1 bg-white hover:bg-blue-50 text-blue-600 p-1.5 rounded-lg shadow-lg cursor-pointer transition-all border border-blue-200">
+                      <label className="absolute -bottom-1 -right-1 bg-white/95 hover:bg-blue-50 text-blue-600 p-1.5 rounded-lg shadow-lg cursor-pointer transition-all border border-blue-200">
                         <Camera className="w-3 h-3" />
                         <input
                           type="file"
@@ -346,12 +479,10 @@ export default function ProfilePage() {
                     <p className="text-blue-100 text-sm truncate mt-1">
                       {formData.email}
                     </p>
-                   
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
-                      <span className="text-emerald-200 text-xs font-medium">
-                        En ligne
-                      </span>
+
+                    <div className={chipOnline}>
+                      <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                      <span>En ligne</span>
                     </div>
                   </div>
                 </div>
@@ -360,43 +491,55 @@ export default function ProfilePage() {
                   <div className="space-y-4">
                     {/* Statistiques principales */}
                     <div>
-                      <h3 className="flex items-center text-xs font-bold text-slate-800 mb-3">
+                      <h3 className={sectionTitle}>
                         <TrendingUp className="w-4 h-4 text-blue-600 mr-2" />
                         Statistiques
                       </h3>
                       <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
+                        <div className={blueCard}>
                           <div className="text-sm font-bold text-blue-600">
                             {user.stats?.messagesCount || 0}
                           </div>
-                          <div className="text-xs text-slate-600">Messages</div>
+                          <div className={`text-xs ${textMuted}`}>Messages</div>
                         </div>
-                        <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
+                        <div className={blueCard}>
                           <div className="text-sm font-bold text-blue-600">
                             {user.stats?.contactsCount || 0}
                           </div>
-                          <div className="text-xs text-slate-600">Contacts</div>
+                          <div className={`text-xs ${textMuted}`}>Contacts</div>
                         </div>
-                        <div className="bg-blue-50 rounded-lg p-2 border border-blue-200">
+                        <div className={blueCard}>
                           <div className="text-sm font-bold text-blue-600">
                             {user.stats?.groupsCount || 0}
                           </div>
-                          <div className="text-xs text-slate-600">Groupes</div>
+                          <div className={`text-xs ${textMuted}`}>Groupes</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Actions rapides */}
-                  <div className="space-y-2 pt-3 border-t border-slate-200">
+                  <div className="space-y-2 pt-3 border-t border-slate-200 dark:border-slate-700">
                     <button
                       onClick={() => router.push("/")}
-                      className="w-full flex items-center gap-2 p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all text-slate-700 text-sm font-medium border border-blue-200"
+                      className={
+                        "w-full flex items-center gap-2 p-2 rounded-lg text-sm font-medium transition-all border " +
+                        (isDark
+                          ? "bg-slate-900 text-slate-100 border-slate-700 hover:bg-slate-800"
+                          : "bg-blue-50 text-slate-700 border-blue-200 hover:bg-blue-100")
+                      }
                     >
                       <MessageCircle className="w-4 h-4 text-blue-600" />
                       <span>Conversations</span>
                     </button>
-                    <button className="w-full flex items-center gap-2 p-2 bg-blue-50 hover:bg-blue-100 rounded-lg transiti    on-all text-slate-700 text-sm font-medium border border-blue-200">
+                    <button
+                      className={
+                        "w-full flex items-center gap-2 p-2 rounded-lg text-sm font-medium transition-all border " +
+                        (isDark
+                          ? "bg-slate-900 text-slate-100 border-slate-700 hover:bg-slate-800"
+                          : "bg-blue-50 text-slate-700 border-blue-200 hover:bg-blue-100")
+                      }
+                    >
                       <Users className="w-4 h-4 text-blue-600" />
                       <span>Groupes</span>
                     </button>
@@ -405,23 +548,24 @@ export default function ProfilePage() {
               </div>
 
               {/* Navigation par onglets */}
-              <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-3 mt-4">
+              <div className={tabsCard}>
                 <div className="space-y-1">
                   {[
                     { id: "profile", icon: User, label: "Profil" },
                     { id: "privacy", icon: Shield, label: "Confidentialité" },
-                    { id: "notifications", icon: Bell, label: "Notifications" },
+                    {
+                      id: "notifications",
+                      icon: Bell,
+                      label: "Notifications",
+                    },
                   ].map((tab) => {
                     const IconComponent = tab.icon;
+                    const isActive = activeTab === tab.id;
                     return (
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`w-full flex items-center gap-2 p-2 font-semibold transition-all rounded-lg text-sm ${
-                          activeTab === tab.id
-                            ? "bg-blue-600 text-white shadow-md"
-                            : "text-slate-600 hover:text-slate-800 hover:bg-blue-50"
-                        }`}
+                        className={isActive ? tabActive : tabInactive}
                       >
                         <IconComponent className="w-4 h-4" />
                         <span>{tab.label}</span>
@@ -434,25 +578,25 @@ export default function ProfilePage() {
 
             {/* Colonne de droite - Contenu principal */}
             <div className="lg:w-2/3 xl:w-3/4 flex-1">
-              <div className="bg-white rounded-2xl shadow-lg border border-blue-100 overflow-hidden min-h-[600px]">
+              <div className={mainPanel}>
                 {/* En-tête du contenu */}
-                <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-4 border-b border-blue-200">
+                <div className={panelHeader}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-bold text-slate-800">
+                      <h2 className={`text-lg font-bold ${textStrong}`}>
                         {activeTab === "profile" && "Informations personnelles"}
                         {activeTab === "privacy" &&
                           "Paramètres de confidentialité"}
                         {activeTab === "notifications" &&
                           "Préférences de notifications"}
                       </h2>
-                      <p className="text-slate-600 text-sm mt-1">
+                      <p className={`text-sm mt-1 ${textMuted}`}>
                         {activeTab === "profile" &&
                           "Gérez vos informations de profil"}
                         {activeTab === "privacy" &&
                           "Contrôlez votre confidentialité"}
                         {activeTab === "notifications" &&
-                          "Gérez vos préférences de notifications"}
+                          "Contrôlez comment et quand vous recevez les notifications"}
                       </p>
                     </div>
                   </div>
@@ -464,8 +608,8 @@ export default function ProfilePage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Colonne gauche - Informations de base */}
                       <div className="space-y-4">
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                          <label className="flex items-center text-sm font-medium text-slate-700 mb-3">
+                        <div className={paleCard}>
+                          <label className={smallLabel}>
                             <User className="w-4 h-4 text-blue-600 mr-2" />
                             Nom complet
                           </label>
@@ -475,18 +619,22 @@ export default function ProfilePage() {
                               name="name"
                               value={formData.name}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                              className={inputBase}
                               placeholder="Votre nom complet"
                             />
                           ) : (
-                            <p className="text-slate-800 font-semibold text-lg">
+                            <p
+                              className={
+                                "text-lg font-semibold " + textStrong
+                              }
+                            >
                               {formData.name}
                             </p>
                           )}
                         </div>
 
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                          <label className="flex items-center text-sm font-medium text-slate-700 mb-3">
+                        <div className={paleCard}>
+                          <label className={smallLabel}>
                             <Mail className="w-4 h-4 text-blue-600 mr-2" />
                             Adresse email
                           </label>
@@ -496,19 +644,30 @@ export default function ProfilePage() {
                               name="email"
                               value={formData.email}
                               onChange={handleInputChange}
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                              className={inputBase}
                               placeholder="votre@email.com"
                             />
                           ) : (
-                            <p className="text-slate-800 font-semibold text-lg">
+                            <p
+                              className={
+                                "text-lg font-semibold " + textStrong
+                              }
+                            >
                               {formData.email}
                             </p>
                           )}
                         </div>
 
                         {/* Section activité récente */}
-                        <div className="bg-white rounded-xl p-4 border border-slate-200">
-                          <h3 className="flex items-center text-sm font-bold text-slate-800 mb-3">
+                        <div
+                          className={
+                            "rounded-xl p-4 border " +
+                            (isDark
+                              ? "bg-slate-900/70 border-slate-700"
+                              : "bg-white border-slate-200")
+                          }
+                        >
+                          <h3 className={sectionTitle}>
                             <ActivityIcon className="w-4 h-4 text-blue-600 mr-2" />
                             Activité récente
                           </h3>
@@ -518,15 +677,41 @@ export default function ProfilePage() {
                               return (
                                 <div
                                   key={activity.id}
-                                  className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition-colors"
+                                  className={
+                                    "flex items-center justify-between p-2 rounded-lg transition-colors " +
+                                    (isDark
+                                      ? "hover:bg-slate-800"
+                                      : "hover:bg-slate-50")
+                                  }
                                 >
                                   <div className="flex items-center gap-2">
-                                    <IconComponent className="w-3 h-3 text-slate-500" />
-                                    <span className="text-xs text-slate-700">
+                                    <IconComponent
+                                      className={
+                                        "w-3 h-3 " +
+                                        (isDark
+                                          ? "text-slate-400"
+                                          : "text-slate-500")
+                                      }
+                                    />
+                                    <span
+                                      className={
+                                        "text-xs " +
+                                        (isDark
+                                          ? "text-slate-200"
+                                          : "text-slate-700")
+                                      }
+                                    >
                                       {activity.action}
                                     </span>
                                   </div>
-                                  <span className="text-xs text-slate-500">
+                                  <span
+                                    className={
+                                      "text-xs " +
+                                      (isDark
+                                        ? "text-slate-400"
+                                        : "text-slate-500")
+                                    }
+                                  >
                                     {activity.time}
                                   </span>
                                 </div>
@@ -538,8 +723,8 @@ export default function ProfilePage() {
 
                       {/* Colonne droite - Informations supplémentaires */}
                       <div className="space-y-4">
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                          <label className="flex items-center text-sm font-medium text-slate-700 mb-3">
+                        <div className={paleCard}>
+                          <label className={smallLabel}>
                             <User className="w-4 h-4 text-blue-600 mr-2" />
                             Bio
                           </label>
@@ -549,48 +734,64 @@ export default function ProfilePage() {
                               value={formData.bio}
                               onChange={handleInputChange}
                               rows={3}
-                              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm resize-none"
+                              className={textareaBase}
                               placeholder="Décrivez-vous en quelques mots..."
                             />
                           ) : (
-                            <p className="text-slate-700 leading-relaxed text-sm">
+                            <p
+                              className={
+                                "text-sm leading-relaxed " +
+                                (isDark
+                                  ? "text-slate-200"
+                                  : "text-slate-700")
+                              }
+                            >
                               {formData.bio || "Aucune bio renseignée"}
                             </p>
                           )}
                         </div>
 
-                        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                          <h3 className="flex items-center text-sm font-bold text-slate-800 mb-3">
+                        <div className={blueCard}>
+                          <h3 className={sectionTitle}>
                             <Clock className="w-4 h-4 text-blue-600 mr-2" />
                             Statut et activité
                           </h3>
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-600">Statut:</span>
+                              <span className={textMuted}>Statut :</span>
                               <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <span className="text-emerald-600 font-semibold">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                <span
+                                  className={
+                                    "font-semibold " +
+                                    (isDark
+                                      ? "text-emerald-300"
+                                      : "text-emerald-600")
+                                  }
+                                >
                                   En ligne
                                 </span>
                               </div>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-600">
-                                Membre depuis:
+                              <span className={textMuted}>
+                                Membre depuis :
                               </span>
-                              <span className="text-slate-700 font-medium">
+                              <span
+                                className={
+                                  "font-medium " + textStrong
+                                }
+                              >
                                 {new Date(
                                   user.createdAt || Date.now()
                                 ).toLocaleDateString("fr-FR")}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-slate-600">
-                                Série active:
-                              </span>
+                              <span className={textMuted}>Série active :</span>
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3 text-orange-500" />
-                                <span className="text-orange-600 font-semibold">
+                                <span className="font-semibold text-orange-600">
                                   {userStats.streak} jours
                                 </span>
                               </div>
@@ -603,21 +804,31 @@ export default function ProfilePage() {
 
                   {activeTab === "privacy" && (
                     <div className="text-center w-full max-w-2xl mx-auto">
-                      <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Shield className="w-8 h-8 text-blue-600" />
+                      <div
+                        className={
+                          "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 " +
+                          (isDark ? "bg-blue-900" : "bg-blue-100")
+                        }
+                      >
+                        <Shield
+                          className={
+                            "w-8 h-8 " +
+                            (isDark ? "text-blue-300" : "text-blue-600")
+                          }
+                        />
                       </div>
-                      <h3 className="text-xl font-bold text-slate-800 mb-2">
+                      <h3 className={`text-xl font-bold mb-2 ${textStrong}`}>
                         Paramètres de confidentialité
                       </h3>
-                      <p className="text-slate-600 mb-6">
+                      <p className={`mb-6 ${textMuted}`}>
                         Gérez qui peut voir vos informations et vous contacter
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-left">
-                          <h4 className="font-semibold text-slate-800 mb-2">
+                        <div className={notifCard}>
+                          <h4 className={`font-semibold mb-2 ${textStrong}`}>
                             Visibilité du profil
                           </h4>
-                          <p className="text-slate-600 text-sm mb-3">
+                          <p className={`text-sm mb-3 ${textMuted}`}>
                             Contrôlez qui peut voir votre profil
                           </p>
                           <div className="space-y-2">
@@ -628,7 +839,15 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600"
                               />
-                              <span>Tout le monde</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Tout le monde
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-sm">
                               <input
@@ -636,15 +855,23 @@ export default function ProfilePage() {
                                 name="visibility"
                                 className="text-blue-600"
                               />
-                              <span>Contacts uniquement</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Contacts uniquement
+                              </span>
                             </label>
                           </div>
                         </div>
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-left">
-                          <h4 className="font-semibold text-slate-800 mb-2">
+                        <div className={notifCard}>
+                          <h4 className={`font-semibold mb-2 ${textStrong}`}>
                             Paramètres de contact
                           </h4>
-                          <p className="text-slate-600 text-sm mb-3">
+                          <p className={`text-sm mb-3 ${textMuted}`}>
                             Gérez qui peut vous contacter
                           </p>
                           <div className="space-y-2">
@@ -654,7 +881,15 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600 rounded"
                               />
-                              <span>Accepter les messages</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Accepter les messages
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-sm">
                               <input
@@ -662,7 +897,15 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600 rounded"
                               />
-                              <span>Accepter les appels</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Accepter les appels
+                              </span>
                             </label>
                           </div>
                         </div>
@@ -672,22 +915,32 @@ export default function ProfilePage() {
 
                   {activeTab === "notifications" && (
                     <div className="text-center w-full max-w-2xl mx-auto">
-                      <div className="w-16 h-16 bg-cyan-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Bell className="w-8 h-8 text-cyan-600" />
+                      <div
+                        className={
+                          "w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 " +
+                          (isDark ? "bg-cyan-900" : "bg-cyan-100")
+                        }
+                      >
+                        <Bell
+                          className={
+                            "w-8 h-8 " +
+                            (isDark ? "text-cyan-300" : "text-cyan-600")
+                          }
+                        />
                       </div>
-                      <h3 className="text-xl font-bold text-slate-800 mb-2">
+                      <h3 className={`text-xl font-bold mb-2 ${textStrong}`}>
                         Préférences de notifications
                       </h3>
-                      <p className="text-slate-600 mb-6">
+                      <p className={`mb-6 ${textMuted}`}>
                         Contrôlez comment et quand vous recevez les
                         notifications
                       </p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-left">
-                          <h4 className="font-semibold text-slate-800 mb-2">
+                        <div className={notifCard}>
+                          <h4 className={`font-semibold mb-2 ${textStrong}`}>
                             Messages
                           </h4>
-                          <p className="text-slate-600 text-sm mb-3">
+                          <p className={`text-sm mb-3 ${textMuted}`}>
                             Notifications de nouveaux messages
                           </p>
                           <div className="space-y-2">
@@ -697,7 +950,15 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600 rounded"
                               />
-                              <span>Nouveaux messages</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Nouveaux messages
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-sm">
                               <input
@@ -705,15 +966,23 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600 rounded"
                               />
-                              <span>Messages de groupe</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Messages de groupe
+                              </span>
                             </label>
                           </div>
                         </div>
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-left">
-                          <h4 className="font-semibold text-slate-800 mb-2">
+                        <div className={notifCard}>
+                          <h4 className={`font-semibold mb-2 ${textStrong}`}>
                             Activités
                           </h4>
-                          <p className="text-slate-600 text-sm mb-3">
+                          <p className={`text-sm mb-3 ${textMuted}`}>
                             Notifications d&apos;activités sociales
                           </p>
                           <div className="space-y-2">
@@ -723,7 +992,15 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600 rounded"
                               />
-                              <span>Nouveaux likes</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Nouveaux likes
+                              </span>
                             </label>
                             <label className="flex items-center gap-2 text-sm">
                               <input
@@ -731,7 +1008,15 @@ export default function ProfilePage() {
                                 defaultChecked
                                 className="text-blue-600 rounded"
                               />
-                              <span>Nouveaux followers</span>
+                              <span
+                                className={
+                                  isDark
+                                    ? "text-slate-200"
+                                    : "text-slate-700"
+                                }
+                              >
+                                Nouveaux followers
+                              </span>
                             </label>
                           </div>
                         </div>

@@ -17,7 +17,7 @@ api.interceptors.request.use(
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       if (token) {
-       config.headers.Authorization = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer ${token}`;
       }
     }
     return config;
@@ -36,7 +36,7 @@ api.interceptors.response.use(
       if (typeof window !== "undefined") {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        window.location.href = "/login";
+        //window.location.href = "/login";
       }
     }
     return Promise.reject(error);
@@ -127,7 +127,6 @@ export const markConversationAsRead = (conversationId) =>
 
 export const getUnreadCount = () => api.get("/messages/unread/count");
 
-
 // ============================================
 // 🆕 API CONTACTS
 // ============================================
@@ -136,26 +135,30 @@ export const getUnreadCount = () => api.get("/messages/unread/count");
 export const addContact = (data) => api.post("/contacts", data);
 
 // Récupérer tous les contacts
-export const getContacts = () => api.get('/contacts');
+export const getContacts = () => api.get("/contacts");
 
 // Rechercher dans ses contacts
-export const searchContacts = (query) => api.get(`/contacts/search?query=${encodeURIComponent(query)}`);
+export const searchContacts = (query) =>
+  api.get(`/contacts/search?query=${encodeURIComponent(query)}`);
 
 // Récupérer un contact spécifique
 export const getContactById = (contactId) => api.get(`/contacts/${contactId}`);
 
 // Mettre à jour un contact
-export const updateContact = (contactId, data) => api.put(`/contacts/${contactId}`, data);
+export const updateContact = (contactId, data) =>
+  api.put(`/contacts/${contactId}`, data);
 
 // Supprimer un contact
-export const deleteContact = (contactId) => api.delete(`/contacts/${contactId}`);
+export const deleteContact = (contactId) =>
+  api.delete(`/contacts/${contactId}`);
 
 // Toggle favori
-export const toggleFavoriteContact = (contactId) => api.patch(`/contacts/${contactId}/favorite`);
+export const toggleFavoriteContact = (contactId) =>
+  api.patch(`/contacts/${contactId}/favorite`);
 
 // Toggle bloquer
-export const toggleBlockContact = (contactId) => api.patch(`/contacts/${contactId}/block`);
-
+export const toggleBlockContact = (contactId) =>
+  api.patch(`/contacts/${contactId}/block`);
 
 // ============================================
 // 🔑 RÉINITIALISATION MOT DE PASSE

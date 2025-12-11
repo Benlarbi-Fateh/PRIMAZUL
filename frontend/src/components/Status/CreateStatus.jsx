@@ -15,7 +15,7 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const { user } = useAuth();
-  
+
   const videoRef = useRef();
   const fileInputRef = useRef();
 
@@ -36,33 +36,33 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
         setError('Veuillez sélectionner un fichier vidéo (MP4, WebM, MOV, etc.)');
         return;
       }
-      
+
       // Vérifier les types spécifiques
       const allowedVideoTypes = [
-        'video/mp4', 
-        'video/webm', 
-        'video/ogg', 
+        'video/mp4',
+        'video/webm',
+        'video/ogg',
         'video/quicktime',
         'video/x-msvideo'
       ];
-      
+
       if (!allowedVideoTypes.includes(file.type)) {
         setError(`Format vidéo non supporté: ${file.type}. Formats acceptés: MP4, WebM, OGG, MOV, AVI`);
         return;
       }
-      
+
       if (file.size > 50 * 1024 * 1024) { // 50MB
         setError('La vidéo est trop volumineuse (max 50MB)');
         return;
       }
-      
+
       setVideoFile(file);
       setImageFile(null);
-      
+
       // Créer URL de prévisualisation
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      
+
       console.log('✅ Vidéo acceptée:', file.name);
     } else if (type === 'image') {
       // Validation image
@@ -70,55 +70,53 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
         setError('Veuillez sélectionner une image (JPG, PNG, GIF, etc.)');
         return;
       }
-      
+
       // Vérifier les types spécifiques
       const allowedImageTypes = [
-        'image/jpeg', 
-        'image/jpg', 
-        'image/png', 
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
         'image/gif',
         'image/webp'
       ];
-      
+
       if (!allowedImageTypes.includes(file.type)) {
         setError(`Format image non supporté: ${file.type}. Formats acceptés: JPG, PNG, GIF, WebP`);
         return;
       }
-      
+
       if (file.size > 10 * 1024 * 1024) { // 10MB
-        setError('L\'image est trop volumineuse (max 10MB)');
+        setError('L\'image est trop volumineuse (max 100MB)');
         return;
       }
-      
+
       setImageFile(file);
       setVideoFile(null);
-      
+
       // Créer URL de prévisualisation
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      
+
       console.log('✅ Image acceptée:', file.name);
     }
-    
+
     setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    console.log('📤 Soumission statut:', { type, content, videoFile, imageFile });
-    
-    // Validation selon le type
+
+    // Validation
     if (type === 'text' && !content.trim()) {
       setError('Veuillez ajouter du texte');
       return;
     }
-    
+
     if (type === 'video' && !videoFile) {
       setError('Veuillez sélectionner une vidéo');
       return;
     }
-    
+
     if (type === 'image' && !imageFile) {
       setError('Veuillez sélectionner une image');
       return;
@@ -133,57 +131,63 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
         setError('Vous devez être connecté');
         return;
       }
-      
-      // Utiliser FormData pour envoyer des fichiers
+
+      // CORRECTION : Créer FormData avec les bons noms de champs
       const formData = new FormData();
+
+      // Ajouter le type
       formData.append('type', type);
-      
-      // Ajouter le contenu (texte pour type text, légende pour image/video)
+
+      // Ajouter le contenu (texte ou légende)
       if (content.trim()) {
         formData.append('content', content.trim());
-      } else if (type === 'text') {
-        setError('Veuillez ajouter du texte');
-        return;
       }
-      
-      // Ajouter le fichier approprié
+
+      // Ajouter le fichier avec le nom correct attendu par le backend
       if (type === 'video' && videoFile) {
-        formData.append('video', videoFile);
+        formData.append('media', videoFile); // Nom "media" souvent utilisé
+        formData.append('videoDuration', videoRef.current?.duration || 0);
       } else if (type === 'image' && imageFile) {
-        formData.append('image', imageFile);
+        formData.append('media', imageFile); // Nom "media" souvent utilisé
       }
 
       console.log('📤 Envoi FormData:');
       for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}:`, value instanceof File ? `${value.name} (${value.type}, ${value.size} bytes)` : value);
+        console.log(`  ${key}:`, value instanceof File ?
+          `${value.name} (${value.type}, ${value.size} bytes)` : value);
       }
 
+      // CORRECTION : Envoyer avec FormData
       const response = await fetch(`${API_BASE_URL}/api/status`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
-          // NE PAS mettre 'Content-Type': FormData le fera automatiquement avec boundary
+          // NE PAS ajouter 'Content-Type' - FormData le fera automatiquement
         },
         body: formData
       });
 
       const result = await response.json();
       console.log('📥 Réponse serveur:', { status: response.status, result });
-      
+
       if (response.ok) {
-        // Nettoyer les previews
         if (previewUrl) {
           URL.revokeObjectURL(previewUrl);
         }
-        
+
         onStatusCreated();
         onClose();
       } else {
-        setError(result.error || result.details || `Erreur ${response.status}`);
+        // Meilleur affichage des erreurs
+        const errorMsg = result.error ||
+          result.message ||
+          result.details ||
+          `Erreur ${response.status}: ${JSON.stringify(result)}`;
+        setError(errorMsg);
       }
     } catch (error) {
       console.error('❌ Erreur soumission:', error);
-      setError('Erreur de connexion au serveur: ' + error.message);
+      setError(`Erreur réseau: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -200,7 +204,7 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
-    
+
     setVideoFile(null);
     setImageFile(null);
     setPreviewUrl('');
@@ -211,7 +215,7 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
     setType(newType);
     setError('');
     resetFile();
-    
+
     // Réinitialiser le contenu seulement pour le texte
     if (newType === 'text') {
       setContent('');
@@ -230,7 +234,7 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
         {/* Header */}
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           <h3 className="text-xl font-bold text-slate-800">Créer un statut</h3>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-full transition-colors"
             disabled={isUploading}
@@ -251,11 +255,10 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
             <button
               type="button"
               onClick={() => handleTypeChange('text')}
-              className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${
-                type === 'text' 
-                  ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' 
+              className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${type === 'text'
+                  ? 'bg-blue-50 text-blue-600 border-2 border-blue-200'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-200 border border-transparent'
-              }`}
+                }`}
               disabled={isUploading}
             >
               <FileText className="w-5 h-5" />
@@ -264,11 +267,10 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
             <button
               type="button"
               onClick={() => handleTypeChange('image')}
-              className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${
-                type === 'image' 
-                  ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' 
+              className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${type === 'image'
+                  ? 'bg-blue-50 text-blue-600 border-2 border-blue-200'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-200 border border-transparent'
-              }`}
+                }`}
               disabled={isUploading}
             >
               <Image className="w-5 h-5" />
@@ -277,11 +279,10 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
             <button
               type="button"
               onClick={() => handleTypeChange('video')}
-              className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${
-                type === 'video' 
-                  ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' 
+              className={`flex-1 py-3 px-4 rounded-xl flex flex-col items-center gap-2 transition-all ${type === 'video'
+                  ? 'bg-blue-50 text-blue-600 border-2 border-blue-200'
                   : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:border-slate-200 border border-transparent'
-              }`}
+                }`}
               disabled={isUploading}
             >
               <Video className="w-5 h-5" />
@@ -330,8 +331,8 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
                           }}
                         />
                         <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          {videoRef.current?.duration 
-                            ? `${Math.floor(videoRef.current.duration)}s` 
+                          {videoRef.current?.duration
+                            ? `${Math.floor(videoRef.current.duration)}s`
                             : 'Vidéo'
                           }
                         </div>
@@ -343,7 +344,7 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
                         className="w-full h-48 object-cover"
                       />
                     )}
-                    
+
                     {/* Overlay d'informations */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
                       <div className="flex justify-between items-center text-white">
@@ -379,9 +380,9 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
                         {type === 'video' ? 'Sélectionner une vidéo' : 'Sélectionner une photo'}
                       </span>
                       <span className="text-sm text-slate-500">
-                        {type === 'video' 
-                          ? 'MP4, WebM, OGG, MOV, AVI (max 50MB)' 
-                          : 'JPG, PNG, GIF, WebP (max 10MB)'
+                        {type === 'video'
+                          ? 'MP4, WebM, OGG, MOV, AVI (max 50MB)'
+                          : 'JPG, PNG, GIF, WebP (max 100MB)'
                         }
                       </span>
                     </div>
@@ -428,11 +429,11 @@ const CreateStatus = ({ onClose, onStatusCreated }) => {
             >
               Annuler
             </button>
-            
+
             <button
               type="submit"
               disabled={
-                isUploading || 
+                isUploading ||
                 (type === 'text' && !content.trim()) ||
                 (type === 'video' && !videoFile) ||
                 (type === 'image' && !imageFile)

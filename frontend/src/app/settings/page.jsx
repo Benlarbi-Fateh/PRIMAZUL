@@ -13,6 +13,8 @@ import {
   Key,
 } from "lucide-react";
 import { AuthContext } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
+import { useNotifications } from "@/context/NotificationsContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,6 +23,16 @@ import { sendPasswordOtp, verifyChangePassword } from "@/lib/api";
 export default function SettingsPage() {
   const { user, logout } = useContext(AuthContext);
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
+  const {
+    preferences,
+    updatePreferences,
+    MESSAGE_SOUNDS,
+    CALL_SOUNDS,
+    playMessageSound,
+    playCallSound,
+  } = useNotifications(); // ⬅️ nouveau
 
   const [showModal, setShowModal] = useState(false);
   const [step, setStep] = useState(1);
@@ -39,9 +51,6 @@ export default function SettingsPage() {
     language: "fr",
     privacy: "public",
   });
-
-  // ====== uniquement pour le style (clair/sombre dans CETTE page) ======
-  const isDark = userData.darkMode;
 
   const pageBg = isDark
     ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-50"
@@ -140,16 +149,16 @@ export default function SettingsPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 via-slate-50 to-sky-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-sky-400/40 border-t-sky-500" />
-          <p className="mt-4 text-slate-500 text-sm">
-            Chargement du profil...
-          </p>
+          <p className="mt-4 text-slate-500 text-sm">Chargement du profil...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`relative min-h-screen overflow-hidden px-4 py-6 md:px-8 ${pageBg}`}>
+    <div
+      className={`relative min-h-screen overflow-hidden px-4 py-6 md:px-8 ${pageBg}`}
+    >
       {/* halo décoratif */}
       <div
         className={`pointer-events-none absolute inset-0 -z-10 opacity-60 ${haloBg}`}
@@ -283,28 +292,129 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <label className={`flex items-center gap-3 text-xs ${labelText}`}>
-              <input
-                type="checkbox"
-                checked={userData.notifications}
-                onChange={(e) =>
-                  setUserData({
-                    ...userData,
-                    notifications: e.target.checked,
-                  })
-                }
-                className={
-                  "h-4 w-4 rounded border bg-white " +
-                  (isDark
-                    ? "border-slate-600 text-amber-400 accent-amber-400"
-                    : "border-slate-300 text-amber-500 accent-amber-500")
-                }
-              />
-              <span>Activer les notifications importantes</span>
-            </label>
+            <div className="space-y-4 text-xs">
+              {/* 1. Activer / suspendre */}
+              <label
+                className={`flex items-center justify-between gap-3 cursor-pointer ${labelText}`}
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium">Activer les notifications</span>
+                  <span className={`mt-0.5 text-[11px] ${smallMuted}`}>
+                    Désactivez pour suspendre tous les sons et alertes.
+                  </span>
+                </div>
+
+                <div
+                  className={
+                    "relative inline-flex h-6 w-11 items-center rounded-full transition-colors " +
+                    (preferences.enabled ? "bg-amber-500" : "bg-slate-400/40")
+                  }
+                >
+                  <span
+                    className={
+                      "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform " +
+                      (preferences.enabled ? "translate-x-5" : "translate-x-1")
+                    }
+                  />
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={preferences.enabled}
+                    onChange={(e) =>
+                      updatePreferences({ enabled: e.target.checked })
+                    }
+                  />
+                </div>
+              </label>
+
+              {/* 2. Son des messages */}
+              <div>
+                <label
+                  className={`mb-1 block text-xs font-medium ${labelText}`}
+                >
+                  Son des messages
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={preferences.messageSoundId}
+                    onChange={(e) =>
+                      updatePreferences({ messageSoundId: e.target.value })
+                    }
+                    disabled={!preferences.enabled}
+                    className={inputBase + " text-xs"}
+                  >
+                    {MESSAGE_SOUNDS.map((sound) => (
+                      <option key={sound.id} value={sound.id}>
+                        {sound.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={playMessageSound}
+                    disabled={!preferences.enabled}
+                    className={
+                      "rounded-xl border px-3 py-2 text-[11px] font-medium transition " +
+                      (isDark
+                        ? "border-slate-700 bg-slate-900 hover:bg-slate-800 disabled:opacity-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50")
+                    }
+                  >
+                    Tester
+                  </button>
+                </div>
+                <p className={`mt-1 text-[11px] ${smallMuted}`}>
+                  Joué à chaque nouveau message reçu.
+                </p>
+              </div>
+
+              {/* 3. Son des appels */}
+              <div>
+                <label
+                  className={`mb-1 block text-xs font-medium ${labelText}`}
+                >
+                  Son des appels entrants
+                </label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={preferences.callSoundId}
+                    onChange={(e) =>
+                      updatePreferences({ callSoundId: e.target.value })
+                    }
+                    disabled={!preferences.enabled}
+                    className={inputBase + " text-xs"}
+                  >
+                    {CALL_SOUNDS.map((sound) => (
+                      <option key={sound.id} value={sound.id}>
+                        {sound.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={playCallSound}
+                    disabled={!preferences.enabled}
+                    className={
+                      "rounded-xl border px-3 py-2 text-[11px] font-medium transition " +
+                      (isDark
+                        ? "border-slate-700 bg-slate-900 hover:bg-slate-800 disabled:opacity-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50")
+                    }
+                  >
+                    Tester
+                  </button>
+                </div>
+                <p className={`mt-1 text-[11px] ${smallMuted}`}>
+                  Joué quand vous recevez un appel.
+                </p>
+              </div>
+            </div>
           </section>
 
           {/* Apparence (switch clair/sombre pour CETTE page) */}
+          {/* Apparence */}
           <section className={cardBase}>
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-fuchsia-400/70 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <div className="mb-4 flex items-center gap-3">
@@ -314,7 +424,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-sm font-semibold">Apparence</h2>
                 <p className={`text-xs ${smallMuted}`}>
-                  Bascule claire / sombre (uniquement sur cette page)
+                  Bascule claire / sombre pour tout le site
                 </p>
               </div>
             </div>
@@ -322,6 +432,7 @@ export default function SettingsPage() {
             <label
               className={`flex items-center gap-3 text-xs cursor-pointer ${labelText}`}
             >
+              {/* Switch visuel */}
               <div
                 className={
                   "relative inline-flex h-6 w-11 items-center rounded-full transition-colors " +
@@ -337,18 +448,18 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   className="sr-only"
-                  checked={userData.darkMode}
-                  onChange={(e) =>
-                    setUserData({
-                      ...userData,
-                      darkMode: e.target.checked,
-                    })
-                  }
+                  checked={isDark}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    // on garde ta state locale pour cohérence
+                    setUserData((prev) => ({ ...prev, darkMode: checked }));
+                    // on met à jour le thème GLOBAL
+                    setTheme(checked ? "dark" : "light");
+                  }}
                 />
               </div>
-              <span>
-                {isDark ? "Mode sombre activé" : "Mode clair activé"}
-              </span>
+
+              <span>{isDark ? "Mode sombre activé" : "Mode clair activé"}</span>
             </label>
           </section>
 
@@ -446,9 +557,7 @@ export default function SettingsPage() {
                 <Key className="h-4 w-4" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold">
-                  Sécurité du compte
-                </h2>
+                <h2 className="text-sm font-semibold">Sécurité du compte</h2>
                 <p className={`text-xs ${smallMuted}`}>
                   Mettez à jour régulièrement votre mot de passe
                 </p>

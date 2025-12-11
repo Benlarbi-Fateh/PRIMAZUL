@@ -59,6 +59,93 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
     clap: 'bg-green-100 text-green-600'
   };
 
+  // Fonction utilitaire pour obtenir l'URL complète des médias
+  const getMediaUrl = (url) => {
+    if (!url) return null;
+    
+    // Si l'URL est déjà complète
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Si c'est un chemin relatif, ajouter l'URL de base
+    if (url.startsWith('/')) {
+      return `${API_BASE_URL}${url}`;
+    }
+    
+    // Pour les chemins sans slash
+    return `${API_BASE_URL}/${url}`;
+  };
+
+  // Fonction utilitaire pour obtenir l'avatar
+  const getAvatarUrl = (user, fallbackName = 'Utilisateur') => {
+    if (!user) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        fallbackName
+      )}&background=3b82f6&color=fff&bold=true`;
+    }
+    
+    const profilePic = user.profilePicture;
+    if (!profilePic) {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        user.name || user.username || fallbackName
+      )}&background=3b82f6&color=fff&bold=true`;
+    }
+    
+    return getMediaUrl(profilePic) || `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      user.name || user.username || fallbackName
+    )}&background=3b82f6&color=fff&bold=true`;
+  };
+
+  // Fonction pour obtenir le nom d'utilisateur
+  const getUserDisplayName = (view) => {
+    // Cas 1: userId est un objet avec propriétés
+    if (typeof view.userId === 'object' && view.userId !== null) {
+      return view.userId.name || view.userId.username || 'Utilisateur';
+    }
+    
+    // Cas 2: On a directement les propriétés dans view
+    if (view.userName) return view.userName;
+    if (view.user) return view.user;
+    
+    // Cas 3: userId est un simple ID string
+    if (view.userId && typeof view.userId === 'string') {
+      return `Utilisateur (${view.userId.substring(0, 6)}...)`;
+    }
+    
+    return 'Utilisateur';
+  };
+
+  // Fonction pour obtenir les infos utilisateur complètes
+  const getUserInfo = (view) => {
+    const name = getUserDisplayName(view);
+    
+    // Cas 1: userId est un objet complet
+    if (typeof view.userId === 'object' && view.userId !== null) {
+      return {
+        name: name,
+        avatarUrl: getAvatarUrl(view.userId, name),
+        id: view.userId._id || view.userId.id || 'unknown'
+      };
+    }
+    
+    // Cas 2: On a des propriétés séparées
+    if (view.user || view.userName) {
+      return {
+        name: name,
+        avatarUrl: view.profilePicture ? getMediaUrl(view.profilePicture) : getAvatarUrl(null, name),
+        id: view.userId || view._id || 'unknown'
+      };
+    }
+    
+    // Cas 3: Aucune info disponible
+    return {
+      name: name,
+      avatarUrl: getAvatarUrl(null, name),
+      id: view.userId || 'unknown'
+    };
+  };
+
   // Fonction de déduplication AVANCÉE
   const deduplicateViews = (views) => {
     console.log('🔄 Déduplication des vues...');
@@ -105,7 +192,6 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
       const dateB = new Date(b.viewedAt || b.createdAt);
       return dateB - dateA; // Décroissant
     });
-    
     
     console.log('👤 Utilisateurs uniques:', Array.from(viewsByUser.keys()));
     
@@ -178,7 +264,7 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
       }
     });
     
-    
+    console.log('🧹 Après nettoyage:', cleanedViews.length, 'vues');
     
     return cleanedViews;
   };
@@ -333,7 +419,6 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
         });
         
         const uniqueIds = [...new Set(userIds)];
-        
         
         // Vérifier s'il y a encore des doublons
         if (uniqueIds.length !== cleanedViews.length) {
@@ -672,9 +757,14 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
 
         <div className="flex items-center">
           <img 
-            src={userStatus.user.profilePicture || '/default-avatar.png'} 
+            src={getAvatarUrl(userStatus.user, userStatus.user.name)}
             alt={userStatus.user.name}
             className="w-8 h-8 rounded-full"
+            onError={(e) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                userStatus.user.name || "User"
+              )}&background=3b82f6&color=fff&bold=true`;
+            }}
           />
           <div className="ml-3">
             <h3 className="text-white font-medium text-sm">{userStatus.user.name}</h3>
@@ -719,8 +809,6 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
                     {views.length} vue{views.length !== 1 ? 's' : ''}
                   </span>
                 </button>
-                
-               
               </div>
             )}
           </div>
@@ -831,7 +919,6 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
                 </span>
               </div>
             )}
-            
           </div>
         </div>
       )}
@@ -872,7 +959,6 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
               <p className="text-sm text-gray-500">
                 {views.length} personne{views.length !== 1 ? 's' : ''}
               </p>
-              
             </div>
             <button
               onClick={() => setShowViews(false)}
@@ -896,53 +982,51 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
               </div>
             ) : (
               <div>
-                
-                {views.map((view, index) => (
-                  <div 
-                    key={`view-${view.userId?._id || view.userId || index}-${view.viewedAt}`} 
-                    className="flex items-center p-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                  >
-                    <img 
-                      src={
-                        (typeof view.userId === 'object' 
-                          ? view.userId?.profilePicture 
-                          : null) || '/default-avatar.png'
-                      } 
-                      alt={
-                        typeof view.userId === 'object' 
-                          ? view.userId?.name || 'Utilisateur'
-                          : 'Utilisateur'
-                      }
-                      className="w-10 h-10 rounded-full"
-                    />
-                    <div className="ml-3 flex-1">
-                      <p className="font-medium text-gray-800">
-                        {typeof view.userId === 'object' 
-                          ? view.userId?.name || 'Utilisateur inconnu'
-                          : 'Utilisateur'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {view.reaction && (
-                          <span className={`text-xs px-2 py-1 rounded-full ${reactionColors[view.reaction]}`}>
-                            {reactionIcons[view.reaction]} Réagi
-                          </span>
-                        )}
-                        {view.replyMessage && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-600">
-                            <MessageCircle className="w-3 h-3 inline mr-1" />
-                            Répondu
-                          </span>
-                        )}
+                {views.map((view, index) => {
+                  const userInfo = getUserInfo(view);
+                  
+                  return (
+                    <div 
+                      key={`view-${userInfo.id}-${view.viewedAt || index}`} 
+                      className="flex items-center p-3 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                    >
+                      <img 
+                        src={userInfo.avatarUrl}
+                        alt={userInfo.name}
+                        className="w-10 h-10 rounded-full"
+                        onError={(e) => {
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                            userInfo.name
+                          )}&background=3b82f6&color=fff&bold=true`;
+                        }}
+                      />
+                      <div className="ml-3 flex-1">
+                        <p className="font-medium text-gray-800">
+                          {userInfo.name}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {view.reaction && (
+                            <span className={`text-xs px-2 py-1 rounded-full ${reactionColors[view.reaction]}`}>
+                              {reactionIcons[view.reaction]} Réagi
+                            </span>
+                          )}
+                          {view.replyMessage && (
+                            <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-600">
+                              <MessageCircle className="w-3 h-3 inline mr-1" />
+                              Répondu
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Vu à {view.viewedAt ? new Date(view.viewedAt).toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'Date inconnue'}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Vu à {view.viewedAt ? new Date(view.viewedAt).toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : 'Date inconnue'}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -956,7 +1040,7 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
         </div>
       ) : (
         /* Contenu normal de la story */
-        <div className="relative w-full h-full flex items-center justify-center mb-25 ">
+        <div className="relative w-full h-full flex items-center justify-center mb-25">
           {currentStatus.type === 'text' ? (
             <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-8 rounded-2xl max-w-md mx-4 animate-fade-in">
               <p className="text-white text-2xl text-center font-medium leading-relaxed">
@@ -969,11 +1053,11 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
               onClick={handleVideoClick}
             >
               <img 
-                src={currentStatus.mediaUrl || currentStatus.content} 
+                src={getMediaUrl(currentStatus.mediaUrl || currentStatus.content) || '/default-image.png'} 
                 alt="Statut photo"
                 className="max-w-full max-h-full object-contain animate-fade-in"
                 onError={(e) => {
-                  console.error('❌ Erreur chargement image:', currentStatus.mediaUrl);
+                  console.error('❌ Erreur chargement image:', getMediaUrl(currentStatus.mediaUrl));
                   e.target.src = '/default-image.png';
                   e.target.className = 'max-w-full max-h-full object-contain animate-fade-in bg-gray-800 p-8';
                   e.target.alt = 'Image non chargée';
@@ -987,7 +1071,7 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
             >
               <video
                 ref={videoRef}
-                src={currentStatus.mediaUrl}
+                src={getMediaUrl(currentStatus.mediaUrl)}
                 className="max-w-full max-h-full object-contain animate-fade-in"
                 controls={false}
                 autoPlay
@@ -1003,7 +1087,7 @@ const StatusView = ({ userStatus, onClose, onStatusUpdate, onDeleteStatus }) => 
                 }}
                 onError={(e) => {
                   console.error('❌ Erreur chargement vidéo:', {
-                    src: currentStatus.mediaUrl,
+                    src: getMediaUrl(currentStatus.mediaUrl),
                     error: e.target.error
                   });
                 }}
