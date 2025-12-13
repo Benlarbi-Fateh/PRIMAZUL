@@ -203,7 +203,16 @@ exports.login = async (req, res) => {
 
     // Trouver l'utilisateur
     const user = await User.findOne({ email });
-    if (!user) {
+        // 🚫 Bloquer connexion si le compte est supprimé
+    if (user && user.isDeleted) {
+      return res.status(403).json({
+        error: "Ce compte a été supprimé. Connexion impossible."
+      });
+    }
+
+    //ajout 
+
+    if (!user || !user.isActive) {
       return res.status(401).json({ error: "Email ou mot de passe incorrect" });
     }
 

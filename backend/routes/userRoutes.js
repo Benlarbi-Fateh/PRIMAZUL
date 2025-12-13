@@ -124,5 +124,4 @@ router.post("/confirm-email-change", authMiddleware, async (req, res) => {
   }
 });
 
-
 module.exports = router;

@@ -117,7 +117,12 @@ const userSchema = new mongoose.Schema(
     pendingEmail: { type: String },
     emailVerificationCode: { type: String },
     emailCodeExpires: { type: Date },
+
+    // 🔥 Nouveau champ pour soft delete
+isDeleted: { type: Boolean, default: false },
+
   },
+  
   {
     timestamps: true,
   }

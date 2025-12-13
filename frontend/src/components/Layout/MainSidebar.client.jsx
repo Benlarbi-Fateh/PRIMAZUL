@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useContext, useState } from 'react';
 import { AuthContext } from '@/context/AuthProvider';
 import { useTheme } from '@/hooks/useTheme';
-import { MessageCircle, Users, Settings, LogOut, ChevronRight, ChevronLeft } from 'lucide-react';
+
+import { MessageCircle, Users, Settings, LogOut,Trash , ChevronRight, ChevronLeft } from 'lucide-react';
+
 
 export default function MainSidebar() {
   const router = useRouter();
@@ -73,79 +75,82 @@ export default function MainSidebar() {
   };
 
   if (!user) return null;
+ //suppression 
+ const deleteAccount = async () => {
+  const confirmDelete = confirm("Es-tu sûr de vouloir supprimer définitivement ton compte ?");
+  if (!confirmDelete) return;
 
-  return (
-    <>
-      {/* Bouton Toggle - Même dégradé que la sidebar */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed top-1/2 -translate-y-1/2 z-60 ${toggleButtonBg} text-white p-2 rounded-r-md shadow-lg hover:shadow-xl transition-all duration-300 ${
-          isOpen ? 'left-16' : '-left-2'
-        }`}
-        title={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-      >
-        {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
-      </button>
+  await fetch("http://localhost:3000/user/delete", {
+    method: "DELETE",
+    credentials: "include",
+  });
 
-      {/* Overlay pour mobile */}
-      {isOpen && (
-        <div
-          className={`fixed inset-0 ${overlayBg} z-48 lg:hidden`}
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+  logout(); 
+  router.push("/login");
+};
+return (
+  <>
+    {/* Bouton Toggle */}
+    <button
+      onClick={() => setIsOpen(!isOpen)}
+      className={`fixed top-1/2 -translate-y-1/2 z-60 ${toggleButtonBg} text-white p-2 rounded-r-md ${
+        isOpen ? 'left-16' : '-left-2'
+      }`}
+    >
+      {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+    </button>
 
-      {/* Sidebar - Même dégradé que le ChatHeader */}
-      <aside
-        className={`fixed left-0 top-0 h-screen w-16 ${sidebarBg} flex flex-col items-center py-4 shadow-xl z-49 transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
-        {/* Pattern background (comme dans ChatHeader) */}
-        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
+    {/* Overlay mobile */}
+    {isOpen && (
+      <div
+        className={`fixed inset-0 ${overlayBg} z-48 lg:hidden`}
+        onClick={() => setIsOpen(false)}
+      />
+    )}
 
-        {/* Menu Items */}
-        <nav className="flex-1 flex flex-col items-center gap-6 mt-4 relative z-10">
-          {menuItems.map((item, index) => {
-            const IconComponent = item.icon;
-            return (
-              <div key={index} className="relative group">
-                <button
-                  onClick={() => {
-                    router.push(item.href);
-                    // Fermer sur mobile après clic
-                    if (window.innerWidth < 1024) {
-                      setIsOpen(false);
-                    }
-                  }}
-                  className="flex flex-col items-center transition-colors"
-                >
-                  <div className={`p-3 rounded-xl transition-all duration-200 backdrop-blur-sm ${menuItemStyle}`}>
-                    <IconComponent className="w-6 h-6" />
-                  </div>
-                </button>
-                {/* Tooltip au survol */}
-                <span className={`absolute left-20 top-1/2 -translate-y-1/2 ${tooltipBg} text-sm font-medium py-2 px-3 rounded-lg border shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50`}>
-                  {item.label}
-                </span>
-              </div>
-            );
-          })}
-        </nav>
+    {/* Sidebar */}
+    <aside
+      className={`fixed left-0 top-0 h-screen w-16 ${sidebarBg} flex flex-col items-center py-4 z-49 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      {/* Menu */}
+      <nav className="flex-1 flex flex-col items-center gap-6 mt-4">
+        {menuItems.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={index}
+              onClick={() => router.push(item.href)}
+              className="p-3 rounded-xl"
+            >
+              <Icon className="w-6 h-6" />
+            </button>
+          );
+        })}
+      </nav>
 
-        {/* Logout Button */}
-        <div className="relative group mt-auto mb-4 z-10">
-          <button
-            onClick={handleLogout}
-            className={`p-3 rounded-xl transition-all duration-200 backdrop-blur-sm ${logoutStyle}`}
-          >
-            <LogOut className="w-6 h-6" />
-          </button>
-          <span className={`absolute left-20 top-1/2 -translate-y-1/2 ${logoutTooltipBg} text-sm font-medium py-2 px-3 rounded-lg border shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50`}>
-            Déconnexion
-          </span>
-        </div>
-      </aside>
-    </>
-  );
+      {/* Logout */}
+      <div className="relative group mb-4">
+        <button
+          onClick={handleLogout}
+          className="p-3 rounded-xl text-red-500 hover:bg-red-100"
+        >
+          <LogOut className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Supprimer compte */}
+      <div className="relative group mb-4">
+        <button
+          onClick={deleteAccount}
+          className="p-3 rounded-xl text-red-600 hover:bg-red-600/20"
+        >
+          <Trash className="w-6 h-6" />
+        </button>
+      </div>
+    </aside>
+  </>
+);
+
 }
