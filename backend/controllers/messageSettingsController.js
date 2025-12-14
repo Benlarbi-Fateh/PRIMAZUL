@@ -8,6 +8,24 @@ const Contact = require('../models/Contact');
 /**
  * Soft delete conversation FOR THE CURRENT USER
  */
+// ✅ FONCTION UTILITAIRE : Vérifier si deux utilisateurs sont contacts
+const areContacts = async (userId1, userId2) => {
+  const contact1 = await Contact.findOne({
+    owner: userId1,
+    contact: userId2
+  });
+  
+  const contact2 = await Contact.findOne({
+    owner: userId2,
+    contact: userId1
+  });
+  
+  return !!(contact1 || contact2);
+};
+
+/**
+ * 🆕 Soft delete avec régénération automatique pour les contacts
+ */
 exports.deleteConversationForUser = async (req, res) => {
   try {
     if (!req.user || !req.user._id) {
@@ -41,7 +59,25 @@ exports.deleteConversationForUser = async (req, res) => {
       });
     }
 
-    // ✅ NOUVELLE LOGIQUE : Vérifier si c'est un contact
+    // ✅ SOFT DELETE : Ajouter userId dans deletedBy
+    if (!conversation.deletedBy) {
+      conversation.deletedBy = [];
+    }
+
+    const existingDeletion = conversation.deletedBy.find(
+      item => item.userId && item.userId.toString() === userId.toString()
+    );
+
+    if (!existingDeletion) {
+      conversation.deletedBy.push({
+        userId: userId,
+        deletedAt: new Date()
+      });
+      await conversation.save();
+      console.log('✅ Conversation marquée comme supprimée pour:', userId);
+    }
+
+    // 🆕 VÉRIFIER SI C'EST UN CONTACT ACTUEL
     if (!conversation.isGroup) {
       const otherParticipant = conversation.participants.find(
         p => p._id.toString() !== userId.toString()
@@ -50,70 +86,37 @@ exports.deleteConversationForUser = async (req, res) => {
       if (otherParticipant) {
         const isContact = await areContacts(userId, otherParticipant._id);
 
-        if (!isContact) {
-          // ✅ PAS UN CONTACT → Soft delete simple
-          console.log('🗑️ Non-contact détecté - Soft delete');
+        if (isContact) {
+          // ✅ C'EST UN CONTACT → Créer automatiquement une nouvelle discussion vierge
+          console.log('📇 Contact détecté - Création automatique d\'une nouvelle discussion');
           
-          if (!conversation.deletedBy) {
-            conversation.deletedBy = [];
-          }
-
-          const existingDeletion = conversation.deletedBy.find(
-            item => item.userId && item.userId.toString() === userId.toString()
-          );
-
-          if (!existingDeletion) {
-            conversation.deletedBy.push({
-              userId: userId,
-              deletedAt: new Date()
+          const newConversation = new Conversation({
+            participants: [userId, otherParticipant._id],
+            isGroup: false,
+            deletedBy: [] // Nouvelle conversation non supprimée
+          });
+          
+          await newConversation.save();
+          await newConversation.populate('participants', 'name email profilePicture isOnline lastSeen');
+          
+          console.log('✅ Nouvelle conversation créée:', newConversation._id);
+          
+          // Émettre un événement pour ajouter la nouvelle conversation
+          const io = req.app.get('io');
+          if (io) {
+            io.to(userId.toString()).emit('conversation-regenerated', {
+              oldConversationId: conversationId,
+              newConversation: newConversation
             });
-            await conversation.save();
+            console.log('📡 Événement conversation-regenerated émis');
           }
-
-          console.log('✅ Conversation supprimée (non-contact)');
         } else {
-          // ✅ C'EST UN CONTACT → Soft delete (reviendra si message)
-          console.log('📇 Contact détecté - Soft delete');
-          
-          if (!conversation.deletedBy) {
-            conversation.deletedBy = [];
-          }
-
-          const existingDeletion = conversation.deletedBy.find(
-            item => item.userId && item.userId.toString() === userId.toString()
-          );
-
-          if (!existingDeletion) {
-            conversation.deletedBy.push({
-              userId: userId,
-              deletedAt: new Date()
-            });
-            await conversation.save();
-            console.log('✅ Conversation supprimée (contact - reviendra si message)');
-          }
+          console.log('⚠️ Plus un contact - Pas de régénération');
         }
-      }
-    } else {
-      // ✅ GROUPE → Soft delete uniquement
-      if (!conversation.deletedBy) {
-        conversation.deletedBy = [];
-      }
-
-      const existingDeletion = conversation.deletedBy.find(
-        item => item.userId && item.userId.toString() === userId.toString()
-      );
-
-      if (!existingDeletion) {
-        conversation.deletedBy.push({
-          userId: userId,
-          deletedAt: new Date()
-        });
-        await conversation.save();
-        console.log('✅ Groupe marqué comme supprimé');
       }
     }
 
-    // ✅ Émettre l'événement Socket.io
+    // ✅ Émettre l'événement de suppression
     const io = req.app.get('io');
     if (io) {
       io.to(userId.toString()).emit('conversation-deleted', {
@@ -137,7 +140,6 @@ exports.deleteConversationForUser = async (req, res) => {
     });
   }
 };
-
 exports.blockUser = async (req, res) => {
   try {
     const blockerId = req.user._id;
@@ -489,6 +491,7 @@ exports.muteConversationForUser = async (req, res) => {
 }
     const conversationId = req.params.id;
     const userId = req.user._id;
+
     // ✅ Fonction utilitaire locale
     const areContacts = async (userId1, userId2) => {
       const contact1 = await Contact.findOne({

@@ -376,7 +376,32 @@ export default function ChatHeader({ contact, conversation, onBack }) {
     return;
   }
 
-  if (!confirm('Supprimer cette discussion ? Elle ne sera supprimée que pour vous.')) {
+  // 🆕 Vérifier si c'est un contact
+  let isContact = false;
+  if (!conversation.isGroup && contact?._id) {
+    try {
+      const contactCheck = await api.get(`/contacts`);
+      const contacts = contactCheck.data.contacts || [];
+      isContact = contacts.some(c => c.user?._id === contact._id);
+    } catch (err) {
+      console.error('Erreur vérification contact:', err);
+    }
+  }
+
+  // 🆕 Message adapté selon le statut
+  const confirmMessage = isContact
+    ? `Supprimer cette discussion ?
+
+⚠️ Important :
+- Elle sera supprimée uniquement chez vous
+- Une nouvelle discussion vierge sera créée automatiquement
+- L'historique restera chez votre contact`
+    : `Supprimer cette discussion ?
+
+✅ Elle sera supprimée uniquement chez vous
+❌ Aucune nouvelle discussion ne sera créée (plus un contact)`;
+
+  if (!confirm(confirmMessage)) {
     return;
   }
 
@@ -405,19 +430,18 @@ export default function ChatHeader({ contact, conversation, onBack }) {
         router.push('/');
       }
       
-      alert('✅ Discussion supprimée');
+      // 🆕 Message adapté
+      const successMessage = isContact
+        ? '✅ Discussion supprimée\n\n💡 Une nouvelle discussion vierge a été créée automatiquement car cette personne est toujours dans vos contacts'
+        : '✅ Discussion supprimée\n\n⚠️ Aucune nouvelle discussion créée (plus un contact)';
+      
+      alert(successMessage);
     } else {
       throw new Error(response.data.message || 'Erreur inconnue');
     }
     
   } catch (err) {
     console.error('❌ Erreur suppression:', err);
-    console.error('Détails:', {
-      message: err.message,
-      response: err.response?.data,
-      status: err.response?.status
-    });
-    
     alert('❌ Erreur lors de la suppression: ' + (err.response?.data?.message || err.message));
   }
 };

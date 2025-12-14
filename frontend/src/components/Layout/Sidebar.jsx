@@ -361,7 +361,7 @@ useEffect(() => {
       fetchConversations();
     }
   }, [activeTab, fetchConversations]);
-  
+
 // ✅ ÉCOUTER LES SUPPRESSIONS DE CONVERSATIONS
 useEffect(() => {
   const handleConversationDeleted = (event) => {
@@ -399,6 +399,29 @@ useEffect(() => {
 
     return () => {
       socket.off('conversation-deleted');
+    };
+  }
+}, [user]);
+
+// 🆕 ÉCOUTER LES RÉGÉNÉRATIONS DE CONVERSATIONS
+useEffect(() => {
+  const socket = getSocket();
+
+  if (socket && user) {
+    socket.on('conversation-regenerated', ({ oldConversationId, newConversation }) => {
+      console.log('🔄 Sidebar: Conversation régénérée:', oldConversationId, '→', newConversation._id);
+      
+      setConversations((prev) => {
+        // Supprimer l'ancienne conversation
+        const filtered = prev.filter(conv => conv._id !== oldConversationId);
+        
+        // Ajouter la nouvelle conversation en haut
+        return [newConversation, ...filtered];
+      });
+    });
+
+    return () => {
+      socket.off('conversation-regenerated');
     };
   }
 }, [user]);
