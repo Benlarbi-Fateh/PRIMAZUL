@@ -140,7 +140,154 @@ exports.deleteConversationForUser = async (req, res) => {
 
 exports.blockUser = async (req, res) => {
   try {
-    // ✅ Vérifier authentification
+    const blockerId = req.user._id;
+    const { targetUserId } = req.body;
+
+    if (!targetUserId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'ID de l\'utilisateur cible manquant' 
+      });
+    }
+
+    if (blockerId.toString() === targetUserId.toString()) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Vous ne pouvez pas vous bloquer vous-même' 
+      });
+    }
+
+    // Vérifier si l'utilisateur cible existe
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Utilisateur introuvable' 
+      });
+    }
+
+    // Vérifier si déjà bloqué
+    const existingBlock = await BlockedUser.findOne({
+      blocker: blockerId,
+      blocked: targetUserId
+    });
+
+    if (existingBlock) {
+      return res.status(409).json({ 
+        success: false, 
+        error: 'Cet utilisateur est déjà bloqué' 
+      });
+    }
+
+    // 🔥 NOUVEAU : Créer le blocage
+    const blockedUser = new BlockedUser({
+      blocker: blockerId,
+      blocked: targetUserId
+    });
+    await blockedUser.save();
+
+    console.log(`🚫 ${blockerId} a bloqué ${targetUserId}`);
+
+    // 🔥 NOUVEAU : SUPPRIMER LE CONTACT DES DEUX CÔTÉS
+    await Contact.deleteMany({
+      $or: [
+        { owner: blockerId, contact: targetUserId },
+        { owner: targetUserId, contact: blockerId }
+      ]
+    });
+
+    console.log(`🗑️ Contacts supprimés entre ${blockerId} et ${targetUserId}`);
+
+    res.json({ 
+      success: true, 
+      message: 'Utilisateur bloqué et retiré de vos contacts',
+      blockedUser: {
+        _id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur blockUser:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+};
+
+exports.unblockUser = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
+    const userId = req.user._id;
+    const { targetUserId } = req.body;
+   
+    console.log('🔓 unblockUser appelé:', { userId, targetUserId });
+
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'targetUserId requis'
+      });
+    }
+
+    // ✅ SUPPRIMER LE BLOCAGE
+    const result = await BlockedUser.findOneAndDelete({
+      userId: userId,
+      blockedUserId: targetUserId
+    });
+
+    if (!result) {
+      return res.json({
+        success: true,
+        message: 'Utilisateur n\'était pas bloqué',
+        wasNotBlocked: true
+      });
+    }
+
+    // ❌ NE PAS DÉBLOQUER LE CONTACT AUTOMATIQUEMENT
+    // ✅ SUPPRIMER LE CONTACT DANS LES DEUX SENS
+    await Contact.deleteMany({
+      $or: [
+        { owner: userId, contact: targetUserId },
+        { owner: targetUserId, contact: userId }
+      ]
+    });
+
+    console.log('✅ Utilisateur débloqué ET retiré des contacts:', targetUserId);
+
+    // ✅ Émettre l'événement Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(targetUserId.toString()).emit('user-unblocked', {
+        unblockedBy: userId.toString(),
+        timestamp: new Date()
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Utilisateur débloqué. Vous pouvez lui envoyer une invitation pour le rajouter.'
+    });
+  } catch (err) {
+    console.error('❌ unblockUser error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: err.message
+    });
+  }
+};
+
+// ✅ GARDER LA FONCTION blockUser INCHANGÉE
+exports.blockUser = async (req, res) => {
+  try {
     if (!req.user || !req.user._id) {
       return res.status(401).json({
         success: false,
@@ -188,6 +335,7 @@ exports.blockUser = async (req, res) => {
       });
     }
 
+    // ✅ CRÉER LE BLOCAGE
     const blockedUser = new BlockedUser({
       userId: userId,
       blockedUserId: targetUserId,
@@ -196,7 +344,15 @@ exports.blockUser = async (req, res) => {
 
     await blockedUser.save();
 
-    console.log('✅ Utilisateur bloqué:', targetUser.name);
+    // ✅ SUPPRIMER LE CONTACT (au lieu de le marquer comme bloqué)
+    await Contact.deleteMany({
+      $or: [
+        { owner: userId, contact: targetUserId },
+        { owner: targetUserId, contact: userId }
+      ]
+    });
+
+    console.log('✅ Utilisateur bloqué ET retiré des contacts:', targetUser.name);
 
     const io = req.app.get('io');
     if (io) {
@@ -208,7 +364,7 @@ exports.blockUser = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Utilisateur bloqué avec succès',
+      message: 'Utilisateur bloqué et retiré de vos contacts',
       blockedUser: {
         _id: targetUser._id,
         name: targetUser.name,
@@ -217,64 +373,6 @@ exports.blockUser = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ blockUser error:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Erreur serveur',
-      error: err.message
-    });
-  }
-};
-
-exports.unblockUser = async (req, res) => {
-  try {
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Non authentifié'
-      });
-    }
-
-    const userId = req.user._id;
-    const { targetUserId } = req.body;
-   
-    console.log('🔓 unblockUser appelé:', { userId, targetUserId });
-
-    if (!targetUserId) {
-      return res.status(400).json({
-        success: false,
-        message: 'targetUserId requis'
-      });
-    }
-
-    const result = await BlockedUser.findOneAndDelete({
-      userId: userId,
-      blockedUserId: targetUserId
-    });
-
-    if (!result) {
-      return res.json({
-        success: true,
-        message: 'Utilisateur n\'était pas bloqué',
-        wasNotBlocked: true
-      });
-    }
-
-    console.log('✅ Utilisateur débloqué:', targetUserId);
-
-    const io = req.app.get('io');
-    if (io) {
-      io.to(targetUserId.toString()).emit('user-unblocked', {
-        unblockedBy: userId.toString(),
-        timestamp: new Date()
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Utilisateur débloqué avec succès'
-    });
-  } catch (err) {
-    console.error('❌ unblockUser error:', err);
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',

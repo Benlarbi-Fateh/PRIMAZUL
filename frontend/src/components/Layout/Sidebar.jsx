@@ -327,6 +327,41 @@ useEffect(() => {
     };
   }, [fetchConversations]);
 
+  // 🔥 NOUVEAU : Écouter les événements de blocage/déblocage
+  useEffect(() => {
+    const handleBlockStatusChanged = async () => {
+      console.log('🔄 Événement block-status-changed détecté, rafraîchissement...');
+      
+      // Rafraîchir la liste des conversations
+      await fetchConversations();
+      
+      // Si on est dans l'onglet contacts, rafraîchir aussi la recherche
+      if (activeTab === 'contacts' && searchTerm.trim()) {
+        try {
+          const response = await searchUsers(searchTerm);
+          setSearchResults(response.data.users || []);
+        } catch (error) {
+          console.error('Erreur rafraîchissement recherche:', error);
+        }
+      }
+    };
+
+    // Écouter l'événement global
+    window.addEventListener('block-status-changed', handleBlockStatusChanged);
+    
+    return () => {
+      window.removeEventListener('block-status-changed', handleBlockStatusChanged);
+    };
+  }, [activeTab, searchTerm, fetchConversations]);
+
+   // 🔥 NOUVEAU : Rafraîchir automatiquement quand on change d'onglet
+  useEffect(() => {
+    if (activeTab === 'chats') {
+      // Rafraîchir les conversations quand on revient sur l'onglet Chats
+      fetchConversations();
+    }
+  }, [activeTab, fetchConversations]);
+  
 // ✅ ÉCOUTER LES SUPPRESSIONS DE CONVERSATIONS
 useEffect(() => {
   const handleConversationDeleted = (event) => {

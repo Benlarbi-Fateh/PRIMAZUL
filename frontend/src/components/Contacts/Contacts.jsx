@@ -273,29 +273,52 @@ function AddContactTab({ contactIds }) {
     ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
     : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white shadow-2xl hover:shadow-blue-500/50";
 
-  useEffect(() => {
-    if (!searchQuery.trim()) return;
-    clearTimeout(searchTimeoutRef.current);
+  // APRÈS (avec filtrage des bloqués)
+useEffect(() => {
+  if (!searchQuery.trim()) return;
+  clearTimeout(searchTimeoutRef.current);
 
-    const performSearch = async () => {
+  const performSearch = async () => {
+    try {
+      setSearching(true);
+      
+      // ✅ 1. Charger les utilisateurs bloqués
+      let blockedIds = new Set();
       try {
-        setSearching(true);
-        const response = await searchUsers(searchQuery);
-        const filteredUsers = (response.data.users || []).filter(
-          (user) => !contactIds.has(user._id)
-        );
-        setSearchResults(filteredUsers);
-      } catch (error) {
-        console.error(error);
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
+        const blockedResponse = await api.get('/message-settings/blocked');
+        const blockedUsers = blockedResponse.data.blockedUsers || [];
+        blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
+      } catch (err) {
+        console.error('Erreur chargement bloqués:', err);
       }
-    };
+      
+      // ✅ 2. Rechercher les utilisateurs
+      const response = await searchUsers(searchQuery);
+      
+      // ✅ 3. Filtrer : exclure contacts existants ET bloqués
+      const filteredUsers = (response.data.users || []).filter((user) => {
+        const isContact = contactIds.has(user._id);
+        const isBlocked = blockedIds.has(user._id.toString());
+        
+        if (isBlocked) {
+          console.log(`⚠️ Utilisateur ${user.name} exclu (bloqué)`);
+        }
+        
+        return !isContact && !isBlocked;
+      });
+      
+      setSearchResults(filteredUsers);
+    } catch (error) {
+      console.error(error);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
 
-    searchTimeoutRef.current = setTimeout(performSearch, 500);
-    return () => clearTimeout(searchTimeoutRef.current);
-  }, [searchQuery, contactIds]);
+  searchTimeoutRef.current = setTimeout(performSearch, 500);
+  return () => clearTimeout(searchTimeoutRef.current);
+}, [searchQuery, contactIds]);
 
   useEffect(() => {
     const fetchSentInvitations = async () => {
@@ -490,6 +513,8 @@ export default function ContactsPage() {
   const [activeTab, setActiveTab] = useState("contacts");
   const [contactIds, setContactIds] = useState(new Set());
   const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [blockedUserIds, setBlockedUserIds] = useState(new Set());
+
 
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
@@ -521,6 +546,22 @@ export default function ContactsPage() {
 
   const inputText = isDark ? "text-blue-100 placeholder-blue-400" : "text-blue-900 placeholder-blue-400";
 
+useEffect(() => {
+  const fetchBlockedUsers = async () => {
+    try {
+      const response = await api.get('/message-settings/blocked');
+      const blockedUsers = response.data.blockedUsers || [];
+      const blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
+      setBlockedUserIds(blockedIds);
+      console.log('🚫 Utilisateurs bloqués chargés:', blockedIds.size);
+    } catch (error) {
+      console.error('❌ Erreur chargement bloqués:', error);
+    }
+  };
+  
+  fetchBlockedUsers();
+}, []);
+
   useEffect(() => {
     const fetchContacts = async () => {
       try {
@@ -537,6 +578,30 @@ export default function ContactsPage() {
     };
     fetchContacts();
   }, []);
+
+  useEffect(() => {
+  const handleBlockChange = async () => {
+    try {
+      const response = await api.get('/message-settings/blocked');
+      const blockedUsers = response.data.blockedUsers || [];
+      const blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
+      setBlockedUserIds(blockedIds);
+      console.log('🔄 Liste bloqués mise à jour');
+      
+      // ✅ Recharger les contacts pour mettre à jour la liste
+      const res = await api.get("/contacts");
+      const fetchedContacts = res.data.contacts || [];
+      setContacts(fetchedContacts);
+      setContactIds(new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean)));
+      setFavoriteIds(new Set(fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id)));
+    } catch (error) {
+      console.error('❌ Erreur rechargement:', error);
+    }
+  };
+
+  window.addEventListener('block-status-changed', handleBlockChange);
+  return () => window.removeEventListener('block-status-changed', handleBlockChange);
+}, []);
 
   const toggleFavorite = async (userId) => {
     const wasFavorite = favoriteIds.has(userId);
@@ -561,9 +626,21 @@ export default function ContactsPage() {
     }
   };
 
-  const filteredContacts = contacts.filter((c) =>
-    c?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredContacts = contacts.filter((c) => {
+  if (!c?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())) {
+    return false;
+  }
+  
+  // ✅ EXCLURE LES UTILISATEURS BLOQUÉS
+  const userId = c.user?._id?.toString();
+  const isBlocked = blockedUserIds.has(userId);
+  
+  if (isBlocked) {
+    console.log(`⚠️ Contact ${c.user?.name} exclu (bloqué)`);
+  }
+  
+  return !isBlocked;
+});
 
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${pageBg}`}>

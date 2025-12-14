@@ -273,63 +273,102 @@ export default function ChatHeader({ contact, conversation, onBack }) {
     }
   };
 
-  const toggleBlock = async () => {
-    if (!contact?._id) {
-      alert('❌ Contact non défini');
-      return;
-    }
+ const toggleBlock = async () => {
+  if (!contact?._id) {
+    alert('❌ Contact non défini');
+    return;
+  }
 
-    const action = blockStatus?.iBlocked ? 'débloquer' : 'bloquer';
-    const confirmMsg = blockStatus?.iBlocked 
-      ? `Êtes-vous sûr de vouloir débloquer ${contact.name} ?`
-      : `Êtes-vous sûr de vouloir bloquer ${contact.name} ? Vous ne recevrez plus ses messages.`;
+  const action = blockStatus?.iBlocked ? 'débloquer' : 'bloquer';
+  
+  // 🔥 MESSAGES DE CONFIRMATION AMÉLIORÉS
+  const confirmMsg = blockStatus?.iBlocked 
+    ? `Êtes-vous sûr de vouloir débloquer ${contact.name} ?
 
-    if (!confirm(confirmMsg)) {
-      return;
-    }
+💡 Après le déblocage :
+- Il ne sera PAS automatiquement rajouté à vos contacts
+- Vous devrez lui renvoyer une invitation
+- La conversation réapparaîtra une fois qu'il accepte l'invitation`
+    : `Êtes-vous sûr de vouloir bloquer ${contact.name} ?
 
-    try {
-      const endpoint = blockStatus?.iBlocked 
-        ? '/message-settings/unblock' 
-        : '/message-settings/block';
+⚠️ Conséquences :
+- ${contact.name} sera RETIRÉ de vos contacts
+- Votre conversation sera MASQUÉE (pas supprimée)
+- Vous ne recevrez plus ses messages
+- Il ne pourra plus vous contacter`;
+
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  try {
+    const endpoint = blockStatus?.iBlocked 
+      ? '/message-settings/unblock' 
+      : '/message-settings/block';
+    
+    const response = await api.post(endpoint, { targetUserId: contact._id });
+    
+    if (response.data.success) {
+      // 1️⃣ Rafraîchir le statut de blocage
+      await refreshBlockStatus();
       
-      const response = await api.post(endpoint, { targetUserId: contact._id });
+      // 2️⃣ Émettre l'événement pour rafraîchir la sidebar
+      window.dispatchEvent(new CustomEvent('block-status-changed'));
       
-      if (response.data.success) {
-        await refreshBlockStatus();
-        
-        window.dispatchEvent(new CustomEvent('block-status-changed'));
-        
-        setShowMenu(false);
-        
-        const successMsg = blockStatus?.iBlocked 
-          ? `✅ ${contact.name} a été débloqué` 
-          : `🚫 ${contact.name} a été bloqué`;
-        
-        alert(successMsg);
-        
+      // 3️⃣ Fermer le menu
+      setShowMenu(false);
+      
+      // 4️⃣ Message de succès différent selon l'action
+      if (blockStatus?.iBlocked) {
+        // DÉBLOCAGE
+        alert(`✅ ${contact.name} a été débloqué
+
+💡 Prochaines étapes :
+1. Allez dans l'onglet "Contacts"
+2. Recherchez ${contact.name}
+3. Envoyez-lui une invitation
+4. Une fois acceptée, la conversation réapparaîtra avec tout l'historique`);
       } else {
-        throw new Error(response.data.message || 'Erreur inconnue');
+        // BLOCAGE
+        alert(`🚫 ${contact.name} a été bloqué et retiré de vos contacts
+
+✅ Actions effectuées :
+- Contact supprimé
+- Conversation masquée
+- Messages bloqués`);
+        
+        // 5️⃣ Rediriger vers la page d'accueil après blocage
+        setTimeout(() => {
+          if (onBack) {
+            onBack();
+          } else {
+            router.push('/');
+          }
+        }, 1000);
       }
-    } catch (err) {
-      console.error('❌ Erreur toggle block:', err);
       
-      let errorMessage = `Erreur lors du ${action} : `;
-      
-      if (err.response?.status === 404) {
-        errorMessage += 'Route API non trouvée.';
-      } else if (err.response?.status === 401) {
-        errorMessage += 'Non autorisé. Reconnectez-vous.';
-        setTimeout(() => router.push('/login'), 2000);
-      } else if (err.response?.status === 500) {
-        errorMessage += 'Erreur serveur.';
-      } else {
-        errorMessage += err.message || 'Erreur réseau';
-      }
-      
-      alert(errorMessage);
+    } else {
+      throw new Error(response.data.message || 'Erreur inconnue');
     }
-  };
+  } catch (err) {
+    console.error('❌ Erreur toggle block:', err);
+    
+    let errorMessage = `Erreur lors du ${action} : `;
+    
+    if (err.response?.status === 404) {
+      errorMessage += 'Route API non trouvée.';
+    } else if (err.response?.status === 401) {
+      errorMessage += 'Non autorisé. Reconnectez-vous.';
+      setTimeout(() => router.push('/login'), 2000);
+    } else if (err.response?.status === 500) {
+      errorMessage += 'Erreur serveur.';
+    } else {
+      errorMessage += err.message || 'Erreur réseau';
+    }
+    
+    alert(errorMessage);
+  }
+};
 
   const handleDeleteConversation = async () => {
   if (!conversation?._id) {

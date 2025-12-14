@@ -5,7 +5,8 @@ const {
   updateProfile,
   updatePrivacySettings,
   updatePreferences,
-  changePassword
+  changePassword,
+  searchUsers
 } = require('../controllers/profileController');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
@@ -18,6 +19,7 @@ router.use(authMiddleware);
 
 // 📊 Profil
 router.get('/me', getMyProfile);
+router.get('/search', searchUsers);
 router.get('/:userId', getUserProfile);
 router.put('/update', updateProfile);
 

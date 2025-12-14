@@ -288,3 +288,51 @@ exports.changePassword = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// 🔍 Rechercher des utilisateurs
+exports.searchUsers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    const currentUserId = req.user._id;
+
+    if (!query || query.trim().length < 2) {
+      return res.json({
+        success: true,
+        users: []
+      });
+    }
+
+    console.log(`🔍 Recherche utilisateurs: "${query}"`);
+
+    const searchRegex = new RegExp(query, 'i');
+    
+    const users = await User.find({
+      $and: [
+        {
+          $or: [
+            { name: searchRegex },
+            { email: searchRegex },
+            { username: searchRegex }
+          ]
+        },
+        { _id: { $ne: currentUserId } } // Exclure l'utilisateur actuel
+      ]
+    })
+      .select('name email username profilePicture isOnline')
+      .limit(20)
+      .lean();
+
+    console.log(`✅ ${users.length} utilisateurs trouvés`);
+
+    res.json({
+      success: true,
+      users
+    });
+  } catch (error) {
+    console.error('❌ Erreur searchUsers:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};

@@ -2,22 +2,46 @@ const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const Contact = require('../models/Contact');
+const BlockedUser = require('../models/BlockedUser'); 
 
 
 exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // ✅ RÉCUPÉRER TOUS MES CONTACTS D'UN COUP
+    // ✅ RÉCUPÉRER TOUS MES CONTACTS
     const myContacts = await Contact.find({ owner: userId }).select('contact').lean();
     const contactIds = myContacts.map(c => c.contact.toString());
 
     console.log(`📇 ${contactIds.length} contacts trouvés pour ${userId}`);
 
+    // 🔥 NOUVEAU : RÉCUPÉRER LES UTILISATEURS BLOQUÉS
+    const blockedUsers = await BlockedUser.find({
+      $or: [
+        { blocker: userId }, // Ceux que j'ai bloqués
+        { blocked: userId }  // Ceux qui m'ont bloqué
+      ]
+    }).lean();
+
+    const blockedUserIds = new Set();
+    blockedUsers.forEach(block => {
+      if (block.blocker.toString() === userId.toString()) {
+        blockedUserIds.add(block.blocked.toString());
+      } else {
+        blockedUserIds.add(block.blocker.toString());
+      }
+    });
+
+    console.log(`🚫 ${blockedUserIds.size} utilisateurs bloqués`);
+
     // ✅ RÉCUPÉRER les conversations où deletedBy NE contient PAS mon userId
     const conversations = await Conversation.find({
       participants: userId,
-      'deletedBy.userId': { $ne: userId }
+      $or: [
+        { deletedBy: { $exists: false } },
+        { deletedBy: { $size: 0 } },
+        { 'deletedBy.userId': { $ne: userId } }
+      ]
     })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
       .populate('groupAdmin', 'name email profilePicture')
@@ -27,25 +51,33 @@ exports.getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    // ✅ FILTRER rapidement avec un Set
+    // ✅ FILTRER : Garder SEULEMENT les conversations valides
     const contactSet = new Set(contactIds);
     
     const filteredConversations = conversations.filter(conv => {
-      // Si c'est un groupe, on garde
+      // ✅ Si c'est un groupe, on garde TOUJOURS
       if (conv.isGroup) {
         return true;
       }
       
-      // Si c'est une conversation 1-1, vérifier si on est contacts
+      // ✅ Si conversation 1-1, vérifier si c'est un contact ACTUEL
       const otherParticipant = conv.participants.find(
         p => p._id.toString() !== userId.toString()
       );
       
       if (otherParticipant) {
-        const isContact = contactSet.has(otherParticipant._id.toString());
+        const otherUserId = otherParticipant._id.toString();
+        
+        // 🔥 NOUVEAU : Exclure si bloqué
+        if (blockedUserIds.has(otherUserId)) {
+          console.log(`🚫 Conversation ${conv._id} masquée - Utilisateur bloqué`);
+          return false;
+        }
+        
+        const isContact = contactSet.has(otherUserId);
         
         if (!isContact) {
-          console.log(`⚠️ Conversation ${conv._id} ignorée - Pas un contact`);
+          console.log(`⚠️ Conversation ${conv._id} exclue - Pas un contact actuel`);
         }
         
         return isContact;
@@ -54,7 +86,7 @@ exports.getConversations = async (req, res) => {
       return false;
     });
 
-    // Calculer les messages non lus
+    // ✅ Calculer les messages non lus
     const conversationsWithUnread = await Promise.all(
       filteredConversations.map(async (conv) => {
         const unreadCount = await Message.countDocuments({
@@ -81,8 +113,9 @@ exports.getConversations = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
+// ========================================
+// ✅ REMPLACEZ LA FONCTION getOrCreateConversation PAR CELLE-CI
+// ========================================
 exports.getOrCreateConversation = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -96,8 +129,34 @@ exports.getOrCreateConversation = async (req, res) => {
     if (!contactExists) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
+     // 🔥 NOUVEAU : VÉRIFIER SI BLOQUÉ
+    const isBlocked = await BlockedUser.findOne({
+      $or: [
+        { blocker: userId, blocked: contactId },
+        { blocker: contactId, blocked: userId }
+      ]
+    });
 
-    // ✅ CHERCHER UNE CONVERSATION EXISTANTE (même si supprimée par l'un des deux)
+    if (isBlocked) {
+      return res.status(403).json({ 
+        error: 'Impossible de créer une conversation avec cet utilisateur'
+      });
+    }
+
+    // ✅ VÉRIFIER SI C'EST UN CONTACT ACTUEL
+    const isContact = await Contact.findOne({
+      owner: userId,
+      contact: contactId
+    });
+
+    if (!isContact) {
+      console.log('⚠️ Tentative de créer conversation avec non-contact');
+      return res.status(403).json({ 
+        error: 'Vous devez d\'abord ajouter cette personne en contact'
+      });
+    }
+
+    // ✅ CHERCHER UNE CONVERSATION EXISTANTE (MÊME SI SOFT-DELETED)
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, contactId], $size: 2 },
       isGroup: false
@@ -106,28 +165,43 @@ exports.getOrCreateConversation = async (req, res) => {
     if (conversation) {
       console.log('✅ Conversation trouvée:', conversation._id);
       
-      // ✅ SI l'utilisateur actuel l'avait supprimée, on la restaure pour lui
-      if (conversation.deletedBy && conversation.deletedBy.includes(userId)) {
+      // 🔥 NOUVEAU : RESTAURER AUTOMATIQUEMENT SI SOFT-DELETED
+      const wasDeletedByMe = conversation.deletedBy?.some(
+        item => item.userId?.toString() === userId.toString()
+      );
+      
+      if (wasDeletedByMe) {
+        console.log('🔄 Conversation soft-deleted détectée, restauration...');
         conversation.deletedBy = conversation.deletedBy.filter(
-          id => id.toString() !== userId.toString()
+          item => item.userId?.toString() !== userId.toString()
         );
         await conversation.save();
-        console.log('🔄 Conversation restaurée pour:', userId);
+        console.log('✅ Conversation restaurée automatiquement pour:', userId);
       }
       
-      return res.json({ success: true, conversation });
+      return res.json({ 
+        success: true, 
+        conversation,
+        restored: wasDeletedByMe // 🔥 NOUVEAU : Indiquer si restaurée
+      });
     }
 
-    // ✅ CRÉER UNE NOUVELLE CONVERSATION
+    // ✅ CRÉER UNE NOUVELLE CONVERSATION VIERGE
+    console.log('🆕 Création d\'une nouvelle conversation vierge...');
     conversation = new Conversation({
       participants: [userId, contactId],
-      isGroup: false
+      isGroup: false,
+      deletedBy: []
     });
     await conversation.save();
     await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
 
-    console.log('✅ Nouvelle conversation créée:', conversation._id);
-    res.json({ success: true, conversation });
+    console.log('✅ Nouvelle conversation vierge créée:', conversation._id);
+    res.json({ 
+      success: true, 
+      conversation,
+      isNew: true // 🔥 NOUVEAU : Indiquer que c'est nouveau
+    });
   } catch (error) {
     console.error('❌ Erreur getOrCreateConversation:', error);
     res.status(500).json({ error: error.message });
@@ -140,31 +214,49 @@ exports.getConversationById = async (req, res) => {
     const userId = req.user._id;
     const { id } = req.params;
 
-
     const conversation = await Conversation.findById(id)
       .populate('participants', 'name email profilePicture isOnline lastSeen')
-      .populate('groupAdmin', 'name email profilePicture') // 🆕 AJOUTÉ
+      .populate('groupAdmin', 'name email profilePicture')
       .populate({
         path: 'lastMessage',
         populate: { path: 'sender', select: 'name' }
       });
 
-
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation non trouvée' });
     }
-
 
     // Vérifier que l'utilisateur fait partie de la conversation
     const isParticipant = conversation.participants.some(
       p => p._id.toString() === userId.toString()
     );
 
-
     if (!isParticipant) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
 
+    // 🔥 NOUVEAU : VÉRIFIER SI L'AUTRE PARTICIPANT EST BLOQUÉ
+    if (!conversation.isGroup) {
+      const otherParticipant = conversation.participants.find(
+        p => p._id.toString() !== userId.toString()
+      );
+
+      if (otherParticipant) {
+        const isBlocked = await BlockedUser.findOne({
+          $or: [
+            { blocker: userId, blocked: otherParticipant._id },
+            { blocker: otherParticipant._id, blocked: userId }
+          ]
+        });
+
+        if (isBlocked) {
+          return res.status(403).json({ 
+            error: 'Conversation inaccessible - Utilisateur bloqué',
+            blocked: true
+          });
+        }
+      }
+    }
 
     console.log('✅ Conversation récupérée:', conversation._id);
     res.json({ success: true, conversation });
