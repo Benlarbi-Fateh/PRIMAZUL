@@ -40,6 +40,7 @@ import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
 import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
 import { Plane, Users, Loader2 } from "lucide-react";
+import StoryReplyMessage from "@/components/Chat/StoryReplyMessage";
 
 export default function ChatPage() {
   const params = useParams();
@@ -599,6 +600,20 @@ export default function ChatPage() {
                             }`}
                           >
                             <CallMessage
+                              message={message}
+                              isMine={message.sender?._id === userId}
+                            />
+                          </div>
+                        ) : /* ✅ AJOUT ICI : REPONSE STORY */
+                        message.type === "story_reply" ? (
+                          <div
+                            className={`flex w-full mb-2 ${
+                              message.sender?._id === userId
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            <StoryReplyMessage
                               message={message}
                               isMine={message.sender?._id === userId}
                             />

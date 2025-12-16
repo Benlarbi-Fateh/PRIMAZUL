@@ -4,6 +4,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const connectDB = require("./config/db");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
@@ -61,6 +62,7 @@ const groupRoutes = require("./routes/groupRoutes");
 const invitationRoutes = require("./routes/invitationRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const agoraRoutes = require("./routes/agoraRoutes");
+const statusRoutes = require("./routes/statusRoutes");
 
 // 🆕 NOUVELLE ROUTE PROFILE
 const profileRoutes = require("./routes/profileRoutes");
@@ -77,6 +79,7 @@ app.use("/api/invitations", invitationRoutes);
 app.use("/api/message-settings", messageSettingsRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/agora", agoraRoutes);
+app.use("/api/status", statusRoutes);
 
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use("/api/profile", profileRoutes);
@@ -89,6 +92,7 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ============================================
 // 🔥 CONFIGURATION SOCKET.IO

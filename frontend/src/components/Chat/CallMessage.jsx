@@ -31,12 +31,12 @@ export default function CallMessage({ message, isMine }) {
   return (
     <div
       className={`flex items-center gap-3 p-3 rounded-xl max-w-xs shadow-sm ${containerClass}`}
-    >{/**
+    >
       <div className={`p-2 rounded-full ${iconBgClass}`}>
         <Icon size={20} />
       </div>
       <div>
-         <p className="font-semibold text-sm">
+        <p className="font-semibold text-sm">
           {isMissed ? "Appel manqué" : "Appel terminé"}
         </p>
         {!isMissed && duration > 0 && (
@@ -47,8 +47,8 @@ export default function CallMessage({ message, isMine }) {
           >
             <Clock size={12} /> <span>{formatDuration(duration)}</span>
           </div>
-        )} 
-      </div>*/}
+        )}
+      </div>
     </div>
   );
 }
