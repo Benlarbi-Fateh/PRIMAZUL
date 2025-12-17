@@ -47,28 +47,60 @@
 }
 
 /* Classes utilitaires basées sur les variables CSS */
-.bg-background { background-color: var(--color-background); }
-.text-foreground { color: var(--color-foreground); }
-.bg-card { background-color: var(--color-card); }
-.text-card-foreground { color: var(--color-card-foreground); }
-.bg-primary { background-color: var(--color-primary); }
-.text-primary-foreground { color: var(--color-primary-foreground); }
-.bg-secondary { background-color: var(--color-secondary); }
-.text-secondary-foreground { color: var(--color-secondary-foreground); }
-.bg-muted { background-color: var(--color-muted); }
-.text-muted-foreground { color: var(--color-muted-foreground); }
-.bg-accent { background-color: var(--color-accent); }
-.text-accent-foreground { color: var(--color-accent-foreground); }
-.border-border { border-color: var(--color-border); }
-.bg-sidebar { background-color: var(--color-sidebar); }
-.text-sidebar-foreground { color: var(--color-sidebar-foreground); }
-.border-sidebar-border { border-color: var(--color-sidebar-border); }
+.bg-background {
+  background-color: var(--color-background);
+}
+.text-foreground {
+  color: var(--color-foreground);
+}
+.bg-card {
+  background-color: var(--color-card);
+}
+.text-card-foreground {
+  color: var(--color-card-foreground);
+}
+.bg-primary {
+  background-color: var(--color-primary);
+}
+.text-primary-foreground {
+  color: var(--color-primary-foreground);
+}
+.bg-secondary {
+  background-color: var(--color-secondary);
+}
+.text-secondary-foreground {
+  color: var(--color-secondary-foreground);
+}
+.bg-muted {
+  background-color: var(--color-muted);
+}
+.text-muted-foreground {
+  color: var(--color-muted-foreground);
+}
+.bg-accent {
+  background-color: var(--color-accent);
+}
+.text-accent-foreground {
+  color: var(--color-accent-foreground);
+}
+.border-border {
+  border-color: var(--color-border);
+}
+.bg-sidebar {
+  background-color: var(--color-sidebar);
+}
+.text-sidebar-foreground {
+  color: var(--color-sidebar-foreground);
+}
+.border-sidebar-border {
+  border-color: var(--color-sidebar-border);
+}
 
 /* Styles de base */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -78,8 +110,12 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 @keyframes slide-left {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .animate-slide-left {
@@ -124,11 +160,13 @@ body {
 }
 
 .dark .shadow-lg {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
+    0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
 }
 
 .dark .shadow-md {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -2px rgba(0, 0, 0, 0.2) !important;
 }
 
 .dark .shadow-sm {
@@ -168,7 +206,8 @@ body {
 
 /* Transitions fluides pour le thème */
 * {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 /* Pour éviter les transitions sur certains éléments */
@@ -179,8 +218,13 @@ body {
 
 /* Pour les animations */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .animate-pulse {
@@ -188,10 +232,56 @@ body {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+/* frontend/src/app/globals.css */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
 }

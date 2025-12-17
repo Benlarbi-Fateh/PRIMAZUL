@@ -20,7 +20,8 @@
     "nodemailer": "^7.0.10",
     "socket": "^1.1.29",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

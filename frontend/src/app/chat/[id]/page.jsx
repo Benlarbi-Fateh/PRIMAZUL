@@ -1,3 +1,4 @@
+// frontend/src/app/chat/[id]/page.js
 "use client";
 
 import { useState, useEffect, useContext, useRef } from "react";
@@ -237,55 +238,62 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
 
+  const getOtherParticipant = () => {
+    if (!conversation || !user) return null;
+    const userId = user._id || user.id;
+    return conversation.participants?.find((p) => p._id !== userId);
+  };
+  const contact = getOtherParticipant();
+
   // ========================================
-  // ✅ NOUVELLES FONCTIONS POUR LES APPELS
+  // ✅ APPELS CORRIGÉS (C'EST ICI LA MODIF)
   // ========================================
   const handleVideoCall = () => {
     if (!conversation) return;
-    const channel = `call_${conversationId}_${Date.now()}`;
 
     if (conversation.isGroup) {
-      // Pour un groupe, on passe la LISTE COMPLÈTE des objets participants
       const participants = conversation.participants.filter(
         (p) => p._id !== (user._id || user.id)
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
 
-      // (Channel, Array of Objects, Type, isGroup, GroupName, ConvID)
+      // Ordre des arguments : (conversationId, participants, type, isGroup, groupName)
       initiateCall(
-        channel,
-        participants,
-        "video",
-        true,
-        conversation.groupName,
-        conversationId
+        conversationId, // 1. ID Conversation
+        participants, // 2. Participants
+        "video", // 3. Type
+        true, // 4. isGroup
+        conversation.groupName // 5. Nom du groupe
       );
     } else if (contact) {
-      // Pour P2P, on passe l'OBJET CONTACT (pas un tableau)
-      // (Channel, Contact Object, Type, isGroup, GroupName, ConvID)
-      initiateCall(channel, contact, "video", false, "", conversationId);
+      // Pour P2P
+      initiateCall(
+        conversationId, // 1. ID Conversation
+        contact, // 2. Contact
+        "video", // 3. Type
+        false // 4. isGroup (false par défaut)
+      );
     }
   };
 
   const handleAudioCall = () => {
     if (!conversation) return;
-    const channel = `call_${conversationId}_${Date.now()}`;
 
     if (conversation.isGroup) {
       const participants = conversation.participants.filter(
         (p) => p._id !== (user._id || user.id)
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
+
       initiateCall(
-        channel,
+        conversationId,
         participants,
         "audio",
         true,
-        conversation.groupName,
-        conversationId
+        conversation.groupName
       );
     } else if (contact) {
-      initiateCall(channel, contact, "audio", false, "", conversationId);
+      initiateCall(conversationId, contact, "audio", false);
     }
   };
 
@@ -423,13 +431,6 @@ export default function ChatPage() {
     setReplyingToSender(null);
   };
 
-  const getOtherParticipant = () => {
-    if (!conversation || !user) return null;
-    const userId = user._id || user.id;
-    return conversation.participants?.find((p) => p._id !== userId);
-  };
-  const contact = getOtherParticipant();
-
   // Styles
   const pageBg = isDark
     ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
@@ -521,7 +522,6 @@ export default function ChatPage() {
           </div>
           <div className="flex-1 flex flex-col">
             <div className="lg:hidden">
-              {/* ✅ HEADER MOBILE AVEC HANDLERS */}
               <MobileHeader
                 contact={contact}
                 conversation={conversation}
@@ -531,7 +531,6 @@ export default function ChatPage() {
               />
             </div>
             <div className="hidden lg:block">
-              {/* ✅ HEADER DESKTOP AVEC HANDLERS */}
               <ChatHeader
                 contact={contact}
                 conversation={conversation}
@@ -592,20 +591,14 @@ export default function ChatPage() {
 
                         {/* ✅ AFFICHAGE HISTORIQUE APPEL */}
                         {message.type === "call" ? (
-                          <div
-                            className={`flex w-full mb-2 ${
-                              message.sender?._id === userId
-                                ? "justify-end"
-                                : "justify-start"
-                            }`}
-                          >
+                          <div className={`flex w-full mb-2 justify-center`}>
                             <CallMessage
                               message={message}
                               isMine={message.sender?._id === userId}
+                              currentUserId={userId}
                             />
                           </div>
-                        ) : /* ✅ AJOUT ICI : REPONSE STORY */
-                        message.type === "story_reply" ? (
+                        ) : message.type === "story_reply" ? (
                           <div
                             className={`flex w-full mb-2 ${
                               message.sender?._id === userId
