@@ -27,7 +27,6 @@ import {
   MessageCircle,
   Heart,
   CircleDashed,
-  Menu,
   ArrowLeft,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -154,11 +153,8 @@ export default function StatusPage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("📊 Statuts chargés:", data);
         setMyStatuses(data.myStatuses || []);
         setFriendsStatuses(data.friendsStatuses || []);
-      } else {
-        console.error("Erreur API:", response.status);
       }
     } catch (error) {
       console.error("Erreur chargement statuts:", error);
@@ -182,7 +178,17 @@ export default function StatusPage() {
     if (!viewingGroup || isPaused || showStats || showReactions) return;
 
     setProgress(0);
-    const duration = currentStatus?.type === "video" ? 15000 : 5000;
+
+    // ✅ MODIFICATION ICI : Gestion du temps (15s pour Text/Image)
+    let duration = 15000; // Par défaut 15 secondes (Texte / Image)
+
+    if (currentStatus?.type === "video") {
+      // Si vidéo, on prend la durée réelle, sinon 15s par défaut
+      if (videoRef.current && videoRef.current.duration) {
+        duration = videoRef.current.duration * 1000;
+      }
+    }
+
     const startTime = Date.now();
 
     const updateProgress = () => {
@@ -204,7 +210,14 @@ export default function StatusPage() {
         cancelAnimationFrame(progressTimerRef.current);
       }
     };
-  }, [viewingGroup, currentIndex, isPaused, showStats, showReactions]);
+  }, [
+    viewingGroup,
+    currentIndex,
+    isPaused,
+    showStats,
+    showReactions,
+    currentStatus,
+  ]);
 
   // Marquer comme vu
   useEffect(() => {
@@ -313,6 +326,10 @@ export default function StatusPage() {
 
       if (response.ok) {
         const data = await response.json();
+
+        // ✅ MODIFICATION ICI : Message de confirmation
+        alert("Réponse envoyée avec succès !");
+
         setReplyText("");
         closeViewer();
 
@@ -667,9 +684,7 @@ export default function StatusPage() {
           </div>
         )}
 
-        {/* ============================================ */}
-        {/* CRÉATEUR DE STATUT - RESPONSIVE */}
-        {/* ============================================ */}
+        {/* ... (Suite du code existant : ShowCreator, Viewer, etc.) ... */}
         {showCreator && (
           <div className="w-full h-full flex flex-col bg-slate-900 text-white">
             {/* Header */}
@@ -824,9 +839,6 @@ export default function StatusPage() {
           </div>
         )}
 
-        {/* ============================================ */}
-        {/* VIEWER DE STATUT - RESPONSIVE */}
-        {/* ============================================ */}
         {viewingGroup && currentStatus && (
           <div className="w-full h-full relative flex flex-col">
             {/* Barres de progression */}
