@@ -812,49 +812,56 @@ export default function MessageBubble({
 
               {/* BOUTON TRADUCTION */}
               {showTranslateIcon && (
-                <div className="relative">
-                  <button
-                    onClick={handleTranslateClick}
-                    disabled={isTranslating}
-                    className={`p-2 rounded-full transition transform hover:scale-110 ${
-                      isTranslated 
-                        ? 'bg-blue-500 text-white hover:bg-blue-600' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
-                    }`}
-                    title={isTranslated ? 'Voir le texte original' : 'Traduire ce message'}
-                  >
-                    {isTranslating ? (
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                    ) : isTranslated ? (
-                      <RotateCcw className="w-4 h-4" />
-                    ) : (
-                      <Languages className="w-4 h-4" />
-                    )}
-                  </button>
+  <div className="relative">
+    <button
+      onClick={handleTranslateClick}
+      disabled={isTranslating}
+      className={`p-2 rounded-full transition transform hover:scale-110 ${
+        isTranslated 
+          ? 'bg-blue-500 text-white hover:bg-blue-600' 
+          : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
+      }`}
+      title={isTranslated ? 'Voir le texte original' : 'Traduire ce message'}
+    >
+      {isTranslating ? (
+        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      ) : isTranslated ? (
+        <RotateCcw className="w-4 h-4" />
+      ) : (
+        <Languages className="w-4 h-4" />
+      )}
+    </button>
 
-                  {/* MENU LANGUES */}
-                  {showLanguageMenu && (
-                    <div 
-                      className={`absolute bottom-full mb-2 ${isMine ? 'right-0' : 'left-0'} bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-50 min-w-[200px] max-h-[300px] overflow-y-auto`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="px-3 py-2 border-b border-gray-200">
-                        <p className="text-xs font-semibold text-gray-600">Traduire en :</p>
-                      </div>
-                      {languages.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => handleTranslate(lang.code)}
-                          className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
-                        >
-                          <span className="text-2xl">{lang.flag}</span>
-                          <span className="text-sm text-gray-700">{lang.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+    {/* MENU LANGUES - TOUJOURS EN BAS */}
+    {showLanguageMenu && (
+      <div 
+        className={`absolute ${isMine ? 'right-0' : 'left-0'} bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-[9999] min-w-[200px]`}
+        style={{
+          maxHeight: '280px',
+          overflowY: 'auto',
+          top: '100%',
+          bottom: 'auto',
+          marginTop: '8px',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-3 py-2 border-b border-gray-200">
+          <p className="text-xs font-semibold text-gray-600">Traduire en :</p>
+        </div>
+        {languages.map((lang) => (
+          <button
+            key={lang.code}
+            onClick={() => handleTranslate(lang.code)}
+            className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
+          >
+            <span className="text-2xl">{lang.flag}</span>
+            <span className="text-sm text-gray-700">{lang.name}</span>
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+)}
             </div>
 
             {/* BULLE DE MESSAGE */}
