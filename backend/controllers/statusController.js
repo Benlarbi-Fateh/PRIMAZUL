@@ -3,19 +3,38 @@ const Status = require("../models/Status");
 const Contact = require("../models/Contact");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("cloudinary").v2;
+const streamifier = require("streamifier");
+
+// ✅ CONFIG CLOUDINARY
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// ✅ FONCTION HELPER : Upload vers Cloudinary via Buffer
+const uploadToCloudinary = (buffer, resourceType = "auto") => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "status_updates", // Dossier dans Cloudinary
+        resource_type: resourceType,
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
+};
 
 // ============================================
 // 📝 CRÉER UN STATUT
 // ============================================
 exports.createStatus = async (req, res) => {
   try {
-    console.log("📝 ====== CRÉATION STATUT ======");
-    console.log("Body:", req.body);
-    console.log("File:", req.file);
-    console.log("User:", req.user);
-
     const { type, content, textStyle } = req.body;
     const userId = req.user._id || req.user.id || req.user.userId;
 
@@ -45,8 +64,22 @@ exports.createStatus = async (req, res) => {
       statusData.textStyle = textStyle;
     }
 
+    // ✅ UPLOAD CLOUDINARY
     if (req.file) {
-      statusData.mediaUrl = `/uploads/status/${req.file.filename}`;
+      console.log("📤 Upload vers Cloudinary en cours...");
+
+      // Déterminer si c'est une image ou une vidéo pour Cloudinary
+      const resourceType = req.file.mimetype.startsWith("video")
+        ? "video"
+        : "image";
+
+      const result = await uploadToCloudinary(req.file.buffer, resourceType);
+
+      statusData.mediaUrl = result.secure_url;
+      // Optionnel : stocker l'ID public pour suppression future
+      // statusData.cloudinaryId = result.public_id;
+
+      console.log("✅ Upload réussi:", result.secure_url);
     }
 
     const status = await Status.create(statusData);
@@ -66,16 +99,8 @@ exports.createStatus = async (req, res) => {
 // ============================================
 exports.getAllStatuses = async (req, res) => {
   try {
-    console.log("📊 ====== GET ALL STATUSES ======");
-
     const userId = req.user._id || req.user.id || req.user.userId;
-    console.log("User ID:", userId);
 
-    if (!userId) {
-      return res.status(401).json({ error: "Utilisateur non authentifié" });
-    }
-
-    // Récupérer les contacts (avec gestion d'erreur si Contact n'existe pas)
     let contactIds = [];
     try {
       const contacts = await Contact.find({
@@ -83,14 +108,12 @@ exports.getAllStatuses = async (req, res) => {
         isBlocked: { $ne: true },
       }).select("contact");
       contactIds = contacts.map((c) => c.contact);
-      console.log("Contacts trouvés:", contactIds.length);
     } catch (contactError) {
-      console.log("⚠️ Pas de modèle Contact ou erreur:", contactError.message);
+      // Ignorer si pas de contacts
     }
 
     const allUserIds = [...contactIds, userId];
 
-    // Récupérer les statuts non expirés
     const statuses = await Status.find({
       userId: { $in: allUserIds },
       expiresAt: { $gt: new Date() },
@@ -99,25 +122,19 @@ exports.getAllStatuses = async (req, res) => {
       .populate("views.userId", "name profilePicture")
       .sort({ createdAt: -1 });
 
-    console.log("Statuts trouvés:", statuses.length);
-
-    // Transformer pour ajouter 'user' (compatibilité frontend)
     const transformedStatuses = statuses.map((status) => {
       const obj = status.toObject();
-      obj.user = obj.userId; // Ajouter 'user' qui pointe vers userId
+      obj.user = obj.userId;
       return obj;
     });
 
-    // Séparer mes statuts
     const myStatuses = transformedStatuses.filter(
       (s) => s.user && s.user._id && s.user._id.toString() === userId.toString()
     );
 
-    // Grouper les statuts des amis
     const friendsStatusesMap = {};
     transformedStatuses.forEach((status) => {
       if (!status.user || !status.user._id) return;
-
       const ownerId = status.user._id.toString();
 
       if (ownerId !== userId.toString()) {
@@ -132,7 +149,6 @@ exports.getAllStatuses = async (req, res) => {
 
         friendsStatusesMap[ownerId].statuses.push(status);
 
-        // Vérifier si non vu
         const hasViewed = status.views?.some(
           (v) =>
             v.userId &&
@@ -159,11 +175,6 @@ exports.getAllStatuses = async (req, res) => {
       return new Date(b.latestAt) - new Date(a.latestAt);
     });
 
-    console.log("✅ Résultat:", {
-      myStatuses: myStatuses.length,
-      friendsStatuses: friendsStatuses.length,
-    });
-
     res.json({
       success: true,
       myStatuses,
@@ -186,9 +197,7 @@ exports.markAsViewed = async (req, res) => {
     const userId = req.user._id || req.user.id || req.user.userId;
 
     const status = await Status.findById(id);
-    if (!status) {
-      return res.status(404).json({ error: "Statut introuvable" });
-    }
+    if (!status) return res.status(404).json({ error: "Statut introuvable" });
 
     if (status.userId.toString() === userId.toString()) {
       return res.json({ success: true, message: "Propre statut" });
@@ -201,7 +210,6 @@ exports.markAsViewed = async (req, res) => {
     if (!alreadyViewed) {
       status.views.push({ userId, viewedAt: new Date() });
       await status.save();
-      console.log(`👁️ Statut ${id} vu par ${userId}`);
     }
 
     res.json({ success: true });
@@ -221,19 +229,15 @@ exports.reactToStatus = async (req, res) => {
     const userId = req.user._id || req.user.id || req.user.userId;
 
     const status = await Status.findById(id).populate("userId", "name");
-    if (!status) {
-      return res.status(404).json({ error: "Statut introuvable" });
-    }
+    if (!status) return res.status(404).json({ error: "Statut introuvable" });
 
     const statusOwnerId = status.userId._id.toString();
-
     if (statusOwnerId === userId.toString()) {
       return res
         .status(400)
-        .json({ error: "Vous ne pouvez pas réagir à votre propre statut" });
+        .json({ error: "Impossible de réagir à son propre statut" });
     }
 
-    // Mettre à jour ou ajouter la réaction
     const existingView = status.views.find(
       (v) => v.userId && v.userId.toString() === userId.toString()
     );
@@ -259,7 +263,7 @@ exports.reactToStatus = async (req, res) => {
 
     await status.save();
 
-    // Créer un message dans le chat
+    // Créer message réaction
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, statusOwnerId] },
       isGroup: false,
@@ -280,10 +284,7 @@ exports.reactToStatus = async (req, res) => {
       storyReply: {
         statusId: status._id,
         storyType: status.type,
-        storyPreview:
-          status.type === "text"
-            ? status.content?.substring(0, 50)
-            : status.mediaUrl,
+        storyUrl: status.mediaUrl, // ✅ URL Cloudinary
         reaction: reaction,
       },
     });
@@ -300,23 +301,11 @@ exports.reactToStatus = async (req, res) => {
         "receive-message",
         reactionMessage
       );
-      io.to(statusOwnerId).emit("status-reaction", {
-        statusId: status._id,
-        reaction,
-        from: req.user.name,
-      });
     }
 
-    console.log(`🎭 Réaction ${reaction} sur statut ${id}`);
-
-    res.json({
-      success: true,
-      reaction,
-      conversationId: conversation._id,
-      reactionsSummary: status.reactionsSummary,
-    });
+    res.json({ success: true, reaction });
   } catch (error) {
-    console.error("❌ Erreur reactToStatus:", error);
+    console.error("❌ Erreur reaction:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
@@ -330,18 +319,14 @@ exports.replyToStatus = async (req, res) => {
     const { message } = req.body;
     const userId = req.user._id || req.user.id || req.user.userId;
 
-    if (!message?.trim()) {
+    if (!message?.trim())
       return res.status(400).json({ error: "Message requis" });
-    }
 
     const status = await Status.findById(id).populate("userId", "name");
-    if (!status) {
-      return res.status(404).json({ error: "Statut introuvable" });
-    }
+    if (!status) return res.status(404).json({ error: "Statut introuvable" });
 
     const statusOwnerId = status.userId._id.toString();
 
-    // Ajouter la réponse au statut
     const existingView = status.views.find(
       (v) => v.userId && v.userId.toString() === userId.toString()
     );
@@ -359,7 +344,6 @@ exports.replyToStatus = async (req, res) => {
     status.repliesCount = (status.repliesCount || 0) + 1;
     await status.save();
 
-    // Créer un message dans le chat
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, statusOwnerId] },
       isGroup: false,
@@ -380,10 +364,8 @@ exports.replyToStatus = async (req, res) => {
       storyReply: {
         statusId: status._id,
         storyType: status.type,
-        storyPreview:
-          status.type === "text"
-            ? status.content?.substring(0, 50)
-            : status.mediaUrl,
+        storyUrl: status.mediaUrl, // ✅ URL Cloudinary
+        storyText: status.content,
       },
     });
 
@@ -401,21 +383,15 @@ exports.replyToStatus = async (req, res) => {
       );
     }
 
-    console.log(`💬 Réponse sur statut ${id}`);
-
-    res.json({
-      success: true,
-      conversationId: conversation._id,
-      message: replyMessageDoc,
-    });
+    res.json({ success: true, message: replyMessageDoc });
   } catch (error) {
-    console.error("❌ Erreur replyToStatus:", error);
+    console.error("❌ Erreur reply:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
 // ============================================
-// 📊 OBTENIR LES VUES D'UN STATUT
+// 📊 VUES
 // ============================================
 exports.getStatusViews = async (req, res) => {
   try {
@@ -426,10 +402,7 @@ exports.getStatusViews = async (req, res) => {
       "views.userId",
       "name profilePicture"
     );
-
-    if (!status) {
-      return res.status(404).json({ error: "Statut introuvable" });
-    }
+    if (!status) return res.status(404).json({ error: "Statut introuvable" });
 
     if (status.userId.toString() !== userId.toString()) {
       return res.status(403).json({ error: "Non autorisé" });
@@ -449,13 +422,13 @@ exports.getStatusViews = async (req, res) => {
       reactionsSummary: status.reactionsSummary,
     });
   } catch (error) {
-    console.error("❌ Erreur getStatusViews:", error);
+    console.error("❌ Erreur views:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
 // ============================================
-// 🗑️ SUPPRIMER UN STATUT
+// 🗑️ SUPPRESSION
 // ============================================
 exports.deleteStatus = async (req, res) => {
   try {
@@ -463,28 +436,21 @@ exports.deleteStatus = async (req, res) => {
     const userId = req.user._id || req.user.id || req.user.userId;
 
     const status = await Status.findById(id);
-    if (!status) {
-      return res.status(404).json({ error: "Statut introuvable" });
-    }
+    if (!status) return res.status(404).json({ error: "Statut introuvable" });
 
     if (status.userId.toString() !== userId.toString()) {
       return res.status(403).json({ error: "Non autorisé" });
     }
 
-    if (status.mediaUrl && !status.mediaUrl.startsWith("http")) {
-      const filePath = path.join(__dirname, "..", status.mediaUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`🗑️ Fichier supprimé: ${filePath}`);
-      }
-    }
+    // ✅ Note: Suppression de l'image sur Cloudinary optionnelle ici
+    // Pour une version prod, on pourrait utiliser cloudinary.uploader.destroy()
 
     await Status.findByIdAndDelete(id);
     console.log(`✅ Statut ${id} supprimé`);
 
-    res.json({ success: true, message: "Statut supprimé" });
+    res.json({ success: true });
   } catch (error) {
-    console.error("❌ Erreur deleteStatus:", error);
+    console.error("❌ Erreur delete:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };

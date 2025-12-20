@@ -4,29 +4,17 @@ const router = express.Router();
 const statusController = require("../controllers/statusController");
 const auth = require("../middleware/authMiddleware");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
-// Configuration Multer
-const uploadDir = "uploads/status";
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "status-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// ✅ CHANGEMENT : Utilisation de memoryStorage pour Cloudinary
+// Cela permet de garder le fichier en mémoire tampon avant l'envoi
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max (Cloudinary gère bien les vidéos)
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|gif|mp4|mov|webm/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+    const ext = allowed.test(file.originalname.toLowerCase());
     const mime = allowed.test(file.mimetype);
     if (ext && mime) cb(null, true);
     else cb(new Error("Fichier non supporté"));
