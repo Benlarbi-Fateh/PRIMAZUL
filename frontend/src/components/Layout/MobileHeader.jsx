@@ -256,7 +256,7 @@ export default function MobileHeader({
             </button>
           </>
 
-          <button
+          <button 
             className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
             title="Plus d'options"
           >

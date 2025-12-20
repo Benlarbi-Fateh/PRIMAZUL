@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useContext, useEffect } from "react";
-import { AuthContext } from '@/context/AuthProvider';
-import { useTheme } from '@/hooks/useTheme';
+import { AuthContext } from "@/context/AuthProvider";
+import { useTheme } from "@/hooks/useTheme";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -31,6 +31,9 @@ import {
   Zap,
   Heart,
 } from "lucide-react";
+
+// ✅ 1. IMPORTER LA SIDEBAR
+import MainSidebar from "@/components/Layout/MainSidebar.client";
 
 // Composant ActivityIcon séparé
 const ActivityIcon = ({ className }) => (
@@ -69,7 +72,7 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Styles basés sur le thème (mêmes couleurs que sidebar)
+  // Styles basés sur le thème
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
     : "bg-gradient-to-b from-blue-50 to-indigo-100";
@@ -106,9 +109,7 @@ export default function ProfilePage() {
     ? "bg-gradient-to-r from-blue-800 via-blue-900 to-blue-950"
     : "bg-gradient-to-r from-blue-600 to-indigo-600";
 
-  const profileRing = isDark
-    ? "ring-blue-700/50"
-    : "ring-white/50";
+  const profileRing = isDark ? "ring-blue-700/50" : "ring-white/50";
 
   const cameraButton = isDark
     ? "bg-blue-800 hover:bg-blue-700 text-blue-200 border-blue-600"
@@ -118,10 +119,6 @@ export default function ProfilePage() {
     ? "bg-blue-800 hover:bg-blue-700 text-blue-200 border-blue-700"
     : "bg-blue-50 hover:bg-blue-100 text-slate-700 border-blue-200";
 
-  const tabBg = isDark
-    ? "hover:bg-blue-800 hover:text-blue-100 text-blue-300"
-    : "hover:bg-blue-50 hover:text-slate-800 text-slate-600";
-
   const inputBg = isDark
     ? "bg-blue-800 border-blue-700 text-blue-100 placeholder-blue-400 focus:ring-cyan-500"
     : "bg-white border-slate-300 text-slate-800 placeholder-slate-500 focus:ring-blue-500 focus:border-blue-500";
@@ -130,10 +127,7 @@ export default function ProfilePage() {
     ? "bg-blue-900/50 border-blue-800"
     : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200";
 
-  // Données simulées
-  const userStats = {
-    streak: 12
-  };
+  const userStats = { streak: 12 };
 
   const recentActivity = [
     { id: 1, action: "a partagé un clip", time: "2 min", icon: Zap },
@@ -142,7 +136,6 @@ export default function ProfilePage() {
     { id: 4, action: "a créé un clip", time: "5 h", icon: Zap },
   ];
 
-  // Fix hydration
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -256,19 +249,31 @@ export default function ProfilePage() {
 
   if (!isMounted || !user) {
     return (
-      <div className={`min-h-screen ${pageBg} flex items-center justify-center p-4`}>
+      <div
+        className={`min-h-screen ${pageBg} flex items-center justify-center p-4`}
+      >
         <div className="text-center">
           <div className="relative">
-            <div className={`animate-spin rounded-full h-16 w-16 border-4 mx-auto ${
-              isDark ? 'border-blue-800/50 border-t-cyan-400' : 'border-blue-600/20 border-t-blue-600'
-            }`}></div>
+            <div
+              className={`animate-spin rounded-full h-16 w-16 border-4 mx-auto ${
+                isDark
+                  ? "border-blue-800/50 border-t-cyan-400"
+                  : "border-blue-600/20 border-t-blue-600"
+              }`}
+            ></div>
             <div className="absolute inset-0 flex items-center justify-center">
-              <User className={`w-6 h-6 animate-pulse ${
-                isDark ? 'text-cyan-400' : 'text-blue-600'
-              }`} />
+              <User
+                className={`w-6 h-6 animate-pulse ${
+                  isDark ? "text-cyan-400" : "text-blue-600"
+                }`}
+              />
             </div>
           </div>
-          <p className={`mt-6 font-medium ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
+          <p
+            className={`mt-6 font-medium ${
+              isDark ? "text-blue-300" : "text-blue-600"
+            }`}
+          >
             Chargement du profil...
           </p>
         </div>
@@ -277,305 +282,340 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className={`min-h-screen ${pageBg}`}>
-      {/* Container principal avec padding */}
-      <div className="min-h-screen p-4">
-        <div className="max-w-7xl mx-auto h-full">
-          {/* Header */}
-          <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 rounded-2xl shadow-lg border ${headerBg}`}>
-            <button
-              onClick={() => router.back()}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${buttonStyle}`}
+    // ✅ 2. STRUCTURE FLEXBOX POUR LA SIDEBAR ET LE CONTENU
+    <div className={`flex h-screen ${pageBg}`}>
+      <MainSidebar />
+
+      {/* ✅ 3. CONTENEUR SCROLLABLE POUR LE CONTENU DROIT */}
+      <div className="flex-1 overflow-y-auto w-full relative">
+        {/* Le padding du container principal */}
+        <div className="min-h-full p-4">
+          <div className="max-w-7xl mx-auto h-full">
+            {/* Header */}
+            <div
+              className={`flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 rounded-2xl shadow-lg border ${headerBg}`}
             >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Retour</span>
-            </button>
-
-            <div className="text-center">
-              <h1 className={`text-xl font-bold ${textPrimary}`}>Mon Profil</h1>
-              <p className={`text-sm ${textSecondary}`}>
-                Gérez vos informations personnelles
-              </p>
-            </div>
-
-            <div className="flex items-center gap:2">
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${buttonStyle}`}
-                >
-                  <Edit3 className="w-4 h-4" />
-                  <span>Modifier</span>
-                </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCancel}
-                    disabled={isLoading}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
-                      isDark 
-                        ? 'bg-blue-800 text-blue-200 hover:bg-blue-700' 
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    <X className="w-4 h-4" />
-                    <span>Annuler</span>
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={isLoading}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${
-                      isDark
-                        ? 'bg-linear-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white'
-                        : 'bg-linear-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white'
-                    }`}
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    <span>{isLoading ? "Sauvegarde..." : "Sauvegarder"}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Messages d'alerte */}
-          {error && (
-            <div className={`mb-4 p-3 rounded-xl flex items-center gap-3 text-sm ${
-              isDark 
-                ? 'bg-red-900/30 border border-red-800 text-red-300' 
-                : 'bg-red-50 border border-red-200 text-red-700'
-            }`}>
-              <span className="text-lg">❌</span>
-              <span className="flex-1">{error}</span>
               <button
-                onClick={() => setError("")}
-                className={isDark ? 'text-red-400 hover:text-red-300' : 'text-red-500 hover:text-red-700'}
+                onClick={() => router.back()}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${buttonStyle}`}
               >
-                <X className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4" />
+                <span>Retour</span>
               </button>
-            </div>
-          )}
 
-          {success && (
-            <div className={`mb-4 p-3 rounded-xl flex items-center gap-3 text-sm ${
-              isDark 
-                ? 'bg-green-900/30 border border-green-800 text-green-300' 
-                : 'bg-green-50 border border-green-200 text-green-700'
-            }`}>
-              <span className="text-lg">✅</span>
-              <span className="flex-1">{success}</span>
-              <button
-                onClick={() => setSuccess("")}
-                className={isDark ? 'text-green-400 hover:text-green-300' : 'text-green-500 hover:text-green-700'}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+              <div className="text-center">
+                <h1 className={`text-xl font-bold ${textPrimary}`}>
+                  Mon Profil
+                </h1>
+                <p className={`text-sm ${textSecondary}`}>
+                  Gérez vos informations personnelles
+                </p>
+              </div>
 
-          {/* Contenu principal */}
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* Colonne de gauche - Profil */}
-            <div className="lg:w-1/3 xl:w-1/4 flex flex-col">
-              <div className={`rounded-2xl shadow-lg border overflow-hidden flex-1 flex flex-col ${cardBg}`}>
-                <div className={`p-4 text-center shrink-0 ${profileHeaderBg}`}>
-                  <div className="relative inline-block">
-                    <div className={`relative w-20 h-20 rounded-xl overflow-hidden shadow-2xl ring-4 mx-auto ${profileRing}`}>
-                      {profilePicture ? (
-                        <Image
-                          src={profilePicture}
-                          alt={user.name}
-                          width={80}
-                          height={80}
-                          className="w-full h-full object-cover"
-                          unoptimized={true}
-                        />
+              <div className="flex items-center gap:2">
+                {!isEditing ? (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${buttonStyle}`}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Modifier</span>
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancel}
+                      disabled={isLoading}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
+                        isDark
+                          ? "bg-blue-800 text-blue-200 hover:bg-blue-700"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      }`}
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Annuler</span>
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={isLoading}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${
+                        isDark
+                          ? "bg-linear-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white"
+                          : "bg-linear-to-r from-green-600 to-cyan-500 hover:from-green-700 hover:to-cyan-600 text-white"
+                      }`}
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       ) : (
-                        <div className={`w-full h-full flex items-center justify-center ${
-                          isDark ? 'bg-blue-800' : 'bg-blue-500'
-                        }`}>
-                          <User className={`w-8 h-8 ${isDark ? 'text-blue-200' : 'text-white'}`} />
-                        </div>
+                        <Save className="w-4 h-4" />
+                      )}
+                      <span>{isLoading ? "Sauvegarde..." : "Sauvegarder"}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Messages d'alerte */}
+            {error && (
+              <div
+                className={`mb-4 p-3 rounded-xl flex items-center gap-3 text-sm ${
+                  isDark
+                    ? "bg-red-900/30 border border-red-800 text-red-300"
+                    : "bg-red-50 border border-red-200 text-red-700"
+                }`}
+              >
+                <span className="text-lg">❌</span>
+                <span className="flex-1">{error}</span>
+                <button
+                  onClick={() => setError("")}
+                  className={
+                    isDark
+                      ? "text-red-400 hover:text-red-300"
+                      : "text-red-500 hover:text-red-700"
+                  }
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {success && (
+              <div
+                className={`mb-4 p-3 rounded-xl flex items-center gap-3 text-sm ${
+                  isDark
+                    ? "bg-green-900/30 border border-green-800 text-green-300"
+                    : "bg-green-50 border border-green-200 text-green-700"
+                }`}
+              >
+                <span className="text-lg">✅</span>
+                <span className="flex-1">{success}</span>
+                <button
+                  onClick={() => setSuccess("")}
+                  className={
+                    isDark
+                      ? "text-green-400 hover:text-green-300"
+                      : "text-green-500 hover:text-green-700"
+                  }
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Contenu principal */}
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Colonne de gauche - Profil */}
+              <div className="lg:w-1/3 xl:w-1/4 flex flex-col">
+                <div
+                  className={`rounded-2xl shadow-lg border overflow-hidden flex-1 flex flex-col ${cardBg}`}
+                >
+                  <div
+                    className={`p-4 text-center shrink-0 ${profileHeaderBg}`}
+                  >
+                    <div className="relative inline-block">
+                      <div
+                        className={`relative w-20 h-20 rounded-xl overflow-hidden shadow-2xl ring-4 mx-auto ${profileRing}`}
+                      >
+                        {profilePicture ? (
+                          <Image
+                            src={profilePicture}
+                            alt={user.name}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover"
+                            unoptimized={true}
+                          />
+                        ) : (
+                          <div
+                            className={`w-full h-full flex items-center justify-center ${
+                              isDark ? "bg-blue-800" : "bg-blue-500"
+                            }`}
+                          >
+                            <User
+                              className={`w-8 h-8 ${
+                                isDark ? "text-blue-200" : "text-white"
+                              }`}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {isEditing && (
+                        <label
+                          className={`absolute -bottom-1 -right-1 p-1.5 rounded-lg shadow-lg cursor-pointer transition-all border ${cameraButton}`}
+                        >
+                          <Camera className="w-3 h-3" />
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleProfilePictureChange}
+                            disabled={isLoading}
+                          />
+                        </label>
                       )}
                     </div>
 
-                    {isEditing && (
-                      <label className={`absolute -bottom-1 -right-1 p-1.5 rounded-lg shadow-lg cursor-pointer transition-all border ${cameraButton}`}>
-                        <Camera className="w-3 h-3" />
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleProfilePictureChange}
-                          disabled={isLoading}
-                        />
-                      </label>
-                    )}
-                  </div>
+                    <div className="mt-3">
+                      <h2
+                        className={`text-lg font-bold line-clamp-1 ${
+                          isDark ? "text-blue-50" : "text-white"
+                        }`}
+                      >
+                        {formData.name}
+                      </h2>
+                      <p
+                        className={`text-sm truncate mt-1 ${
+                          isDark ? "text-blue-200" : "text-blue-100"
+                        }`}
+                      >
+                        {formData.email}
+                      </p>
 
-                  <div className="mt-3">
-                    <h2 className={`text-lg font-bold line-clamp-1 ${
-                      isDark ? 'text-blue-50' : 'text-white'
-                    }`}>
-                      {formData.name}
-                    </h2>
-                    <p className={`text-sm truncate mt-1 ${
-                      isDark ? 'text-blue-200' : 'text-blue-100'
-                    }`}>
-                      {formData.email}
-                    </p>
-                   
-                    <div className="flex items-center justify-center gap-1 mt-1">
-                      <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></div>
-                      <span className={`text-xs font-medium ${
-                        isDark ? 'text-cyan-300' : 'text-cyan-100'
-                      }`}>
-                        En ligne
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 flex-1 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    {/* Statistiques principales */}
-                    <div>
-                      <h3 className={`flex items-center text-xs font-bold mb-3 ${
-                        isDark ? 'text-blue-200' : 'text-slate-800'
-                      }`}>
-                        <TrendingUp className={`w-4 h-4 mr-2 ${
-                          isDark ? 'text-cyan-400' : 'text-blue-600'
-                        }`} />
-                        Statistiques
-                      </h3>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className={`rounded-lg p-2 border ${statCardBg}`}>
-                          <div className={`text-sm font-bold ${
-                            isDark ? 'text-cyan-400' : 'text-blue-600'
-                          }`}>
-                            {user.stats?.messagesCount || 0}
-                          </div>
-                          <div className={`text-xs ${
-                            isDark ? 'text-blue-300' : 'text-slate-600'
-                          }`}>
-                            Messages
-                          </div>
-                        </div>
-                        <div className={`rounded-lg p-2 border ${statCardBg}`}>
-                          <div className={`text-sm font-bold ${
-                            isDark ? 'text-cyan-400' : 'text-blue-600'
-                          }`}>
-                            {user.stats?.contactsCount || 0}
-                          </div>
-                          <div className={`text-xs ${
-                            isDark ? 'text-blue-300' : 'text-slate-600'
-                          }`}>
-                            Contacts
-                          </div>
-                        </div>
-                        <div className={`rounded-lg p-2 border ${statCardBg}`}>
-                          <div className={`text-sm font-bold ${
-                            isDark ? 'text-cyan-400' : 'text-blue-600'
-                          }`}>
-                            {user.stats?.groupsCount || 0}
-                          </div>
-                          <div className={`text-xs ${
-                            isDark ? 'text-blue-300' : 'text-slate-600'
-                          }`}>
-                            Groupes
-                          </div>
-                        </div>
+                      <div className="flex items-center justify-center gap-1 mt-1">
+                        <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse"></div>
+                        <span
+                          className={`text-xs font-medium ${
+                            isDark ? "text-cyan-300" : "text-cyan-100"
+                          }`}
+                        >
+                          En ligne
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Actions rapides */}
-                  <div className="space-y-2 pt-3 border-t border-blue-700/30">
-                    <button
-                      onClick={() => router.push("/")}
-                      className={`w-full flex items-center gap-2 p-2 rounded-lg transition-all text-sm font-medium border ${quickActionBg}`}
-                    >
-                      <MessageCircle className={`w-4 h-4 ${
-                        isDark ? 'text-cyan-400' : 'text-blue-600'
-                      }`} />
-                      <span>Conversations</span>
-                    </button>
-                    <button className={`w-full flex items-center gap-2 p-2 rounded-lg transition-all text-sm font-medium border ${quickActionBg}`}>
-                      <Users className={`w-4 h-4 ${
-                        isDark ? 'text-cyan-400' : 'text-blue-600'
-                      }`} />
-                      <span>Groupes</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+                  <div className="p-4 flex-1 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      {/* Statistiques principales */}
+                      <div>
+                        <h3
+                          className={`flex items-center text-xs font-bold mb-3 ${
+                            isDark ? "text-blue-200" : "text-slate-800"
+                          }`}
+                        >
+                          <TrendingUp
+                            className={`w-4 h-4 mr-2 ${
+                              isDark ? "text-cyan-400" : "text-blue-600"
+                            }`}
+                          />
+                          Statistiques
+                        </h3>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div
+                            className={`rounded-lg p-2 border ${statCardBg}`}
+                          >
+                            <div
+                              className={`text-sm font-bold ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            >
+                              {user.stats?.messagesCount || 0}
+                            </div>
+                            <div
+                              className={`text-xs ${
+                                isDark ? "text-blue-300" : "text-slate-600"
+                              }`}
+                            >
+                              Messages
+                            </div>
+                          </div>
+                          <div
+                            className={`rounded-lg p-2 border ${statCardBg}`}
+                          >
+                            <div
+                              className={`text-sm font-bold ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            >
+                              {user.stats?.contactsCount || 0}
+                            </div>
+                            <div
+                              className={`text-xs ${
+                                isDark ? "text-blue-300" : "text-slate-600"
+                              }`}
+                            >
+                              Contacts
+                            </div>
+                          </div>
+                          <div
+                            className={`rounded-lg p-2 border ${statCardBg}`}
+                          >
+                            <div
+                              className={`text-sm font-bold ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            >
+                              {user.stats?.groupsCount || 0}
+                            </div>
+                            <div
+                              className={`text-xs ${
+                                isDark ? "text-blue-300" : "text-slate-600"
+                              }`}
+                            >
+                              Groupes
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Navigation par onglets */}
-              <div className={`rounded-2xl shadow-lg border p-3 mt-4 ${cardBg}`}>
-                <div className="space-y-1">
-                  {[
-                    { id: "profile", icon: User, label: "Profil" },
-                    { id: "privacy", icon: Shield, label: "Confidentialité" },
-                    { id: "notifications", icon: Bell, label: "Notifications" },
-                  ].map((tab) => {
-                    const IconComponent = tab.icon;
-                    return (
+                    {/* Actions rapides */}
+                    <div className="space-y-2 pt-3 border-t border-blue-700/30">
                       <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`w-full flex items-center gap-2 p-2 font-semibold transition-all rounded-lg text-sm ${
-                          activeTab === tab.id
-                            ? `${buttonStyle} shadow-md`
-                            : tabBg
-                        }`}
+                        onClick={() => router.push("/")}
+                        className={`w-full flex items-center gap-2 p-2 rounded-lg transition-all text-sm font-medium border ${quickActionBg}`}
                       >
-                        <IconComponent className="w-4 h-4" />
-                        <span>{tab.label}</span>
+                        <MessageCircle
+                          className={`w-4 h-4 ${
+                            isDark ? "text-cyan-400" : "text-blue-600"
+                          }`}
+                        />
+                        <span>Conversations</span>
                       </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Colonne de droite - Contenu principal */}
-            <div className="lg:w-2/3 xl:w-3/4 flex-1">
-              <div className={`rounded-2xl shadow-lg border overflow-hidden min-h-[600px] ${cardBg}`}>
-                {/* En-tête du contenu */}
-                <div className={`p-4 border-b ${contentHeaderBg}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className={`text-lg font-bold ${textPrimary}`}>
-                        {activeTab === "profile" && "Informations personnelles"}
-                        {activeTab === "privacy" && "Paramètres de confidentialité"}
-                        {activeTab === "notifications" && "Préférences de notifications"}
-                      </h2>
-                      <p className={`text-sm mt-1 ${textSecondary}`}>
-                        {activeTab === "profile" && "Gérez vos informations de profil"}
-                        {activeTab === "privacy" && "Contrôlez votre confidentialité"}
-                        {activeTab === "notifications" && "Gérez vos préférences de notifications"}
-                      </p>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Contenu scrollable */}
-                <div className="p-4">
-                  {activeTab === "profile" && (
+              {/* Colonne de droite - Contenu principal */}
+              <div className="lg:w-2/3 xl:w-3/4 flex-1">
+                <div
+                  className={`rounded-2xl shadow-lg border overflow-hidden min-h-[600px] ${cardBg}`}
+                >
+                  {/* En-tête du contenu */}
+                  <div className={`p-4 border-b ${contentHeaderBg}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className={`text-lg font-bold ${textPrimary}`}>
+                          Informations personnelles
+                        </h2>
+                        <p className={`text-sm mt-1 ${textSecondary}`}>
+                          Gérez vos informations de profil
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contenu scrollable */}
+                  <div className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Colonne gauche - Informations de base */}
                       <div className="space-y-4">
-                        <div className={`rounded-xl p-4 border ${detailCardBg}`}>
-                          <label className={`flex items-center text-sm font-medium mb-3 ${
-                            isDark ? 'text-blue-200' : 'text-slate-700'
-                          }`}>
-                            <User className={`w-4 h-4 mr-2 ${
-                              isDark ? 'text-cyan-400' : 'text-blue-600'
-                            }`} />
+                        <div
+                          className={`rounded-xl p-4 border ${detailCardBg}`}
+                        >
+                          <label
+                            className={`flex items-center text-sm font-medium mb-3 ${
+                              isDark ? "text-blue-200" : "text-slate-700"
+                            }`}
+                          >
+                            <User
+                              className={`w-4 h-4 mr-2 ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            />
                             Nom complet
                           </label>
                           {isEditing ? (
@@ -588,19 +628,27 @@ export default function ProfilePage() {
                               placeholder="Votre nom complet"
                             />
                           ) : (
-                            <p className={`font-semibold text-lg ${textPrimary}`}>
+                            <p
+                              className={`font-semibold text-lg ${textPrimary}`}
+                            >
                               {formData.name}
                             </p>
                           )}
                         </div>
 
-                        <div className={`rounded-xl p-4 border ${detailCardBg}`}>
-                          <label className={`flex items-center text-sm font-medium mb-3 ${
-                            isDark ? 'text-blue-200' : 'text-slate-700'
-                          }`}>
-                            <Mail className={`w-4 h-4 mr-2 ${
-                              isDark ? 'text-cyan-400' : 'text-blue-600'
-                            }`} />
+                        <div
+                          className={`rounded-xl p-4 border ${detailCardBg}`}
+                        >
+                          <label
+                            className={`flex items-center text-sm font-medium mb-3 ${
+                              isDark ? "text-blue-200" : "text-slate-700"
+                            }`}
+                          >
+                            <Mail
+                              className={`w-4 h-4 mr-2 ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            />
                             Adresse email
                           </label>
                           {isEditing ? (
@@ -613,20 +661,28 @@ export default function ProfilePage() {
                               placeholder="votre@email.com"
                             />
                           ) : (
-                            <p className={`font-semibold text-lg ${textPrimary}`}>
+                            <p
+                              className={`font-semibold text-lg ${textPrimary}`}
+                            >
                               {formData.email}
                             </p>
                           )}
                         </div>
 
                         {/* Section activité récente */}
-                        <div className={`rounded-xl p-4 border ${activityCardBg}`}>
-                          <h3 className={`flex items-center text-sm font-bold mb-3 ${
-                            isDark ? 'text-blue-200' : 'text-slate-800'
-                          }`}>
-                            <ActivityIcon className={`w-4 h-4 mr-2 ${
-                              isDark ? 'text-cyan-400' : 'text-blue-600'
-                            }`} />
+                        <div
+                          className={`rounded-xl p-4 border ${activityCardBg}`}
+                        >
+                          <h3
+                            className={`flex items-center text-sm font-bold mb-3 ${
+                              isDark ? "text-blue-200" : "text-slate-800"
+                            }`}
+                          >
+                            <ActivityIcon
+                              className={`w-4 h-4 mr-2 ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            />
                             Activité récente
                           </h3>
                           <div className="space-y-2">
@@ -636,22 +692,36 @@ export default function ProfilePage() {
                                 <div
                                   key={activity.id}
                                   className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
-                                    isDark ? 'hover:bg-blue-800/50' : 'hover:bg-slate-50'
+                                    isDark
+                                      ? "hover:bg-blue-800/50"
+                                      : "hover:bg-slate-50"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <IconComponent className={`w-3 h-3 ${
-                                      isDark ? 'text-blue-400' : 'text-slate-500'
-                                    }`} />
-                                    <span className={`text-xs ${
-                                      isDark ? 'text-blue-300' : 'text-slate-700'
-                                    }`}>
+                                    <IconComponent
+                                      className={`w-3 h-3 ${
+                                        isDark
+                                          ? "text-blue-400"
+                                          : "text-slate-500"
+                                      }`}
+                                    />
+                                    <span
+                                      className={`text-xs ${
+                                        isDark
+                                          ? "text-blue-300"
+                                          : "text-slate-700"
+                                      }`}
+                                    >
                                       {activity.action}
                                     </span>
                                   </div>
-                                  <span className={`text-xs ${
-                                    isDark ? 'text-blue-400' : 'text-slate-500'
-                                  }`}>
+                                  <span
+                                    className={`text-xs ${
+                                      isDark
+                                        ? "text-blue-400"
+                                        : "text-slate-500"
+                                    }`}
+                                  >
                                     {activity.time}
                                   </span>
                                 </div>
@@ -663,13 +733,19 @@ export default function ProfilePage() {
 
                       {/* Colonne droite - Informations supplémentaires */}
                       <div className="space-y-4">
-                        <div className={`rounded-xl p-4 border ${detailCardBg}`}>
-                          <label className={`flex items-center text-sm font-medium mb-3 ${
-                            isDark ? 'text-blue-200' : 'text-slate-700'
-                          }`}>
-                            <User className={`w-4 h-4 mr-2 ${
-                              isDark ? 'text-cyan-400' : 'text-blue-600'
-                            }`} />
+                        <div
+                          className={`rounded-xl p-4 border ${detailCardBg}`}
+                        >
+                          <label
+                            className={`flex items-center text-sm font-medium mb-3 ${
+                              isDark ? "text-blue-200" : "text-slate-700"
+                            }`}
+                          >
+                            <User
+                              className={`w-4 h-4 mr-2 ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            />
                             Bio
                           </label>
                           {isEditing ? (
@@ -682,58 +758,90 @@ export default function ProfilePage() {
                               placeholder="Décrivez-vous en quelques mots..."
                             />
                           ) : (
-                            <p className={`leading-relaxed text-sm ${
-                              isDark ? 'text-blue-300' : 'text-slate-700'
-                            }`}>
+                            <p
+                              className={`leading-relaxed text-sm ${
+                                isDark ? "text-blue-300" : "text-slate-700"
+                              }`}
+                            >
                               {formData.bio || "Aucune bio renseignée"}
                             </p>
                           )}
                         </div>
 
                         <div className={`rounded-xl p-4 border ${statCardBg}`}>
-                          <h3 className={`flex items-center text-sm font-bold mb-3 ${
-                            isDark ? 'text-blue-200' : 'text-slate-800'
-                          }`}>
-                            <Clock className={`w-4 h-4 mr-2 ${
-                              isDark ? 'text-cyan-400' : 'text-blue-600'
-                            }`} />
+                          <h3
+                            className={`flex items-center text-sm font-bold mb-3 ${
+                              isDark ? "text-blue-200" : "text-slate-800"
+                            }`}
+                          >
+                            <Clock
+                              className={`w-4 h-4 mr-2 ${
+                                isDark ? "text-cyan-400" : "text-blue-600"
+                              }`}
+                            />
                             Statut et activité
                           </h3>
                           <div className="space-y-2 text-sm">
                             <div className="flex items-center justify-between">
-                              <span className={isDark ? 'text-blue-300' : 'text-slate-600'}>
+                              <span
+                                className={
+                                  isDark ? "text-blue-300" : "text-slate-600"
+                                }
+                              >
                                 Statut:
                               </span>
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
-                                <span className={`font-semibold ${
-                                  isDark ? 'text-cyan-400' : 'text-cyan-600'
-                                }`}>
+                                <span
+                                  className={`font-semibold ${
+                                    isDark ? "text-cyan-400" : "text-cyan-600"
+                                  }`}
+                                >
                                   En ligne
                                 </span>
                               </div>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className={isDark ? 'text-blue-300' : 'text-slate-600'}>
+                              <span
+                                className={
+                                  isDark ? "text-blue-300" : "text-slate-600"
+                                }
+                              >
                                 Membre depuis:
                               </span>
-                              <span className={`font-medium ${
-                                isDark ? 'text-blue-200' : 'text-slate-700'
-                              }`}>
-                                {new Date(user.createdAt || Date.now()).toLocaleDateString("fr-FR")}
+                              <span
+                                className={`font-medium ${
+                                  isDark ? "text-blue-200" : "text-slate-700"
+                                }`}
+                              >
+                                {new Date(
+                                  user.createdAt || Date.now()
+                                ).toLocaleDateString("fr-FR")}
                               </span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className={isDark ? 'text-blue-300' : 'text-slate-600'}>
+                              <span
+                                className={
+                                  isDark ? "text-blue-300" : "text-slate-600"
+                                }
+                              >
                                 Série active:
                               </span>
                               <div className="flex items-center gap-1">
-                                <Calendar className={`w-3 h-3 ${
-                                  isDark ? 'text-orange-400' : 'text-orange-500'
-                                }`} />
-                                <span className={`font-semibold ${
-                                  isDark ? 'text-orange-400' : 'text-orange-600'
-                                }`}>
+                                <Calendar
+                                  className={`w-3 h-3 ${
+                                    isDark
+                                      ? "text-orange-400"
+                                      : "text-orange-500"
+                                  }`}
+                                />
+                                <span
+                                  className={`font-semibold ${
+                                    isDark
+                                      ? "text-orange-400"
+                                      : "text-orange-600"
+                                  }`}
+                                >
                                   {userStats.streak} jours
                                 </span>
                               </div>
@@ -742,168 +850,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     </div>
-                  )}
-
-                  {activeTab === "privacy" && (
-                    <div className="text-center w-full max-w-2xl mx-auto">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-                        isDark ? 'bg-blue-800' : 'bg-blue-100'
-                      }`}>
-                        <Shield className={`w-8 h-8 ${
-                          isDark ? 'text-cyan-400' : 'text-blue-600'
-                        }`} />
-                      </div>
-                      <h3 className={`text-xl font-bold mb-2 ${textPrimary}`}>
-                        Paramètres de confidentialité
-                      </h3>
-                      <p className={`mb-6 ${textSecondary}`}>
-                        Gérez qui peut voir vos informations et vous contacter
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className={`rounded-xl p-4 border text-left ${detailCardBg}`}>
-                          <h4 className={`font-semibold mb-2 ${textPrimary}`}>
-                            Visibilité du profil
-                          </h4>
-                          <p className={`text-sm mb-3 ${textSecondary}`}>
-                            Contrôlez qui peut voir votre profil
-                          </p>
-                          <div className="space-y-2">
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="radio"
-                                name="visibility"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400' : 'text-blue-600'}
-                              />
-                              <span>Tout le monde</span>
-                            </label>
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="radio"
-                                name="visibility"
-                                className={isDark ? 'text-cyan-400' : 'text-blue-600'}
-                              />
-                              <span>Contacts uniquement</span>
-                            </label>
-                          </div>
-                        </div>
-                        <div className={`rounded-xl p-4 border text-left ${detailCardBg}`}>
-                          <h4 className={`font-semibold mb-2 ${textPrimary}`}>
-                            Paramètres de contact
-                          </h4>
-                          <p className={`text-sm mb-3 ${textSecondary}`}>
-                            Gérez qui peut vous contacter
-                          </p>
-                          <div className="space-y-2">
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400 rounded' : 'text-blue-600 rounded'}
-                              />
-                              <span>Accepter les messages</span>
-                            </label>
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400 rounded' : 'text-blue-600 rounded'}
-                              />
-                              <span>Accepter les appels</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === "notifications" && (
-                    <div className="text-center w-full max-w-2xl mx-auto">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-                        isDark ? 'bg-blue-800' : 'bg-cyan-100'
-                      }`}>
-                        <Bell className={`w-8 h-8 ${
-                          isDark ? 'text-cyan-400' : 'text-cyan-600'
-                        }`} />
-                      </div>
-                      <h3 className={`text-xl font-bold mb-2 ${textPrimary}`}>
-                        Préférences de notifications
-                      </h3>
-                      <p className={`mb-6 ${textSecondary}`}>
-                        Contrôlez comment et quand vous recevez les notifications
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className={`rounded-xl p-4 border text-left ${detailCardBg}`}>
-                          <h4 className={`font-semibold mb-2 ${textPrimary}`}>
-                            Messages
-                          </h4>
-                          <p className={`text-sm mb-3 ${textSecondary}`}>
-                            Notifications de nouveaux messages
-                          </p>
-                          <div className="space-y-2">
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400 rounded' : 'text-blue-600 rounded'}
-                              />
-                              <span>Nouveaux messages</span>
-                            </label>
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400 rounded' : 'text-blue-600 rounded'}
-                              />
-                              <span>Messages de groupe</span>
-                            </label>
-                          </div>
-                        </div>
-                        <div className={`rounded-xl p-4 border text-left ${detailCardBg}`}>
-                          <h4 className={`font-semibold mb-2 ${textPrimary}`}>
-                            Activités
-                          </h4>
-                          <p className={`text-sm mb-3 ${textSecondary}`}>
-                            Notifications d&apos;activités sociales
-                          </p>
-                          <div className="space-y-2">
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400 rounded' : 'text-blue-600 rounded'}
-                              />
-                              <span>Nouveaux likes</span>
-                            </label>
-                            <label className={`flex items-center gap-2 text-sm ${
-                              isDark ? 'text-blue-200' : 'text-slate-700'
-                            }`}>
-                              <input
-                                type="checkbox"
-                                defaultChecked
-                                className={isDark ? 'text-cyan-400 rounded' : 'text-blue-600 rounded'}
-                              />
-                              <span>Nouveaux followers</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
 import { AuthContext } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import {
@@ -19,6 +19,9 @@ export default function MainSidebar() {
   const { user, logout } = useContext(AuthContext);
   const { isDark } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
+
+  // ✅ 1. Créer une référence pour la sidebar
+  const sidebarRef = useRef(null);
 
   // Même style que le ChatHeader
   const headerBg = isDark
@@ -66,9 +69,7 @@ export default function MainSidebar() {
       icon: Users,
       href: "/group",
     },
-    { label: "Statuts",
-       icon: CircleDashed, 
-       href: "/status" },
+    { label: "Statuts", icon: CircleDashed, href: "/status" },
     {
       label: "Paramètres",
       icon: Settings,
@@ -79,12 +80,36 @@ export default function MainSidebar() {
   const handleLogout = () => {
     logout();
     router.push("/login");
+    setIsOpen(false); // Fermer après logout
   };
+
+  // ✅ 2. Fermer automatiquement au clic en dehors
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        isOpen &&
+        sidebarRef.current &&
+        !sidebarRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    // Ajouter l'écouteur si le menu est ouvert
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
 
   if (!user) return null;
 
   return (
-    <>
+    // ✅ 3. Wrapper le tout dans une div relative ou fragment
+    <div ref={sidebarRef} className="z-50 relative">
       {/* Bouton Toggle - Même dégradé que la sidebar */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -96,7 +121,7 @@ export default function MainSidebar() {
         {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
       </button>
 
-      {/* Overlay pour mobile */}
+      {/* Overlay pour mobile (Optionnel, renforce l'effet modal) */}
       {isOpen && (
         <div
           className={`fixed inset-0 ${overlayBg} z-48 lg:hidden`}
@@ -126,10 +151,8 @@ export default function MainSidebar() {
                 <button
                   onClick={() => {
                     router.push(item.href);
-                    // Fermer sur mobile après clic
-                    if (window.innerWidth < 1024) {
-                      setIsOpen(false);
-                    }
+                    // ✅ 4. Fermer systématiquement après un clic de navigation
+                    setIsOpen(false);
                   }}
                   className="flex flex-col items-center transition-colors"
                 >
@@ -165,6 +188,6 @@ export default function MainSidebar() {
           </span>
         </div>
       </aside>
-    </>
+    </div>
   );
 }
