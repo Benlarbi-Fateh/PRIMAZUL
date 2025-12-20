@@ -11,7 +11,7 @@ exports.getMessages = async (req, res) => {
 
     console.log('📥 getMessages appelé:', { conversationId, userId });
 
-    // ✅ VÉRIFIER la conversation
+    // ✅ Vérifier la conversation
     const conversation = await Conversation.findById(conversationId);
     
     if (!conversation) {
@@ -22,44 +22,41 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    // ✅ TROUVER la date de suppression pour cet utilisateur
-    let deletionDate = null;
-    
-    if (conversation.deletedBy && Array.isArray(conversation.deletedBy)) {
-      const deletion = conversation.deletedBy.find(
-        item => item.userId && item.userId.toString() === userId.toString()
-      );
-      
-      if (deletion && deletion.deletedAt) {
-        deletionDate = deletion.deletedAt;
-        console.log('📅 Conversation supprimée le:', deletionDate);
-      }
-    }
+    // 🔥 CORRECTION CRITIQUE : Vérifier si l'utilisateur a supprimé la conversation
+    const deletedByUser = conversation.deletedBy?.find(
+      item => item.userId?.toString() === userId.toString()
+    );
 
     let messages;
 
-    if (deletionDate) {
-      // ✅ Afficher UNIQUEMENT les messages APRÈS la suppression
+    if (deletedByUser) {
+      // 🔥 L'utilisateur a supprimé la conversation
+      console.log(`🗑️ Conversation supprimée par ${userId} le ${deletedByUser.deletedAt}`);
+      
+      // Charger UNIQUEMENT les messages APRÈS la date de suppression
       messages = await Message.find({ 
         conversationId,
-        createdAt: { $gt: deletionDate }
+        deletedBy: { $ne: userId }, // Exclure mes messages supprimés individuellement
+        createdAt: { $gt: deletedByUser.deletedAt } // 🔥 UNIQUEMENT les nouveaux messages
       })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
         .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
       
-      console.log(`📊 ${messages.length} nouveaux messages après suppression`);
-      
+      console.log(`📊 ${messages.length} messages APRÈS suppression pour ${userId}`);
     } else {
-      // ✅ Afficher TOUS les messages
-      messages = await Message.find({ conversationId })
+      // 🔥 L'utilisateur n'a PAS supprimé la conversation
+      messages = await Message.find({ 
+        conversationId,
+        deletedBy: { $ne: userId } // Exclure uniquement mes messages supprimés individuellement
+      })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
         .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
       
-      console.log(`📊 ${messages.length} messages au total`);
+      console.log(`📊 ${messages.length} messages visibles pour l'utilisateur ${userId}`);
     }
 
     res.json({ success: true, messages });
@@ -105,8 +102,8 @@ exports.sendMessage = async (req, res) => {
       if (otherParticipant) {
         const blockExists = await BlockedUser.findOne({
           $or: [
-            { userId: senderId, blockedUserId: otherParticipant._id },
-            { userId: otherParticipant._id, blockedUserId: senderId }
+            { blocker: senderId, blocked: otherParticipant._id },
+            { blocker: otherParticipant._id, blocked: senderId }
           ]
         });
 
@@ -120,29 +117,34 @@ exports.sendMessage = async (req, res) => {
         }
       }
 
-      // ✅ VÉRIFIER SI LA CONVERSATION A ÉTÉ SUPPRIMÉE PAR L'EXPÉDITEUR
-      const convCheck2 = await Conversation.findById(conversationId);
-      
-      if (convCheck2 && convCheck2.deletedBy && Array.isArray(convCheck2.deletedBy)) {
-        const senderDeletion = convCheck2.deletedBy.find(
-          item => item.userId && item.userId.toString() === senderId.toString()
-        );
-        
-        if (senderDeletion) {
-          console.log('🔄 Conversation supprimée détectée - Restauration pour l\'expéditeur');
-          
-          // Retirer l'entrée de suppression pour cet utilisateur
-          convCheck2.deletedBy = convCheck2.deletedBy.filter(
-            item => !item.userId || item.userId.toString() !== senderId.toString()
-          );
-          
-          await convCheck2.save();
-          console.log('✅ Conversation restaurée pour l\'expéditeur');
-        }
-      }
+      // ✅ NOUVEAU : GESTION AMÉLIORÉE DE LA RESTAURATION
+      const conversation = await Conversation.findById(conversationId);
+
+if (conversation && conversation.deletedBy && Array.isArray(conversation.deletedBy)) {
+  console.log(`🔍 Vérification deletedBy pour conversation ${conversationId}`);
+  
+  // Vérifier si l'EXPÉDITEUR avait supprimé la conversation
+  const senderDeleted = conversation.deletedBy.find(
+    item => item.userId?.toString() === senderId.toString()
+  );
+  
+  if (senderDeleted) {
+    console.log(`🔄 L'expéditeur ${senderId} avait supprimé la conversation`);
+    
+    // 🔥 RETIRER uniquement l'expéditeur de deletedBy
+    // Le destinataire garde sa vue (vide ou pleine selon son état)
+    conversation.deletedBy = conversation.deletedBy.filter(
+      item => item.userId?.toString() !== senderId.toString()
+    );
+    
+    await conversation.save();
+    
+    console.log('✅ Conversation restaurée pour l\'expéditeur uniquement');
+  }
+}
     }
 
-    // ✅ Création du message avec support vidéo et réponse
+    // ✅ Création du message
     const messageData = {
       conversationId,
       sender: senderId,
@@ -154,10 +156,11 @@ exports.sendMessage = async (req, res) => {
       status: 'sent',
       replyTo: replyTo || null,
       replyToContent: replyToContent || null,
-      replyToSender: replyToSender || null
+      replyToSender: replyToSender || null,
+      // 🔥 IMPORTANT : Le nouveau message n'a AUCUN deletedBy
+      deletedBy: []
     };
 
-    // ✅ Ajouter les champs spécifiques aux vidéos si présents
     if (type === 'video') {
       if (videoDuration) messageData.videoDuration = videoDuration;
       if (videoThumbnail) messageData.videoThumbnail = videoThumbnail;
@@ -182,20 +185,31 @@ exports.sendMessage = async (req, res) => {
 
     await message.populate('sender', 'name profilePicture');
     
-    // ✅ Populate aussi les infos du message cité
     if (message.replyToSender) {
       await message.populate('replyToSender', 'name profilePicture');
     }
 
     const io = req.app.get('io');
     if (io) {
-      io.to(conversationId).emit('receive-message', message);
-     
+      // 🔥 IMPORTANT : Émettre le message à TOUS les participants (même ceux qui ont supprimé)
+      // Utiliser leur userId personnel au lieu de la room conversation
       conversation.participants.forEach(participant => {
         const participantId = participant._id.toString();
+        
+        // Envoyer le message directement à l'utilisateur
+        io.to(participantId).emit('receive-message', message);
+        
+        // Mettre à jour la conversation
         io.to(participantId).emit('conversation-updated', conversation);
+        
+        // Demander le rafraîchissement
         io.to(participantId).emit('should-refresh-conversations');
+        
+        console.log(`📤 Message envoyé à ${participantId}`);
       });
+      
+      // Aussi émettre dans la room pour ceux qui sont connectés
+      io.to(conversationId).emit('receive-message', message);
     }
 
     res.status(201).json({ success: true, message, conversationId: conversationId });

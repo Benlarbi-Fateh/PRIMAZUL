@@ -59,7 +59,9 @@ exports.deleteConversationForUser = async (req, res) => {
       });
     }
 
-    // ✅ SOFT DELETE : Ajouter userId dans deletedBy
+    // 🔥 CORRECTION : NE PLUS CRÉER DE NOUVELLE CONVERSATION
+    // Simplement marquer comme supprimée
+    
     if (!conversation.deletedBy) {
       conversation.deletedBy = [];
     }
@@ -77,58 +79,15 @@ exports.deleteConversationForUser = async (req, res) => {
       console.log('✅ Conversation marquée comme supprimée pour:', userId);
     }
 
-    // 🆕 VÉRIFIER SI C'EST UN CONTACT ACTUEL
-    if (!conversation.isGroup) {
-      const otherParticipant = conversation.participants.find(
-        p => p._id.toString() !== userId.toString()
-      );
-
-      if (otherParticipant) {
-        const isContact = await areContacts(userId, otherParticipant._id);
-
-        if (isContact) {
-          // ✅ C'EST UN CONTACT → Créer automatiquement une nouvelle discussion vierge
-          console.log('📇 Contact détecté - Création automatique d\'une nouvelle discussion');
-          
-          const newConversation = new Conversation({
-            participants: [userId, otherParticipant._id],
-            isGroup: false,
-            deletedBy: [] // Nouvelle conversation non supprimée
-          });
-          
-          await newConversation.save();
-          await newConversation.populate('participants', 'name email profilePicture isOnline lastSeen');
-          
-          console.log('✅ Nouvelle conversation créée:', newConversation._id);
-          
-          // Émettre un événement pour ajouter la nouvelle conversation
-          const io = req.app.get('io');
-          if (io) {
-            io.to(userId.toString()).emit('conversation-regenerated', {
-              oldConversationId: conversationId,
-              newConversation: newConversation
-            });
-            console.log('📡 Événement conversation-regenerated émis');
-          }
-        } else {
-          console.log('⚠️ Plus un contact - Pas de régénération');
-        }
-      }
-    }
-
-    // ✅ Émettre l'événement de suppression
-    const io = req.app.get('io');
-    if (io) {
-      io.to(userId.toString()).emit('conversation-deleted', {
-        conversationId: conversation._id
-      });
-      console.log('📡 Événement conversation-deleted émis');
-    }
+    // ✅ NE PAS ÉMETTRE d'événement pour retirer de la sidebar
+    // La conversation reste visible mais vide
+    console.log('📊 Conversation soft-deleted, elle reste visible mais vide');
 
     return res.json({
       success: true,
-      message: 'Discussion supprimée avec succès',
-      conversationId
+      message: 'Discussion vidée avec succès',
+      conversationId,
+      keepInSidebar: true // 🔥 NOUVEAU : Indique de garder dans la sidebar
     });
     
   } catch (err) {

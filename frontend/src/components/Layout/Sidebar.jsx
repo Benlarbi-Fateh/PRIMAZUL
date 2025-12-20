@@ -327,6 +327,26 @@ useEffect(() => {
     };
   }, [fetchConversations]);
 
+  // ✅ AJOUTER CE NOUVEAU BLOC (vers ligne 220)
+useEffect(() => {
+  const handleConversationCleared = (event) => {
+    const { conversationId } = event.detail || {};
+    
+    if (conversationId) {
+      console.log('🔄 Sidebar: Conversation vidée:', conversationId);
+      
+      // 🔥 Ne PAS supprimer, juste rafraîchir les conversations
+      fetchConversations();
+    }
+  };
+
+  window.addEventListener('conversation-cleared', handleConversationCleared);
+
+  return () => {
+    window.removeEventListener('conversation-cleared', handleConversationCleared);
+  };
+}, [fetchConversations]);
+
   // 🔥 NOUVEAU : Écouter les événements de blocage/déblocage
   useEffect(() => {
     const handleBlockStatusChanged = async () => {
@@ -362,46 +382,8 @@ useEffect(() => {
     }
   }, [activeTab, fetchConversations]);
 
-// ✅ ÉCOUTER LES SUPPRESSIONS DE CONVERSATIONS
-useEffect(() => {
-  const handleConversationDeleted = (event) => {
-    const { conversationId } = event.detail || {};
-    
-    if (conversationId) {
-      console.log('🗑️ Sidebar: Conversation supprimée localement:', conversationId);
-      
-      // Supprimer de la liste
-      setConversations((prev) => 
-        prev.filter(conv => conv._id !== conversationId)
-      );
-    }
-  };
 
-  window.addEventListener('conversation-deleted-local', handleConversationDeleted);
 
-  return () => {
-    window.removeEventListener('conversation-deleted-local', handleConversationDeleted);
-  };
-}, []);
-
-// ✅ ÉCOUTER LES SUPPRESSIONS VIA SOCKET.IO
-useEffect(() => {
-  const socket = getSocket();
-
-  if (socket && user) {
-    socket.on('conversation-deleted', ({ conversationId }) => {
-      console.log('🗑️ Sidebar: Conversation supprimée via Socket.io:', conversationId);
-      
-      setConversations((prev) => 
-        prev.filter(conv => conv._id !== conversationId)
-      );
-    });
-
-    return () => {
-      socket.off('conversation-deleted');
-    };
-  }
-}, [user]);
 
 // 🆕 ÉCOUTER LES RÉGÉNÉRATIONS DE CONVERSATIONS
 useEffect(() => {
@@ -425,6 +407,23 @@ useEffect(() => {
     };
   }
 }, [user]);
+
+ useEffect(() => {
+    if (!user) return;
+    
+    const socket = getSocket();
+    
+    if (socket) {
+      socket.on('should-refresh-conversations', () => {
+        console.log('🔄 Sidebar: Rafraîchissement demandé via Socket.io');
+        fetchConversations();
+      });
+      
+      return () => {
+        socket.off('should-refresh-conversations');
+      };
+    }
+  }, [user, fetchConversations]);
 
   const handleTabChange = (tab) => {
     if (tab !== activeTab) {
@@ -684,31 +683,6 @@ useEffect(() => {
     return null;
   };
 
-  const handleDeleteConversation = async (conversationId) => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette conversation ?")) {
-      try {
-        // Supprimer immédiatement de la sidebar
-        setConversations((prev) =>
-          prev.filter((conv) => conv._id !== conversationId)
-        );
-        setMenuOpen(null);
-
-        // Rediriger si c'est la conversation active
-        if (activeConversationId === conversationId) {
-          router.push("/");
-        }
-
-        // Émettre l'événement pour informer les autres composants
-        window.dispatchEvent(
-          new CustomEvent('conversation-deleted-local', {
-            detail: { conversationId }
-          })
-        );
-      } catch (error) {
-        console.error("Erreur lors de la suppression:", error);
-      }
-    }
-  };
 
   const totalInvitations = receivedInvitations.length;
 
@@ -1295,18 +1269,6 @@ useEffect(() => {
                             }`}>
                               <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
                               Archiver
-                            </button>
-                            <hr className={`my-2 ${isDark ? 'border-blue-700' : 'border-slate-200'}`} />
-                            <button
-                              onClick={() => handleDeleteConversation(conv._id)}
-                              className={`w-full px-4 py-3 text-left text-sm text-red-600 flex items-center gap-3 font-medium transition-colors ${
-                                isDark 
-                                  ? 'hover:bg-blue-800/50 text-red-400' 
-                                  : 'hover:bg-red-50'
-                              }`}
-                            >
-                              <Trash2 className="w-5 h-5" />
-                              Supprimer
                             </button>
                           </div>
                         )}

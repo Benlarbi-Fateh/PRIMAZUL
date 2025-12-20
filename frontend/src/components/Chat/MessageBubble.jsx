@@ -406,10 +406,31 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div 
-                className="relative w-full h-44 sm:h-52 bg-black rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 cursor-pointer"
-                onClick={handleVideoClick}
-              >
+  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
+    {/* 🆕 BLOC DE RÉPONSE POUR VIDÉO - BON ENDROIT */}
+    {message.replyTo && (
+      <div className={`p-2 border-l-4 ${
+        isMine 
+          ? 'bg-blue-100 border-blue-500' 
+          : 'bg-gray-100 border-blue-500'
+      }`}>
+        <p className={`text-xs font-semibold ${
+          isMine ? 'text-blue-700' : 'text-blue-600'
+        }`}>
+          {message.replyToSender?.name || 'Utilisateur'}
+        </p>
+        <p className={`text-xs mt-1 line-clamp-2 ${
+          isMine ? 'text-blue-600' : 'text-gray-600'
+        }`}>
+          {message.replyToContent}
+        </p>
+      </div>
+    )}
+
+    <div 
+      className="relative w-full h-44 sm:h-52 bg-black cursor-pointer"
+      onClick={handleVideoClick}
+    >
                 <video
                   ref={videoRef}
                   preload="metadata"
@@ -503,13 +524,12 @@ export default function MessageBubble({
                 </button>
               </div>
               
-              {message.content && (
-                <div className={`p-4 rounded-b-3xl border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30 ${
-                  isMine ? 'bg-linear-to-r from-blue-50 to-cyan-50' : 'bg-white'
-                }`}>
+               {message.content && (
+                <div className="p-4 border-t-2 border-blue-50 bg-gradient-to-b from-white to-blue-50/30">
                   <p className="text-sm text-slate-700 font-medium">{message.content}</p>
                 </div>
               )}
+            </div>
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {formatTime(message.createdAt)}
@@ -595,19 +615,42 @@ export default function MessageBubble({
             </div>
 
             <div className="flex flex-col max-w-xs lg:max-w-md">
-              <VoiceMessage
-                voiceUrl={message.voiceUrl}
-                voiceDuration={message.voiceDuration}
-                isMine={isMine}
-                isGroup={isGroup}
-                sender={message.sender}
-                isDark={isDark}
-              />
-              <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
-                {formatTime(message.createdAt)}
-                {renderStatus()}
-              </span>
-            </div>
+  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
+    {/* 🆕 BLOC DE RÉPONSE POUR VOCAL - BON ENDROIT */}
+    {message.replyTo && (
+      <div className={`p-2 border-l-4 ${
+        isMine 
+          ? 'bg-blue-100 border-blue-500' 
+          : 'bg-gray-100 border-blue-500'
+      }`}>
+        <p className={`text-xs font-semibold ${
+          isMine ? 'text-blue-700' : 'text-blue-600'
+        }`}>
+          {message.replyToSender?.name || 'Utilisateur'}
+        </p>
+        <p className={`text-xs mt-1 line-clamp-2 ${
+          isMine ? 'text-blue-600' : 'text-gray-600'
+        }`}>
+          {message.replyToContent}
+        </p>
+      </div>
+    )}
+
+    <VoiceMessage
+      voiceUrl={message.voiceUrl}
+      voiceDuration={message.voiceDuration}
+      isMine={isMine}
+      isGroup={isGroup}
+      sender={message.sender}
+      isDark={isDark}
+    />
+  </div>
+  
+  <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
+    {formatTime(message.createdAt)}
+    {renderStatus()}
+  </span>
+</div>
           </div>
         </div>
         {renderReactions()}
@@ -688,10 +731,32 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div 
-                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer"
-                onClick={handleOpenFile}
-              >
+
+
+  <div 
+    className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer"
+    onClick={handleOpenFile}
+  
+  >
+     {/* 🆕 BLOC DE RÉPONSE POUR IMAGE - BON ENDROIT */}
+    {message.replyTo && (
+      <div className={`p-2 border-l-4 ${
+        isMine 
+          ? 'bg-blue-100 border-blue-500' 
+          : 'bg-gray-100 border-blue-500'
+      }`}>
+        <p className={`text-xs font-semibold ${
+          isMine ? 'text-blue-700' : 'text-blue-600'
+        }`}>
+          {message.replyToSender?.name || 'Utilisateur'}
+        </p>
+        <p className={`text-xs mt-1 line-clamp-2 ${
+          isMine ? 'text-blue-600' : 'text-gray-600'
+        }`}>
+          {message.replyToContent}
+        </p>
+      </div>
+    )}
                 <div className={`relative w-56 h-44 sm:w-64 sm:h-52 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
                   <Image 
                     src={message.fileUrl} 
@@ -985,9 +1050,29 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div 
-                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
-              >
+  {/* 🆕 BLOC DE RÉPONSE POUR FICHIER */}
+  {message.replyTo && (
+    <div className={`mb-2 p-2 rounded-lg border-l-4 ${
+      isMine 
+        ? 'bg-blue-100 border-blue-500' 
+        : 'bg-gray-100 border-blue-500'
+    }`}>
+      <p className={`text-xs font-semibold ${
+        isMine ? 'text-blue-700' : 'text-blue-600'
+      }`}>
+        {message.replyToSender?.name || 'Utilisateur'}
+      </p>
+      <p className={`text-xs mt-1 line-clamp-2 ${
+        isMine ? 'text-blue-600' : 'text-gray-600'
+      }`}>
+        {message.replyToContent}
+      </p>
+    </div>
+  )}
+
+  <div 
+    className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
+  >
                 <div className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
                     <File className="w-6 h-6 text-white" />
@@ -1108,7 +1193,30 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
+  
+
+  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
+    {/* 🆕 BLOC DE RÉPONSE À L'INTÉRIEUR - BON ENDROIT */}
+    {message.replyTo && (
+      <div className={`p-2 border-l-4 ${
+        isMine 
+          ? 'bg-blue-100 border-blue-500' 
+          : 'bg-gray-100 border-blue-500'
+      }`}>
+        <p className={`text-xs font-semibold ${
+          isMine ? 'text-blue-700' : 'text-blue-600'
+        }`}>
+          {message.replyToSender?.name || 'Utilisateur'}
+        </p>
+        <p className={`text-xs mt-1 line-clamp-2 ${
+          isMine ? 'text-blue-600' : 'text-gray-600'
+        }`}>
+          {message.replyToContent}
+        </p>
+      </div>
+    )}
+
+    <div className="p-4 flex items-center gap-3"></div>
                 <div className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
                     <Mic className="w-6 h-6 text-white" />

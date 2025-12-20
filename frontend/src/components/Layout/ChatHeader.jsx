@@ -376,73 +376,49 @@ export default function ChatHeader({ contact, conversation, onBack }) {
     return;
   }
 
-  // 🆕 Vérifier si c'est un contact
-  let isContact = false;
-  if (!conversation.isGroup && contact?._id) {
-    try {
-      const contactCheck = await api.get(`/contacts`);
-      const contacts = contactCheck.data.contacts || [];
-      isContact = contacts.some(c => c.user?._id === contact._id);
-    } catch (err) {
-      console.error('Erreur vérification contact:', err);
-    }
-  }
+  // 🆕 Message adapté
+  const confirmMessage = `Vider cette discussion ?
 
-  // 🆕 Message adapté selon le statut
-  const confirmMessage = isContact
-    ? `Supprimer cette discussion ?
-
-⚠️ Important :
-- Elle sera supprimée uniquement chez vous
-- Une nouvelle discussion vierge sera créée automatiquement
-- L'historique restera chez votre contact`
-    : `Supprimer cette discussion ?
-
-✅ Elle sera supprimée uniquement chez vous
-❌ Aucune nouvelle discussion ne sera créée (plus un contact)`;
+⚠️ Actions :
+- Tous vos messages seront supprimés
+- La discussion restera dans votre liste (vierge)
+- L'autre personne conservera son historique
+- Les nouveaux messages apparaîtront normalement`;
 
   if (!confirm(confirmMessage)) {
     return;
   }
 
   try {
-    console.log('🗑️ Suppression conversation:', conversation._id);
+    console.log('🗑️ Vidage conversation:', conversation._id);
     
     const response = await api.delete(`/message-settings/conversations/${conversation._id}/delete`);
     
     console.log('📦 Réponse suppression:', response.data);
     
     if (response.data.success) {
-      console.log('✅ Conversation supprimée avec succès');
+      console.log('✅ Conversation vidée avec succès');
       
       // ✅ Fermer le menu
       setShowMenu(false);
       
-      // ✅ Émettre un événement pour rafraîchir la sidebar
-      window.dispatchEvent(new CustomEvent('conversation-deleted-local', {
+      // 🔥 NE PAS supprimer de la sidebar, juste rafraîchir pour montrer qu'elle est vide
+      window.dispatchEvent(new CustomEvent('conversation-cleared', {
         detail: { conversationId: conversation._id }
       }));
       
-      // ✅ Rediriger vers la page d'accueil
-      if (onBack) {
-        onBack();
-      } else {
-        router.push('/');
-      }
+      // ✅ Message de succès
+      alert('✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.');
       
-      // 🆕 Message adapté
-      const successMessage = isContact
-        ? '✅ Discussion supprimée\n\n💡 Une nouvelle discussion vierge a été créée automatiquement car cette personne est toujours dans vos contacts'
-        : '✅ Discussion supprimée\n\n⚠️ Aucune nouvelle discussion créée (plus un contact)';
-      
-      alert(successMessage);
+      // 🔥 Recharger les messages pour afficher la conversation vide
+      window.location.reload();
     } else {
       throw new Error(response.data.message || 'Erreur inconnue');
     }
     
   } catch (err) {
     console.error('❌ Erreur suppression:', err);
-    alert('❌ Erreur lors de la suppression: ' + (err.response?.data?.message || err.message));
+    alert('❌ Erreur lors du vidage: ' + (err.response?.data?.message || err.message));
   }
 };
 

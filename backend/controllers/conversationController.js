@@ -9,17 +9,17 @@ exports.getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // ✅ RÉCUPÉRER TOUS MES CONTACTS
+    // 1️⃣ RÉCUPÉRER TOUS MES CONTACTS
     const myContacts = await Contact.find({ owner: userId }).select('contact').lean();
     const contactIds = myContacts.map(c => c.contact.toString());
 
     console.log(`📇 ${contactIds.length} contacts trouvés pour ${userId}`);
 
-    // 🔥 NOUVEAU : RÉCUPÉRER LES UTILISATEURS BLOQUÉS
+    // 2️⃣ RÉCUPÉRER LES UTILISATEURS BLOQUÉS
     const blockedUsers = await BlockedUser.find({
       $or: [
-        { blocker: userId }, // Ceux que j'ai bloqués
-        { blocked: userId }  // Ceux qui m'ont bloqué
+        { blocker: userId },
+        { blocked: userId }
       ]
     }).lean();
 
@@ -34,14 +34,33 @@ exports.getConversations = async (req, res) => {
 
     console.log(`🚫 ${blockedUserIds.size} utilisateurs bloqués`);
 
-    // ✅ RÉCUPÉRER les conversations où deletedBy NE contient PAS mon userId
-    const conversations = await Conversation.find({
-      participants: userId,
-      $or: [
-        { deletedBy: { $exists: false } },
-        { deletedBy: { $size: 0 } },
-        { 'deletedBy.userId': { $ne: userId } }
-      ]
+    // 3️⃣ CRÉER UNE DISCUSSION VIDE POUR CHAQUE CONTACT (si elle n'existe pas)
+    for (const contactId of contactIds) {
+      if (blockedUserIds.has(contactId)) {
+        console.log(`🚫 Contact ${contactId} ignoré - Bloqué`);
+        continue;
+      }
+
+      let conversation = await Conversation.findOne({
+        participants: { $all: [userId, contactId], $size: 2 },
+        isGroup: false
+      });
+
+      if (!conversation) {
+        console.log(`🆕 Création conversation vide pour contact ${contactId}`);
+        conversation = new Conversation({
+          participants: [userId, contactId],
+          isGroup: false,
+          deletedBy: []
+        });
+        await conversation.save();
+      }
+    }
+
+    // 4️⃣ RÉCUPÉRER TOUTES LES CONVERSATIONS (MÊME CELLES SUPPRIMÉES)
+    // 🔥 CHANGEMENT CRITIQUE : Ne plus filtrer par deletedBy ici
+    const allConversations = await Conversation.find({
+      participants: userId
     })
       .populate('participants', 'name email profilePicture isOnline lastSeen')
       .populate('groupAdmin', 'name email profilePicture')
@@ -51,48 +70,57 @@ exports.getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    // ✅ FILTRER : Garder SEULEMENT les conversations valides
-    const contactSet = new Set(contactIds);
-    
-    const filteredConversations = conversations.filter(conv => {
-      // ✅ Si c'est un groupe, on garde TOUJOURS
-      if (conv.isGroup) {
-        return true;
-      }
-      
-      // ✅ Si conversation 1-1, vérifier si c'est un contact ACTUEL
-      const otherParticipant = conv.participants.find(
-        p => p._id.toString() !== userId.toString()
-      );
-      
-      if (otherParticipant) {
-        const otherUserId = otherParticipant._id.toString();
-        
-        // 🔥 NOUVEAU : Exclure si bloqué
-        if (blockedUserIds.has(otherUserId)) {
-          console.log(`🚫 Conversation ${conv._id} masquée - Utilisateur bloqué`);
-          return false;
-        }
-        
-        const isContact = contactSet.has(otherUserId);
-        
-        if (!isContact) {
-          console.log(`⚠️ Conversation ${conv._id} exclue - Pas un contact actuel`);
-        }
-        
-        return isContact;
-      }
-      
-      return false;
-    });
+    // 5️⃣ FILTRER ET RESTAURER AUTOMATIQUEMENT
+    // 5️⃣ FILTRER SANS RESTAURATION AUTOMATIQUE
+const contactSet = new Set(contactIds);
+const visibleConversations = [];
 
-    // ✅ Calculer les messages non lus
+for (const conv of allConversations) {
+  // Garder TOUJOURS les groupes
+  if (conv.isGroup) {
+    visibleConversations.push(conv);
+    continue;
+  }
+  
+  // Pour les conversations 1-1
+  const otherParticipant = conv.participants.find(
+    p => p._id.toString() !== userId.toString()
+  );
+  
+  if (!otherParticipant) continue;
+  
+  const otherUserId = otherParticipant._id.toString();
+  
+  // Exclure si bloqué
+  if (blockedUserIds.has(otherUserId)) {
+    console.log(`🚫 Conversation ${conv._id} masquée - Utilisateur bloqué`);
+    continue;
+  }
+  
+  // Exclure si pas contact
+  const isContact = contactSet.has(otherUserId);
+  if (!isContact) {
+    console.log(`⚠️ Conversation ${conv._id} exclue - Pas un contact actuel`);
+    continue;
+  }
+  
+  // 🔥 CORRECTION : NE PLUS RESTAURER AUTOMATIQUEMENT
+  // La conversation reste visible même si supprimée
+  // Les messages seront filtrés dans getMessages
+  
+  visibleConversations.push(conv);
+}
+
+console.log(`✅ ${visibleConversations.length} conversations visibles trouvées`);
+
+    // 6️⃣ CALCULER LES MESSAGES NON LUS
     const conversationsWithUnread = await Promise.all(
-      filteredConversations.map(async (conv) => {
+      visibleConversations.map(async (conv) => {
         const unreadCount = await Message.countDocuments({
           conversationId: conv._id,
           sender: { $ne: userId },
-          status: { $ne: 'read' }
+          status: { $ne: 'read' },
+          deletedBy: { $ne: userId }
         });
 
         return {
@@ -265,7 +293,3 @@ exports.getConversationById = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
-
-
