@@ -641,18 +641,30 @@ useEffect(() => {
   };
 
   const getLastMessagePreview = (conv) => {
-    if (!conv.lastMessage) return "Démarrer la conversation";
+  // 🔥 NOUVEAU : Vérifier si la conversation a été vidée par l'utilisateur
+  const userId = user?._id || user?.id;
+  const wasDeletedByMe = conv.deletedBy?.find(
+    item => item.userId?.toString() === userId?.toString()
+  );
+  
+  // Si vidée, ne pas afficher le dernier message
+  if (wasDeletedByMe) {
+    return "Démarrer la conversation";
+  }
+  
+  // Comportement normal
+  if (!conv.lastMessage) return "Démarrer la conversation";
 
-    const lastMsg = conv.lastMessage;
+  const lastMsg = conv.lastMessage;
 
-    if (lastMsg.type === "image") return "🖼️ Image";
-    if (lastMsg.type === "video") return "🎬 Vidéo";
-    if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
-    if (lastMsg.type === "voice") return "🎤 Message vocal";
+  if (lastMsg.type === "image") return "🖼️ Image";
+  if (lastMsg.type === "video") return "🎬 Vidéo";
+  if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
+  if (lastMsg.type === "voice") return "🎤 Message vocal";
 
-    const preview = lastMsg.content || "";
-    return preview.length > 40 ? preview.substring(0, 40) + "..." : preview;
-  };
+  const preview = lastMsg.content || "";
+  return preview.length > 40 ? preview.substring(0, 40) + "..." : preview;
+};
 
   const formatMessageTime = (date) => {
     if (!date) return "";

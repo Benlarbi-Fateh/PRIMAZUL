@@ -58,7 +58,6 @@ exports.getConversations = async (req, res) => {
     }
 
     // 4️⃣ RÉCUPÉRER TOUTES LES CONVERSATIONS (MÊME CELLES SUPPRIMÉES)
-    // 🔥 CHANGEMENT CRITIQUE : Ne plus filtrer par deletedBy ici
     const allConversations = await Conversation.find({
       participants: userId
     })
@@ -70,50 +69,45 @@ exports.getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    // 5️⃣ FILTRER ET RESTAURER AUTOMATIQUEMENT
     // 5️⃣ FILTRER SANS RESTAURATION AUTOMATIQUE
-const contactSet = new Set(contactIds);
-const visibleConversations = [];
+    const contactSet = new Set(contactIds);
+    const visibleConversations = [];
 
-for (const conv of allConversations) {
-  // Garder TOUJOURS les groupes
-  if (conv.isGroup) {
-    visibleConversations.push(conv);
-    continue;
-  }
-  
-  // Pour les conversations 1-1
-  const otherParticipant = conv.participants.find(
-    p => p._id.toString() !== userId.toString()
-  );
-  
-  if (!otherParticipant) continue;
-  
-  const otherUserId = otherParticipant._id.toString();
-  
-  // Exclure si bloqué
-  if (blockedUserIds.has(otherUserId)) {
-    console.log(`🚫 Conversation ${conv._id} masquée - Utilisateur bloqué`);
-    continue;
-  }
-  
-  // Exclure si pas contact
-  const isContact = contactSet.has(otherUserId);
-  if (!isContact) {
-    console.log(`⚠️ Conversation ${conv._id} exclue - Pas un contact actuel`);
-    continue;
-  }
-  
-  // 🔥 CORRECTION : NE PLUS RESTAURER AUTOMATIQUEMENT
-  // La conversation reste visible même si supprimée
-  // Les messages seront filtrés dans getMessages
-  
-  visibleConversations.push(conv);
-}
+    for (const conv of allConversations) {
+      // Garder TOUJOURS les groupes
+      if (conv.isGroup) {
+        visibleConversations.push(conv);
+        continue;
+      }
+      
+      // Pour les conversations 1-1
+      const otherParticipant = conv.participants.find(
+        p => p._id.toString() !== userId.toString()
+      );
+      
+      if (!otherParticipant) continue;
+      
+      const otherUserId = otherParticipant._id.toString();
+      
+      // Exclure si bloqué
+      if (blockedUserIds.has(otherUserId)) {
+        console.log(`🚫 Conversation ${conv._id} masquée - Utilisateur bloqué`);
+        continue;
+      }
+      
+      // Exclure si pas contact
+      const isContact = contactSet.has(otherUserId);
+      if (!isContact) {
+        console.log(`⚠️ Conversation ${conv._id} exclue - Pas un contact actuel`);
+        continue;
+      }
+      
+      visibleConversations.push(conv);
+    }
 
-console.log(`✅ ${visibleConversations.length} conversations visibles trouvées`);
+    console.log(`✅ ${visibleConversations.length} conversations visibles trouvées`);
 
-    // 6️⃣ CALCULER LES MESSAGES NON LUS
+    // 6️⃣ CALCULER LES MESSAGES NON LUS + MASQUER LE LASTMESSAGE SI NÉCESSAIRE
     const conversationsWithUnread = await Promise.all(
       visibleConversations.map(async (conv) => {
         const unreadCount = await Message.countDocuments({
@@ -123,8 +117,27 @@ console.log(`✅ ${visibleConversations.length} conversations visibles trouvées
           deletedBy: { $ne: userId }
         });
 
+        // 🔥 CORRECTION CRITIQUE : Masquer lastMessage si conversation vidée
+        let conversationObj = conv.toObject();
+        
+        // Vérifier si l'utilisateur a vidé cette conversation
+        const wasDeletedByMe = conv.deletedBy?.find(
+          item => item.userId && item.userId.toString() === userId.toString()
+        );
+        
+        if (wasDeletedByMe && conversationObj.lastMessage) {
+          // Vérifier si le lastMessage est AVANT la date de suppression
+          const messageDate = new Date(conversationObj.lastMessage.createdAt);
+          const deletionDate = new Date(wasDeletedByMe.deletedAt);
+          
+          if (messageDate <= deletionDate) {
+            console.log(`🔇 LastMessage masqué pour conversation ${conv._id} - Vidée le ${deletionDate}`);
+            conversationObj.lastMessage = null; // ✅ MASQUER LE MESSAGE
+          }
+        }
+
         return {
-          ...conv.toObject(),
+          ...conversationObj,
           unreadCount
         };
       })
