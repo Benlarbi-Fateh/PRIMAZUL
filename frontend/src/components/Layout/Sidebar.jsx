@@ -15,6 +15,7 @@ import {
   acceptInvitation,
   rejectInvitation,
   cancelInvitation,
+  deleteConversationForUser,
 } from "@/lib/api";
 import {
   getSocket,
@@ -1282,6 +1283,40 @@ useEffect(() => {
                               <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
                               Archiver
                             </button>
+                            {/* 🆕 NOUVEAU BOUTON SUPPRIMER */}
+    <button 
+  onClick={async (e) => {
+    e.stopPropagation();
+    
+    if (!confirm(`Vider cette discussion ?\n\n⚠️ Actions :\n- Tous vos messages seront supprimés\n- La discussion restera dans votre liste (vierge)\n- L'autre personne conservera son historique\n- Les nouveaux messages apparaîtront normalement`)) {
+      return;
+    }
+    
+    try {
+      const response = await deleteConversationForUser(conv._id); // ✅ UTILISATION DE LA FONCTION
+      
+      if (response.data.success) {
+        setMenuOpen(null); // Fermer le menu
+        
+        // Rafraîchir les conversations
+        await fetchConversations();
+        
+        alert('✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.');
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression:', error);
+      alert('❌ Erreur lors du vidage: ' + (error.response?.data?.message || error.message));
+    }
+  }}
+  className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
+    isDark 
+      ? 'hover:bg-red-900/50 text-red-300 hover:text-red-200' 
+      : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+  }`}
+>
+  <Trash2 className="w-5 h-5" />
+  Vider la discussion
+</button>
                           </div>
                         )}
                       </div>

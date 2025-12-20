@@ -934,3 +934,223 @@ const checkScheduledMessages = async (io) => {
 
 // Exporter la fonction pour l'utiliser dans server.js
 module.exports.checkScheduledMessages = checkScheduledMessages;
+
+// ========================================
+// 🔍 RECHERCHE DE MESSAGES
+// ========================================
+
+/**
+ * Rechercher des messages dans une conversation
+ */
+exports.searchMessages = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { query } = req.query;
+    const userId = req.user._id || req.user.id;
+
+    console.log('🔍 Recherche de messages:', { conversationId, query });
+
+    if (!query || query.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Requête de recherche vide'
+      });
+    }
+
+    // Vérifier que l'utilisateur fait partie de la conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation introuvable'
+      });
+    }
+
+    const isParticipant = conversation.participants.some(
+      p => p._id.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Non autorisé'
+      });
+    }
+
+    // Rechercher les messages
+    const searchRegex = new RegExp(query.trim(), 'i');
+
+    const messages = await Message.find({
+      conversationId,
+      content: searchRegex,
+      deletedBy: { $ne: userId }
+    })
+      .populate('sender', 'name profilePicture')
+      .populate('replyToSender', 'name profilePicture')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    console.log(`✅ ${messages.length} messages trouvés`);
+
+    res.json({
+      success: true,
+      messages,
+      count: messages.length,
+      query: query.trim()
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur searchMessages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Obtenir le contexte d'un message (messages avant/après)
+ */
+exports.getMessageContext = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id || req.user.id;
+    const { contextSize = 10 } = req.query;
+
+    console.log('🎯 Récupération du contexte pour message:', messageId);
+
+    const targetMessage = await Message.findById(messageId);
+    
+    if (!targetMessage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message introuvable'
+      });
+    }
+
+    // Vérifier que l'utilisateur fait partie de la conversation
+    const conversation = await Conversation.findById(targetMessage.conversationId);
+    const isParticipant = conversation.participants.some(
+      p => p._id.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Non autorisé'
+      });
+    }
+
+    // Récupérer les messages avant
+    const messagesBefore = await Message.find({
+      conversationId: targetMessage.conversationId,
+      createdAt: { $lt: targetMessage.createdAt },
+      deletedBy: { $ne: userId }
+    })
+      .populate('sender', 'name profilePicture')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(contextSize));
+
+    // Récupérer les messages après
+    const messagesAfter = await Message.find({
+      conversationId: targetMessage.conversationId,
+      createdAt: { $gt: targetMessage.createdAt },
+      deletedBy: { $ne: userId }
+    })
+      .populate('sender', 'name profilePicture')
+      .sort({ createdAt: 1 })
+      .limit(parseInt(contextSize));
+
+    await targetMessage.populate('sender', 'name profilePicture');
+    messagesBefore.reverse();
+
+    res.json({
+      success: true,
+      targetMessage,
+      messagesBefore,
+      messagesAfter,
+      context: {
+        before: messagesBefore.length,
+        after: messagesAfter.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur getMessageContext:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Recherche globale dans toutes les conversations
+ */
+exports.searchAllMessages = async (req, res) => {
+  try {
+    const { query } = req.query;
+    const userId = req.user._id || req.user.id;
+
+    console.log('🔍 Recherche globale:', query);
+
+    if (!query || query.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Requête de recherche vide'
+      });
+    }
+
+    // Trouver toutes les conversations de l'utilisateur
+    const userConversations = await Conversation.find({
+      participants: userId,
+      deletedBy: { $ne: userId }
+    }).select('_id');
+
+    const conversationIds = userConversations.map(c => c._id);
+    const searchRegex = new RegExp(query.trim(), 'i');
+
+    const messages = await Message.find({
+      conversationId: { $in: conversationIds },
+      content: searchRegex,
+      deletedBy: { $ne: userId }
+    })
+      .populate('sender', 'name profilePicture')
+      .populate('conversationId', 'isGroup groupName participants')
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    // Grouper par conversation
+    const groupedByConversation = messages.reduce((acc, message) => {
+      const convId = message.conversationId._id.toString();
+      if (!acc[convId]) {
+        acc[convId] = {
+          conversation: message.conversationId,
+          messages: []
+        };
+      }
+      acc[convId].messages.push(message);
+      return acc;
+    }, {});
+
+    console.log(`✅ ${messages.length} messages trouvés dans ${Object.keys(groupedByConversation).length} conversations`);
+
+    res.json({
+      success: true,
+      results: Object.values(groupedByConversation),
+      totalMessages: messages.length,
+      totalConversations: Object.keys(groupedByConversation).length,
+      query: query.trim()
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur searchAllMessages:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: error.message
+    });
+  }
+};
