@@ -99,6 +99,23 @@ export const addParticipantsToGroup = (data) =>
   api.post("/groups/add-participants", data);
 export const leaveGroup = (groupId) => api.delete(`/groups/${groupId}/leave`);
 
+// 🆕 NOUVELLES FONCTIONS
+export const removeParticipantFromGroup = (data) =>
+  api.post("/groups/remove-participant", data);
+export const promoteToAdmin = (data) =>
+  api.post("/groups/promote-admin", data);
+export const removeAdminFromGroup = (data) =>
+  api.post("/groups/remove-admin", data);
+export const updateGroupName = (data) =>
+  api.put("/groups/update-name", data);
+export const updateGroupImage = (groupId, formData) =>
+  api.put(`/groups/${groupId}/update-image`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    timeout: 60000,
+  });
+
 // =================== CONTACTS ===================
 export const addContact = (data) => api.post("/contacts", data);
 export const getMyContacts = () => api.get("/contacts");
@@ -158,5 +175,7 @@ export const sendPasswordOtp = (data) =>
   api.post("/auth/settings/send-password-otp", data);
 export const verifyChangePassword = (data) =>
   api.put("/auth/settings/verify-change-password", data);
+
+
 
 export default api;

@@ -1,15 +1,42 @@
 'use client'
 import { useState, useEffect, useRef, useContext } from 'react';
-import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock, Info, UserPlus, UserMinus, Crown, Edit, Camera, Search} from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone,  Video, Users, X, Image, FileText, Music, Download, 
+  Trash2, 
+  AlertCircle, 
+  Link, 
+  Play, 
+  Pause, 
+  Expand, 
+  Upload, 
+  Shield, 
+  Lock, 
+  Unlock, 
+  Info, 
+  UserPlus, 
+  UserMinus, 
+  Crown, 
+  Edit, 
+  Camera, 
+  Search,
+  Check 
+} from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import {
+  removeParticipantFromGroup,
+  promoteToAdmin,
+  removeAdminFromGroup,
+  updateGroupName,
+  updateGroupImage
+} from '@/lib/api';
 import { AuthContext } from '@/context/AuthProvider';
 import { useTheme } from '@/hooks/useTheme';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { formatMessageDate } from '@/utils/dateFormatter';
 import ImageComponent from 'next/image';
 import MessageSearch from '@/components/Chat/MessageSearch';
+import AddMembersModal from '@/components/Group/AddMembersModal';
 
 export default function ChatHeader({ contact, conversation, onBack, onSearchOpen }) {
   const { user } = useContext(AuthContext);
@@ -35,6 +62,8 @@ const [editingGroupName, setEditingGroupName] = useState(false);
 const [newGroupName, setNewGroupName] = useState('');
 const [uploadingImage, setUploadingImage] = useState(false);
 const groupImageInputRef = useRef(null);
+const [showAddMembersModal, setShowAddMembersModal] = useState(false);
+
   
   const { 
     isBlocked, 
@@ -433,34 +462,29 @@ const groupImageInputRef = useRef(null);
 // ==========================================
 
 const handleRemoveParticipant = async (participantId) => {
-  if (!confirm('Êtes-vous sûr de vouloir retirer ce membre du groupe ?')) {
-    return;
-  }
+  if (!confirm('Retirer ce membre du groupe ?')) return;
 
   try {
-    const response = await removeParticipantFromGroup({
+    const response = await api.post('/groups/remove-participant', {
       groupId: conversation._id,
       participantId
     });
 
     if (response.data.success) {
-      alert('✅ Membre retiré du groupe');
-      // Rafraîchir la conversation
+      alert('✅ Membre retiré');
       window.location.reload();
     }
   } catch (error) {
-    console.error('❌ Erreur retrait membre:', error);
+    console.error('❌ Erreur:', error);
     alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
   }
 };
 
 const handlePromoteToAdmin = async (participantId) => {
-  if (!confirm('Promouvoir ce membre en tant qu\'admin ?')) {
-    return;
-  }
+  if (!confirm('Promouvoir ce membre en admin ?')) return;
 
   try {
-    const response = await promoteToAdmin({
+    const response = await api.post('/groups/promote-admin', {
       groupId: conversation._id,
       participantId
     });
@@ -470,18 +494,16 @@ const handlePromoteToAdmin = async (participantId) => {
       window.location.reload();
     }
   } catch (error) {
-    console.error('❌ Erreur promotion admin:', error);
+    console.error('❌ Erreur:', error);
     alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
   }
 };
 
 const handleRemoveAdmin = async (adminId) => {
-  if (!confirm('Rétrograder cet admin en membre simple ?')) {
-    return;
-  }
+  if (!confirm('Rétrograder cet admin ?')) return;
 
   try {
-    const response = await removeAdminFromGroup({
+    const response = await api.post('/groups/remove-admin', {
       groupId: conversation._id,
       adminId
     });
@@ -491,7 +513,7 @@ const handleRemoveAdmin = async (adminId) => {
       window.location.reload();
     }
   } catch (error) {
-    console.error('❌ Erreur retrait admin:', error);
+    console.error('❌ Erreur:', error);
     alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
   }
 };
@@ -503,18 +525,18 @@ const handleUpdateGroupName = async () => {
   }
 
   try {
-    const response = await updateGroupName({
+    const response = await api.put('/groups/update-name', {
       groupId: conversation._id,
       groupName: newGroupName.trim()
     });
 
     if (response.data.success) {
-      alert('✅ Nom du groupe modifié');
+      alert('✅ Nom modifié');
       setEditingGroupName(false);
       window.location.reload();
     }
   } catch (error) {
-    console.error('❌ Erreur modification nom:', error);
+    console.error('❌ Erreur:', error);
     alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
   }
 };
@@ -539,14 +561,18 @@ const handleUpdateGroupImage = async (e) => {
     const formData = new FormData();
     formData.append('groupImage', file);
 
-    const response = await updateGroupImage(conversation._id, formData);
+    const response = await api.put(`/groups/${conversation._id}/update-image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
 
     if (response.data.success) {
-      alert('✅ Image du groupe modifiée');
+      alert('✅ Image modifiée');
       window.location.reload();
     }
   } catch (error) {
-    console.error('❌ Erreur upload image:', error);
+    console.error('❌ Erreur:', error);
     alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
   } finally {
     setUploadingImage(false);
@@ -554,9 +580,21 @@ const handleUpdateGroupImage = async (e) => {
 };
 
 const isUserAdmin = () => {
-  if (!conversation?.isGroup || !user?._id) return false;
+  if (!conversation?.isGroup) return false;
   
-  const userId = user._id.toString();
+  // ✅ CORRECTION : Récupérer userId de plusieurs sources
+  const userId = user?._id?.toString() || 
+                 user?.id?.toString() || 
+                 JSON.parse(localStorage.getItem('user'))?._id?.toString() ||
+                 JSON.parse(localStorage.getItem('user'))?.id?.toString();
+  
+  if (!userId) {
+    console.error('❌ userId introuvable:', user);
+    return false;
+  }
+  
+  console.log('🔍 userId trouvé:', userId);
+  console.log('🔍 groupAdmin:', conversation.groupAdmin?._id?.toString());
   const isCreator = conversation.groupAdmin?._id?.toString() === userId || 
                    conversation.groupAdmin?.toString() === userId;
   const isAdmin = conversation.groupAdmins?.some(
@@ -567,9 +605,15 @@ const isUserAdmin = () => {
 };
 
 const isUserCreator = () => {
-  if (!conversation?.isGroup || !user?._id) return false;
+  if (!conversation?.isGroup) return false;
   
-  const userId = user._id.toString();
+  // ✅ CORRECTION
+  const userId = user?._id?.toString() || 
+                 user?.id?.toString() || 
+                 JSON.parse(localStorage.getItem('user'))?._id?.toString() ||
+                 JSON.parse(localStorage.getItem('user'))?.id?.toString();
+  
+  if (!userId) return false;
   return conversation.groupAdmin?._id?.toString() === userId || 
          conversation.groupAdmin?.toString() === userId;
 };
@@ -586,6 +630,17 @@ const isParticipantAdmin = (participantId) => {
   return conversation.groupAdmins?.some(
     a => (a._id?.toString() || a.toString()) === pId
   );
+};
+
+// Fonction pour recharger le groupe après ajout de membres
+const reloadGroup = async () => {
+  try {
+    console.log('🔄 Rechargement du groupe:', conversation._id);
+    window.location.reload();
+  } catch (error) {
+    console.error('❌ Erreur rechargement:', error);
+    alert('Erreur lors du rechargement du groupe');
+  }
 };
 
   const openMediaPanel = async () => {
@@ -926,6 +981,209 @@ const isParticipantAdmin = (participantId) => {
     {/* 🆕 CONTENU - Actions sans scroll, design épuré */}
     <div className="p-5 space-y-3 max-h-[calc(85vh-120px)] overflow-y-auto">
       
+      {/* 🆕 SECTION MEMBRES DU GROUPE - À INSÉRER AU DÉBUT DU MENU */}
+{isGroup && (
+  <div className="space-y-3 pb-3 border-b border-gray-200 mb-3">
+
+    <div className="flex items-center justify-between">
+  <h3 className="font-bold text-gray-800 flex items-center gap-2">
+    <Users className="w-5 h-5 text-blue-600" />
+    Membres du groupe
+  </h3>
+  {isUserAdmin() && (
+    <button
+      onClick={() => {
+        console.log('🎯 Clic bouton ajout');
+        setShowMenu(false);
+        setShowAddMembersModal(true);
+      }}
+      className="p-2 hover:bg-blue-50 rounded-lg transition-all group"
+      title="Ajouter des membres"
+    >
+      <UserPlus className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
+    </button>
+  )}
+</div>
+
+    {/* LISTE DES MEMBRES */}
+    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+      {conversation.participants?.map((participant) => {
+        const isCreator = conversation.groupAdmin?._id?.toString() === participant._id?.toString() || 
+                         conversation.groupAdmin?.toString() === participant._id?.toString();
+        const isAdmin = !isCreator && isParticipantAdmin(participant._id);
+        const isMe = participant._id?.toString() === user?._id?.toString();
+
+        return (
+          <div 
+            key={participant._id} 
+            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all"
+          >
+            <div className="relative">
+              <img
+                src={participant.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name || 'User')}&background=0ea5e9&color=fff`}
+                alt={participant.name}
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-200"
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name || 'User')}&background=0ea5e9&color=fff`;
+                }}
+              />
+              {isUserOnline(participant._id) && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white"></div>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-gray-800 truncate">
+                  {participant.name}
+                  {isMe && <span className="text-xs text-gray-500 ml-1">(Vous)</span>}
+                </p>
+                {isCreator && (
+                  <Crown className="w-4 h-4 text-amber-500" title="Créateur" />
+                )}
+                {isAdmin && (
+                  <Shield className="w-4 h-4 text-blue-500" title="Administrateur" />
+                )}
+              </div>
+              <p className="text-xs text-gray-500 truncate">{participant.email}</p>
+            </div>
+
+
+            {/* ACTIONS ADMIN - AJOUTEZ CE BLOC ICI */}
+            {isUserAdmin() && !isMe && !isCreator && (
+              <div className="flex gap-1">
+                {/* Promouvoir/Rétrograder admin */}
+                {isUserCreator() && (
+                  isAdmin ? (
+                    <button
+                      onClick={() => handleRemoveAdmin(participant._id)}
+                      className="p-1.5 hover:bg-orange-100 rounded-lg transition-all group"
+                      title="Rétrograder"
+                    >
+                      <Shield className="w-4 h-4 text-orange-500 group-hover:text-orange-600" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handlePromoteToAdmin(participant._id)}
+                      className="p-1.5 hover:bg-blue-100 rounded-lg transition-all group"
+                      title="Promouvoir admin"
+                    >
+                      <UserPlus className="w-4 h-4 text-blue-500 group-hover:text-blue-600" />
+                    </button>
+                  )
+                )}
+
+                {/* Retirer du groupe */}
+                <button
+                  onClick={() => handleRemoveParticipant(participant._id)}
+                  className="p-1.5 hover:bg-red-100 rounded-lg transition-all group"
+                  title="Retirer du groupe"
+                >
+                  <UserMinus className="w-4 h-4 text-red-500 group-hover:text-red-600" />
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+
+    {/* SECTION MODIFICATION NOM/IMAGE DU GROUPE */}
+    {isUserAdmin() && (
+      <div className="space-y-2 pt-3 border-t border-gray-200">
+        {/* Modifier le nom */}
+        <div className="space-y-2">
+          {editingGroupName ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="Nouveau nom"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                autoFocus
+              />
+              <button
+                onClick={handleUpdateGroupName}
+                className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  setEditingGroupName(false);
+                  setNewGroupName('');
+                }}
+                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setEditingGroupName(true);
+                setNewGroupName(conversation.groupName || '');
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 transition-all group"
+            >
+              <Edit className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
+              <span className="font-medium text-blue-700">Modifier le nom du groupe</span>
+            </button>
+          )}
+        </div>
+
+        {/* Modifier l'image */}
+        <button
+          onClick={() => groupImageInputRef.current?.click()}
+          disabled={uploadingImage}
+          className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-50 hover:bg-purple-100 transition-all group disabled:opacity-50"
+        >
+          {uploadingImage ? (
+            <>
+              <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+              <span className="font-medium text-purple-700">Envoi...</span>
+            </>
+          ) : (
+            <>
+              <Camera className="w-5 h-5 text-purple-600 group-hover:text-purple-700" />
+              <span className="font-medium text-purple-700">Modifier l'image du groupe</span>
+            </>
+          )}
+        </button>
+        <input
+          ref={groupImageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUpdateGroupImage}
+        />
+      </div>
+    )}
+
+    {/* BOUTON QUITTER LE GROUPE */}
+    <button
+      onClick={async () => {
+        if (!confirm('Êtes-vous sûr de vouloir quitter ce groupe ?')) return;
+        
+        try {
+          await api.delete(`/groups/${conversation._id}/leave`);
+          alert('✅ Vous avez quitté le groupe');
+          setShowMenu(false);
+          router.push('/');
+        } catch (error) {
+          console.error('❌ Erreur:', error);
+          alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+        }
+      }}
+      className="w-full flex items-center gap-3 p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-all group"
+    >
+      <UserMinus className="w-5 h-5 text-red-600 group-hover:text-red-700" />
+      <span className="font-medium text-red-700">Quitter le groupe</span>
+    </button>
+  </div>
+)}
+
       {/* ✨ ACTION 1 : Multimédia */}
       <button 
         onClick={openMediaPanel} 
@@ -1565,6 +1823,15 @@ const isParticipantAdmin = (participantId) => {
             </div>
           </div>
         </div>
+      )}
+      {/* Modal d'ajout de membres */}
+      {showAddMembersModal && conversation?.isGroup && (
+        <AddMembersModal
+          groupId={conversation._id}
+          existingMembers={conversation.participants || []}
+          onClose={() => setShowAddMembersModal(false)}
+          onSuccess={reloadGroup}
+        />
       )}
     </>
   );
