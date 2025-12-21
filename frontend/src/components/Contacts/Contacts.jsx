@@ -26,15 +26,15 @@ function Avatar({ user, size = "md", showStatus = true }) {
   const statusSizes = { sm: "w-3 h-3", md: "w-3 h-3", lg: "w-4 h-4" };
 
   return (
-    <div className="relative">
+    <div className="relative group">
       {user.profilePicture ? (
-        <div className={`${sizes[size]} rounded-full overflow-hidden border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'} shadow-lg`}>
+        <div className={`${sizes[size]} rounded-full overflow-hidden border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'} shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all duration-300`}>
           <Image
             src={user.profilePicture}
             alt={user.name}
             width={size === "sm" ? 48 : size === "md" ? 56 : 112}
             height={size === "sm" ? 48 : size === "md" ? 56 : 112}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
             onError={(e) => {
               e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                 user.name || "User"
@@ -45,14 +45,14 @@ function Avatar({ user, size = "md", showStatus = true }) {
         </div>
       ) : (
         <div
-          className={`${sizes[size]} ${isDark ? 'bg-linear-to-br from-blue-600 to-cyan-600' : 'bg-linear-to-br from-blue-500 to-cyan-500'} rounded-full flex items-center justify-center text-white font-bold shadow-lg border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'}`}
+          className={`${sizes[size]} ${isDark ? 'bg-gradient-to-br from-blue-600 to-cyan-600' : 'bg-gradient-to-br from-blue-500 to-cyan-500'} rounded-full flex items-center justify-center text-white font-bold shadow-lg border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'} group-hover:shadow-2xl group-hover:scale-105 transition-all duration-300 animate-glow-pulse`}
         >
           {getInitials(user.name)}
         </div>
       )}
       {showStatus && (
         <span
-          className={`absolute bottom-1 right-1 ${statusSizes[size]} rounded-full border-2 ${isDark ? "border-blue-900" : "border-white"} ${user.isOnline ? "bg-emerald-500" : "bg-gray-400"}`}
+          className={`absolute bottom-1 right-1 ${statusSizes[size]} rounded-full border-2 ${isDark ? "border-blue-900" : "border-white"} ${user.isOnline ? "bg-emerald-500 animate-pulse" : "bg-gray-400"} shadow-lg`}
         />
       )}
     </div>
@@ -71,17 +71,18 @@ function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
 
   return (
     <div className="mb-6 max-w-2xl mx-auto">
-      <h2 className={`font-bold text-lg mb-3 flex items-center gap-2 ${isDark ? "text-cyan-50" : "text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-cyan-500"}`}>
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-linear-to-br from-blue-700 to-cyan-700' : 'bg-linear-to-br from-purple-500 to-pink-500'}`}>
+      <h2 className={`font-bold text-lg mb-3 flex items-center gap-2 ${isDark ? "text-cyan-50" : "text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500"}`}>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-blue-700 to-cyan-700' : 'bg-gradient-to-br from-purple-500 to-pink-500'} shadow-lg animate-glow-pulse`}>
           <Star className="w-4 h-4 text-white" />
         </div>
         Favoris
       </h2>
-      <div className={`flex gap-4 overflow-x-auto p-4 rounded-3xl border-2 shadow-xl hover:shadow-2xl transition-all ${isDark ? "bg-blue-900/50 border-blue-800" : "bg-white/80 border-blue-100"}`}>
+      <div className={`flex gap-4 overflow-x-auto p-4 rounded-3xl border-2 shadow-xl hover:shadow-2xl transition-all ${isDark ? "bg-blue-900/50 border-blue-800" : "bg-white/80 border-blue-100"} backdrop-blur-md`}>
         {favorites.map((contact) => (
           <div
             key={contact._id}
-            className={`flex flex-col items-center cursor-pointer transition-all transform hover:scale-105 active:scale-95 rounded-2xl p-2 ${isDark ? "hover:bg-blue-800/50" : "hover:bg-blue-50"}`}
+            className={`flex flex-col items-center cursor-pointer transition-all transform hover:scale-110 active:scale-95 rounded-2xl p-3 min-w-[80px] ${isDark ? "hover:bg-blue-800/50" : "hover:bg-blue-50"} animate-float`}
+            style={{ animationDelay: `${Math.random() * 2}s` }}
             onClick={() => setSelected(contact)}
           >
             <Avatar user={contact.user} size="sm" showStatus={true} />
@@ -182,19 +183,25 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
 
           {/* Action buttons */}
           <div className="grid grid-cols-3 gap-4 mb-8">
-            <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-105 ${actionButtonStyle}`}>
-              <Phone size={22} />
-              <span className="text-xs font-semibold">Appeler</span>
-            </button>
-            <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-105 ${actionButtonStyle}`}>
-              <MessageCircle size={22} />
-              <span className="text-xs font-semibold">Message</span>
-            </button>
-            <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-105 ${actionButtonStyle}`}>
-              <Video size={22} />
-              <span className="text-xs font-semibold">Vidéo</span>
-            </button>
-          </div>
+  <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 group ${actionButtonStyle} shadow-lg hover:shadow-xl`}>
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700 group-hover:bg-cyan-600' : 'bg-blue-200 group-hover:bg-blue-300'} transition-colors`}>
+      <Phone size={22} className="group-hover:animate-bounce" />
+    </div>
+    <span className="text-xs font-semibold">Appeler</span>
+  </button>
+  <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 group ${actionButtonStyle} shadow-lg hover:shadow-xl`}>
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700 group-hover:bg-cyan-600' : 'bg-blue-200 group-hover:bg-blue-300'} transition-colors`}>
+      <MessageCircle size={22} className="group-hover:animate-bounce" />
+    </div>
+    <span className="text-xs font-semibold">Message</span>
+  </button>
+  <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 group ${actionButtonStyle} shadow-lg hover:shadow-xl`}>
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700 group-hover:bg-cyan-600' : 'bg-blue-200 group-hover:bg-blue-300'} transition-colors`}>
+      <Video size={22} className="group-hover:animate-bounce" />
+    </div>
+    <span className="text-xs font-semibold">Vidéo</span>
+  </button>
+</div>
 
           {/* Informations */}
           <div className="space-y-4">
@@ -709,29 +716,29 @@ useEffect(() => {
           ) : (
             <>
               {/* Search Bar */}
-              <div className={`sticky top-0 z-40 pb-2 ${isDark ? "bg-linear-to-b from-blue-950 to-transparent" : "bg-linear-to-b from-white/80 to-transparent backdrop-blur-sm"}`}>
-                <div className="relative group max-w-lg mx-auto">
-                  {!isDark && (
-                    <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-sm group-focus-within:blur-md transition-all"></div>
-                  )}
-                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 z-10 ${isDark ? "text-blue-400" : "text-blue-400"}`} />
-                  <input
-                    type="text"
-                    placeholder="Rechercher un contact..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`relative w-full pl-12 pr-10 py-4 rounded-2xl border-2 focus:ring-4 outline-none font-medium transition-all ${inputBg} ${inputText}`}
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 ${isDark ? "text-blue-400 hover:text-cyan-300" : "text-blue-400 hover:text-blue-600"}`}
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+              <div className={`sticky top-0 z-40 pb-2 ${isDark ? "bg-gradient-to-b from-blue-950 to-transparent" : "bg-gradient-to-b from-white/80 to-transparent backdrop-blur-sm"}`}>
+  <div className="relative group max-w-lg mx-auto">
+    {/* Effet de lueur au focus */}
+    <div className={`absolute inset-0 rounded-2xl blur-xl transition-opacity duration-300 ${isDark ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20' : 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10'} opacity-0 group-focus-within:opacity-100`}></div>
+    
+    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 z-10 transition-colors ${isDark ? "text-blue-400 group-focus-within:text-cyan-400" : "text-blue-400 group-focus-within:text-blue-600"}`} />
+    <input
+      type="text"
+      placeholder="Rechercher un contact..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className={`relative w-full pl-12 pr-10 py-4 rounded-2xl border-2 focus:ring-4 outline-none font-medium transition-all ${inputBg} ${inputText}`}
+    />
+    {searchTerm && (
+      <button
+        onClick={() => setSearchTerm('')}
+        className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 transform hover:scale-110 hover:rotate-90 transition-all ${isDark ? "text-blue-400 hover:text-cyan-300" : "text-blue-400 hover:text-blue-600"}`}
+      >
+        <X className="w-5 h-5" />
+      </button>
+    )}
+  </div>
+</div>
 
               {/* Favorites */}
               <FavoritesBar 
@@ -763,45 +770,58 @@ useEffect(() => {
 
                         return (
                           <li
-                            key={contact._id}
-                            className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all transform hover:scale-[1.02] cursor-pointer ${isDark ? "hover:bg-blue-800/50 border-blue-800" : "hover:bg-blue-50 border-blue-200"}`}
-                            onClick={() => setSelected(contact)}
-                          >
-                            <div className="flex items-center">
-                              <Avatar user={user} size="md" showStatus={true} />
-                              <div className="ml-4">
-                                <p className={`font-bold text-lg ${textPrimary}`}>
-                                  {user.name}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${user.isOnline ? (isDark ? "bg-green-900/40 text-green-400" : "bg-green-100 text-green-700") : (isDark ? "bg-blue-800/50 text-blue-300" : "bg-blue-100 text-blue-600")}`}>
-                                    {user.isOnline ? "🟢 En ligne" : "⚫ Hors ligne"}
-                                  </span>
-                                  <span className={`text-xs ${textMuted}`}>
-                                    {user.email}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
+  key={contact._id}
+  className={`contact-card-glow flex items-center justify-between p-4 rounded-2xl border-2 transition-all transform hover:scale-[1.02] cursor-pointer group ${isDark ? "hover:bg-blue-800/50 border-blue-800 hover:border-cyan-600" : "hover:bg-blue-50 border-blue-200 hover:border-blue-400"} backdrop-blur-sm relative`}
+  onClick={() => setSelected(contact)}
+>
+  <div className="flex items-center flex-1 min-w-0 pr-4">
+    <div className="relative shrink-0">
+      <Avatar user={user} size="md" showStatus={true} />
+    </div>
+    <div className="ml-4 flex-1 min-w-0">
+      <p className={`font-bold text-lg truncate ${textPrimary} group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-500 group-hover:to-cyan-500 transition-all`}>
+        {user.name}
+      </p>
+      <div className="flex items-center gap-2 mt-1 flex-wrap">
+        <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${user.isOnline ? (isDark ? "bg-green-900/40 text-green-400" : "bg-green-100 text-green-700") : (isDark ? "bg-blue-800/50 text-blue-300" : "bg-blue-100 text-blue-600")} shadow-sm`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${user.isOnline ? 'bg-green-400 animate-pulse' : 'bg-blue-400'}`}></span>
+          {user.isOnline ? "En ligne" : "Hors ligne"}
+        </span>
+        <span className={`text-xs ${textMuted} truncate max-w-[150px]`}>
+          {user.email}
+        </span>
+      </div>
+    </div>
+  </div>
 
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                toggleFavorite(user._id); 
-                              }}
-                              className="focus:outline-none transform hover:scale-110 transition-transform"
-                            >
-                              <Star
-                                size={24}
-                                className={`transition-all ${isFav 
-                                  ? "text-yellow-400 fill-yellow-400 drop-shadow-lg" 
-                                  : isDark 
-                                    ? "text-blue-400 hover:text-yellow-400" 
-                                    : "text-blue-300 hover:text-yellow-400"
-                                }`}
-                              />
-                            </button>
-                          </li>
+  {/* Bouton étoile - repositionné avec meilleure visibilité */}
+  <button 
+    onClick={(e) => { 
+      e.stopPropagation(); 
+      toggleFavorite(user._id); 
+    }}
+    className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-125 hover:rotate-12 z-10 ${
+      isFav 
+        ? (isDark 
+          ? 'bg-yellow-500/20 hover:bg-yellow-500/30' 
+          : 'bg-yellow-50 hover:bg-yellow-100')
+        : (isDark 
+          ? 'bg-blue-800/50 hover:bg-blue-700/70' 
+          : 'bg-blue-50 hover:bg-blue-100')
+    }`}
+    title={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
+  >
+    <Star
+      size={24}
+      className={`transition-all duration-300 ${isFav 
+        ? "text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" 
+        : isDark 
+          ? "text-blue-300 hover:text-yellow-400" 
+          : "text-blue-400 hover:text-yellow-400"
+      }`}
+    />
+  </button>
+</li>
                         );
                       })}
                     </ul>
