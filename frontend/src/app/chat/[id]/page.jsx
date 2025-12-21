@@ -29,6 +29,7 @@ import ChatHeader from '@/components/Layout/ChatHeader';
 import MessageBubble, { DateSeparator } from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
+import MessageSearch from '@/components/Chat/MessageSearch';
 import { Plane, Users, Loader2 } from 'lucide-react';
 
 export default function ChatPage() {
@@ -52,12 +53,31 @@ export default function ChatPage() {
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyingToContent, setReplyingToContent] = useState('');
   const [replyingToSender, setReplyingToSender] = useState(null);
+
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null); 
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
 
   useSocket();
+
+  // 🆕 Fonction pour scroller vers un message recherché
+  const scrollToMessage = (messageId) => {
+    const messageElement = document.getElementById(`message-${messageId}`);
+    if (messageElement) {
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      messageElement.classList.add('highlight-message');
+      setTimeout(() => {
+        messageElement.classList.remove('highlight-message');
+      }, 2000);
+    }
+  };
 
   // Cleanup : Quitter la conversation quand on quitte la page
   useEffect(() => {
@@ -539,11 +559,27 @@ socket.on('message-deleted', ({ messageId, conversationId: deletedConvId }) => {
             </div>
             
             <div className="hidden lg:block">
-              <ChatHeader contact={contact} conversation={conversation} onBack={() => router.push('/')} />
+              <ChatHeader 
+                contact={contact} 
+                conversation={conversation} 
+                onBack={() => router.push('/')}
+                onSearchOpen={() => setIsSearchOpen(true)}
+              />
             </div>
 
+            {/* 🆕 COMPOSANT DE RECHERCHE */}
+            <MessageSearch
+              conversationId={conversationId}
+              onMessageSelect={scrollToMessage}
+              isOpen={isSearchOpen}
+              onClose={() => setIsSearchOpen(false)}
+            />
+
             {/* Container des messages avec scrollbar cachée */}
-            <div className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}>
+            <div 
+              ref={messagesContainerRef}
+              className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}>
+            
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full animate-fade-in">
                   <div className={`text-center max-w-sm p-8 rounded-3xl ${cardStyle} border`}>
@@ -576,7 +612,11 @@ socket.on('message-deleted', ({ messageId, conversationId: deletedConvId }) => {
                     );
 
                     return (
-                      <div key={message._id}>
+                      <div 
+                        key={message._id}
+                        id={`message-${message._id}`}
+                        className="transition-all duration-300"
+                      >
                         {showDateSeparator && (
                           <DateSeparator date={message.createdAt} />
                         )}

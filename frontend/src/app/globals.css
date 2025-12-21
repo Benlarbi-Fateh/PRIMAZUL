@@ -195,3 +195,31 @@ body {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* 🆕 Animation de surbrillance pour la recherche de messages */
+@keyframes highlight {
+  0%, 100% { 
+    background-color: transparent; 
+  }
+  50% { 
+    background-color: rgba(59, 130, 246, 0.2); 
+  }
+}
+
+.highlight-message {
+  animation: highlight 2s ease-in-out;
+  border-radius: 12px;
+}
+
+.dark .highlight-message {
+  animation: highlight-dark 2s ease-in-out;
+}
+
+@keyframes highlight-dark {
+  0%, 100% { 
+    background-color: transparent; 
+  }
+  50% { 
+    background-color: rgba(59, 130, 246, 0.3); 
+  }
+}

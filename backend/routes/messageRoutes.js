@@ -19,8 +19,14 @@ const {
   scheduleMessage,
   getScheduledMessages,
   cancelScheduledMessage,
-  updateScheduledMessage
+  updateScheduledMessage,
+  searchMessages,           // 🆕 AJOUT
+  getMessageContext,        // 🆕 AJOUT
+  searchAllMessages         // 🆕 AJOUT
 } = require('../controllers/messageController');
+
+// 🔍 Recherche de messages
+router.get('/search/:conversationId', authMiddleware, messageController.searchMessages);
 
 // Routes de base
 router.get('/:conversationId', authMiddleware, getMessages);
@@ -45,6 +51,16 @@ router.post('/schedule', authMiddleware, scheduleMessage);
 router.get('/scheduled/list', authMiddleware, getScheduledMessages);
 router.delete('/scheduled/:messageId', authMiddleware, cancelScheduledMessage);
 router.put('/scheduled/:messageId', authMiddleware, updateScheduledMessage);
+
+// 🆕 ROUTES DE RECHERCHE
+// Rechercher dans une conversation spécifique
+router.get('/search/:conversationId', authMiddleware, searchMessages);
+
+// Obtenir le contexte d'un message (messages avant/après)
+router.get('/context/:messageId', authMiddleware, getMessageContext);
+
+// Recherche globale dans toutes les conversations
+router.get('/search-all/global', authMiddleware, searchAllMessages);
 
 // Route typing
 router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useContext } from 'react';
-import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock, Info } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, Trash2, AlertCircle, Link, Play, Pause, Expand, Upload, Shield, Lock, Unlock, Info, UserPlus, UserMinus, Crown, Edit, Camera, Search} from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -9,8 +9,9 @@ import { useTheme } from '@/hooks/useTheme';
 import { onOnlineUsersUpdate, requestOnlineUsers } from '@/services/socket';
 import { formatMessageDate } from '@/utils/dateFormatter';
 import ImageComponent from 'next/image';
+import MessageSearch from '@/components/Chat/MessageSearch';
 
-export default function ChatHeader({ contact, conversation, onBack }) {
+export default function ChatHeader({ contact, conversation, onBack, onSearchOpen }) {
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
   const router = useRouter();
@@ -29,6 +30,11 @@ export default function ChatHeader({ contact, conversation, onBack }) {
   const audioRef = useRef(null);
   const menuRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
+const [editingGroupName, setEditingGroupName] = useState(false);
+const [newGroupName, setNewGroupName] = useState('');
+const [uploadingImage, setUploadingImage] = useState(false);
+const groupImageInputRef = useRef(null);
   
   const { 
     isBlocked, 
@@ -422,6 +428,166 @@ export default function ChatHeader({ contact, conversation, onBack }) {
   }
 };
 
+// ==========================================
+// 🆕 FONCTIONS DE GESTION DE GROUPE
+// ==========================================
+
+const handleRemoveParticipant = async (participantId) => {
+  if (!confirm('Êtes-vous sûr de vouloir retirer ce membre du groupe ?')) {
+    return;
+  }
+
+  try {
+    const response = await removeParticipantFromGroup({
+      groupId: conversation._id,
+      participantId
+    });
+
+    if (response.data.success) {
+      alert('✅ Membre retiré du groupe');
+      // Rafraîchir la conversation
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error('❌ Erreur retrait membre:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
+
+const handlePromoteToAdmin = async (participantId) => {
+  if (!confirm('Promouvoir ce membre en tant qu\'admin ?')) {
+    return;
+  }
+
+  try {
+    const response = await promoteToAdmin({
+      groupId: conversation._id,
+      participantId
+    });
+
+    if (response.data.success) {
+      alert('✅ Membre promu admin');
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error('❌ Erreur promotion admin:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
+
+const handleRemoveAdmin = async (adminId) => {
+  if (!confirm('Rétrograder cet admin en membre simple ?')) {
+    return;
+  }
+
+  try {
+    const response = await removeAdminFromGroup({
+      groupId: conversation._id,
+      adminId
+    });
+
+    if (response.data.success) {
+      alert('✅ Admin rétrogradé');
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error('❌ Erreur retrait admin:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
+
+const handleUpdateGroupName = async () => {
+  if (!newGroupName.trim()) {
+    alert('❌ Le nom ne peut pas être vide');
+    return;
+  }
+
+  try {
+    const response = await updateGroupName({
+      groupId: conversation._id,
+      groupName: newGroupName.trim()
+    });
+
+    if (response.data.success) {
+      alert('✅ Nom du groupe modifié');
+      setEditingGroupName(false);
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error('❌ Erreur modification nom:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
+
+const handleUpdateGroupImage = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('❌ Veuillez sélectionner une image');
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('❌ L\'image ne doit pas dépasser 5 MB');
+    return;
+  }
+
+  setUploadingImage(true);
+
+  try {
+    const formData = new FormData();
+    formData.append('groupImage', file);
+
+    const response = await updateGroupImage(conversation._id, formData);
+
+    if (response.data.success) {
+      alert('✅ Image du groupe modifiée');
+      window.location.reload();
+    }
+  } catch (error) {
+    console.error('❌ Erreur upload image:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
+const isUserAdmin = () => {
+  if (!conversation?.isGroup || !user?._id) return false;
+  
+  const userId = user._id.toString();
+  const isCreator = conversation.groupAdmin?._id?.toString() === userId || 
+                   conversation.groupAdmin?.toString() === userId;
+  const isAdmin = conversation.groupAdmins?.some(
+    a => (a._id?.toString() || a.toString()) === userId
+  );
+  
+  return isCreator || isAdmin;
+};
+
+const isUserCreator = () => {
+  if (!conversation?.isGroup || !user?._id) return false;
+  
+  const userId = user._id.toString();
+  return conversation.groupAdmin?._id?.toString() === userId || 
+         conversation.groupAdmin?.toString() === userId;
+};
+
+const isParticipantAdmin = (participantId) => {
+  if (!conversation?.isGroup) return false;
+  
+  const pId = participantId._id?.toString() || participantId.toString();
+  const creatorId = conversation.groupAdmin?._id?.toString() || 
+                   conversation.groupAdmin?.toString();
+  
+  if (pId === creatorId) return true;
+  
+  return conversation.groupAdmins?.some(
+    a => (a._id?.toString() || a.toString()) === pId
+  );
+};
+
   const openMediaPanel = async () => {
     setShowMediaPanel(true);
     setShowMenu(false);
@@ -526,6 +692,7 @@ export default function ChatHeader({ contact, conversation, onBack }) {
 
   if (!contact && !conversation) {
     return (
+      
       <div className={`relative overflow-hidden ${headerBg} shadow-lg`}>
         <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
         
@@ -665,6 +832,7 @@ export default function ChatHeader({ contact, conversation, onBack }) {
           <div className="flex items-center gap-1 shrink-0">
             {!isGroup && (
               <>
+
                 <button className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
                   <Phone className="w-4 h-4" />
                 </button>
@@ -776,6 +944,28 @@ export default function ChatHeader({ contact, conversation, onBack }) {
         </div>
       </button>
 
+      {/* ✨ ACTION 2 : Rechercher dans la conversation */}
+<button 
+  onClick={() => {
+    setShowMenu(false);
+    if (onSearchOpen) {
+      onSearchOpen();
+    }
+  }}
+  className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-100/50 transition-all duration-300 hover:shadow-md active:scale-[0.98]"
+>
+  <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+    <Search className="w-5 h-5 text-white" />
+  </div>
+  <div className="flex-1 text-left">
+    <div className="font-semibold text-gray-800">Rechercher</div>
+    <div className="text-xs text-gray-500 mt-0.5">Trouver un message</div>
+  </div>
+  <div className="text-blue-400 group-hover:translate-x-1 transition-transform">
+    →
+  </div>
+</button>
+
       {/* ✨ ACTION 2 : Notifications */}
       <button 
         onClick={toggleMute} 
@@ -884,6 +1074,7 @@ export default function ChatHeader({ contact, conversation, onBack }) {
         {/* Icône d'avertissement */}
         <AlertCircle className="w-5 h-5 text-red-400 group-hover:text-red-500" />
       </button>
+      
     </div>
   </div>
 )}

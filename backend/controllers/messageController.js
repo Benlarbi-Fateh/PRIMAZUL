@@ -948,7 +948,7 @@ exports.searchMessages = async (req, res) => {
     const { query } = req.query;
     const userId = req.user._id || req.user.id;
 
-    console.log('🔍 Recherche de messages:', { conversationId, query });
+    console.log('🔍 Recherche de messages:', { conversationId, query, userId });
 
     if (!query || query.trim() === '') {
       return res.status(400).json({
@@ -960,6 +960,7 @@ exports.searchMessages = async (req, res) => {
     // Vérifier que l'utilisateur fait partie de la conversation
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
+      console.log('❌ Conversation introuvable');
       return res.status(404).json({
         success: false,
         message: 'Conversation introuvable'
@@ -971,26 +972,41 @@ exports.searchMessages = async (req, res) => {
     );
 
     if (!isParticipant) {
+      console.log('❌ Non autorisé');
       return res.status(403).json({
         success: false,
         message: 'Non autorisé'
       });
     }
 
-    // Rechercher les messages
-    const searchRegex = new RegExp(query.trim(), 'i');
+    // 🔥 CORRECTION : Recherche insensible à la casse et aux accents
+    const searchRegex = new RegExp(query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
+    // 🔥 Vérifier si l'utilisateur a supprimé la conversation
+    const deletedByUser = conversation.deletedBy?.find(
+      item => item.userId?.toString() === userId.toString()
+    );
+
+    let dateFilter = {};
+    if (deletedByUser) {
+      // Ne chercher que dans les messages APRÈS la suppression
+      dateFilter = { createdAt: { $gt: deletedByUser.deletedAt } };
+      console.log('🗑️ Recherche limitée aux messages après:', deletedByUser.deletedAt);
+    }
+
+    // Rechercher les messages
     const messages = await Message.find({
       conversationId,
       content: searchRegex,
-      deletedBy: { $ne: userId }
+      deletedBy: { $ne: userId },
+      ...dateFilter
     })
       .populate('sender', 'name profilePicture')
       .populate('replyToSender', 'name profilePicture')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(100);
 
-    console.log(`✅ ${messages.length} messages trouvés`);
+    console.log(`✅ ${messages.length} messages trouvés pour "${query}"`);
 
     res.json({
       success: true,
