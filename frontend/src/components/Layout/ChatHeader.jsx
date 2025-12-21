@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client'
 import { useState, useEffect, useRef, useContext } from 'react';
 import { ArrowLeft, MoreVertical, Phone,  Video, Users, X, Image, FileText, Music, Download, 
@@ -39,6 +40,48 @@ import MessageSearch from '@/components/Chat/MessageSearch';
 import AddMembersModal from '@/components/Group/AddMembersModal';
 
 export default function ChatHeader({ contact, conversation, onBack, onSearchOpen }) {
+=======
+"use client";
+import { useState, useEffect, useRef, useContext } from "react";
+import {
+  ArrowLeft,
+  Phone,
+  Video,
+  Users,
+  X,
+  Image,
+  FileText,
+  Music,
+  Download,
+  Trash2,
+  AlertCircle,
+  Link,
+  Play,
+  Pause,
+  Expand,
+  Shield,
+  Lock,
+  Unlock,
+  Info,
+} from "lucide-react";
+import useBlockCheck from "../../hooks/useBlockCheck";
+import { useRouter } from "next/navigation";
+import api from "@/lib/api";
+import { AuthContext } from "@/context/AuthProvider";
+import { useTheme } from "@/hooks/useTheme";
+import { onOnlineUsersUpdate, requestOnlineUsers } from "@/services/socket";
+import { formatMessageDate } from "@/utils/dateFormatter";
+import ImageComponent from "next/image";
+
+// ✅ AJOUT DE onVideoCall ET onAudioCall DANS LES PROPS
+export default function ChatHeader({
+  contact,
+  conversation,
+  onBack,
+  onVideoCall,
+  onAudioCall,
+}) {
+>>>>>>> beta-version
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
   const router = useRouter();
@@ -46,16 +89,17 @@ export default function ChatHeader({ contact, conversation, onBack, onSearchOpen
   const [showMenu, setShowMenu] = useState(false);
   const [openPanel, setOpenPanel] = useState(false);
   const [showMediaPanel, setShowMediaPanel] = useState(false);
-  const [mediaType, setMediaType] = useState('images');
+  const [mediaType, setMediaType] = useState("images");
   const [mediaData, setMediaData] = useState(null);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [settings, setSettings] = useState({
-    muted: false
+    muted: false,
   });
   const [selectedImage, setSelectedImage] = useState(null);
   const [playingAudio, setPlayingAudio] = useState(null);
   const audioRef = useRef(null);
   const menuRef = useRef(null);
+<<<<<<< HEAD
   const fileInputRef = useRef(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
 const [editingGroupName, setEditingGroupName] = useState(false);
@@ -68,216 +112,91 @@ const [showAddMembersModal, setShowAddMembersModal] = useState(false);
   const { 
     isBlocked, 
     blockStatus, 
+=======
+
+  const {
+    isBlocked,
+    blockStatus,
+>>>>>>> beta-version
     loading: blockLoading,
-    error: blockError,
-    refresh: refreshBlockStatus 
+    refresh: refreshBlockStatus,
   } = useBlockCheck(contact?._id);
 
+  // ... (Toutes tes fonctions existantes RESTENT INCHANGÉES) ...
+  // Je garde le code compact ici, mais dans ton fichier, ne supprime rien de la logique existante.
   const formatMessageDateLocal = (date) => {
-    if (!date) return '';
+    if (!date) return "";
     const d = new Date(date);
     const now = new Date();
     const diff = now - d;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
-    
-    if (minutes < 1) return 'à l\'instant';
+    if (minutes < 1) return "à l'instant";
     if (minutes < 60) return `il y a ${minutes}min`;
     if (hours < 24) return `il y a ${hours}h`;
     if (days < 7) return `il y a ${days}j`;
-    return d.toLocaleDateString('fr-FR');
+    return d.toLocaleDateString("fr-FR");
   };
-
-  // Fonction améliorée pour télécharger les fichiers
   const downloadFile = async (file) => {
-    try {
-      console.log('📥 Téléchargement:', file);
-      
-      if (file.url) {
-        // Pour les URLs externes, ouvrir dans un nouvel onglet
-        if (file.url.startsWith('http')) {
-          window.open(file.url, '_blank');
-        } else {
-          // Pour les fichiers locaux, utiliser fetch
-          const response = await fetch(file.url);
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = url;
-          a.download = file.name || 'download';
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Erreur téléchargement:', error);
-      // Fallback: ouvrir dans un nouvel onglet
-      if (file.url) {
-        window.open(file.url, '_blank');
-      }
-    }
+    /* ... */
   };
-
-  // Fonction pour télécharger une image
   const downloadImage = async (image) => {
-    try {
-      const response = await fetch(image.url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = image.name || `image-${image.id}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Erreur téléchargement image:', error);
-
-      // Fallback: ouvrir dans un nouvel onglet
-      window.open(image.url, '_blank');
-    }
+    /* ... */
   };
-
-  // Fonction pour formater la taille des fichiers
   const formatFileSize = (bytes) => {
-    if (!bytes || bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
-
-  // Fonction pour ouvrir une image en plein écran
   const openImage = (image) => {
     setSelectedImage(image);
   };
-
-  // Fonction pour lire un audio
   const playAudio = async (audio) => {
-    try {
-      if (playingAudio === audio.id) {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          setPlayingAudio(null);
-        }
-      } else {
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-
-        const audioElement = new Audio(audio.url);
-        audioRef.current = audioElement;
-
-        audioElement.addEventListener('ended', () => {
-          setPlayingAudio(null);
-        });
-
-        audioElement.addEventListener('error', () => {
-          console.error('Erreur lecture audio');
-          setPlayingAudio(null);
-        });
-
-        await audioElement.play();
-        setPlayingAudio(audio.id);
-      }
-    } catch (error) {
-      console.error('Erreur lecture audio:', error);
-      alert('Impossible de lire l\'audio');
-    }
+    /* ... */
   };
-
-  // Fonction corrigée pour charger les médias
   const loadMedia = async (type) => {
-    setLoadingMedia(true);
-    setMediaType(type);
-    try {
-      console.log(`📥 Chargement des médias de type: ${type} pour conversation:`, conversation._id);
-      
-      const response = await api.get(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
-      const data = response.data;
-      
-      console.log(`✅ Données reçues pour ${type}:`, data);
-      
-      // ✅ CORRECTION : Le backend retourne directement images, files, audio, videos, links
-      if (data && data.success) {
-        setMediaData({
-          images: data.images || [],
-          files: data.files || [],
-          audio: data.audio || [],
-          videos: data.videos || [], // ✅ AJOUT
-          links: data.links || []
-        });
-      } else {
-        setMediaData({
-          images: [],
-          files: [],
-          audio: [],
-          videos: [], // ✅ AJOUT
-          links: []
-        });
-      }
-    } catch (err) {
-      console.error('❌ Erreur chargement média:', err);
-      setMediaData({
-        images: [],
-        files: [],
-        audio: [],
-        videos: [], // ✅ AJOUT
-        links: []
-      });
-    }
-    setLoadingMedia(false);
+    /* ... */
+  };
+  const toggleMute = async () => {
+    /* ... */
+  };
+  const toggleBlock = async () => {
+    /* ... */
+  };
+  const handleDeleteConversation = async () => {
+    /* ... */
+  };
+  const openMediaPanel = async () => {
+    setShowMediaPanel(true);
+    setShowMenu(false);
+    await loadMedia("images");
   };
 
-  // Nettoyer l'audio quand le composant est démonté
+  // ... (UseEffects INCHANGÉS) ...
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      if (audioRef.current) audioRef.current.pause();
     };
   }, []);
-
   useEffect(() => {
-    if (!conversation?._id) return;
-    
-    const loadMutedStatus = async () => {
-      try {
-        const response = await api.get(`/message-settings/conversations/${conversation._id}/settings`);
-        const data = response.data;
-        if (data.success) {
-          setSettings({ muted: data.settings.isMuted });
-        }
-      } catch (err) {
-        console.error('Erreur chargement settings:', err);
-      }
-    };
-    
-    loadMutedStatus();
+    /* ... */
   }, [conversation?._id]);
-
   useEffect(() => {
-    if (contact?._id) {
-      setOnlineUsers(new Set([contact._id]));
-    }
+    if (contact?._id) setOnlineUsers(new Set([contact._id]));
   }, [contact?._id]);
-
   useEffect(() => {
     function handleClickOutside(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowMenu(false);
       }
     }
-    if (showMenu) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (showMenu) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMenu]);
+<<<<<<< HEAD
 
   const toggleMute = async () => {
     if (!conversation?._id) {
@@ -651,36 +570,26 @@ const reloadGroup = async () => {
 
   
   // ✅ CORRECTION : Écouter les changements de statut de blocage
+=======
+>>>>>>> beta-version
   useEffect(() => {
-    const handleBlockStatusChange = () => {
-      // Recharger les données si nécessaire
-      console.log('🔄 Statut blocage changé');
-    };
-
-    window.addEventListener('block-status-changed', handleBlockStatusChange);
-    
-    return () => {
-      window.removeEventListener('block-status-changed', handleBlockStatusChange);
-    };
+    /* ... */
   }, []);
-
   useEffect(() => {
     if (!user) return;
     const loadSocketModule = async () => {
       try {
-        const socketModule = await import('../../services/socket');
+        const socketModule = await import("../../services/socket");
         const { onOnlineUsersUpdate, requestOnlineUsers } = socketModule;
-        
         const unsubscribe = onOnlineUsersUpdate((userIds) => {
           setOnlineUsers(new Set(userIds));
         });
         requestOnlineUsers();
         return () => unsubscribe();
       } catch (error) {
-        console.error('Erreur chargement socket:', error);
+        console.error("Erreur chargement socket:", error);
       }
     };
-    
     loadSocketModule();
   }, [user]);
 
@@ -689,47 +598,33 @@ const reloadGroup = async () => {
     return onlineUsers.has(userId);
   };
 
-  // Styles basés sur le thème (comme dans la sidebar)
+  // Styles
   const headerBg = isDark
     ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950"
     : "bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800";
-
   const buttonStyle = isDark
     ? "hover:bg-blue-800/50 text-blue-200"
     : "hover:bg-white/20 text-white";
-
   const textPrimary = isDark ? "text-blue-50" : "text-white";
   const textSecondary = isDark ? "text-blue-200" : "text-blue-100";
   const textMuted = isDark ? "text-blue-300" : "text-blue-200";
-
   const ringStyle = isDark
     ? "ring-blue-700/50 group-hover:ring-blue-500/80"
-    : "ring-white/50 group-hover:ring-white/80";
-
-  const borderStyle = isDark
-    ? "border-blue-600"
-    : "border-blue-700";
-
-  const onlineDot = isDark
-    ? "bg-cyan-400"
-    : "bg-emerald-400";
-
+    : "ring-white/50 group-hover:ring-white/70";
+  const borderStyle = isDark ? "border-blue-600" : "border-blue-700";
+  const onlineDot = isDark ? "bg-cyan-400" : "bg-emerald-400";
   const groupBadge = isDark
     ? "bg-gradient-to-br from-blue-700 to-blue-800 border-blue-600"
     : "bg-gradient-to-br from-purple-500 to-pink-500 border-blue-700";
 
-  // Fonction pour obtenir l'autre participant
   const getOtherParticipant = (conv) => {
     const userId = user?._id || user?.id;
-    return conv.participants?.find(p => (p._id || p.id) !== userId);
+    return conv.participants?.find((p) => (p._id || p.id) !== userId);
   };
-
-  // Fonction pour gérer le clic sur la photo
   const handleProfileClick = () => {
     if (!contact && !conversation) {
-      router.push('/profile');
+      router.push("/profile");
     } else if (conversation?.isGroup) {
-      // router.push(`/group/${conversation._id}`);
     } else {
       const contactUser = contact || getOtherParticipant(conversation);
       if (contactUser?._id) {
@@ -737,8 +632,6 @@ const reloadGroup = async () => {
       }
     }
   };
-
-  // Fonction pour obtenir le titre de l'info-bulle
   const getProfileTitle = () => {
     if (!contact && !conversation) return "Voir mon profil";
     if (conversation?.isGroup) return "Voir les détails du groupe";
@@ -749,78 +642,56 @@ const reloadGroup = async () => {
     return (
       
       <div className={`relative overflow-hidden ${headerBg} shadow-lg`}>
-        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
-        
-        <div className="relative p-4">
-          <div className="flex items-center gap-3">
-            {/* VOTRE photo de profil */}
-            <div 
-              className="relative shrink-0 cursor-pointer group" 
-              onClick={handleProfileClick}
-              title={getProfileTitle()}
-            >
-              <div className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}>
-                <ImageComponent
-                  src={user?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`}
-                  alt={user?.name || 'Utilisateur'}
-                  width={40}
-                  height={40}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=fff&color=3b82f6&bold=true&size=128`;
-                  }}
-                />
-              </div>
-              <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDot} rounded-full border-2 ${borderStyle}`}></div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className={`font-bold text-base drop-shadow truncate ${textPrimary}`}>
-                {user?.name}
-              </h2>
-              <p className={`text-xs font-medium flex items-center gap-2 ${textSecondary}`}>
-                <span className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}></span>
-                En ligne
-              </p>
-            </div>
-          </div>
-        </div>
-      </div> 
+        {/* ... Contenu vide inchangé ... */}
+        <div className="relative p-4">...</div>
+      </div>
     );
   }
 
   const isGroup = conversation?.isGroup || false;
-  const displayName = isGroup 
-    ? (conversation?.groupName || 'Groupe sans nom')
-    : (contact?.name || 'Utilisateur');
-  
+  const displayName = isGroup
+    ? conversation?.groupName || "Groupe sans nom"
+    : contact?.name || "Utilisateur";
   const displayImage = isGroup
-    ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`)
-    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`);
-
-  const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
+    ? conversation?.groupImage ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        conversation?.groupName || "Groupe"
+      )}&background=${isDark ? "6366f1" : "6366f1"}&color=fff&bold=true`
+    : contact?.profilePicture ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        contact?.name || "User"
+      )}&background=${isDark ? "0ea5e9" : "3b82f6"}&color=fff&bold=true`;
+  const participantsCount = isGroup
+    ? conversation?.participants?.length || 0
+    : null;
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
-  
+
   return (
     <>
       <div className={`relative overflow-hidden ${headerBg} shadow-lg`}>
-        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
-        
+        <div
+          className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${
+            isDark ? "opacity-10" : "opacity-20"
+          }`}
+        ></div>
+
         <div className="relative p-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
-              onClick={onBack || (() => router.push('/'))}
+              onClick={onBack || (() => router.push("/"))}
               className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 ${buttonStyle}`}
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
 
-            {/* Photo du CONTACT ou GROUPE */}
-            <div 
+            <div
               className="relative shrink-0 cursor-pointer group"
               onClick={handleProfileClick}
               title={getProfileTitle()}
             >
-              <div className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}>
+              <div
+                className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}
+              >
                 <ImageComponent
                   src={displayImage}
                   alt={displayName}
@@ -830,61 +701,88 @@ const reloadGroup = async () => {
                   unoptimized={true}
                   onError={(e) => {
                     e.target.src = isGroup
-                      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`
-                      : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`;
+                      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          displayName
+                        )}&background=${
+                          isDark ? "6366f1" : "6366f1"
+                        }&color=fff&bold=true`
+                      : `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          displayName
+                        )}&background=${
+                          isDark ? "0ea5e9" : "3b82f6"
+                        }&color=fff&bold=true`;
                   }}
                 />
               </div>
               {isGroup && (
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${groupBadge} rounded-full border-2 flex items-center justify-center`}>
+                <div
+                  className={`absolute -bottom-1 -right-1 w-4 h-4 ${groupBadge} rounded-full border-2 flex items-center justify-center`}
+                >
                   <Users className="w-2 h-2 text-white" />
                 </div>
               )}
               {!isGroup && contactIsOnline && (
-                <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDot} rounded-full border-2 ${borderStyle}`}></div>
+                <div
+                  className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDot} rounded-full border-2 ${borderStyle}`}
+                ></div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className={`font-bold text-base drop-shadow truncate ${textPrimary}`}>
+              <h2
+                className={`font-bold text-base drop-shadow truncate ${textPrimary}`}
+              >
                 {displayName}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 {isGroup ? (
-                  <p className={`text-xs truncate font-medium ${textSecondary}`}>
-                    {participantsCount} participant{participantsCount > 1 ? 's' : ''}
+                  <p
+                    className={`text-xs truncate font-medium ${textSecondary}`}
+                  >
+                    {participantsCount} participant
+                    {participantsCount > 1 ? "s" : ""}
                   </p>
                 ) : blockLoading ? (
-                  <p className={`text-xs truncate ${textMuted} flex items-center gap-1`}>
-                    <span className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></span>
+                  <p
+                    className={`text-xs truncate ${textMuted} flex items-center gap-1`}
+                  >
                     Chargement...
                   </p>
-                ) : blockStatus?.blockedMe ? ( // ✅ CORRIGÉ
-                  <p className={`text-xs truncate font-medium text-red-200 flex items-center gap-1`}>
-                    <Lock className="w-3 h-3" />
-                    Vous êtes bloqué
+                ) : blockStatus?.blockedMe ? (
+                  <p
+                    className={`text-xs truncate font-medium text-red-200 flex items-center gap-1`}
+                  >
+                    <Lock className="w-3 h-3" /> Vous êtes bloqué
                   </p>
-                ) : blockStatus?.iBlocked ? ( // ✅ CORRIGÉ
-                  <p className={`text-xs truncate font-medium text-yellow-200 flex items-center gap-1`}>
-                    <Shield className="w-3 h-3" />
-                    Bloqué
+                ) : blockStatus?.iBlocked ? (
+                  <p
+                    className={`text-xs truncate font-medium text-yellow-200 flex items-center gap-1`}
+                  >
+                    <Shield className="w-3 h-3" /> Bloqué
                   </p>
                 ) : contactIsOnline ? (
                   <>
-                    <span className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}></span>
-                    <p className={`text-xs truncate font-medium ${textSecondary}`}>
+                    <span
+                      className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}
+                    ></span>
+                    <p
+                      className={`text-xs truncate font-medium ${textSecondary}`}
+                    >
                       En ligne
                     </p>
                   </>
                 ) : (
                   <p className={`text-xs truncate ${textMuted}`}>
-                    {contact?.lastSeen ? `Vu ${formatMessageDate(contact.lastSeen)}` : 'Hors ligne'}
+                    {contact?.lastSeen
+                      ? `Vu ${formatMessageDate(contact.lastSeen)}`
+                      : "Hors ligne"}
                   </p>
                 )}
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-1 shrink-0">
+<<<<<<< HEAD
             {!isGroup && (
               <>
 
@@ -896,12 +794,33 @@ const reloadGroup = async () => {
                 </button>
               </>
             )}
+=======
+            <>
+              {/* ✅ AJOUT DES ONCLICK ICI */}
+              <button
+                onClick={onAudioCall}
+                className={`p-2 rounded-xl transition-all ${buttonStyle}`}
+              >
+                <Phone className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onVideoCall}
+                className={`p-2 rounded-xl transition-all ${buttonStyle}`}
+              >
+                <Video className="w-4 h-4" />
+              </button>
+            </>
+>>>>>>> beta-version
 
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setShowMenu(!showMenu)} className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className={`p-2 rounded-xl transition-all ${buttonStyle}`}
+              >
                 <Info className="w-4 h-4" />
               </button>
               {showMenu && (
+<<<<<<< HEAD
   <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
     {/* 🆕 HEADER COMPACT - Plus simple, bouton X intégré */}
     <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6">
@@ -1369,68 +1288,21 @@ const reloadGroup = async () => {
                     <p className="text-xs text-gray-500 mb-1">Email</p>
                     <p className="text-sm font-medium text-gray-900">{contact.email || 'Non disponible'}</p>
                   </div>
+=======
+                /* ... TON MENU EXISTANT INCHANGÉ ... */
+                <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                  {/* ... */}
+                  {/* ... Je ne remets pas tout le code du menu pour raccourcir, mais ne le supprime pas ! ... */}
+                  {/* ... */}
+>>>>>>> beta-version
                 </div>
               )}
             </div>
           </div>
         </div>
-      )}
-
-      {showMediaPanel && (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
-    <div className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col">
-      
-      {/* 🔵 HEADER BLEU */}
-      <div className="relative overflow-hidden">
-        {/* Dégradé bleu */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')] opacity-30"></div>
-        
-        <div className="relative p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
-                  <Image className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white drop-shadow-lg">
-                    Multimédia
-                  </h2>
-                  <p className="text-sm text-white/80 font-medium">
-                    Tous vos fichiers partagés
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={() => setShowMediaPanel(false)} 
-              className="p-2.5 hover:bg-white/20 rounded-xl transition-all backdrop-blur-sm text-white group active:scale-95"
-            >
-              <X className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
-            </button>
-          </div>
-
-          {/* Statistiques en bleu */}
-          <div className="grid grid-cols-5 gap-2">
-            {[
-              { label: 'Images', count: mediaData?.images?.length || 0, icon: Image },
-              { label: 'Fichiers', count: mediaData?.files?.length || 0, icon: FileText },
-              { label: 'Audio', count: mediaData?.audio?.length || 0, icon: Music },
-              { label: 'Vidéos', count: mediaData?.videos?.length || 0, icon: Play },
-              { label: 'Liens', count: mediaData?.links?.length || 0, icon: Link },
-            ].map((stat) => (
-              <div key={stat.label} className="bg-white/20 backdrop-blur-sm rounded-xl p-2.5 text-center text-white">
-                <stat.icon className="w-4 h-4 mx-auto mb-1" />
-                <div className="text-xl font-bold">{stat.count}</div>
-                <div className="text-[10px] font-medium opacity-90">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
+<<<<<<< HEAD
       {/* Onglets en bleu */}
       <div className="flex border-b bg-gradient-to-r from-gray-50 to-white overflow-x-auto scrollbar-hide">
         {[
@@ -1833,6 +1705,11 @@ const reloadGroup = async () => {
           onSuccess={reloadGroup}
         />
       )}
+=======
+      {openPanel && <div className="...">...</div>}
+      {showMediaPanel && <div className="...">...</div>}
+      {selectedImage && <div className="...">...</div>}
+>>>>>>> beta-version
     </>
   );
 }

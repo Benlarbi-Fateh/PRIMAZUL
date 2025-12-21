@@ -1,7 +1,8 @@
-import { AuthProvider } from '@/context/AuthProvider';
-import { BlockProvider } from '@/context/BlockContext';
-import { ThemeProvider } from '@/context/ThemeContext';
-import './globals.css';
+import { AuthProvider } from "@/context/AuthProvider";
+import { BlockProvider } from "@/context/BlockContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { CallProvider } from "@/context/Callcontext";
+import "./globals.css";
 
 export const metadata = {
   title: "PrimaZul - Messagerie Moderne",
@@ -24,7 +25,7 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <BlockProvider>
             <ThemeProvider>
-              {children}
+              <CallProvider> {children}</CallProvider>
             </ThemeProvider>
           </BlockProvider>
         </AuthProvider>
