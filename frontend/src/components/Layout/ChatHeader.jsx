@@ -18,7 +18,8 @@ import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music
   Edit, 
   Camera, 
   Search,
-  Check 
+  Check ,
+  ChevronDown, 
 } from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
 import { useRouter } from 'next/navigation';
@@ -64,6 +65,7 @@ export default function ChatHeader({ contact, conversation, onBack, onSearchOpen
   const [uploadingImage, setUploadingImage] = useState(false);
   const groupImageInputRef = useRef(null);
   const [showAddMembersModal, setShowAddMembersModal] = useState(false);
+  const [showGroupMembers, setShowGroupMembers] = useState(true);
 
   
   const { 
@@ -909,7 +911,12 @@ if (onBack) {
                 <Info className="w-4 h-4" />
               </button>
               {showMenu && (
-  <div className="fixed right-4 top-20 w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+  <div
+    className={`
+      fixed right-4 top-20 w-96 rounded-3xl shadow-2xl z-50 overflow-hidden border
+      ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-100 text-gray-900'}
+    `}
+  >
     {/* 🆕 HEADER COMPACT - Plus simple, bouton X intégré */}
     <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6">
       {/* Pattern de fond subtil */}
@@ -989,115 +996,181 @@ if (onBack) {
     <div className="p-5 space-y-3 max-h-[calc(85vh-120px)] overflow-y-auto">
       
       {/* 🆕 SECTION MEMBRES DU GROUPE - À INSÉRER AU DÉBUT DU MENU */}
+{/* 🆕 SECTION MEMBRES DU GROUPE - repliable */}
 {isGroup && (
-  <div className="space-y-3 pb-3 border-b border-gray-200 mb-3">
-
+  <div
+    className={`
+      space-y-3 pb-3 mb-3 border-b
+      ${isDark ? 'border-slate-700' : 'border-gray-200'}
+    `}
+  >
+    {/* En-tête cliquable "Membres du groupe" */}
     <div className="flex items-center justify-between">
-  <h3 className="font-bold text-gray-800 flex items-center gap-2">
-    <Users className="w-5 h-5 text-blue-600" />
-    Membres du groupe
-  </h3>
-  {isUserAdmin() && (
-    <button
-      onClick={() => {
-        console.log('🎯 Clic bouton ajout');
-        setShowMenu(false);
-        setShowAddMembersModal(true);
-      }}
-      className="p-2 hover:bg-blue-50 rounded-lg transition-all group"
-      title="Ajouter des membres"
-    >
-      <UserPlus className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
-    </button>
-  )}
-</div>
+      <button
+        type="button"
+        onClick={() => setShowGroupMembers((prev) => !prev)}
+        className="flex items-center gap-2 flex-1 text-left group"
+      >
+        <Users className="w-5 h-5 text-blue-600" />
+        <span
+          className={`font-bold ${
+            isDark ? 'text-slate-100' : 'text-gray-800'
+          }`}
+        >
+          Membres du groupe
+        </span>
+        <ChevronDown
+          className={`
+            w-4 h-4 text-blue-600 ml-auto transition-transform duration-200
+            ${showGroupMembers ? 'rotate-180' : 'rotate-0'}
+          `}
+        />
+      </button>
 
-    {/* LISTE DES MEMBRES */}
-    <div className="space-y-2 max-h-[300px] overflow-y-auto">
-      {conversation.participants?.map((participant) => {
-        const isCreator = conversation.groupAdmin?._id?.toString() === participant._id?.toString() || 
-                         conversation.groupAdmin?.toString() === participant._id?.toString();
-        const isAdmin = !isCreator && isParticipantAdmin(participant._id);
-        const isMe = participant._id?.toString() === user?._id?.toString();
-
-        return (
-          <div 
-            key={participant._id} 
-            className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all"
-          >
-            <div className="relative">
-              <img
-                src={participant.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name || 'User')}&background=0ea5e9&color=fff`}
-                alt={participant.name}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-200"
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name || 'User')}&background=0ea5e9&color=fff`;
-                }}
-              />
-              {isUserOnline(participant._id) && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white"></div>
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="font-semibold text-gray-800 truncate">
-                  {participant.name}
-                  {isMe && <span className="text-xs text-gray-500 ml-1">(Vous)</span>}
-                </p>
-                {isCreator && (
-                  <Crown className="w-4 h-4 text-amber-500" title="Créateur" />
-                )}
-                {isAdmin && (
-                  <Shield className="w-4 h-4 text-blue-500" title="Administrateur" />
-                )}
-              </div>
-              <p className="text-xs text-gray-500 truncate">{participant.email}</p>
-            </div>
-
-
-            {/* ACTIONS ADMIN - AJOUTEZ CE BLOC ICI */}
-            {isUserAdmin() && !isMe && !isCreator && (
-              <div className="flex gap-1">
-                {/* Promouvoir/Rétrograder admin */}
-                {isUserCreator() && (
-                  isAdmin ? (
-                    <button
-                      onClick={() => handleRemoveAdmin(participant._id)}
-                      className="p-1.5 hover:bg-orange-100 rounded-lg transition-all group"
-                      title="Rétrograder"
-                    >
-                      <Shield className="w-4 h-4 text-orange-500 group-hover:text-orange-600" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handlePromoteToAdmin(participant._id)}
-                      className="p-1.5 hover:bg-blue-100 rounded-lg transition-all group"
-                      title="Promouvoir admin"
-                    >
-                      <UserPlus className="w-4 h-4 text-blue-500 group-hover:text-blue-600" />
-                    </button>
-                  )
-                )}
-
-                {/* Retirer du groupe */}
-                <button
-                  onClick={() => handleRemoveParticipant(participant._id)}
-                  className="p-1.5 hover:bg-red-100 rounded-lg transition-all group"
-                  title="Retirer du groupe"
-                >
-                  <UserMinus className="w-4 h-4 text-red-500 group-hover:text-red-600" />
-                </button>
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {isUserAdmin() && (
+        <button
+          onClick={() => {
+            console.log('🎯 Clic bouton ajout');
+            setShowMenu(false);
+            setShowAddMembersModal(true);
+          }}
+          className={`
+            ml-2 p-2 rounded-lg transition-all group
+            ${isDark ? 'hover:bg-slate-800' : 'hover:bg-blue-50'}
+          `}
+          title="Ajouter des membres"
+        >
+          <UserPlus className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
+        </button>
+      )}
     </div>
 
-    {/* SECTION MODIFICATION NOM/IMAGE DU GROUPE */}
+    {/* LISTE DES MEMBRES (repliable) */}
+    {showGroupMembers && (
+      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        {conversation.participants?.map((participant) => {
+          const isCreator =
+            conversation.groupAdmin?._id?.toString() === participant._id?.toString() ||
+            conversation.groupAdmin?.toString() === participant._id?.toString();
+          const isAdmin = !isCreator && isParticipantAdmin(participant._id);
+          const isMe = participant._id?.toString() === user?._id?.toString();
+
+          return (
+            <div
+              key={participant._id}
+              className={`
+                flex items-center gap-3 p-3 rounded-xl transition-all
+                ${isDark
+                  ? 'bg-slate-800 hover:bg-slate-700'
+                  : 'bg-gray-50 hover:bg-gray-100'}
+              `}
+            >
+              <div className="relative">
+                <img
+                  src={
+                    participant.profilePicture ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      participant.name || 'User'
+                    )}&background=0ea5e9&color=fff`
+                  }
+                  alt={participant.name}
+                  className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-200"
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                      participant.name || 'User'
+                    )}&background=0ea5e9&color=fff`;
+                  }}
+                />
+                {isUserOnline(participant._id) && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white"></div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p
+                    className={`
+                      font-semibold truncate
+                      ${isDark ? 'text-slate-100' : 'text-gray-800'}
+                    `}
+                  >
+                    {participant.name}
+                    {isMe && (
+                      <span className="text-xs text-gray-500 ml-1">
+                        (Vous)
+                      </span>
+                    )}
+                  </p>
+                  {isCreator && (
+                    <Crown
+                      className="w-4 h-4 text-amber-500"
+                      title="Créateur"
+                    />
+                  )}
+                  {isAdmin && (
+                    <Shield
+                      className="w-4 h-4 text-blue-500"
+                      title="Administrateur"
+                    />
+                  )}
+                </div>
+                <p
+                  className={`
+                    text-xs truncate
+                    ${isDark ? 'text-slate-400' : 'text-gray-500'}
+                  `}
+                >
+                  {participant.email}
+                </p>
+              </div>
+
+              {/* ACTIONS ADMIN (inchangées) */}
+              {isUserAdmin() && !isMe && !isCreator && (
+                <div className="flex gap-1">
+                  {/* Promouvoir/Rétrograder admin */}
+                  {isUserCreator() &&
+                    (isAdmin ? (
+                      <button
+                        onClick={() => handleRemoveAdmin(participant._id)}
+                        className="p-1.5 hover:bg-orange-100 rounded-lg transition-all group"
+                        title="Rétrograder"
+                      >
+                        <Shield className="w-4 h-4 text-orange-500 group-hover:text-orange-600" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handlePromoteToAdmin(participant._id)}
+                        className="p-1.5 hover:bg-blue-100 rounded-lg transition-all group"
+                        title="Promouvoir admin"
+                      >
+                        <UserPlus className="w-4 h-4 text-blue-500 group-hover:text-blue-600" />
+                      </button>
+                    ))}
+
+                  {/* Retirer du groupe */}
+                  <button
+                    onClick={() => handleRemoveParticipant(participant._id)}
+                    className="p-1.5 hover:bg-red-100 rounded-lg transition-all group"
+                    title="Retirer du groupe"
+                  >
+                    <UserMinus className="w-4 h-4 text-red-500 group-hover:text-red-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    )}
+
+    {/* SECTION MODIFICATION NOM/IMAGE DU GROUPE (design très légèrement ajusté pour dark) */}
     {isUserAdmin() && (
-      <div className="space-y-2 pt-3 border-t border-gray-200">
+      <div
+        className={`
+          space-y-2 pt-3 border-t
+          ${isDark ? 'border-slate-700' : 'border-gray-200'}
+        `}
+      >
         {/* Modifier le nom */}
         <div className="space-y-2">
           {editingGroupName ? (
@@ -1107,7 +1180,12 @@ if (onBack) {
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="Nouveau nom"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                className={`
+                  flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500
+                  ${isDark
+                    ? 'bg-slate-800 border-slate-600 text-slate-100'
+                    : 'bg-white border-gray-300 text-gray-900'}
+                `}
                 autoFocus
               />
               <button
@@ -1121,7 +1199,12 @@ if (onBack) {
                   setEditingGroupName(false);
                   setNewGroupName('');
                 }}
-                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all"
+                className={`
+                  px-3 py-2 rounded-lg transition-all
+                  ${isDark
+                    ? 'bg-slate-700 text-slate-100 hover:bg-slate-600'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+                `}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1132,10 +1215,22 @@ if (onBack) {
                 setEditingGroupName(true);
                 setNewGroupName(conversation.groupName || '');
               }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 transition-all group"
+              className={`
+                w-full flex items-center gap-3 p-3 rounded-xl transition-all group
+                ${isDark
+                  ? 'bg-slate-800 hover:bg-slate-700'
+                  : 'bg-blue-50 hover:bg-blue-100'}
+              `}
             >
               <Edit className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
-              <span className="font-medium text-blue-700">Modifier le nom du groupe</span>
+              <span
+                className={`
+                  font-medium
+                  ${isDark ? 'text-slate-100' : 'text-blue-700'}
+                `}
+              >
+                Modifier le nom du groupe
+              </span>
             </button>
           )}
         </div>
@@ -1144,17 +1239,36 @@ if (onBack) {
         <button
           onClick={() => groupImageInputRef.current?.click()}
           disabled={uploadingImage}
-          className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-50 hover:bg-purple-100 transition-all group disabled:opacity-50"
+          className={`
+            w-full flex items-center gap-3 p-3 rounded-xl transition-all group disabled:opacity-50
+            ${isDark
+              ? 'bg-slate-800 hover:bg-slate-700'
+              : 'bg-purple-50 hover:bg-purple-100'}
+          `}
         >
           {uploadingImage ? (
             <>
               <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="font-medium text-purple-700">Envoi...</span>
+              <span
+                className={`
+                  font-medium
+                  ${isDark ? 'text-slate-100' : 'text-purple-700'}
+                `}
+              >
+                Envoi...
+              </span>
             </>
           ) : (
             <>
               <Camera className="w-5 h-5 text-purple-600 group-hover:text-purple-700" />
-              <span className="font-medium text-purple-700">Modifier l'image du groupe</span>
+              <span
+                className={`
+                  font-medium
+                  ${isDark ? 'text-slate-100' : 'text-purple-700'}
+                `}
+              >
+                Modifier l'image du groupe
+              </span>
             </>
           )}
         </button>
@@ -1172,7 +1286,7 @@ if (onBack) {
     <button
       onClick={async () => {
         if (!confirm('Êtes-vous sûr de vouloir quitter ce groupe ?')) return;
-        
+
         try {
           await api.delete(`/groups/${conversation._id}/leave`);
           alert('✅ Vous avez quitté le groupe');
@@ -1183,48 +1297,97 @@ if (onBack) {
           alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
         }
       }}
-      className="w-full flex items-center gap-3 p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-all group"
+      className={`
+        w-full flex items-center gap-3 p-3 rounded-xl transition-all group
+        ${isDark
+          ? 'bg-red-900/40 hover:bg-red-900/60'
+          : 'bg-red-50 hover:bg-red-100'}
+      `}
     >
       <UserMinus className="w-5 h-5 text-red-600 group-hover:text-red-700" />
-      <span className="font-medium text-red-700">Quitter le groupe</span>
+      <span
+        className={`
+          font-medium
+          ${isDark ? 'text-red-200' : 'text-red-700'}
+        `}
+      >
+        Quitter le groupe
+      </span>
     </button>
   </div>
 )}
 
       {/* ✨ ACTION 1 : Multimédia */}
-      <button 
-        onClick={openMediaPanel} 
-        className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border border-purple-100/50 transition-all duration-300 hover:shadow-md active:scale-[0.98]"
-      >
-        <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
-          <Image className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex-1 text-left">
-          <div className="font-semibold text-gray-800">Multimédia</div>
-          <div className="text-xs text-gray-500 mt-0.5">Photos, fichiers et liens</div>
-        </div>
-        {/* Indicateur visuel */}
-        <div className="text-purple-400 group-hover:translate-x-1 transition-transform">
-          →
-        </div>
-      </button>
+<button
+  onClick={openMediaPanel}
+  className={`
+    group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98]
+    ${
+      isDark
+        ? 'bg-slate-800/70 hover:bg-slate-700 border-slate-700'
+        : 'bg-gradient-to-r from-purple-50 to-pink-50 hover:from-purple-100 hover:to-pink-100 border-purple-100/50'
+    }
+  `}
+>
+  <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+    <Image className="w-5 h-5 text-white" />
+  </div>
+  <div className="flex-1 text-left">
+    <div
+      className={`font-semibold ${
+        isDark ? 'text-slate-100' : 'text-gray-800'
+      }`}
+    >
+      Multimédia
+    </div>
+    <div
+      className={`text-xs mt-0.5 ${
+        isDark ? 'text-slate-400' : 'text-gray-500'
+      }`}
+    >
+      Photos, fichiers et liens
+    </div>
+  </div>
+  <div className="text-purple-400 group-hover:translate-x-1 transition-transform">
+    →
+  </div>
+</button>
 
       {/* ✨ ACTION 2 : Rechercher dans la conversation */}
-<button 
+<button
   onClick={() => {
     setShowMenu(false);
     if (onSearchOpen) {
       onSearchOpen();
     }
   }}
-  className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-100/50 transition-all duration-300 hover:shadow-md active:scale-[0.98]"
+  className={`
+    group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98]
+    ${
+      isDark
+        ? 'bg-slate-800/70 hover:bg-slate-700 border-slate-700'
+        : 'bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-100/50'
+    }
+  `}
 >
   <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
     <Search className="w-5 h-5 text-white" />
   </div>
   <div className="flex-1 text-left">
-    <div className="font-semibold text-gray-800">Rechercher</div>
-    <div className="text-xs text-gray-500 mt-0.5">Trouver un message</div>
+    <div
+      className={`font-semibold ${
+        isDark ? 'text-slate-100' : 'text-gray-800'
+      }`}
+    >
+      Rechercher
+    </div>
+    <div
+      className={`text-xs mt-0.5 ${
+        isDark ? 'text-slate-400' : 'text-gray-500'
+      }`}
+    >
+      Trouver un message
+    </div>
   </div>
   <div className="text-blue-400 group-hover:translate-x-1 transition-transform">
     →
@@ -1232,113 +1395,200 @@ if (onBack) {
 </button>
 
       {/* ✨ ACTION 2 : Notifications */}
-      <button 
-        onClick={toggleMute} 
-        className={`group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98] ${
-          settings.muted 
-            ? 'bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 border-orange-100/50' 
-            : 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-100/50'
-        }`}
-      >
-        <div className={`p-3 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300 ${
-          settings.muted 
-            ? 'bg-gradient-to-br from-orange-500 to-amber-500' 
-            : 'bg-gradient-to-br from-blue-500 to-cyan-500'
-        }`}>
-          <Phone className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex-1 text-left">
-          <div className="font-semibold text-gray-800">
-            {settings.muted ? 'Réactiver les notifications' : 'Désactiver les notifications'}
-          </div>
-          <div className="text-xs text-gray-500 mt-0.5">
-            {settings.muted ? 'Recevoir les alertes' : 'Mode silencieux'}
-          </div>
-        </div>
-        {/* Badge de statut */}
-        <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-          settings.muted 
-            ? 'bg-orange-200 text-orange-700' 
-            : 'bg-blue-200 text-blue-700'
-        }`}>
-          {settings.muted ? 'OFF' : 'ON'}
-        </div>
-      </button>
+<button
+  onClick={toggleMute}
+  className={`
+    group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98]
+    ${
+      settings.muted
+        ? isDark
+          ? 'bg-slate-800/70 hover:bg-slate-700 border-slate-700'
+          : 'bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 border-orange-100/50'
+        : isDark
+        ? 'bg-slate-800/70 hover:bg-slate-700 border-slate-700'
+        : 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-100/50'
+    }
+  `}
+>
+  <div
+    className={`
+      p-3 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300
+      ${
+        settings.muted
+          ? 'bg-gradient-to-br from-orange-500 to-amber-500'
+          : 'bg-gradient-to-br from-blue-500 to-cyan-500'
+      }
+    `}
+  >
+    <Phone className="w-5 h-5 text-white" />
+  </div>
+  <div className="flex-1 text-left">
+    <div
+      className={`font-semibold ${
+        isDark ? 'text-slate-100' : 'text-gray-800'
+      }`}
+    >
+      {settings.muted
+        ? 'Réactiver les notifications'
+        : 'Désactiver les notifications'}
+    </div>
+    <div
+      className={`text-xs mt-0.5 ${
+        isDark ? 'text-slate-400' : 'text-gray-500'
+      }`}
+    >
+      {settings.muted ? 'Recevoir les alertes' : 'Mode silencieux'}
+    </div>
+  </div>
+  <div
+    className={`
+      px-2 py-1 rounded-lg text-xs font-medium
+      ${
+        settings.muted
+          ? isDark
+            ? 'bg-orange-900 text-orange-200'
+            : 'bg-orange-200 text-orange-700'
+          : isDark
+          ? 'bg-blue-900 text-blue-200'
+          : 'bg-blue-200 text-blue-700'
+      }
+    `}
+  >
+    {settings.muted ? 'OFF' : 'ON'}
+  </div>
+</button>
 
       {/* ✨ ACTION 3 : Bloquer/Débloquer (uniquement pour conversations individuelles) */}
-      {!isGroup && (
-        <button
-          onClick={toggleBlock}
-          disabled={blockLoading}
-          className={`group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98] ${
-            blockLoading 
-              ? 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200' 
-              : blockStatus?.iBlocked 
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-100/50' 
-                : 'bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border-red-100/50'
-          }`}
-        >
-          <div className={`p-3 rounded-xl shadow-md transition-all duration-300 ${
-            blockLoading 
-              ? 'bg-gray-300' 
-              : blockStatus?.iBlocked 
-                ? 'bg-gradient-to-br from-green-500 to-emerald-500 group-hover:shadow-lg group-hover:scale-110' 
-                : 'bg-gradient-to-br from-red-500 to-rose-500 group-hover:shadow-lg group-hover:scale-110'
-          }`}>
-            {blockLoading ? (
-              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-            ) : blockStatus?.iBlocked ? (
-              <Unlock className="w-5 h-5 text-white" />
-            ) : (
-              <Shield className="w-5 h-5 text-white" />
-            )}
-          </div>
-          <div className="flex-1 text-left">
-            <div className="font-semibold text-gray-800">
-              {blockLoading 
-                ? 'Chargement...' 
-                : blockStatus?.iBlocked 
-                  ? 'Débloquer le contact' 
-                  : 'Bloquer le contact'
-              }
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5">
-              {blockLoading 
-                ? 'Vérification...' 
-                : blockStatus?.iBlocked 
-                  ? 'Autoriser les messages' 
-                  : 'Empêcher tout contact'
-              }
-            </div>
-          </div>
-          {/* Badge de statut */}
-          {!blockLoading && (
-            <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
-              blockStatus?.iBlocked 
-                ? 'bg-green-200 text-green-700' 
-                : 'bg-red-200 text-red-700'
-            }`}>
-              {blockStatus?.iBlocked ? 'BLOQUÉ' : 'ACTIF'}
-            </div>
-          )}
-        </button>
+{!isGroup && (
+  <button
+    onClick={toggleBlock}
+    disabled={blockLoading}
+    className={`
+      group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98]
+      ${
+        blockLoading
+          ? isDark
+            ? 'opacity-50 cursor-not-allowed bg-slate-800 border-slate-700'
+            : 'opacity-50 cursor-not-allowed bg-gray-100 border-gray-200'
+          : blockStatus?.iBlocked
+          ? isDark
+            ? 'bg-emerald-900/40 hover:bg-emerald-900/60 border-emerald-900/60'
+            : 'bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 border-green-100/50'
+          : isDark
+          ? 'bg-red-900/40 hover:bg-red-900/60 border-red-900/60'
+          : 'bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border-red-100/50'
+      }
+    `}
+  >
+    <div
+      className={`
+        p-3 rounded-xl shadow-md transition-all duration-300
+        ${
+          blockLoading
+            ? isDark
+              ? 'bg-slate-600'
+              : 'bg-gray-300'
+            : blockStatus?.iBlocked
+            ? 'bg-gradient-to-br from-green-500 to-emerald-500 group-hover:shadow-lg group-hover:scale-110'
+            : 'bg-gradient-to-br from-red-500 to-rose-500 group-hover:shadow-lg group-hover:scale-110'
+        }
+      `}
+    >
+      {blockLoading ? (
+        <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+      ) : blockStatus?.iBlocked ? (
+        <Unlock className="w-5 h-5 text-white" />
+      ) : (
+        <Shield className="w-5 h-5 text-white" />
       )}
+    </div>
+    <div className="flex-1 text-left">
+      <div
+        className={`font-semibold ${
+          isDark ? 'text-slate-100' : 'text-gray-800'
+        }`}
+      >
+        {blockLoading
+          ? 'Chargement...'
+          : blockStatus?.iBlocked
+          ? 'Débloquer le contact'
+          : 'Bloquer le contact'}
+      </div>
+      <div
+        className={`text-xs mt-0.5 ${
+          isDark ? 'text-slate-400' : 'text-gray-500'
+        }`}
+      >
+        {blockLoading
+          ? 'Vérification...'
+          : blockStatus?.iBlocked
+          ? 'Autoriser les messages'
+          : 'Empêcher tout contact'}
+      </div>
+    </div>
+    {!blockLoading && (
+      <div
+        className={`
+          px-2 py-1 rounded-lg text-xs font-medium
+          ${
+            blockStatus?.iBlocked
+              ? isDark
+                ? 'bg-emerald-900 text-emerald-200'
+                : 'bg-green-200 text-green-700'
+              : isDark
+              ? 'bg-red-900 text-red-200'
+              : 'bg-red-200 text-red-700'
+          }
+        `}
+      >
+        {blockStatus?.iBlocked ? 'BLOQUÉ' : 'ACTIF'}
+      </div>
+    )}
+  </button>
+)}
 
       {/* ✨ ACTION 4 : Supprimer la conversation */}
-      <button 
-        onClick={handleDeleteConversation} 
-        className="group flex items-center gap-4 w-full p-4 rounded-2xl bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border border-red-100/50 transition-all duration-300 hover:shadow-md active:scale-[0.98]"
-      >
-        <div className="p-3 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
-          <Trash2 className="w-5 h-5 text-white" />
-        </div>
-        <div className="flex-1 text-left">
-          <div className="font-semibold text-red-700">Supprimer la discussion</div>
-          <div className="text-xs text-gray-500 mt-0.5">Uniquement pour vous</div>
-        </div>
-        {/* Icône d'avertissement */}
-        <AlertCircle className="w-5 h-5 text-red-400 group-hover:text-red-500" />
-      </button>
+<button
+  onClick={handleDeleteConversation}
+  className={`
+    group flex items-center gap-4 w-full p-4 rounded-2xl border transition-all duration-300 hover:shadow-md active:scale-[0.98]
+    ${
+      isDark
+        ? 'bg-red-900/30 hover:bg-red-900/50 border-red-900/60'
+        : 'bg-gradient-to-r from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 border-red-100/50'
+    }
+  `}
+>
+  <div className="p-3 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
+    <Trash2 className="w-5 h-5 text-white" />
+  </div>
+  <div className="flex-1 text-left">
+    <div
+      className={`font-semibold ${
+        isDark ? 'text-red-200' : 'text-red-700'
+      }`}
+    >
+      Supprimer la discussion
+    </div>
+    <div
+      className={`text-xs mt-0.5 ${
+        isDark ? 'text-slate-400' : 'text-gray-500'
+      }`}
+    >
+      Uniquement pour vous
+    </div>
+  </div>
+  <AlertCircle
+    className={`
+      w-5 h-5
+      ${
+        isDark
+          ? 'text-red-300 group-hover:text-red-200'
+          : 'text-red-400 group-hover:text-red-500'
+      }
+    `}
+  />
+</button>
       
     </div>
   </div>
