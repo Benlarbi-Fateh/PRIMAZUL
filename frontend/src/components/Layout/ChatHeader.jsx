@@ -446,8 +446,12 @@ export default function ChatHeader({ contact, conversation, onBack, onSearchOpen
         // ✅ Message de succès
         alert('✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.');
         
-        // 🔥 Recharger les messages pour afficher la conversation vide
-        window.location.reload();
+        // 🔥 Rediriger vers l'accueil et revenir pour recharger proprement
+if (onBack) {
+  onBack();
+} else {
+  router.push('/');
+}
       } else {
         throw new Error(response.data.message || 'Erreur inconnue');
       }

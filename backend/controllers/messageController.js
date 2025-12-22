@@ -22,7 +22,7 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    // 🔥 CORRECTION CRITIQUE : Vérifier si l'utilisateur a supprimé la conversation
+    // 🔥 VÉRIFIER SI L'UTILISATEUR A SUPPRIMÉ LA CONVERSATION
     const deletedByUser = conversation.deletedBy?.find(
       item => item.userId?.toString() === userId.toString()
     );
@@ -30,33 +30,33 @@ exports.getMessages = async (req, res) => {
     let messages;
 
     if (deletedByUser) {
-      // 🔥 L'utilisateur a supprimé la conversation
-      console.log(`🗑️ Conversation supprimée par ${userId} le ${deletedByUser.deletedAt}`);
+      // 🔥 SI SUPPRIMÉE : Charger UNIQUEMENT les messages APRÈS la suppression
+      const deletionDate = deletedByUser.deletedAt;
       
-      // Charger UNIQUEMENT les messages APRÈS la date de suppression
       messages = await Message.find({ 
         conversationId,
-        deletedBy: { $ne: userId }, // Exclure mes messages supprimés individuellement
-        createdAt: { $gt: deletedByUser.deletedAt } // 🔥 UNIQUEMENT les nouveaux messages
+        deletedBy: { $ne: userId },
+        createdAt: { $gt: deletionDate } // ✅ SEULEMENT APRÈS LA SUPPRESSION
       })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
         .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
       
+      console.log(`🗑️ Conversation supprimée le ${deletionDate}`);
       console.log(`📊 ${messages.length} messages APRÈS suppression pour ${userId}`);
     } else {
-      // 🔥 L'utilisateur n'a PAS supprimé la conversation
+      // 🔥 SI PAS SUPPRIMÉE : Charger TOUS les messages
       messages = await Message.find({ 
         conversationId,
-        deletedBy: { $ne: userId } // Exclure uniquement mes messages supprimés individuellement
+        deletedBy: { $ne: userId }
       })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
         .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
       
-      console.log(`📊 ${messages.length} messages visibles pour l'utilisateur ${userId}`);
+      console.log(`📊 ${messages.length} messages visibles pour ${userId}`);
     }
 
     res.json({ success: true, messages });
@@ -118,7 +118,8 @@ exports.sendMessage = async (req, res) => {
       }
 
       // ✅ NOUVEAU : GESTION AMÉLIORÉE DE LA RESTAURATION
-      const conversation = await Conversation.findById(conversationId);
+      // ✅ NOUVEAU : GESTION AMÉLIORÉE DE LA RESTAURATION
+const conversation = await Conversation.findById(conversationId);
 
 if (conversation && conversation.deletedBy && Array.isArray(conversation.deletedBy)) {
   console.log(`🔍 Vérification deletedBy pour conversation ${conversationId}`);

@@ -57,7 +57,7 @@ exports.getConversations = async (req, res) => {
       }
     }
 
-    // 4️⃣ RÉCUPÉRER TOUTES LES CONVERSATIONS (MÊME CELLES SUPPRIMÉES)
+    // 4️⃣ RÉCUPÉRER TOUTES LES CONVERSATIONS
     const allConversations = await Conversation.find({
       participants: userId
     })
@@ -69,18 +69,18 @@ exports.getConversations = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    // 5️⃣ FILTRER SANS RESTAURATION AUTOMATIQUE
+    // 5️⃣ FILTRER ET CALCULER LES NON-LUS
     const contactSet = new Set(contactIds);
     const visibleConversations = [];
 
     for (const conv of allConversations) {
-      // Garder TOUJOURS les groupes
+      // ✅ Garder les groupes
       if (conv.isGroup) {
         visibleConversations.push(conv);
         continue;
       }
       
-      // Pour les conversations 1-1
+      // ✅ Pour les conversations 1-1
       const otherParticipant = conv.participants.find(
         p => p._id.toString() !== userId.toString()
       );
@@ -89,61 +89,72 @@ exports.getConversations = async (req, res) => {
       
       const otherUserId = otherParticipant._id.toString();
       
-      // Exclure si bloqué
+      // ❌ Exclure si bloqué
       if (blockedUserIds.has(otherUserId)) {
-        console.log(`🚫 Conversation ${conv._id} masquée - Utilisateur bloqué`);
+        console.log(`🚫 Conversation ${conv._id} masquée - Bloqué`);
         continue;
       }
       
-      // Exclure si pas contact
-      const isContact = contactSet.has(otherUserId);
-      if (!isContact) {
-        console.log(`⚠️ Conversation ${conv._id} exclue - Pas un contact actuel`);
+      // ❌ Exclure si pas contact
+      if (!contactSet.has(otherUserId)) {
+        console.log(`⚠️ Conversation ${conv._id} exclue - Pas contact`);
         continue;
       }
       
       visibleConversations.push(conv);
     }
 
-    console.log(`✅ ${visibleConversations.length} conversations visibles trouvées`);
+    console.log(`✅ ${visibleConversations.length} conversations visibles`);
 
-    // 6️⃣ CALCULER LES MESSAGES NON LUS + MASQUER LE LASTMESSAGE SI NÉCESSAIRE
-    const conversationsWithUnread = await Promise.all(
-      visibleConversations.map(async (conv) => {
-        const unreadCount = await Message.countDocuments({
-          conversationId: conv._id,
-          sender: { $ne: userId },
-          status: { $ne: 'read' },
-          deletedBy: { $ne: userId }
-        });
-
-        // 🔥 CORRECTION CRITIQUE : Masquer lastMessage si conversation vidée
-        let conversationObj = conv.toObject();
-        
-        // Vérifier si l'utilisateur a vidé cette conversation
-        const wasDeletedByMe = conv.deletedBy?.find(
-          item => item.userId && item.userId.toString() === userId.toString()
-        );
-        
-        if (wasDeletedByMe && conversationObj.lastMessage) {
-          // Vérifier si le lastMessage est AVANT la date de suppression
-          const messageDate = new Date(conversationObj.lastMessage.createdAt);
-          const deletionDate = new Date(wasDeletedByMe.deletedAt);
-          
-          if (messageDate <= deletionDate) {
-            console.log(`🔇 LastMessage masqué pour conversation ${conv._id} - Vidée le ${deletionDate}`);
-            conversationObj.lastMessage = null; // ✅ MASQUER LE MESSAGE
-          }
-        }
-
-        return {
-          ...conversationObj,
-          unreadCount
-        };
-      })
+    // 6️⃣ CALCULER LES NON-LUS + MASQUER HISTORIQUE SI SUPPRIMÉ
+    // 6️⃣ CALCULER LES NON-LUS + MASQUER HISTORIQUE SI SUPPRIMÉ
+const conversationsWithUnread = await Promise.all(
+  visibleConversations.map(async (conv) => {
+    // 🔥 Vérifier si l'utilisateur a supprimé cette conversation
+    const wasDeletedByMe = conv.deletedBy?.find(
+      item => item.userId && item.userId.toString() === userId.toString()
     );
 
-    console.log(`✅ ${conversationsWithUnread.length} conversations actives trouvées`);
+    // 🔥 Si supprimée, compter UNIQUEMENT les messages APRÈS la suppression
+    let unreadCount;
+    if (wasDeletedByMe) {
+      unreadCount = await Message.countDocuments({
+        conversationId: conv._id,
+        sender: { $ne: userId },
+        status: { $ne: 'read' },
+        deletedBy: { $ne: userId },
+        createdAt: { $gt: wasDeletedByMe.deletedAt } // ✅ UNIQUEMENT APRÈS suppression
+      });
+    } else {
+      unreadCount = await Message.countDocuments({
+        conversationId: conv._id,
+        sender: { $ne: userId },
+        status: { $ne: 'read' },
+        deletedBy: { $ne: userId }
+      });
+    }
+
+    let conversationObj = conv.toObject();
+    
+    // 🔥 MASQUER lastMessage si la conversation a été supprimée
+    if (wasDeletedByMe && conversationObj.lastMessage) {
+      const messageDate = new Date(conversationObj.lastMessage.createdAt);
+      const deletionDate = new Date(wasDeletedByMe.deletedAt);
+      
+      if (messageDate <= deletionDate) {
+        console.log(`🔇 LastMessage masqué pour ${conv._id}`);
+        conversationObj.lastMessage = null;
+      }
+    }
+
+    return {
+      ...conversationObj,
+      unreadCount
+    };
+  })
+);
+
+    console.log(`✅ ${conversationsWithUnread.length} conversations retournées`);
 
     res.json({
       success: true,
