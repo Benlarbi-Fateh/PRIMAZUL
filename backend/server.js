@@ -13,7 +13,8 @@ app.use(
   cors({
     origin: ["http://localhost:3000", "http://192.168.1.7:3000"],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
 
@@ -161,6 +162,22 @@ server.listen(PORT, "0.0.0.0", () => {
     `📊 Routes chargées: auth, conversations, messages, upload, audio, groups, invitations, profile`
   );
 });
+
+io.on("connection", (socket) => {
+  socket.on("join-conversation", (conversationId) => {
+    socket.join(`conversation_${conversationId}`);
+  });
+  socket.on("leave-conversation", (conversationId) => {
+    socket.leave(`conversation_${conversationId}`);
+  });
+});
+const taskRoutes = require("./routes/task");
+const projectRoutes = require("./routes/project");
+
+app.use(express.json()); 
+
+app.use("/api", taskRoutes);
+app.use("/api", projectRoutes);
 
 // Export pour les tests
 module.exports = { app, server, io };
