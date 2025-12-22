@@ -1,6 +1,5 @@
 "use client";
 
-<<<<<<< HEAD
 import { useState, useEffect, useRef, useContext } from 'react';
 import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image as ImageIcon, FileText, Music, Download, 
   Trash2, 
@@ -33,25 +32,7 @@ import Image from 'next/image';
 import MessageSearch from '@/components/Chat/MessageSearch';
 import AddMembersModal from '@/components/Group/AddMembersModal';
 
-export default function MobileHeader({ contact, conversation, onBack, onSearchOpen }) {
-=======
-import { useContext, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { AuthContext } from "@/context/AuthProvider";
-import { useTheme } from "@/hooks/useTheme";
-import { onOnlineUsersUpdate, requestOnlineUsers } from "@/services/socket";
-import { ArrowLeft, Phone, Video, Users, Info } from "lucide-react";
-import { formatMessageDate } from "@/utils/dateFormatter";
-import Image from "next/image";
-
-export default function MobileHeader({
-  contact,
-  conversation,
-  onBack,
-  onVideoCall,
-  onAudioCall,
-}) {
->>>>>>> beta-version
+export default function MobileHeader({ contact, conversation, onBack, onVideoCall, onAudioCall }) {
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
   const router = useRouter();
@@ -148,7 +129,6 @@ export default function MobileHeader({
     return onlineUsers.has(userId);
   };
 
-<<<<<<< HEAD
   const formatFileSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -654,8 +634,6 @@ export default function MobileHeader({
     return "Voir le profil";
   };
 
-=======
->>>>>>> beta-version
   // Styles
   const headerBg = isDark
     ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950"
@@ -683,33 +661,6 @@ export default function MobileHeader({
     ? "bg-gradient-to-br from-blue-700 to-blue-800 border-blue-600"
     : "bg-gradient-to-br from-purple-500 to-pink-500 border-blue-700";
 
-<<<<<<< HEAD
-=======
-  const getOtherParticipant = (conv) => {
-    const userId = user?._id || user?.id;
-    return conv.participants?.find((p) => (p._id || p.id) !== userId);
-  };
-
-  const handleProfileClick = () => {
-    if (!contact && !conversation) {
-      router.push("/profile");
-    } else if (conversation?.isGroup) {
-      // router.push(`/group/${conversation._id}`);
-    } else {
-      const contactUser = contact || getOtherParticipant(conversation);
-      if (contactUser?._id) {
-        router.push(`/profile/${contactUser._id}`);
-      }
-    }
-  };
-
-  const getProfileTitle = () => {
-    if (!contact && !conversation) return "Voir mon profil";
-    if (conversation?.isGroup) return "Voir les détails du groupe";
-    return "Voir le profil";
-  };
-
->>>>>>> beta-version
   if (!contact && !conversation) {
     return (
       <div
@@ -722,27 +673,26 @@ export default function MobileHeader({
         ></div>
         <div className="relative p-4">
           <div className="flex items-center gap-3">
-<<<<<<< HEAD
             <div 
               className="relative shrink-0 cursor-pointer group" 
               onClick={handleProfileClick}
               title={getProfileTitle()}
-=======
-            <div
-              className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden`}
->>>>>>> beta-version
             >
-              <Image
-                src={
-                  user?.profilePicture ||
-                  `https://ui-avatars.com/api/?name=User`
-                }
-                alt="User"
-                width={40}
-                height={40}
-                className="object-cover w-full h-full"
-                unoptimized={true}
-              />
+              <div
+                className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden`}
+              >
+                <Image
+                  src={
+                    user?.profilePicture ||
+                    `https://ui-avatars.com/api/?name=User`
+                  }
+                  alt="User"
+                  width={40}
+                  height={40}
+                  className="object-cover w-full h-full"
+                  unoptimized={true}
+                />
+              </div>
             </div>
             <div className="flex-1 min-w-0">
               <h2
@@ -770,17 +720,21 @@ export default function MobileHeader({
     ? conversation?.groupName || "Groupe sans nom"
     : contact?.name || "Utilisateur";
   const displayImage = isGroup
-<<<<<<< HEAD
-    ? (conversation?.groupImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(conversation?.groupName || 'Groupe')}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`)
-    : (contact?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`);
-
+    ? conversation?.groupImage ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        conversation?.groupName || 'Groupe'
+      )}&background=${isDark ? '6366f1' : '6366f1'}&color=fff&bold=true`
+    : contact?.profilePicture ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        contact?.name || 'User'
+      )}&background=${isDark ? '0ea5e9' : '3b82f6'}&color=fff&bold=true`;
   const participantsCount = isGroup ? (conversation?.participants?.length || 0) : null;
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
 
   return (
     <>
       <div className={`lg:hidden relative overflow-hidden ${headerBg} shadow-lg`}>
-        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
+        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MkiIGhlaWdodD0iNjAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gMTAgMCBMIDAgMCAwIDEwIiBmaWxsPSJub25lIiBzdHJva2U9Iidoc2woMjEwLCA4MCUsIDUwJSknIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
         
         <div className="relative p-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -800,7 +754,7 @@ export default function MobileHeader({
                 <Image
                   src={displayImage}
                   alt={displayName}
-                   width={40}
+                  width={40}
                   height={40}
                   className="w-full h-full object-cover"
                   unoptimized={true}
@@ -864,17 +818,25 @@ export default function MobileHeader({
           <div className="flex items-center gap-1 shrink-0">
             {!isGroup && (
               <>
-                <button className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+                <button 
+                  onClick={onAudioCall} 
+                  className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
+                  title="Appel audio"
+                >
                   <Phone className="w-4 h-4" />
                 </button>
-                <button className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+                <button 
+                  onClick={onVideoCall} 
+                  className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
+                  title="Appel vidéo"
+                >
                   <Video className="w-4 h-4" />
                 </button>
               </>
             )}
 
             <div className="relative" ref={menuRef}>
-              <button onClick={() => setShowMenu(!showMenu)} className={`p-2 rounded-xl transition-all ${buttonStyle}`}>
+              <button onClick={() => setShowMenu(!showMenu)} className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}>
                 <Info className="w-4 h-4" />
               </button>
 
@@ -1269,135 +1231,10 @@ export default function MobileHeader({
                     
                   </div>
                 </div>
-=======
-    ? conversation?.groupImage ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        conversation?.groupName || "Groupe"
-      )}&background=${isDark ? "6366f1" : "6366f1"}&color=fff&bold=true`
-    : contact?.profilePicture ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        contact?.name || "User"
-      )}&background=${isDark ? "0ea5e9" : "3b82f6"}&color=fff&bold=true`;
-  const participantsCount = isGroup
-    ? conversation?.participants?.length || 0
-    : null;
-  const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
-
-  return (
-    <div className={`lg:hidden relative overflow-hidden ${headerBg} shadow-lg`}>
-      <div
-        className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${
-          isDark ? "opacity-10" : "opacity-20"
-        }`}
-      ></div>
-
-      <div className="relative p-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button
-            onClick={onBack || (() => router.push("/"))}
-            className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm shrink-0 ${buttonStyle}`}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-
-          <div
-            className="relative shrink-0 cursor-pointer group"
-            onClick={handleProfileClick}
-            title={getProfileTitle()}
-          >
-            <div
-              className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}
-            >
-              <Image
-                src={displayImage}
-                alt={displayName}
-                width={40}
-                height={40}
-                className="w-full h-full object-cover"
-                unoptimized={true}
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    displayName
-                  )}&background=${
-                    isDark ? "0ea5e9" : "3b82f6"
-                  }&color=fff&bold=true`;
-                }}
-              />
-            </div>
-            {isGroup && (
-              <div
-                className={`absolute -bottom-1 -right-1 w-4 h-4 ${groupBadge} rounded-full border-2 flex items-center justify-center`}
-              >
-                <Users className="w-2 h-2 text-white" />
-              </div>
-            )}
-            {!isGroup && contactIsOnline && (
-              <div
-                className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDotBg} rounded-full border-2 ${borderStyle}`}
-              ></div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <h2
-              className={`font-bold text-base drop-shadow truncate ${textPrimary}`}
-            >
-              {displayName}
-            </h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              {isGroup ? (
-                <p className={`text-xs font-medium truncate ${textSecondary}`}>
-                  {participantsCount} participant
-                  {participantsCount > 1 ? "s" : ""}
-                </p>
-              ) : (
-                <>
-                  <span
-                    className={`w-2 h-2 ${onlineDot} rounded-full animate-pulse`}
-                  ></span>
-                  <p
-                    className={`text-xs font-medium truncate ${textSecondary}`}
-                  >
-                    {contactIsOnline ? "En ligne" : "Hors ligne"}
-                  </p>
-                </>
->>>>>>> beta-version
               )}
             </div>
           </div>
         </div>
-<<<<<<< HEAD
-=======
-
-        <div className="flex items-center gap-1 shrink-0">
-          <>
-            {/* ✅ BOUTON APPEL AUDIO */}
-            <button
-              onClick={onAudioCall}
-              className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
-              title="Appel audio"
-            >
-              <Phone className="w-4 h-4" />
-            </button>
-
-            {/* ✅ BOUTON APPEL VIDÉO */}
-            <button
-              onClick={onVideoCall}
-              className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
-              title="Appel vidéo"
-            >
-              <Video className="w-4 h-4" />
-            </button>
-          </>
-
-          <button
-            className={`p-2 rounded-xl transition-all active:scale-95 backdrop-blur-sm ${buttonStyle}`}
-            title="Plus d'options"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-        </div>
->>>>>>> beta-version
       </div>
 
       {/* Panel média mobile */}

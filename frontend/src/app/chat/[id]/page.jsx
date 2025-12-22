@@ -24,11 +24,14 @@ import {
   onUserStoppedTyping,
   onMessageStatusUpdated,
   onConversationStatusUpdated,
-<<<<<<< HEAD
   onReactionUpdated
 } from '@/services/socket';
 import { useSocket } from '@/hooks/useSocket';
 import { useTheme } from '@/hooks/useTheme';
+// ✅ AJOUTS POUR LES APPELS
+import { CallContext } from "@/context/CallContext";
+import CallMessage from "@/components/Chat/CallMessage";
+
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
 import Sidebar from '@/components/Layout/Sidebar';
@@ -39,26 +42,7 @@ import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
 import MessageSearch from '@/components/Chat/MessageSearch';
 import { Plane, Users, Loader2 } from 'lucide-react';
-=======
-  onReactionUpdated,
-} from "@/services/socket";
-import { useSocket } from "@/hooks/useSocket";
-import { useTheme } from "@/hooks/useTheme";
-// ✅ AJOUTS POUR LES APPELS
-import { CallContext } from "@/context/Callcontext";
-import CallMessage from "@/components/Chat/CallMessage";
-
-import ProtectedRoute from "@/components/Auth/ProtectedRoute";
-import MainSidebar from "@/components/Layout/MainSidebar.client";
-import Sidebar from "@/components/Layout/Sidebar";
-import MobileHeader from "@/components/Layout/MobileHeader";
-import ChatHeader from "@/components/Layout/ChatHeader";
-import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
-import MessageInput from "@/components/Chat/MessageInput";
-import TypingIndicator from "@/components/Chat/TypingIndicator";
-import { Plane, Users, Loader2 } from "lucide-react";
 import StoryReplyMessage from "@/components/Chat/StoryReplyMessage";
->>>>>>> beta-version
 
 export default function ChatPage() {
   const params = useParams();
@@ -86,11 +70,8 @@ export default function ChatPage() {
   const [replyingToContent, setReplyingToContent] = useState("");
   const [replyingToSender, setReplyingToSender] = useState(null);
 
-<<<<<<< HEAD
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   
-=======
->>>>>>> beta-version
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null); 
   const typingTimeoutRef = useRef(null);
@@ -98,7 +79,6 @@ export default function ChatPage() {
 
   useSocket();
 
-<<<<<<< HEAD
   // 🆕 Fonction pour scroller vers un message recherché
   const scrollToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
@@ -116,12 +96,10 @@ export default function ChatPage() {
   };
 
   // Cleanup : Quitter la conversation quand on quitte la page
-=======
-  // Cleanup
->>>>>>> beta-version
   useEffect(() => {
+    const socket = getSocket();
     return () => {
-      if (conversationId) {
+      if (conversationId && socket) {
         console.log("🚪 Quitter la conversation:", conversationId);
         leaveConversation(conversationId);
       }
@@ -289,7 +267,7 @@ export default function ChatPage() {
   const contact = getOtherParticipant();
 
   // ========================================
-  // ✅ APPELS CORRIGÉS (C'EST ICI LA MODIF)
+  // ✅ APPELS CORRIGÉS
   // ========================================
   const handleVideoCall = () => {
     if (!conversation) return;
@@ -574,12 +552,13 @@ export default function ChatPage() {
               />
             </div>
             <div className="hidden lg:block">
-<<<<<<< HEAD
               <ChatHeader 
                 contact={contact} 
                 conversation={conversation} 
                 onBack={() => router.push('/')}
                 onSearchOpen={() => setIsSearchOpen(true)}
+                onVideoCall={handleVideoCall}
+                onAudioCall={handleAudioCall}
               />
             </div>
 
@@ -594,22 +573,8 @@ export default function ChatPage() {
             {/* Container des messages avec scrollbar cachée */}
             <div 
               ref={messagesContainerRef}
-              className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}>
-            
-=======
-              <ChatHeader
-                contact={contact}
-                conversation={conversation}
-                onBack={() => router.push("/")}
-                onVideoCall={handleVideoCall}
-                onAudioCall={handleAudioCall}
-              />
-            </div>
-
-            <div
               className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
             >
->>>>>>> beta-version
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full animate-fade-in">
                   <div

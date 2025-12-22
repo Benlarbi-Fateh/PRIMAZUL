@@ -243,7 +243,6 @@ body {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
-<<<<<<< HEAD
 
 /* 🆕 Animation de surbrillance pour la recherche de messages */
 @keyframes highlight {
@@ -357,7 +356,6 @@ body {
     background-position: 0% 50%;
   }
 }
-=======
 /* frontend/src/app/globals.css */
 
 @keyframes fade-in {
@@ -400,4 +398,3 @@ body {
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
 }
->>>>>>> beta-version
