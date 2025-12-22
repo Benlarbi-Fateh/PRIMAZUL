@@ -39,7 +39,9 @@ import ChatHeader from "@/components/Layout/ChatHeader";
 import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
 import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
-import { Plane, Users, Loader2 } from "lucide-react";
+import { Plane, Users, Loader2} from "lucide-react";
+
+
 
 export default function ChatPage() {
   const params = useParams();
@@ -66,6 +68,7 @@ export default function ChatPage() {
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyingToContent, setReplyingToContent] = useState("");
   const [replyingToSender, setReplyingToSender] = useState(null);
+
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -527,6 +530,7 @@ export default function ChatPage() {
                 onBack={() => router.push("/")}
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
+               
               />
             </div>
             <div className="hidden lg:block">
@@ -537,8 +541,11 @@ export default function ChatPage() {
                 onBack={() => router.push("/")}
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
+               
               />
             </div>
+
+            
 
             <div
               className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
@@ -645,7 +652,11 @@ export default function ChatPage() {
             />
           </div>
         </div>
-      </div>
-    </ProtectedRoute>
-  );
+
+        
+        </div>
+    
+    
+  </ProtectedRoute>
+);
 }

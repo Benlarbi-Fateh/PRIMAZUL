@@ -20,6 +20,7 @@ import {
   Lock,
   Unlock,
   Info,
+  KanbanSquare,
 } from "lucide-react";
 import useBlockCheck from "../../hooks/useBlockCheck";
 import { useRouter } from "next/navigation";
@@ -30,13 +31,14 @@ import { onOnlineUsersUpdate, requestOnlineUsers } from "@/services/socket";
 import { formatMessageDate } from "@/utils/dateFormatter";
 import ImageComponent from "next/image";
 
-// ✅ AJOUT DE onVideoCall ET onAudioCall DANS LES PROPS
+// ✅ AJOUT DE onVideoCall ET onAudioCall et openCollab DANS LES PROPS
 export default function ChatHeader({
   contact,
   conversation,
   onBack,
   onVideoCall,
   onAudioCall,
+  onOpenCollab, //nouveau prop
 }) {
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
@@ -347,6 +349,23 @@ export default function ChatHeader({
 
           <div className="flex items-center gap-1 shrink-0">
             <>
+            {/* --- BOUTON KANBAN (COLLABORATION) placé AVANT les icônes d'appel --- */}
+    <button
+    onClick={() => {
+    if (conversation?.isGroup) {
+      router.push(`/chat/${conversation._id}/tasks`);
+    } else {
+      alert("La collaboration n'est disponible que pour les discussions de groupe.");
+    }
+     }}
+      className={`p-2 rounded-xl transition-all ${buttonStyle}`}
+      title="Ouvrir Collaboration"
+      disabled={!conversation?.isGroup} // optionnel : désactive le bouton si pas un groupe
+      >
+       <KanbanSquare className="w-4 h-4" />
+      </button>
+
+
               {/* ✅ AJOUT DES ONCLICK ICI */}
               <button
                 onClick={onAudioCall}

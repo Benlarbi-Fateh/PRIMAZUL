@@ -375,3 +375,30 @@ export const disconnectSocket = () => {
 export const getSocket = () => socket;
 
 export const isSocketConnected = () => socket?.connected || false;
+// services/socket.js (ajoute ces fonctions)
+export const emitCreateTask = (task) => {
+  const socket = getSocket();
+  if (!socket) return;
+  socket.emit("create-task", task);
+};
+
+export const onTaskCreated = (cb) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+  socket.on("task-created", cb);
+  return () => socket.off("task-created", cb);
+};
+
+export const onTaskUpdated = (cb) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+  socket.on("task-updated", cb);
+  return () => socket.off("task-updated", cb);
+};
+
+export const onTaskDeleted = (cb) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+  socket.on("task-deleted", cb);
+  return () => socket.off("task-deleted", cb);
+};
