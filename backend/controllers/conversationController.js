@@ -227,19 +227,6 @@ exports.getOrCreateConversation = async (req, res) => {
     if (conversation) {
       console.log('✅ Conversation trouvée:', conversation._id);
       
-      // 🔥 NOUVEAU : RESTAURER AUTOMATIQUEMENT SI SOFT-DELETED
-      const wasDeletedByMe = conversation.deletedBy?.some(
-        item => item.userId?.toString() === userId.toString()
-      );
-      
-      if (wasDeletedByMe) {
-        console.log('🔄 Conversation soft-deleted détectée, restauration...');
-        conversation.deletedBy = conversation.deletedBy.filter(
-          item => item.userId?.toString() !== userId.toString()
-        );
-        await conversation.save();
-        console.log('✅ Conversation restaurée automatiquement pour:', userId);
-      }
       
       return res.json({ 
         success: true, 

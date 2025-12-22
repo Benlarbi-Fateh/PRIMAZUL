@@ -666,27 +666,39 @@ useEffect(() => {
   };
 
   const getLastMessagePreview = (conv) => {
-  // 🔥 NOUVEAU : Vérifier si la conversation a été vidée par l'utilisateur
   const userId = user?._id || user?.id;
-  const wasDeletedByMe = conv.deletedBy?.find(
-    item => item.userId?.toString() === userId?.toString()
+
+  // Est-ce que MOI j'ai vidé cette discussion ?
+  const myDeletion = conv.deletedBy?.find(
+    (item) => item.userId?.toString() === userId?.toString()
   );
-  
-  // Si vidée, ne pas afficher le dernier message
-  if (wasDeletedByMe) {
+
+  // S'il n'y a aucun lastMessage pour cette conversation
+  if (!conv.lastMessage) {
     return "Démarrer la conversation";
   }
-  
-  // Comportement normal
-  if (!conv.lastMessage) return "Démarrer la conversation";
+
+  // Si j'ai vidé la discussion, on regarde si le lastMessage est AVANT ou APRÈS la suppression
+  if (myDeletion && myDeletion.deletedAt && conv.lastMessage.createdAt) {
+    const deletedAt = new Date(myDeletion.deletedAt);
+    const lastMsgDate = new Date(conv.lastMessage.createdAt);
+
+    // 👉 Le lastMessage est plus ancien que la suppression → on ne l'affiche pas
+    if (lastMsgDate <= deletedAt) {
+      return "Démarrer la conversation";
+    }
+    // Sinon, c'est un nouveau message après la suppression → on l'affiche normalement
+  }
 
   const lastMsg = conv.lastMessage;
 
+  // Types spéciaux
   if (lastMsg.type === "image") return "🖼️ Image";
   if (lastMsg.type === "video") return "🎬 Vidéo";
   if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
   if (lastMsg.type === "voice") return "🎤 Message vocal";
 
+  // Texte
   const preview = lastMsg.content || "";
   return preview.length > 40 ? preview.substring(0, 40) + "..." : preview;
 };

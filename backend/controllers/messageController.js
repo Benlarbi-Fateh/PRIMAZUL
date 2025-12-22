@@ -116,33 +116,6 @@ exports.sendMessage = async (req, res) => {
           });
         }
       }
-
-      // ✅ NOUVEAU : GESTION AMÉLIORÉE DE LA RESTAURATION
-      // ✅ NOUVEAU : GESTION AMÉLIORÉE DE LA RESTAURATION
-const conversation = await Conversation.findById(conversationId);
-
-if (conversation && conversation.deletedBy && Array.isArray(conversation.deletedBy)) {
-  console.log(`🔍 Vérification deletedBy pour conversation ${conversationId}`);
-  
-  // Vérifier si l'EXPÉDITEUR avait supprimé la conversation
-  const senderDeleted = conversation.deletedBy.find(
-    item => item.userId?.toString() === senderId.toString()
-  );
-  
-  if (senderDeleted) {
-    console.log(`🔄 L'expéditeur ${senderId} avait supprimé la conversation`);
-    
-    // 🔥 RETIRER uniquement l'expéditeur de deletedBy
-    // Le destinataire garde sa vue (vide ou pleine selon son état)
-    conversation.deletedBy = conversation.deletedBy.filter(
-      item => item.userId?.toString() !== senderId.toString()
-    );
-    
-    await conversation.save();
-    
-    console.log('✅ Conversation restaurée pour l\'expéditeur uniquement');
-  }
-}
     }
 
     // ✅ Création du message
