@@ -1,33 +1,79 @@
+// models/Conversation.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
+const conversationSchema = new Schema({
+  // Participants (toujours au moins 2 en 1-1, plus en groupe)
+  participants: [{ type: Schema.Types.ObjectId, ref: 'User', required: true }],
 
-const conversationSchema = new mongoose.Schema({
-  participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],  
-  lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
- 
-    
-  // 🆕 NOUVEAUX CHAMPS POUR LES GROUPES
+  // Dernier message (pour l’aperçu dans la sidebar)
+  lastMessage: { type: Schema.Types.ObjectId, ref: 'Message' },
+
+  // ============================
+  //   CHAMPS POUR LES GROUPES
+  // ============================
   isGroup: { type: Boolean, default: false },
   groupName: { type: String, default: '' },
   groupImage: { type: String, default: '' },
-  groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Créateur du groupe
-  groupAdmins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],//plusieurs admin
-  mutedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],  // qui a mis en silencieux
- 
 
-  // ✅ NOUVEAU FORMAT - Stocker userId + date de suppression
+  // Créateur du groupe
+  groupAdmin: { type: Schema.Types.ObjectId, ref: 'User' },
+
+  // Autres admins
+  groupAdmins: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+
+  // Historique des actions de groupe
+  groupHistory: [{
+    action: {
+      type: String,
+      enum: [
+        'member_added',
+        'member_removed',
+        'member_left',
+        'admin_added',
+        'admin_removed',
+        'info_updated'
+      ],
+      required: true
+    },
+    performedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    targetUser: { type: Schema.Types.ObjectId, ref: 'User' },
+    details: { type: String },
+    timestamp: { type: Date, default: Date.now }
+  }],
+
+  // ============================
+  //   SUPPRESSION SOFT (vider)
+  // ============================
+  // Qui a vidé la conversation et quand (pour ce user)
   deletedBy: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    userId: { type: Schema.Types.ObjectId, ref: 'User' },
     deletedAt: { type: Date, default: Date.now }
   }],
 
- 
+  // ============================
+  //   ARCHIVAGE
+  // ============================
+  // Qui a archivé la conversation et quand
+  archivedBy: [{
+    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    archivedAt: { type: Date, default: Date.now }
+  }],
+
+  // ============================
+  //   SILENCE / MUTE
+  // ============================
+  mutedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+
+  // ============================
+  //   COMPTEURS NON-LUS (optionnel)
+  // ============================
   unreadCount: {
     type: Map,
     of: Number,
-    default: new Map()
+    default: () => ({})
   }
-}, { timestamps: true });
 
+}, { timestamps: true });
 
 module.exports = mongoose.model('Conversation', conversationSchema);

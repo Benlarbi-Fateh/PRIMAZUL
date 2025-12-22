@@ -71,38 +71,48 @@ exports.getConversations = async (req, res) => {
 
     // 5️⃣ FILTRER ET CALCULER LES NON-LUS
     const contactSet = new Set(contactIds);
-    const visibleConversations = [];
+const visibleConversations = [];
 
-    for (const conv of allConversations) {
-      // ✅ Garder les groupes
-      if (conv.isGroup) {
-        visibleConversations.push(conv);
-        continue;
-      }
-      
-      // ✅ Pour les conversations 1-1
-      const otherParticipant = conv.participants.find(
-        p => p._id.toString() !== userId.toString()
-      );
-      
-      if (!otherParticipant) continue;
-      
-      const otherUserId = otherParticipant._id.toString();
-      
-      // ❌ Exclure si bloqué
-      if (blockedUserIds.has(otherUserId)) {
-        console.log(`🚫 Conversation ${conv._id} masquée - Bloqué`);
-        continue;
-      }
-      
-      // ❌ Exclure si pas contact
-      if (!contactSet.has(otherUserId)) {
-        console.log(`⚠️ Conversation ${conv._id} exclue - Pas contact`);
-        continue;
-      }
-      
-      visibleConversations.push(conv);
-    }
+for (const conv of allConversations) {
+  // 🆕 EXCLURE SI ARCHIVÉE PAR L'UTILISATEUR
+  const isArchivedByMe = conv.archivedBy?.some(
+    item => item.userId && item.userId.toString() === userId.toString()
+  );
+  
+  if (isArchivedByMe) {
+    console.log(`📦 Conversation ${conv._id} archivée - Masquée`);
+    continue;
+  }
+  
+  // ✅ Garder les groupes
+  if (conv.isGroup) {
+    visibleConversations.push(conv);
+    continue;
+  }
+  
+  // ✅ Pour les conversations 1-1
+  const otherParticipant = conv.participants.find(
+    p => p._id.toString() !== userId.toString()
+  );
+  
+  if (!otherParticipant) continue;
+  
+  const otherUserId = otherParticipant._id.toString();
+  
+  // ❌ Exclure si bloqué
+  if (blockedUserIds.has(otherUserId)) {
+    console.log(`🚫 Conversation ${conv._id} masquée - Bloqué`);
+    continue;
+  }
+  
+  // ❌ Exclure si pas contact
+  if (!contactSet.has(otherUserId)) {
+    console.log(`⚠️ Conversation ${conv._id} exclue - Pas contact`);
+    continue;
+  }
+  
+  visibleConversations.push(conv);
+}
 
     console.log(`✅ ${visibleConversations.length} conversations visibles`);
 

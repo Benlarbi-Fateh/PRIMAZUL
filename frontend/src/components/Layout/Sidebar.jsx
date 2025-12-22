@@ -16,6 +16,7 @@ import {
   rejectInvitation,
   cancelInvitation,
   deleteConversationForUser,
+  archiveConversation, 
 } from "@/lib/api";
 import {
   getSocket,
@@ -61,6 +62,7 @@ export default function Sidebar({ activeConversationId }) {
   const { user, logout } = useContext(AuthContext);
   const { isDark } = useTheme();
   const router = useRouter();
+  const currentUserId = user?._id || user?.id;
 
   const [conversations, setConversations] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
@@ -73,6 +75,7 @@ export default function Sidebar({ activeConversationId }) {
   const [receivedInvitations, setReceivedInvitations] = useState([]);
   const [sentInvitations, setSentInvitations] = useState([]);
   const [invitationTab, setInvitationTab] = useState("received");
+  const [hiddenConversationIds, setHiddenConversationIds] = useState(new Set());
 
   const searchTimeoutRef = useRef(null);
   const refreshTimeoutRef = useRef(null);
@@ -313,20 +316,19 @@ const fetchConversations = useCallback(async () => {
   }, [searchTerm, activeTab]);
 
 useEffect(() => {
-    // Fonction pour rafraîchir les conversations UNIQUEMENT si demandé explicitement
-    const handleRefreshConversations = (event) => {
-      console.log('🔄 Rafraîchissement explicite des conversations');
-      fetchConversations();
-    };
-    
-    // Écouter l'événement
-    window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-    
-    // Nettoyer à la destruction
-    return () => {
-      window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-    };
-  }, [fetchConversations]);
+  const handleRefreshConversations = (event) => {
+    console.log('🔄 Rafraîchissement explicite des conversations');
+    // ✅ Quand on demande un refresh (par ex. depuis "Restaurer"), on vide les caches locaux
+    setHiddenConversationIds(new Set());
+    fetchConversations();
+  };
+  
+  window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+  
+  return () => {
+    window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+  };
+}, [fetchConversations]);
 
   // ✅ AJOUTER CE NOUVEAU BLOC (vers ligne 220)
 useEffect(() => {
@@ -391,23 +393,45 @@ useEffect(() => {
   const socket = getSocket();
 
   if (socket && user) {
-    socket.on('conversation-regenerated', ({ oldConversationId, newConversation }) => {
-      console.log('🔄 Sidebar: Conversation régénérée:', oldConversationId, '→', newConversation._id);
-      
-      setConversations((prev) => {
-        // Supprimer l'ancienne conversation
-        const filtered = prev.filter(conv => conv._id !== oldConversationId);
-        
-        // Ajouter la nouvelle conversation en haut
-        return [newConversation, ...filtered];
+    // ❌ IMPORTANT : ne plus écouter conversation-updated pour modifier la liste
+    // Ça évite qu'une conversation archivée réapparaisse même une fraction de seconde
+
+    socket.on("group-created", (group) => {
+      setConversations((prevConversations) => {
+        const exists = prevConversations.some(
+          (conv) => conv._id === group._id
+        );
+        if (!exists) {
+          return [group, ...prevConversations];
+        }
+        return prevConversations;
       });
     });
 
+    socket.on("conversation-read", ({ conversationId }) => {
+      setConversations((prevConversations) =>
+        prevConversations.map((conv) =>
+          conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
+    });
+
+    onShouldRefreshConversations(() => {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = setTimeout(() => {
+        fetchConversations();
+      }, 300);
+    });
+
     return () => {
-      socket.off('conversation-regenerated');
+      // ❌ ne plus faire off("conversation-updated") puisqu'on ne l'écoute plus
+      socket.off("group-created");
+      socket.off("conversation-read");
+      socket.off("should-refresh-conversations");
+      clearTimeout(refreshTimeoutRef.current);
     };
   }
-}, [user]);
+}, [user, fetchConversations]);
 
  useEffect(() => {
     if (!user) return;
@@ -1141,7 +1165,20 @@ useEffect(() => {
                 </div>
               ) : (
                 <div className="p-3 space-y-2">
-                  {conversations.map((conv) => {
+                  {conversations
+                  .filter(conv => {
+    // 1) Ne pas afficher celles qu'on a cachées localement (quand on clique Archiver)
+    if (hiddenConversationIds.has(conv._id)) return false;
+
+    // 2) Ne pas afficher celles qui sont archivées pour moi en base
+    const isArchivedByMe = conv.archivedBy?.some(
+      item => item.userId?.toString() === currentUserId?.toString()
+    );
+    if (isArchivedByMe) return false;
+
+    return true;
+  })
+                  .map((conv) => {
                     const isActive = conv._id === activeConversationId;
                     const messageStatus = getMessageStatus(conv);
                     const lastMessageTime = formatMessageTime(conv.updatedAt);
@@ -1267,22 +1304,62 @@ useEffect(() => {
                               ? 'bg-linear-to-r from-blue-900 to-blue-800 border-blue-700' 
                               : 'bg-white border-blue-100'
                           }`}>
-                            <button className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-                              isDark 
-                                ? 'hover:bg-blue-800/50 text-blue-200' 
-                                : 'hover:bg-blue-50 text-slate-700'
-                            }`}>
-                              <Pin className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
-                              Épingler
-                            </button>
-                            <button className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-                              isDark 
-                                ? 'hover:bg-blue-800/50 text-blue-200' 
-                                : 'hover:bg-blue-50 text-slate-700'
-                            }`}>
-                              <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
-                              Archiver
-                            </button>
+                            <button
+  onClick={async (e) => {
+    e.stopPropagation();
+
+    if (!confirm(
+      `Archiver cette discussion ?\n\n` +
+      `💡 Effets :\n` +
+      `- Elle disparaîtra de la liste principale des chats\n` +
+      `- Elle sera visible dans Paramètres > Archives\n` +
+      `- Vous pourrez la restaurer plus tard`
+    )) {
+      return;
+    }
+
+    // ✅ 1. Cacher IMMÉDIATEMENT la conversation localement
+    setHiddenConversationIds(prev => {
+      const next = new Set(prev);
+      next.add(conv._id);
+      return next;
+    });
+    setMenuOpen(null);
+
+    try {
+      // ✅ 2. Appel API pour archiver en base
+      const resp = await archiveConversation(conv._id);
+
+      if (!resp.data.success) {
+        alert(resp.data.message || "Erreur lors de l'archivage (serveur)");
+        // Optionnel : rollback si tu veux vraiment gérer le cas d'erreur serveur
+        // setHiddenConversationIds(prev => {
+        //   const next = new Set(prev);
+        //   next.delete(conv._id);
+        //   return next;
+        // });
+      }
+    } catch (error) {
+      console.error('❌ Erreur archivage:', error);
+      alert("Erreur lors de l'archivage");
+
+      // Optionnel : rollback en cas d'erreur réseau
+      // setHiddenConversationIds(prev => {
+      //   const next = new Set(prev);
+      //   next.delete(conv._id);
+      //   return next;
+      // });
+    }
+  }}
+  className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
+    isDark 
+      ? 'hover:bg-blue-800/50 text-blue-200' 
+      : 'hover:bg-blue-50 text-slate-700'
+  }`}
+>
+  <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
+  Archiver
+</button>
                             {/* 🆕 NOUVEAU BOUTON SUPPRIMER */}
     <button 
   onClick={async (e) => {

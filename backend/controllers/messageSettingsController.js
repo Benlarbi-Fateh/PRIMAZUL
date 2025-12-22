@@ -23,6 +23,17 @@ const areContacts = async (userId1, userId2) => {
   return !!(contact1 || contact2);
 };
 
+// ✅ Helper : vérifier si un user fait partie d'une conversation
+const isUserInConversation = (conversation, userId) => {
+  if (!conversation || !Array.isArray(conversation.participants)) return false;
+
+  return conversation.participants.some(p => {
+    // p peut être un ObjectId (p.toString()) ou un document (p._id)
+    const participantId = p._id ? p._id.toString() : p.toString();
+    return participantId === userId.toString();
+  });
+};
+
 /**
  * 🆕 Soft delete avec régénération automatique pour les contacts
  */
@@ -48,16 +59,14 @@ exports.deleteConversationForUser = async (req, res) => {
       });
     }
 
-    const isParticipant = conversation.participants.some(
-      p => p._id.toString() === userId.toString()
-    );
+    const isParticipant = isUserInConversation(conversation, userId);
 
-    if (!isParticipant) {
-      return res.status(403).json({
-        success: false,
-        message: 'Vous ne faites pas partie de cette conversation'
-      });
-    }
+if (!isParticipant) {
+  return res.status(403).json({
+    success: false,
+    message: 'Vous ne faites pas partie de cette conversation'
+  });
+}
 
     // 🔥 CORRECTION : NE PLUS CRÉER DE NOUVELLE CONVERSATION
     // Simplement marquer comme supprimée
@@ -101,78 +110,130 @@ exports.deleteConversationForUser = async (req, res) => {
 };
 exports.blockUser = async (req, res) => {
   try {
-    const blockerId = req.user._id;
-    const { targetUserId } = req.body;
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
+    const userId = req.user._id;
+    const { targetUserId, reason } = req.body;
+   
+    console.log('🔒 blockUser appelé:', { userId, targetUserId });
 
     if (!targetUserId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'ID de l\'utilisateur cible manquant' 
+      return res.status(400).json({
+        success: false,
+        message: 'targetUserId requis'
       });
     }
 
-    if (blockerId.toString() === targetUserId.toString()) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Vous ne pouvez pas vous bloquer vous-même' 
+    if (userId.toString() === targetUserId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "Vous ne pouvez pas vous bloquer vous-même"
       });
     }
 
-    // Vérifier si l'utilisateur cible existe
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Utilisateur introuvable' 
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur introuvable'
       });
     }
 
-    // Vérifier si déjà bloqué
     const existingBlock = await BlockedUser.findOne({
-      blocker: blockerId,
-      blocked: targetUserId
+      userId: userId,
+      blockedUserId: targetUserId
     });
 
     if (existingBlock) {
-      return res.status(409).json({ 
-        success: false, 
-        error: 'Cet utilisateur est déjà bloqué' 
+      return res.json({
+        success: true,
+        message: 'Utilisateur déjà bloqué',
+        alreadyBlocked: true
       });
     }
 
-    // 🔥 NOUVEAU : Créer le blocage
+    // ✅ CRÉER LE BLOCAGE
     const blockedUser = new BlockedUser({
-      blocker: blockerId,
-      blocked: targetUserId
+      userId: userId,
+      blockedUserId: targetUserId,
+      reason: reason || ''
     });
+
     await blockedUser.save();
 
-    console.log(`🚫 ${blockerId} a bloqué ${targetUserId}`);
-
-    // 🔥 NOUVEAU : SUPPRIMER LE CONTACT DES DEUX CÔTÉS
+    // ✅ SUPPRIMER LE CONTACT (des deux côtés)
     await Contact.deleteMany({
       $or: [
-        { owner: blockerId, contact: targetUserId },
-        { owner: targetUserId, contact: blockerId }
+        { owner: userId, contact: targetUserId },
+        { owner: targetUserId, contact: userId }
       ]
     });
 
-    console.log(`🗑️ Contacts supprimés entre ${blockerId} et ${targetUserId}`);
+    console.log('✅ Utilisateur bloqué ET retiré des contacts:', targetUser.name);
 
-    res.json({ 
-      success: true, 
-      message: 'Utilisateur bloqué et retiré de vos contacts',
+    // 🆕 ARCHIVER AUTOMATIQUEMENT LA CONVERSATION
+    const conversation = await Conversation.findOne({
+      participants: { $all: [userId, targetUserId], $size: 2 },
+      isGroup: false
+    });
+
+    if (conversation) {
+      console.log('📦 Archivage automatique de la conversation:', conversation._id);
+      
+      if (!conversation.archivedBy) {
+        conversation.archivedBy = [];
+      }
+
+      const alreadyArchived = conversation.archivedBy.some(
+        item => item.userId && item.userId.toString() === userId.toString()
+      );
+
+      if (!alreadyArchived) {
+        conversation.archivedBy.push({
+          userId: userId,
+          archivedAt: new Date()
+        });
+        await conversation.save();
+        console.log('✅ Conversation archivée automatiquement');
+      }
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(targetUserId.toString()).emit('user-blocked', {
+        blockedBy: userId.toString(),
+        timestamp: new Date()
+      });
+      
+      // Émettre aussi l'événement d'archivage
+      if (conversation) {
+        io.to(userId.toString()).emit('conversation-archived', {
+          conversationId: conversation._id,
+          archivedAt: new Date()
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Utilisateur bloqué, retiré des contacts et conversation archivée',
       blockedUser: {
         _id: targetUser._id,
         name: targetUser.name,
-        email: targetUser.email
+        profilePicture: targetUser.profilePicture
       }
     });
-  } catch (error) {
-    console.error('❌ Erreur blockUser:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+  } catch (err) {
+    console.error('❌ blockUser error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: err.message
     });
   }
 };
@@ -238,102 +299,6 @@ exports.unblockUser = async (req, res) => {
     });
   } catch (err) {
     console.error('❌ unblockUser error:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Erreur serveur',
-      error: err.message
-    });
-  }
-};
-
-// ✅ GARDER LA FONCTION blockUser INCHANGÉE
-exports.blockUser = async (req, res) => {
-  try {
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Non authentifié'
-      });
-    }
-
-    const userId = req.user._id;
-    const { targetUserId, reason } = req.body;
-   
-    console.log('🔒 blockUser appelé:', { userId, targetUserId });
-
-    if (!targetUserId) {
-      return res.status(400).json({
-        success: false,
-        message: 'targetUserId requis'
-      });
-    }
-
-    if (userId.toString() === targetUserId.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: "Vous ne pouvez pas vous bloquer vous-même"
-      });
-    }
-
-    const targetUser = await User.findById(targetUserId);
-    if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur introuvable'
-      });
-    }
-
-    const existingBlock = await BlockedUser.findOne({
-      userId: userId,
-      blockedUserId: targetUserId
-    });
-
-    if (existingBlock) {
-      return res.json({
-        success: true,
-        message: 'Utilisateur déjà bloqué',
-        alreadyBlocked: true
-      });
-    }
-
-    // ✅ CRÉER LE BLOCAGE
-    const blockedUser = new BlockedUser({
-      userId: userId,
-      blockedUserId: targetUserId,
-      reason: reason || ''
-    });
-
-    await blockedUser.save();
-
-    // ✅ SUPPRIMER LE CONTACT (au lieu de le marquer comme bloqué)
-    await Contact.deleteMany({
-      $or: [
-        { owner: userId, contact: targetUserId },
-        { owner: targetUserId, contact: userId }
-      ]
-    });
-
-    console.log('✅ Utilisateur bloqué ET retiré des contacts:', targetUser.name);
-
-    const io = req.app.get('io');
-    if (io) {
-      io.to(targetUserId.toString()).emit('user-blocked', {
-        blockedBy: userId.toString(),
-        timestamp: new Date()
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: 'Utilisateur bloqué et retiré de vos contacts',
-      blockedUser: {
-        _id: targetUser._id,
-        name: targetUser.name,
-        profilePicture: targetUser.profilePicture
-      }
-    });
-  } catch (err) {
-    console.error('❌ blockUser error:', err);
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
@@ -741,6 +706,223 @@ exports.getConversationSettings = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur'
+    });
+  }
+};
+
+// ==========================================
+// 🆕 FONCTIONS D'ARCHIVAGE
+// ==========================================
+
+/**
+ * Archiver une conversation
+ */
+exports.archiveConversationForUser = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
+    const conversationId = req.params.id;
+    const userId = req.user._id;
+
+    console.log('📦 Archivage conversation:', conversationId, 'par user:', userId);
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation introuvable'
+      });
+    }
+
+    // Vérifier que l'utilisateur fait partie de la conversation
+    // Vérifier que l'utilisateur fait partie de la conversation
+const isParticipant = isUserInConversation(conversation, userId);
+
+if (!isParticipant) {
+  return res.status(403).json({
+    success: false,
+    message: 'Vous ne faites pas partie de cette conversation'
+  });
+}
+
+    // Initialiser archivedBy si nécessaire
+    if (!conversation.archivedBy) {
+      conversation.archivedBy = [];
+    }
+
+    // Vérifier si déjà archivée
+    const alreadyArchived = conversation.archivedBy.some(
+      item => item.userId && item.userId.toString() === userId.toString()
+    );
+
+    if (alreadyArchived) {
+      return res.json({
+        success: true,
+        message: 'Conversation déjà archivée',
+        alreadyArchived: true
+      });
+    }
+
+    // Archiver
+    conversation.archivedBy.push({
+      userId: userId,
+      archivedAt: new Date()
+    });
+
+    await conversation.save();
+
+    console.log('✅ Conversation archivée avec succès');
+
+    // Émettre un événement Socket.io pour rafraîchir la sidebar
+    const io = req.app.get('io');
+    if (io) {
+      io.to(userId.toString()).emit('conversation-archived', {
+        conversationId,
+        archivedAt: new Date()
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Conversation archivée',
+      conversationId
+    });
+  } catch (err) {
+    console.error('❌ archiveConversationForUser error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: err.message
+    });
+  }
+};
+
+/**
+ * Désarchiver une conversation
+ */
+exports.unarchiveConversationForUser = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
+    const conversationId = req.params.id;
+    const userId = req.user._id;
+
+    console.log('📤 Désarchivage conversation:', conversationId, 'par user:', userId);
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Conversation introuvable'
+      });
+    }
+
+    // Vérifier que l'utilisateur fait partie de la conversation
+const isParticipant = isUserInConversation(conversation, userId);
+
+if (!isParticipant) {
+  return res.status(403).json({
+    success: false,
+    message: 'Vous ne faites pas partie de cette conversation'
+  });
+}
+
+    // Retirer de archivedBy
+    if (Array.isArray(conversation.archivedBy)) {
+      conversation.archivedBy = conversation.archivedBy.filter(
+        item => item.userId && item.userId.toString() !== userId.toString()
+      );
+      await conversation.save();
+    }
+
+    console.log('✅ Conversation désarchivée avec succès');
+
+    // Émettre un événement Socket.io
+    const io = req.app.get('io');
+    if (io) {
+      io.to(userId.toString()).emit('conversation-unarchived', {
+        conversationId
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Conversation désarchivée',
+      conversationId
+    });
+  } catch (err) {
+    console.error('❌ unarchiveConversationForUser error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: err.message
+    });
+  }
+};
+
+/**
+ * Récupérer toutes les conversations archivées
+ */
+exports.getArchivedConversations = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Non authentifié'
+      });
+    }
+
+    const userId = req.user._id;
+
+    console.log('📋 getArchivedConversations pour:', userId);
+
+    const conversations = await Conversation.find({
+      participants: userId,
+      'archivedBy.userId': userId
+    })
+      .populate('participants', 'name email profilePicture isOnline')
+      .populate('groupAdmin', 'name email profilePicture')
+      .populate({
+        path: 'lastMessage',
+        populate: { path: 'sender', select: 'name' }
+      })
+      .sort({ updatedAt: -1 })
+      .lean(); // ✅ renvoie des objets JS simples
+
+    console.log(`✅ ${conversations.length} conversations archivées trouvées`);
+
+    const formattedConversations = conversations.map(conv => {
+      const archivedArr = Array.isArray(conv.archivedBy) ? conv.archivedBy : [];
+      const archivedInfo = archivedArr.find(
+        item => item.userId && item.userId.toString() === userId.toString()
+      );
+
+      return {
+        ...conv,
+        archivedAt: archivedInfo ? archivedInfo.archivedAt : null
+      };
+    });
+
+    return res.json({
+      success: true,
+      conversations: formattedConversations
+    });
+  } catch (err) {
+    console.error('❌ getArchivedConversations error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur serveur',
+      error: err.message
     });
   }
 };

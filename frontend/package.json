@@ -11,13 +11,16 @@
   "dependencies": {
     "agora-rtc-sdk-ng": "^4.24.2",
     "axios": "^1.13.2",
+    "cloudinary": "^2.8.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.552.0",
+    "multer": "^2.0.2",
     "next": "^16.1.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-icons": "^5.5.0",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",

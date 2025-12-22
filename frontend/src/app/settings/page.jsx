@@ -19,15 +19,20 @@ import {
   UserX,
   Unlock,
   Loader,
-  Archive,      // ✅ AJOUT
-  RefreshCcw    // ✅ AJOUT
+  Archive,
+  RefreshCcw
 } from "lucide-react";
 import { AuthContext } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import api, { sendPasswordOtp, verifyChangePassword } from "@/lib/api"; 
+import api, {
+  sendPasswordOtp,
+  verifyChangePassword,
+  getArchivedConversations,   // ✅ API archives
+  unarchiveConversation       // ✅ API désarchiver
+} from "@/lib/api";
 
 // ✅ 1. IMPORTER LA SIDEBAR
 import MainSidebar from "@/components/Layout/MainSidebar.client";
@@ -111,8 +116,8 @@ export default function SettingsPage() {
       orange: isDark ? "bg-orange-700" : "bg-orange-100",
       pink: isDark ? "bg-pink-700" : "bg-pink-100",
       cyan: isDark ? "bg-cyan-700" : "bg-cyan-100",
-      red: isDark ? "bg-red-900/40" : "bg-red-100", 
-      yellow: isDark ? "bg-yellow-900/40" : "bg-yellow-100", // ✅ AJOUT JAUNE
+      red: isDark ? "bg-red-900/40" : "bg-red-100",
+      yellow: isDark ? "bg-yellow-900/40" : "bg-yellow-100",
     };
     return colors[color] || colors.blue;
   };
@@ -125,8 +130,8 @@ export default function SettingsPage() {
       orange: isDark ? "text-orange-400" : "text-orange-600",
       pink: isDark ? "text-pink-400" : "text-pink-600",
       cyan: isDark ? "text-cyan-400" : "text-cyan-600",
-      red: isDark ? "text-red-400" : "text-red-600", 
-      yellow: isDark ? "text-yellow-400" : "text-yellow-600", // ✅ AJOUT JAUNE
+      red: isDark ? "text-red-400" : "text-red-600",
+      yellow: isDark ? "text-yellow-400" : "text-yellow-600",
     };
     return colors[color] || colors.blue;
   };
@@ -171,9 +176,11 @@ export default function SettingsPage() {
   const fetchArchivedChats = async () => {
     try {
       setLoadingArchived(true);
-      const response = await api.get('/chats/archived'); 
+      // ✅ Utilise l'API officielle des archives
+      const response = await getArchivedConversations();
       if (response.data.success) {
-        setArchivedChats(response.data.chats || []);
+        // Le contrôleur renvoie: { success, conversations: [...] }
+        setArchivedChats(response.data.conversations || []);
       }
     } catch (error) {
       console.error('Erreur chargement archives:', error);
@@ -182,18 +189,27 @@ export default function SettingsPage() {
     }
   };
 
-  const handleUnarchive = async (chatId) => {
+  const handleUnarchive = async (conversationId) => {
     try {
-      setActionLoading(chatId);
-      const response = await api.post(`/chats/${chatId}/unarchive`); 
+      setActionLoading(conversationId);
+
+      // ✅ Appel API correct
+      const response = await unarchiveConversation(conversationId);
+
       if (response.data.success) {
-        setArchivedChats(prev => prev.filter(c => c._id !== chatId));
+        // Retirer de la liste locale des archives
+        setArchivedChats(prev => prev.filter(c => c._id !== conversationId));
+
+        // 🔄 Demander au Sidebar de rafraîchir la liste des conversations
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('chat-updated'));
+          window.dispatchEvent(
+            new CustomEvent('refresh-sidebar-conversations')
+          );
         }
       }
     } catch (error) {
       console.error('Erreur désarchivage:', error);
+      alert('Erreur lors du désarchivage');
     } finally {
       setActionLoading(null);
     }
@@ -316,6 +332,31 @@ export default function SettingsPage() {
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  // 🔹 Helpers pour l'affichage des archives
+  const getArchivedChatName = (chat) => {
+    if (chat.isGroup) {
+      return chat.groupName || "Groupe sans nom";
+    }
+    const myId = user?._id || user?.id;
+    const other = (chat.participants || []).find(
+      (p) => p._id?.toString() !== myId?.toString()
+    );
+    return other?.name || "Discussion";
+  };
+
+  const getArchivedLastMessage = (chat) => {
+    const last = chat.lastMessage;
+    if (!last) return "Aucun message";
+
+    if (last.type === "image") return "🖼️ Image";
+    if (last.type === "video") return "🎬 Vidéo";
+    if (last.type === "file") return `📄 ${last.fileName || "Fichier"}`;
+    if (last.type === "voice" || last.type === "audio") return "🎤 Audio";
+
+    const content = last.content || "";
+    return content.length > 40 ? content.slice(0, 40) + "..." : content;
   };
 
   if (!user) {
@@ -505,8 +546,8 @@ export default function SettingsPage() {
               </button>
             </div>
 
-             {/* ✅ Section Discussions Archivées (NOUVEAU) */}
-             <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
+            {/* ✅ Section Discussions Archivées (NOUVEAU) */}
+            <div className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}>
               <div className="flex items-center gap-3 mb-5">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg("yellow")}`}>
                   <Archive className={`w-6 h-6 ${sectionIconText("yellow")}`} />
@@ -520,8 +561,8 @@ export default function SettingsPage() {
                 onClick={() => setShowArchivedModal(true)}
                 className={`w-full px-4 py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
                   isDark 
-                  ? "bg-yellow-900/30 hover:bg-yellow-900/50 text-yellow-300 border border-yellow-800" 
-                  : "bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-200"
+                    ? "bg-yellow-900/30 hover:bg-yellow-900/50 text-yellow-300 border border-yellow-800" 
+                    : "bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-200"
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -546,8 +587,8 @@ export default function SettingsPage() {
                 onClick={() => setShowBlockedModal(true)}
                 className={`w-full px-4 py-3 rounded-xl font-semibold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
                   isDark 
-                  ? "bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800" 
-                  : "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
+                    ? "bg-red-900/30 hover:bg-red-900/50 text-red-300 border border-red-800" 
+                    : "bg-red-50 hover:bg-red-100 text-red-700 border border-red-200"
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -745,31 +786,46 @@ export default function SettingsPage() {
               ) : archivedChats.length > 0 ? (
                 <div className="space-y-3">
                   {archivedChats.map(chat => (
-                    <div key={chat._id} className={`flex items-center justify-between p-4 rounded-xl border ${isDark ? 'border-blue-800 bg-blue-900/50' : 'border-blue-100 bg-white'}`}>
+                    <div
+                      key={chat._id}
+                      onClick={() => router.push(`/chat/${chat._id}`)}
+                      className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${
+                        isDark ? 'border-blue-800 bg-blue-900/50' : 'border-blue-100 bg-white'
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${isDark ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-700'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                          isDark ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-700'
+                        }`}>
                           <Archive className="w-5 h-5" />
                         </div>
                         <div>
                           <p className={`font-medium ${textPrimary}`}>
-                            {chat.name || "Discussion"}
+                            {getArchivedChatName(chat)}
                           </p>
                           <p className={`text-xs ${textMuted}`}>
-                            {chat.lastMessage?.content || "Aucun message"}
+                            {getArchivedLastMessage(chat)}
                           </p>
                         </div>
                       </div>
                       
                       <button
-                        onClick={() => handleUnarchive(chat._id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUnarchive(chat._id);
+                        }}
                         disabled={actionLoading === chat._id}
                         className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
                           isDark 
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                          : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                            : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
                         }`}
                       >
-                        {actionLoading === chat._id ? <Loader className="w-3 h-3 animate-spin" /> : <RefreshCcw className="w-3 h-3" />}
+                        {actionLoading === chat._id ? (
+                          <Loader className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <RefreshCcw className="w-3 h-3" />
+                        )}
                         Restaurer
                       </button>
                     </div>

@@ -165,6 +165,16 @@ export const saveTheme = (theme, wallpaperUrl) =>
     wallpaperUrl
   });
 
+  // =================== ARCHIVAGE ===================
+export const archiveConversation = (conversationId) =>
+  api.post(`/message-settings/conversations/${conversationId}/archive`);
+
+export const unarchiveConversation = (conversationId) =>
+  api.post(`/message-settings/conversations/${conversationId}/unarchive`);
+
+export const getArchivedConversations = () =>
+  api.get("/message-settings/archived");
+
 // =================== RÉINITIALISATION MOT DE PASSE ===================
 export const forgotPassword = (data) => api.post("/auth/forgot-password", data);
 export const verifyResetCode = (data) => api.post("/auth/verify-reset-code", data);

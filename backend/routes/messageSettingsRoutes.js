@@ -4,6 +4,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const ctrl = require('../controllers/messageSettingsController');
 
+
 // Test route
 router.get('/test', (req, res) => {
   res.json({ success: true, message: "Message Settings route fonctionne !" });
@@ -24,5 +25,10 @@ router.post('/conversations/:id/unmute', auth, ctrl.unmuteConversationForUser);
 router.get('/conversations/:id/settings', auth, ctrl.getConversationSettings);
 router.get('/conversations/:id/media', auth, ctrl.getMediaForConversation);
 
+
+// Archiver/Désarchiver
+router.post('/conversations/:id/archive', auth, ctrl.archiveConversationForUser);
+router.post('/conversations/:id/unarchive', auth, ctrl.unarchiveConversationForUser);
+router.get('/archived', auth, ctrl.getArchivedConversations);
 
 module.exports = router;
