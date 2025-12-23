@@ -671,49 +671,62 @@ export default function ChatPage() {
               ) : (
                 <>
                   {messages.map((message, index) => {
-                    const userId = user?._id || user?.id;
-                    const prevMessage = messages[index - 1];
-                    const isLast = index === messages.length - 1;
-                    
-                    const showDateSeparator = !prevMessage || !isSameDay(
-                      new Date(message.createdAt),
-                      new Date(prevMessage.createdAt)
-                    );
+  const userId = user?._id || user?.id;
+  const prevMessage = messages[index - 1];
+  const isLast = index === messages.length - 1;
 
-                    return (
-                      <div 
-                        key={message._id}
-                        id={`message-${message._id}`}
-                        className="transition-all duration-300"
-                      >
-                        {showDateSeparator && (
-                          <DateSeparator date={message.createdAt} />
-                        )}
+  const showDateSeparator = !prevMessage || !isSameDay(
+    new Date(message.createdAt),
+    new Date(prevMessage.createdAt)
+  );
 
-                        {/* ✅ AFFICHAGE HISTORIQUE APPEL */}
-                        {message.type === "call" ? (
-  <div className="flex w-full mb-2 justify-center">
-    <CallMessage
-      message={message}
-      isMine={message.sender?._id === userId}
-      currentUserId={userId}
-    />
-  </div>
-) : (
-  <MessageBubble
-    message={message}
-    isMine={message.sender?._id === userId}
-    isGroup={conversation?.isGroup || false}
-    isLast={isLast}
-    onDelete={handleDeleteMessage}
-    onEdit={handleEditMessage}
-    onTranslate={handleTranslateMessage}
-    onReply={handleReplyMessage}
-  />
-)}
-                      </div>
-                    );
-                  })}
+  return (
+    <div 
+      key={message._id}
+      id={`message-${message._id}`}
+      className="transition-all duration-300"
+    >
+      {showDateSeparator && (
+        <DateSeparator date={message.createdAt} />
+      )}
+
+      {/* ✅ HISTORIQUE D'APPEL */}
+      {message.type === "call" ? (
+        <div className="flex w-full mb-2 justify-center">
+          <CallMessage
+            message={message}
+            isMine={message.sender?._id === userId}
+            currentUserId={userId}
+          />
+        </div>
+      ) : message.type === "story_reaction" ? (
+        // ✅ MESSAGE DE RÉACTION À UNE STORY (format commentaire)
+        <div className="flex w-full mb-2 justify-center">
+          <div
+            className={`
+              px-3 py-1.5 rounded-full text-xs
+              ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600'}
+            `}
+          >
+            {message.content}
+          </div>
+        </div>
+      ) : (
+        // ✅ TOUS LES AUTRES MESSAGES (bulle normale)
+        <MessageBubble
+          message={message}
+          isMine={message.sender?._id === userId}
+          isGroup={conversation?.isGroup || false}
+          isLast={isLast}
+          onDelete={handleDeleteMessage}
+          onEdit={handleEditMessage}
+          onTranslate={handleTranslateMessage}
+          onReply={handleReplyMessage}
+        />
+      )}
+    </div>
+  );
+})}
                   
                   {typingUsers.length > 0 && (
                     <TypingIndicator contactName={contact?.name || 'Quelqu\'un'} />
