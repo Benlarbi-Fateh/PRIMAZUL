@@ -273,7 +273,6 @@ exports.unblockUser = async (req, res) => {
       });
     }
 
-    // ❌ NE PAS DÉBLOQUER LE CONTACT AUTOMATIQUEMENT
     // ✅ SUPPRIMER LE CONTACT DANS LES DEUX SENS
     await Contact.deleteMany({
       $or: [
@@ -284,8 +283,33 @@ exports.unblockUser = async (req, res) => {
 
     console.log('✅ Utilisateur débloqué ET retiré des contacts:', targetUserId);
 
-    // ✅ Émettre l'événement Socket.io
+    // 🆕 Désarchiver automatiquement la conversation 1-1 si elle existe
+    const conversation = await Conversation.findOne({
+      participants: { $all: [userId, targetUserId], $size: 2 },
+      isGroup: false
+    });
+
     const io = req.app.get('io');
+
+    if (conversation && Array.isArray(conversation.archivedBy)) {
+      const before = conversation.archivedBy.length;
+      conversation.archivedBy = conversation.archivedBy.filter(
+        item => item.userId && item.userId.toString() !== userId.toString()
+      );
+
+      if (conversation.archivedBy.length !== before) {
+        await conversation.save();
+        console.log('📤 Conversation désarchivée automatiquement lors du déblocage');
+
+        if (io) {
+          io.to(userId.toString()).emit('conversation-unarchived', {
+            conversationId: conversation._id
+          });
+        }
+      }
+    }
+
+    // ✅ Émettre l'événement Socket.io de déblocage
     if (io) {
       io.to(targetUserId.toString()).emit('user-unblocked', {
         unblockedBy: userId.toString(),
@@ -897,9 +921,28 @@ exports.getArchivedConversations = async (req, res) => {
         populate: { path: 'sender', select: 'name' }
       })
       .sort({ updatedAt: -1 })
-      .lean(); // ✅ renvoie des objets JS simples
+      .lean(); // ✅ objets simples
 
     console.log(`✅ ${conversations.length} conversations archivées trouvées`);
+
+    // 🔹 Récupérer tous les "autres" participants des conversations 1-1
+    const dmConversations = conversations.filter(conv => !conv.isGroup);
+    const otherUserIds = dmConversations
+      .map(conv => {
+        const other = (conv.participants || []).find(
+          p => p._id.toString() !== userId.toString()
+        );
+        return other ? other._id.toString() : null;
+      })
+      .filter(Boolean);
+
+    // 🔹 Trouver tous les utilisateurs que J'AI bloqués parmi ces autres participants
+    const blocks = await BlockedUser.find({
+      userId,
+      blockedUserId: { $in: otherUserIds }
+    }).lean();
+
+    const blockedSet = new Set(blocks.map(b => b.blockedUserId.toString()));
 
     const formattedConversations = conversations.map(conv => {
       const archivedArr = Array.isArray(conv.archivedBy) ? conv.archivedBy : [];
@@ -907,9 +950,23 @@ exports.getArchivedConversations = async (req, res) => {
         item => item.userId && item.userId.toString() === userId.toString()
       );
 
+      let isBlockedWithUser = false;
+
+      if (!conv.isGroup) {
+        const other = (conv.participants || []).find(
+          p => p._id.toString() !== userId.toString()
+        );
+        if (other) {
+          const otherId = other._id.toString();
+          // 👉 true si MOI j'ai bloqué cet utilisateur
+          isBlockedWithUser = blockedSet.has(otherId);
+        }
+      }
+
       return {
         ...conv,
-        archivedAt: archivedInfo ? archivedInfo.archivedAt : null
+        archivedAt: archivedInfo ? archivedInfo.archivedAt : null,
+        isBlockedWithUser
       };
     });
 

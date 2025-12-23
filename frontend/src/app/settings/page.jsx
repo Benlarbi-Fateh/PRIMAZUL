@@ -768,79 +768,120 @@ export default function SettingsPage() {
       )}
 
       {/* ✅ MODAL ARCHIVES (NOUVEAU) */}
-      {showArchivedModal && (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${isDark ? "bg-blue-950/70" : "bg-black/30"}`}>
-          <div className={`w-full max-w-lg max-h-[80vh] flex flex-col rounded-3xl border-2 shadow-2xl ${isDark ? "bg-blue-900 border-blue-800" : "bg-white border-blue-100"}`}>
-            
-            <div className="p-6 border-b border-gray-200/20 flex items-center justify-between">
-              <div>
-                <h2 className={`text-xl font-bold ${textPrimary}`}>Archives</h2>
-                <p className={`text-sm ${textSecondary}`}>Discussions archivées</p>
-              </div>
-              <button onClick={() => setShowArchivedModal(false)} className={`p-2 rounded-lg hover:bg-gray-500/10 ${textSecondary}`}>Fermer</button>
-            </div>
+      {/* ✅ MODAL ARCHIVES (NOUVEAU) */}
+{showArchivedModal && (
+  <div
+    className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${
+      isDark ? "bg-blue-950/70" : "bg-black/30"
+    }`}
+  >
+    <div
+      className={`w-full max-w-lg max-h-[80vh] flex flex-col rounded-3xl border-2 shadow-2xl ${
+        isDark ? "bg-blue-900 border-blue-800" : "bg-white border-blue-100"
+      }`}
+    >
+      {/* Header du modal */}
+      <div className="p-6 border-b border-gray-200/20 flex items-center justify-between">
+        <div>
+          <h2 className={`text-xl font-bold ${textPrimary}`}>Archives</h2>
+          <p className={`text-sm ${textSecondary}`}>Discussions archivées</p>
+        </div>
+        <button
+          onClick={() => setShowArchivedModal(false)}
+          className={`p-2 rounded-lg hover:bg-gray-500/10 ${textSecondary}`}
+        >
+          Fermer
+        </button>
+      </div>
 
-            <div className="p-6 overflow-y-auto custom-scrollbar">
-              {loadingArchived ? (
-                <div className="flex justify-center py-8"><Loader className="w-6 h-6 animate-spin text-blue-500" /></div>
-              ) : archivedChats.length > 0 ? (
-                <div className="space-y-3">
-                  {archivedChats.map(chat => (
-                    <div
-                      key={chat._id}
-                      onClick={() => router.push(`/chat/${chat._id}`)}
-                      className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${
-                        isDark ? 'border-blue-800 bg-blue-900/50' : 'border-blue-100 bg-white'
+      {/* Contenu */}
+      <div className="p-6 overflow-y-auto custom-scrollbar">
+        {loadingArchived ? (
+          <div className="flex justify-center py-8">
+            <Loader className="w-6 h-6 animate-spin text-blue-500" />
+          </div>
+        ) : archivedChats.length > 0 ? (
+          <div className="space-y-3">
+            {archivedChats.map((chat) => (
+              <div
+                key={chat._id}
+                onClick={() => router.push(`/chat/${chat._id}`)}
+                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:shadow-md transition-all ${
+                  isDark
+                    ? "border-blue-800 bg-blue-900/50"
+                    : "border-blue-100 bg-white"
+                }`}
+              >
+                {/* Partie gauche : nom + dernier message */}
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                      isDark
+                        ? "bg-yellow-900 text-yellow-100"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    <Archive className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className={`font-medium ${textPrimary}`}>
+                      {getArchivedChatName(chat)}
+                    </p>
+                    <p className={`text-xs ${textMuted}`}>
+                      {getArchivedLastMessage(chat)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Partie droite : état + bouton Restaurer (ou pas) */}
+                <div className="flex flex-col items-end gap-1">
+                  {/* 🔒 Si la conversation est avec un utilisateur bloqué */}
+                  {chat.isBlockedWithUser && (
+                    <span
+                      className={`text-xs font-medium ${
+                        isDark ? "text-red-300" : "text-red-600"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                          isDark ? 'bg-yellow-900 text-yellow-100' : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          <Archive className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <p className={`font-medium ${textPrimary}`}>
-                            {getArchivedChatName(chat)}
-                          </p>
-                          <p className={`text-xs ${textMuted}`}>
-                            {getArchivedLastMessage(chat)}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUnarchive(chat._id);
-                        }}
-                        disabled={actionLoading === chat._id}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
-                          isDark 
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                            : 'bg-blue-100 hover:bg-blue-200 text-blue-700'
-                        }`}
-                      >
-                        {actionLoading === chat._id ? (
-                          <Loader className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <RefreshCcw className="w-3 h-3" />
-                        )}
-                        Restaurer
-                      </button>
-                    </div>
-                  ))}
+                      Contact bloqué
+                    </span>
+                  )}
+
+                  {/* Bouton Restaurer SEULEMENT si ce n'est pas une conv bloquée */}
+                  {!chat.isBlockedWithUser && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUnarchive(chat._id);
+                      }}
+                      disabled={actionLoading === chat._id}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+                        isDark
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "bg-blue-100 hover:bg-blue-200 text-blue-700"
+                      }`}
+                    >
+                      {actionLoading === chat._id ? (
+                        <Loader className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RefreshCcw className="w-3 h-3" />
+                      )}
+                      Restaurer
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div className="text-center py-8 border-2 border-dashed rounded-xl border-gray-500/20">
-                  <Archive className={`w-10 h-10 mx-auto mb-2 ${textMuted}`} />
-                  <p className={textMuted}>Aucune discussion archivée.</p>
-                </div>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-8 border-2 border-dashed rounded-xl border-gray-500/20">
+            <Archive className={`w-10 h-10 mx-auto mb-2 ${textMuted}`} />
+            <p className={textMuted}>Aucune discussion archivée.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );
