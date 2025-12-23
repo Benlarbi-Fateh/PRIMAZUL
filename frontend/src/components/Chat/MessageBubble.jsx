@@ -130,16 +130,34 @@ export default function MessageBubble({
     }
   };
 
-  const handleDownload = () => {
-    if (message.fileUrl) {
-      const link = document.createElement('a');
-      link.href = message.fileUrl;
-      link.download = message.fileName || 'download';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const handleDownload = async () => {
+  if (!message.fileUrl) return;
+
+  try {
+    // Téléchargement du fichier (image, vidéo, audio, etc.)
+    const response = await fetch(message.fileUrl);
+    if (!response.ok) {
+      throw new Error('Erreur réseau');
     }
-  };
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = message.fileName || 'download'; // nom du fichier
+    document.body.appendChild(a);
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('❌ Erreur téléchargement :', error);
+    // Fallback : ouvrir dans un nouvel onglet si le téléchargement échoue
+    window.open(message.fileUrl, '_blank');
+  }
+};
 
   // ========================================
   // 🎥 GESTION VIDÉO
@@ -758,14 +776,26 @@ export default function MessageBubble({
       </div>
     )}
                 <div className={`relative w-56 h-44 sm:w-64 sm:h-52 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-                  <Image 
-                    src={message.fileUrl} 
-                    alt={message.fileName || 'Image'} 
-                    fill 
-                    sizes="(max-width: 640px) 224px, 256px"
-                    className="object-cover hover:scale-105 transition-transform duration-300" 
-                  />
-                </div>
+  <Image 
+    src={message.fileUrl} 
+    alt={message.fileName || 'Image'} 
+    fill 
+    sizes="(max-width: 640px) 224px, 256px"
+    className="object-cover hover:scale-105 transition-transform duration-300" 
+  />
+
+  {/* 🆕 Bouton de téléchargement sur l’image */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();      // Empêche l’ouverture dans un nouvel onglet
+      handleDownload();         // Utilise déjà message.fileUrl + fileName
+    }}
+    className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
+    title="Télécharger"
+  >
+    <Download className="w-4 h-4" />
+  </button>
+</div>
                 {message.content && (
                   <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
                     <p className="text-sm text-slate-700 font-medium">{message.content}</p>
