@@ -692,39 +692,25 @@ export default function ChatPage() {
 
                         {/* ✅ AFFICHAGE HISTORIQUE APPEL */}
                         {message.type === "call" ? (
-                          <div className="flex w-full mb-2 justify-center">
-                            <CallMessage
-                              message={message}
-                              isMine={message.sender?._id === userId}
-                              currentUserId={userId}
-                            />
-                          </div>
-                        ) : message.type === "story_reply" ? (
-                          <div
-                            className={`flex w-full mb-2 ${
-                              message.sender?._id === userId
-                                ? "justify-end"
-                                : "justify-start"
-                            }`}
-                          >
-                            <StoryReplyMessage
-                              message={message}
-                              isMine={message.sender?._id === userId}
-                            />
-                          </div>
-                        ) : (
-                          <MessageBubble
-                            message={message}
-                            isMine={message.sender?._id === userId}
-                            isGroup={conversation?.isGroup || false}
-                            isLast={isLast}
-                            // 🆕 Props pour la modification et réponse
-                            onDelete={handleDeleteMessage}
-                            onEdit={handleEditMessage}
-                            onTranslate={handleTranslateMessage}
-                            onReply={handleReplyMessage}
-                          />
-                        )}
+  <div className="flex w-full mb-2 justify-center">
+    <CallMessage
+      message={message}
+      isMine={message.sender?._id === userId}
+      currentUserId={userId}
+    />
+  </div>
+) : (
+  <MessageBubble
+    message={message}
+    isMine={message.sender?._id === userId}
+    isGroup={conversation?.isGroup || false}
+    isLast={isLast}
+    onDelete={handleDeleteMessage}
+    onEdit={handleEditMessage}
+    onTranslate={handleTranslateMessage}
+    onReply={handleReplyMessage}
+  />
+)}
                       </div>
                     );
                   })}

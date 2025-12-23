@@ -364,7 +364,7 @@ exports.replyToStatus = async (req, res) => {
       storyReply: {
         statusId: status._id,
         storyType: status.type,
-        storyUrl: status.mediaUrl, // ✅ URL Cloudinary
+        storyUrl: status.mediaUrl,
         storyText: status.content,
       },
     });
@@ -382,8 +382,13 @@ exports.replyToStatus = async (req, res) => {
         replyMessageDoc
       );
     }
-
-    res.json({ success: true, message: replyMessageDoc });
+    
+    // ✅ On renvoie aussi l'ID de la conversation
+    res.json({
+      success: true,
+      message: replyMessageDoc,
+      conversationId: conversation._id,
+    });
   } catch (error) {
     console.error("❌ Erreur reply:", error);
     res.status(500).json({ error: "Erreur serveur" });

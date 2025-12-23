@@ -31,6 +31,7 @@ import MessageReactions from './MessageReactions';
 import { AuthContext } from '@/context/AuthProvider';
 import { emitToggleReaction } from '@/services/socket';
 import { useTheme } from '@/hooks/useTheme';
+import { useRouter } from 'next/navigation';
 
 // ========================================
 // 📅 DATE SEPARATOR COMPONENT
@@ -86,6 +87,7 @@ export default function MessageBubble({
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
   const currentUserId = user?._id || user?.id;
+  const router = useRouter();
 
   // ========================================
   // 🎨 FORMATAGE
@@ -131,33 +133,39 @@ export default function MessageBubble({
   };
 
   const handleDownload = async () => {
-  if (!message.fileUrl) return;
+    if (!message.fileUrl) return;
 
-  try {
-    // Téléchargement du fichier (image, vidéo, audio, etc.)
-    const response = await fetch(message.fileUrl);
-    if (!response.ok) {
-      throw new Error('Erreur réseau');
+    try {
+      const response = await fetch(message.fileUrl);
+      if (!response.ok) {
+        throw new Error('Erreur réseau');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = message.fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('❌ Erreur téléchargement :', error);
+      window.open(message.fileUrl, '_blank');
     }
+  };
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+  const handleOpenStoryFromReply = (e) => {
+    e.stopPropagation();
+    const statusId = message.storyReply?.statusId;
+    if (!statusId) return;
 
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = message.fileName || 'download'; // nom du fichier
-    document.body.appendChild(a);
-    a.click();
-
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  } catch (error) {
-    console.error('❌ Erreur téléchargement :', error);
-    // Fallback : ouvrir dans un nouvel onglet si le téléchargement échoue
-    window.open(message.fileUrl, '_blank');
-  }
-};
+    router.push(`/status?statusId=${statusId}`);
+  };
 
   // ========================================
   // 🎥 GESTION VIDÉO
@@ -424,130 +432,129 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
-    {/* 🆕 BLOC DE RÉPONSE POUR VIDÉO - BON ENDROIT */}
-    {message.replyTo && (
-      <div className={`p-2 border-l-4 ${
-        isMine 
-          ? 'bg-blue-100 border-blue-500' 
-          : 'bg-gray-100 border-blue-500'
-      }`}>
-        <p className={`text-xs font-semibold ${
-          isMine ? 'text-blue-700' : 'text-blue-600'
-        }`}>
-          {message.replyToSender?.name || 'Utilisateur'}
-        </p>
-        <p className={`text-xs mt-1 line-clamp-2 ${
-          isMine ? 'text-blue-600' : 'text-gray-600'
-        }`}>
-          {message.replyToContent}
-        </p>
-      </div>
-    )}
-
-    <div 
-      className="relative w-full h-44 sm:h-52 bg-black cursor-pointer"
-      onClick={handleVideoClick}
-    >
-                <video
-                  ref={videoRef}
-                  preload="metadata"
-                  className="w-full h-full object-contain"
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={() => setIsPlaying(false)}
-                >
-                  <source src={message.fileUrl} type="video/mp4" />
-                  <source src={message.fileUrl} type="video/webm" />
-                  Votre navigateur ne supporte pas les vidéos.
-                </video>
-                
-                {!isPlaying && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePlay();
-                    }}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 transition-all hover:bg-black/50"
-                  >
-                    <div className="w-14 h-14 flex items-center justify-center bg-white/90 rounded-full hover:scale-105 transition-transform">
-                      <Play className="w-8 h-8 text-black ml-1" fill="black" />
-                    </div>
-                  </button>
-                )}
-
-                {(showControls || isPlaying) && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 to-transparent p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePlay();
-                          }}
-                          className="text-white hover:bg-white/20 p-2 rounded-full"
-                        >
-                          {isPlaying ? (
-                            <Pause className="w-5 h-5" />
-                          ) : (
-                            <Play className="w-5 h-5" fill="white" />
-                          )}
-                        </button>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleMute();
-                          }}
-                          className="text-white hover:bg-white/20 p-2 rounded-full"
-                        >
-                          {isMuted ? (
-                            <VolumeX className="w-5 h-5" />
-                          ) : (
-                            <Volume2 className="w-5 h-5" />
-                          )}
-                        </button>
-                        
-                        <span className="text-xs text-white font-medium">
-                          {formatDuration(message.videoDuration || 0)}
-                        </span>
-                      </div>
-                      
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFullscreen();
-                        }}
-                        className="text-white hover:bg-white/20 p-2 rounded-full"
-                      >
-                        <Maximize2 className="w-5 h-5" />
-                      </button>
-                    </div>
+              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
+                {message.replyTo && (
+                  <div className={`p-2 border-l-4 ${
+                    isMine 
+                      ? 'bg-blue-100 border-blue-500' 
+                      : 'bg-gray-100 border-blue-500'
+                  }`}>
+                    <p className={`text-xs font-semibold ${
+                      isMine ? 'text-blue-700' : 'text-blue-600'
+                    }`}>
+                      {message.replyToSender?.name || 'Utilisateur'}
+                    </p>
+                    <p className={`text-xs mt-1 line-clamp-2 ${
+                      isMine ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      {message.replyToContent}
+                    </p>
                   </div>
                 )}
 
-                <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-white text-xs font-medium">
-                  VIDÉO
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload();
-                  }}
-                  className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
-                  title="Télécharger"
+                <div 
+                  className="relative w-full h-44 sm:h-52 bg-black cursor-pointer"
+                  onClick={handleVideoClick}
                 >
-                  <Download className="w-4 h-4" />
-                </button>
-              </div>
-              
-               {message.content && (
-                <div className="p-4 border-t-2 border-blue-50 bg-gradient-to-b from-white to-blue-50/30">
-                  <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                  <video
+                    ref={videoRef}
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
+                  >
+                    <source src={message.fileUrl} type="video/mp4" />
+                    <source src={message.fileUrl} type="video/webm" />
+                    Votre navigateur ne supporte pas les vidéos.
+                  </video>
+                  
+                  {!isPlaying && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePlay();
+                      }}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 transition-all hover:bg-black/50"
+                    >
+                      <div className="w-14 h-14 flex items-center justify-center bg-white/90 rounded-full hover:scale-105 transition-transform">
+                        <Play className="w-8 h-8 text-black ml-1" fill="black" />
+                      </div>
+                    </button>
+                  )}
+
+                  {(showControls || isPlaying) && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/90 to-transparent p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePlay();
+                            }}
+                            className="text-white hover:bg-white/20 p-2 rounded-full"
+                          >
+                            {isPlaying ? (
+                              <Pause className="w-5 h-5" />
+                            ) : (
+                              <Play className="w-5 h-5" fill="white" />
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMute();
+                            }}
+                            className="text-white hover:bg-white/20 p-2 rounded-full"
+                          >
+                            {isMuted ? (
+                              <VolumeX className="w-5 h-5" />
+                            ) : (
+                              <Volume2 className="w-5 h-5" />
+                            )}
+                          </button>
+                          
+                          <span className="text-xs text-white font-medium">
+                            {formatDuration(message.videoDuration || 0)}
+                          </span>
+                        </div>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleFullscreen();
+                          }}
+                          className="text-white hover:bg-white/20 p-2 rounded-full"
+                        >
+                          <Maximize2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 backdrop-blur-sm rounded text-white text-xs font-medium">
+                    VIDÉO
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload();
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
+                    title="Télécharger"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-            </div>
+                
+                {message.content && (
+                  <div className="p-4 border-t-2 border-blue-50 bg-gradient-to-b from-white to-blue-50/30">
+                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                  </div>
+                )}
+              </div>
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {formatTime(message.createdAt)}
@@ -633,42 +640,41 @@ export default function MessageBubble({
             </div>
 
             <div className="flex flex-col max-w-xs lg:max-w-md">
-  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
-    {/* 🆕 BLOC DE RÉPONSE POUR VOCAL - BON ENDROIT */}
-    {message.replyTo && (
-      <div className={`p-2 border-l-4 ${
-        isMine 
-          ? 'bg-blue-100 border-blue-500' 
-          : 'bg-gray-100 border-blue-500'
-      }`}>
-        <p className={`text-xs font-semibold ${
-          isMine ? 'text-blue-700' : 'text-blue-600'
-        }`}>
-          {message.replyToSender?.name || 'Utilisateur'}
-        </p>
-        <p className={`text-xs mt-1 line-clamp-2 ${
-          isMine ? 'text-blue-600' : 'text-gray-600'
-        }`}>
-          {message.replyToContent}
-        </p>
-      </div>
-    )}
+              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
+                {message.replyTo && (
+                  <div className={`p-2 border-l-4 ${
+                    isMine 
+                      ? 'bg-blue-100 border-blue-500' 
+                      : 'bg-gray-100 border-blue-500'
+                  }`}>
+                    <p className={`text-xs font-semibold ${
+                      isMine ? 'text-blue-700' : 'text-blue-600'
+                    }`}>
+                      {message.replyToSender?.name || 'Utilisateur'}
+                    </p>
+                    <p className={`text-xs mt-1 line-clamp-2 ${
+                      isMine ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      {message.replyToContent}
+                    </p>
+                  </div>
+                )}
 
-    <VoiceMessage
-      voiceUrl={message.voiceUrl}
-      voiceDuration={message.voiceDuration}
-      isMine={isMine}
-      isGroup={isGroup}
-      sender={message.sender}
-      isDark={isDark}
-    />
-  </div>
-  
-  <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
-    {formatTime(message.createdAt)}
-    {renderStatus()}
-  </span>
-</div>
+                <VoiceMessage
+                  voiceUrl={message.voiceUrl}
+                  voiceDuration={message.voiceDuration}
+                  isMine={isMine}
+                  isGroup={isGroup}
+                  sender={message.sender}
+                  isDark={isDark}
+                />
+              </div>
+              
+              <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
+                {formatTime(message.createdAt)}
+                {renderStatus()}
+              </span>
+            </div>
           </div>
         </div>
         {renderReactions()}
@@ -749,53 +755,50 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
+              <div 
+                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer"
+                onClick={handleOpenFile}
+              >
+                {message.replyTo && (
+                  <div className={`p-2 border-l-4 ${
+                    isMine 
+                      ? 'bg-blue-100 border-blue-500' 
+                      : 'bg-gray-100 border-blue-500'
+                  }`}>
+                    <p className={`text-xs font-semibold ${
+                      isMine ? 'text-blue-700' : 'text-blue-600'
+                    }`}>
+                      {message.replyToSender?.name || 'Utilisateur'}
+                    </p>
+                    <p className={`text-xs mt-1 line-clamp-2 ${
+                      isMine ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      {message.replyToContent}
+                    </p>
+                  </div>
+                )}
 
-
-  <div 
-    className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer"
-    onClick={handleOpenFile}
-  
-  >
-     {/* 🆕 BLOC DE RÉPONSE POUR IMAGE - BON ENDROIT */}
-    {message.replyTo && (
-      <div className={`p-2 border-l-4 ${
-        isMine 
-          ? 'bg-blue-100 border-blue-500' 
-          : 'bg-gray-100 border-blue-500'
-      }`}>
-        <p className={`text-xs font-semibold ${
-          isMine ? 'text-blue-700' : 'text-blue-600'
-        }`}>
-          {message.replyToSender?.name || 'Utilisateur'}
-        </p>
-        <p className={`text-xs mt-1 line-clamp-2 ${
-          isMine ? 'text-blue-600' : 'text-gray-600'
-        }`}>
-          {message.replyToContent}
-        </p>
-      </div>
-    )}
                 <div className={`relative w-56 h-44 sm:w-64 sm:h-52 ${isDark ? 'bg-slate-800' : 'bg-slate-100'}`}>
-  <Image 
-    src={message.fileUrl} 
-    alt={message.fileName || 'Image'} 
-    fill 
-    sizes="(max-width: 640px) 224px, 256px"
-    className="object-cover hover:scale-105 transition-transform duration-300" 
-  />
+                  <Image 
+                    src={message.fileUrl} 
+                    alt={message.fileName || 'Image'} 
+                    fill 
+                    sizes="(max-width: 640px) 224px, 256px"
+                    className="object-cover hover:scale-105 transition-transform duration-300" 
+                  />
 
-  {/* 🆕 Bouton de téléchargement sur l’image */}
-  <button
-    onClick={(e) => {
-      e.stopPropagation();      // Empêche l’ouverture dans un nouvel onglet
-      handleDownload();         // Utilise déjà message.fileUrl + fileName
-    }}
-    className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
-    title="Télécharger"
-  >
-    <Download className="w-4 h-4" />
-  </button>
-</div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload();
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-black/70 backdrop-blur-sm rounded-full text-white hover:bg-black/90 transition-colors"
+                    title="Télécharger"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </div>
+
                 {message.content && (
                   <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
                     <p className="text-sm text-slate-700 font-medium">{message.content}</p>
@@ -815,21 +818,39 @@ export default function MessageBubble({
     );
   };
 
-  // ========================================
-  // 💬 RENDU MESSAGE TEXTE
-  // ========================================
-  const renderTextMessage = () => {
-    const avatarUrl = message.sender?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(message.sender?.name || 'User')}&background=3b82f6&color=fff&bold=true`;
+ // ========================================
+// 💬 RENDU MESSAGE TEXTE
+// ========================================
+const renderTextMessage = () => {
+  const avatarUrl =
+    message.sender?.profilePicture ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      message.sender?.name || 'User'
+    )}&background=3b82f6&color=fff&bold=true`;
 
+  const story = message.storyReply;
+  const isStoryReply = message.type === 'story_reply' && story;
+
+  // 🟣 CAS SPÉCIAL : MESSAGE DE RÉPONSE À UNE STORY
+  if (isStoryReply) {
     return (
       <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
-          <span className={`text-xs font-semibold mb-1 ml-10 ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+          <span
+            className={`text-xs font-semibold mb-1 ml-10 ${
+              isDark ? 'text-blue-300' : 'text-blue-700'
+            }`}
+          >
             {message.sender?.name}
           </span>
         )}
-      
-        <div className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+
+        <div
+          className={`flex items-end gap-2 ${
+            isMine ? 'flex-row-reverse' : 'flex-row'
+          }`}
+        >
+          {/* Avatar */}
           {!isMine && (
             <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
               <Image
@@ -842,171 +863,458 @@ export default function MessageBubble({
             </div>
           )}
 
-          {/* CONTENEUR PRINCIPAL AVEC GESTION DU SURVOL */}
-          <div 
-            className={`relative flex items-center gap-2 group ${isMine ? 'flex-row' : 'flex-row-reverse'}`}
-            onMouseEnter={() => {
-              setShowTranslateIcon(true);
-              setIsHovered(true);
-            }}
-            onMouseLeave={() => {
-              setShowTranslateIcon(false);
-              setIsHovered(false);
-            }}
-          >
-            {/* ORDRE: 3 POINTS → REACTION → TRADUCTION */}
-            <div className={`flex items-center gap-1 ${isMine ? 'flex-row' : 'flex-row-reverse'}`}>
-              {/* MENU 3 POINTS */}
-              <div className="relative">
-                <button
-                  onClick={handleMenuToggle}
-                  className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
-                >
-                  <MoreVertical className="w-4 h-4 text-gray-600" />
-                </button>
+          {/* Colonne principale : preview story + (icônes + bulle) */}
+          <div className="flex flex-col max-w-xs lg:max-w-md xl:max-w-lg gap-1">
+            {/* 🔹 Ligne "Réponse à un statut" + vignette, cliquable */}
+            <div
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={handleOpenStoryFromReply}
+            >
+              <span
+                className={`text-[10px] uppercase tracking-wide ${
+                  isDark ? 'text-slate-400' : 'text-slate-500'
+                }`}
+              >
+                Réponse à un statut
+              </span>
 
-                {showMenu && (
-                  <div 
-                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
+              {(story.storyType === 'image' || story.storyType === 'video') &&
+                story.storyUrl && (
+                  <div className="relative w-16 h-24 rounded-md overflow-hidden flex-shrink-0">
+                    <Image
+                      src={story.storyUrl}
+                      alt="Statut"
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                    {story.storyType === 'video' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <span className="text-[8px] font-semibold text-white bg-black/60 px-1 py-0.5 rounded-full">
+                          VIDÉO
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+            </div>
+
+            {/* Ligne ICÔNES + BULLE, alignées ensemble */}
+            <div
+              className={`relative flex items-start gap-2 group ${
+                isMine ? 'flex-row' : 'flex-row-reverse'
+              }`}
+              onMouseEnter={() => {
+                setShowTranslateIcon(true);
+                setIsHovered(true);
+              }}
+              onMouseLeave={() => {
+                setShowTranslateIcon(false);
+                setIsHovered(false);
+              }}
+            >
+              {/* COLONNE ICONES : 3 POINTS → REACTION → TRADUCTION */}
+              <div
+                className={`flex items-start gap-1 ${
+                  isMine ? 'flex-row' : 'flex-row-reverse'
+                }`}
+              >
+                {/* MENU 3 POINTS */}
+                <div className="relative mt-[2px]">
+                  <button
+                    onClick={handleMenuToggle}
+                    className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
                   >
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    <MoreVertical className="w-4 h-4 text-gray-600" />
+                  </button>
+
+                  {showMenu && (
+                    <div
+                      className={`absolute ${
+                        isMine ? 'left-0' : 'right-0'
+                      } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Reply className="w-4 h-4" />
-                      Répondre
+                      <button
+                        onClick={handleReply}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                      >
+                        <Reply className="w-4 h-4" />
+                        Répondre
+                      </button>
+
+                      {isMine && (
+                        <>
+                          <button
+                            onClick={handleEdit}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            Modifier
+                          </button>
+                          <button
+                            onClick={handleDelete}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Supprimer
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* REACTION PICKER */}
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-[2px]">
+                  <ReactionPicker
+                    onSelect={handleReaction}
+                    isMine={isMine}
+                  />
+                </div>
+
+                {/* BOUTON TRADUCTION */}
+                {showTranslateIcon && (
+                  <div className="relative mt-[2px]">
+                    <button
+                      onClick={handleTranslateClick}
+                      disabled={isTranslating}
+                      className={`p-2 rounded-full transition transform hover:scale-110 ${
+                        isTranslated
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
+                      }`}
+                      title={
+                        isTranslated
+                          ? 'Voir le texte original'
+                          : 'Traduire ce message'
+                      }
+                    >
+                      {isTranslating ? (
+                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      ) : isTranslated ? (
+                        <RotateCcw className="w-4 h-4" />
+                      ) : (
+                        <Languages className="w-4 h-4" />
+                      )}
                     </button>
 
-                    {isMine && (
-                      <>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer
-                        </button>
-                      </>
+                    {showLanguageMenu && (
+                      <div
+                        className={`absolute ${
+                          isMine ? 'right-0' : 'left-0'
+                        } bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-[9999]`}
+                        style={{
+                          maxHeight: '280px',
+                          overflowY: 'auto',
+                          top: '100%',
+                          bottom: 'auto',
+                          marginTop: '8px',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-3 py-2 border-b border-gray-200">
+                          <p className="text-xs font-semibold text-gray-600">
+                            Traduire en :
+                          </p>
+                        </div>
+                        {languages.map((lang) => (
+                          <button
+                            key={lang.code}
+                            onClick={() => handleTranslate(lang.code)}
+                            className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
+                          >
+                            <span className="text-2xl">{lang.flag}</span>
+                            <span className="text-sm text-gray-700">
+                              {lang.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* REACTION PICKER - VISIBLE */}
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                <ReactionPicker onSelect={handleReaction} isMine={isMine} />
-              </div>
-
-              {/* BOUTON TRADUCTION */}
-              {showTranslateIcon && (
-  <div className="relative">
-    <button
-      onClick={handleTranslateClick}
-      disabled={isTranslating}
-      className={`p-2 rounded-full transition transform hover:scale-110 ${
-        isTranslated 
-          ? 'bg-blue-500 text-white hover:bg-blue-600' 
-          : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
-      }`}
-      title={isTranslated ? 'Voir le texte original' : 'Traduire ce message'}
-    >
-      {isTranslating ? (
-        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      ) : isTranslated ? (
-        <RotateCcw className="w-4 h-4" />
-      ) : (
-        <Languages className="w-4 h-4" />
-      )}
-    </button>
-
-    {/* MENU LANGUES - TOUJOURS EN BAS */}
-    {showLanguageMenu && (
-      <div 
-        className={`absolute ${isMine ? 'right-0' : 'left-0'} bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-[9999] min-w-[200px]`}
-        style={{
-          maxHeight: '280px',
-          overflowY: 'auto',
-          top: '100%',
-          bottom: 'auto',
-          marginTop: '8px',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-3 py-2 border-b border-gray-200">
-          <p className="text-xs font-semibold text-gray-600">Traduire en :</p>
-        </div>
-        {languages.map((lang) => (
-          <button
-            key={lang.code}
-            onClick={() => handleTranslate(lang.code)}
-            className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
-          >
-            <span className="text-2xl">{lang.flag}</span>
-            <span className="text-sm text-gray-700">{lang.name}</span>
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-)}
-            </div>
-
-            {/* BULLE DE MESSAGE */}
-            <div
-              className={`max-w-xs lg:max-w-md xl:max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
-                isMine
-                  ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
-                  : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
-              }`}
-            >
-              {message.replyTo && (
-                <div className={`mb-2 p-2 rounded-lg border-l-4 ${
-                  isMine 
-                    ? 'bg-blue-700/30 border-white/50' 
-                    : 'bg-gray-100 border-blue-500'
-                }`}>
-                  <p className={`text-xs font-semibold ${
-                    isMine ? 'text-white/80' : 'text-blue-600'
-                  }`}>
-                    {message.replyToSender?.name || 'Utilisateur'}
-                  </p>
-                  <p className={`text-xs mt-1 line-clamp-2 ${
-                    isMine ? 'text-white/70' : 'text-gray-600'
-                  }`}>
-                    {message.replyToContent}
-                  </p>
-                </div>
-              )}
-              
-              <p className="text-sm wrap-break-word whitespace-pre-wrap leading-relaxed">
-                {isTranslated ? translatedText : message.content}
-              </p>
-
-              <span
-                className={`text-xs mt-2 flex items-center gap-1 ${
-                  isMine ? 'text-blue-100 justify-end' : 'text-slate-500'
+              {/* BULLE BLEUE / BLANCHE */}
+              <div
+                className={`px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
+                  isMine
+                    ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
+                    : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
                 }`}
               >
-                {formatTime(message.createdAt)}
-                {renderStatus()}
-              </span>
+                {message.replyTo && (
+                  <div
+                    className={`mb-2 p-2 rounded-lg border-l-4 ${
+                      isMine
+                        ? 'bg-blue-700/30 border-white/50'
+                        : 'bg-gray-100 border-blue-500'
+                    }`}
+                  >
+                    <p
+                      className={`text-xs font-semibold ${
+                        isMine ? 'text-white/80' : 'text-blue-600'
+                      }`}
+                    >
+                      {message.replyToSender?.name || 'Utilisateur'}
+                    </p>
+                    <p
+                      className={`text-xs mt-1 line-clamp-2 ${
+                        isMine ? 'text-white/70' : 'text-gray-600'
+                      }`}
+                    >
+                      {message.replyToContent}
+                    </p>
+                  </div>
+                )}
+
+                <p className="text-sm wrap-break-word whitespace-pre-wrap leading-relaxed">
+                  {isTranslated ? translatedText : message.content}
+                </p>
+
+                <span
+                  className={`text-xs mt-2 flex items-center gap-1 ${
+                    isMine
+                      ? 'text-blue-100 justify-end'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  {formatTime(message.createdAt)}
+                  {renderStatus()}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-        
+
         {renderReactions()}
         {renderTimestamp()}
       </div>
     );
-  };
+  }
+
+  // 🟢 CAS NORMAL : TOUS LES AUTRES MESSAGES TEXTE (TON DESIGN D’ORIGINE)
+  return (
+    <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+      {!isMine && isGroup && (
+        <span
+          className={`text-xs font-semibold mb-1 ml-10 ${
+            isDark ? 'text-blue-300' : 'text-blue-700'
+          }`}
+        >
+          {message.sender?.name}
+        </span>
+      )}
+
+      <div
+        className={`flex items-end gap-2 ${
+          isMine ? 'flex-row-reverse' : 'flex-row'
+        }`}
+      >
+        {!isMine && (
+          <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shadow-sm shrink-0">
+            <Image
+              src={avatarUrl}
+              alt={message.sender?.name || 'User'}
+              fill
+              sizes="32px"
+              className="object-cover"
+            />
+          </div>
+        )}
+
+        {/* CONTENEUR PRINCIPAL AVEC GESTION DU SURVOL */}
+        <div
+          className={`relative flex items-center gap-2 group ${
+            isMine ? 'flex-row' : 'flex-row-reverse'
+          }`}
+          onMouseEnter={() => {
+            setShowTranslateIcon(true);
+            setIsHovered(true);
+          }}
+          onMouseLeave={() => {
+            setShowTranslateIcon(false);
+            setIsHovered(false);
+          }}
+        >
+          {/* ORDRE: 3 POINTS → REACTION → TRADUCTION */}
+          <div
+            className={`flex items-center gap-1 ${
+              isMine ? 'flex-row' : 'flex-row-reverse'
+            }`}
+          >
+            {/* MENU 3 POINTS */}
+            <div className="relative">
+              <button
+                onClick={handleMenuToggle}
+                className="p-1 rounded-full hover:bg-gray-200 transition opacity-0 group-hover:opacity-100"
+              >
+                <MoreVertical className="w-4 h-4 text-gray-600" />
+              </button>
+
+              {showMenu && (
+                <div
+                  className={`absolute ${
+                    isMine ? 'left-0' : 'right-0'
+                  } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={handleReply}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                  >
+                    <Reply className="w-4 h-4" />
+                    Répondre
+                  </button>
+
+                  {isMine && (
+                    <>
+                      <button
+                        onClick={handleEdit}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Modifier
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Supprimer
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* REACTION PICKER - VISIBLE */}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <ReactionPicker
+                onSelect={handleReaction}
+                isMine={isMine}
+              />
+            </div>
+
+            {/* BOUTON TRADUCTION */}
+            {showTranslateIcon && (
+              <div className="relative">
+                <button
+                  onClick={handleTranslateClick}
+                  disabled={isTranslating}
+                  className={`p-2 rounded-full transition transform hover:scale-110 ${
+                    isTranslated
+                      ? 'bg-blue-500 text-white hover:bg-blue-600'
+                      : 'bg-gray-100 text-gray-600 hover:bg-blue-100 hover:text-blue-600'
+                  }`}
+                  title={
+                    isTranslated
+                      ? 'Voir le texte original'
+                      : 'Traduire ce message'
+                  }
+                >
+                  {isTranslating ? (
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  ) : isTranslated ? (
+                    <RotateCcw className="w-4 h-4" />
+                  ) : (
+                    <Languages className="w-4 h-4" />
+                  )}
+                </button>
+
+                {showLanguageMenu && (
+                  <div
+                    className={`absolute ${
+                      isMine ? 'right-0' : 'left-0'
+                    } bg-white rounded-lg shadow-2xl border border-gray-200 py-2 z-[9999]`}
+                    style={{
+                      maxHeight: '280px',
+                      overflowY: 'auto',
+                      top: '100%',
+                      bottom: 'auto',
+                      marginTop: '8px',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="px-3 py-2 border-b border-gray-200">
+                      <p className="text-xs font-semibold text-gray-600">
+                        Traduire en :
+                      </p>
+                    </div>
+                    {languages.map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => handleTranslate(lang.code)}
+                        className="w-full px-4 py-2 text-left hover:bg-blue-50 flex items-center gap-3 transition"
+                      >
+                        <span className="text-2xl">{lang.flag}</span>
+                        <span className="text-sm text-gray-700">
+                          {lang.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* BULLE DE MESSAGE */}
+          <div
+            className={`max-w-xs lg:max-w-md xl:max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
+              isMine
+                ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
+                : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
+            }`}
+          >
+            {message.replyTo && (
+              <div
+                className={`mb-2 p-2 rounded-lg border-l-4 ${
+                  isMine
+                    ? 'bg-blue-700/30 border-white/50'
+                    : 'bg-gray-100 border-blue-500'
+                }`}
+              >
+                <p
+                  className={`text-xs font-semibold ${
+                    isMine ? 'text-white/80' : 'text-blue-600'
+                  }`}
+                >
+                  {message.replyToSender?.name || 'Utilisateur'}
+                </p>
+                <p
+                  className={`text-xs mt-1 line-clamp-2 ${
+                    isMine ? 'text-white/70' : 'text-gray-600'
+                  }`}
+                >
+                  {message.replyToContent}
+                </p>
+              </div>
+            )}
+
+            <p className="text-sm wrap-break-word whitespace-pre-wrap leading-relaxed">
+              {isTranslated ? translatedText : message.content}
+            </p>
+
+            <span
+              className={`text-xs mt-2 flex items-center gap-1 ${
+                isMine ? 'text-blue-100 justify-end' : 'text-slate-500'
+              }`}
+            >
+              {formatTime(message.createdAt)}
+              {renderStatus()}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {renderReactions()}
+      {renderTimestamp()}
+    </div>
+  );
+};
 
   // ========================================
   // 📁 RENDU MESSAGE FICHIER
@@ -1080,29 +1388,28 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-  {/* 🆕 BLOC DE RÉPONSE POUR FICHIER */}
-  {message.replyTo && (
-    <div className={`mb-2 p-2 rounded-lg border-l-4 ${
-      isMine 
-        ? 'bg-blue-100 border-blue-500' 
-        : 'bg-gray-100 border-blue-500'
-    }`}>
-      <p className={`text-xs font-semibold ${
-        isMine ? 'text-blue-700' : 'text-blue-600'
-      }`}>
-        {message.replyToSender?.name || 'Utilisateur'}
-      </p>
-      <p className={`text-xs mt-1 line-clamp-2 ${
-        isMine ? 'text-blue-600' : 'text-gray-600'
-      }`}>
-        {message.replyToContent}
-      </p>
-    </div>
-  )}
+              {message.replyTo && (
+                <div className={`mb-2 p-2 rounded-lg border-l-4 ${
+                  isMine 
+                    ? 'bg-blue-100 border-blue-500' 
+                    : 'bg-gray-100 border-blue-500'
+                }`}>
+                  <p className={`text-xs font-semibold ${
+                    isMine ? 'text-blue-700' : 'text-blue-600'
+                  }`}>
+                    {message.replyToSender?.name || 'Utilisateur'}
+                  </p>
+                  <p className={`text-xs mt-1 line-clamp-2 ${
+                    isMine ? 'text-blue-600' : 'text-gray-600'
+                  }`}>
+                    {message.replyToContent}
+                  </p>
+                </div>
+              )}
 
-  <div 
-    className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
-  >
+              <div 
+                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
+              >
                 <div className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
                     <File className="w-6 h-6 text-white" />
@@ -1223,30 +1530,27 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-  
+              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
+                {message.replyTo && (
+                  <div className={`p-2 border-l-4 ${
+                    isMine 
+                      ? 'bg-blue-100 border-blue-500' 
+                      : 'bg-gray-100 border-blue-500'
+                  }`}>
+                    <p className={`text-xs font-semibold ${
+                      isMine ? 'text-blue-700' : 'text-blue-600'
+                    }`}>
+                      {message.replyToSender?.name || 'Utilisateur'}
+                    </p>
+                    <p className={`text-xs mt-1 line-clamp-2 ${
+                      isMine ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      {message.replyToContent}
+                    </p>
+                  </div>
+                )}
 
-  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
-    {/* 🆕 BLOC DE RÉPONSE À L'INTÉRIEUR - BON ENDROIT */}
-    {message.replyTo && (
-      <div className={`p-2 border-l-4 ${
-        isMine 
-          ? 'bg-blue-100 border-blue-500' 
-          : 'bg-gray-100 border-blue-500'
-      }`}>
-        <p className={`text-xs font-semibold ${
-          isMine ? 'text-blue-700' : 'text-blue-600'
-        }`}>
-          {message.replyToSender?.name || 'Utilisateur'}
-        </p>
-        <p className={`text-xs mt-1 line-clamp-2 ${
-          isMine ? 'text-blue-600' : 'text-gray-600'
-        }`}>
-          {message.replyToContent}
-        </p>
-      </div>
-    )}
-
-    <div className="p-4 flex items-center gap-3"></div>
+                <div className="p-4 flex items-center gap-3"></div>
                 <div className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl">
                     <Mic className="w-6 h-6 text-white" />

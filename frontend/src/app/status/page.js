@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import MainSidebar from "@/components/Layout/MainSidebar.client";
@@ -99,6 +99,7 @@ export default function StatusPage() {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // États principaux
   const [myStatuses, setMyStatuses] = useState([]);
@@ -166,6 +167,36 @@ export default function StatusPage() {
   useEffect(() => {
     if (user) fetchStatuses();
   }, [user, fetchStatuses]);
+
+  useEffect(() => {
+  const statusId = searchParams?.get("statusId");
+  if (!statusId) return;
+  if (!user) return;
+  if (loading) return;
+
+  // 1️⃣ Chercher dans MES statuts
+  const myIndex = myStatuses.findIndex((s) => s._id === statusId);
+  if (myIndex !== -1) {
+    // Ouvrir le viewer sur mon statut
+    openViewer({ user, statuses: myStatuses });
+    setCurrentIndex(myIndex);
+    setShowMobileSidebar(false);
+    return;
+  }
+
+  // 2️⃣ Chercher dans les statuts des amis
+  for (const group of friendsStatuses) {
+    const idx = group.statuses.findIndex((s) => s._id === statusId);
+    if (idx !== -1) {
+      openViewer(group);        // ouvre le viewer pour cette personne
+      setCurrentIndex(idx);     // se positionne sur la bonne story
+      setShowMobileSidebar(false);
+      return;
+    }
+  }
+
+  // 3️⃣ Si pas trouvé (story expirée, par ex.), on ne fait rien de spécial
+}, [searchParams, user, loading, myStatuses, friendsStatuses]);
 
   // ============================================
   // GESTION DU VIEWER
@@ -308,39 +339,40 @@ export default function StatusPage() {
   };
 
   const handleReply = async () => {
-    if (!replyText.trim() || !currentStatus) return;
+  if (!replyText.trim() || !currentStatus) return;
 
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `${API_URL}/api/status/${currentStatus._id}/reply`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: replyText }),
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-
-        // ✅ MODIFICATION ICI : Message de confirmation
-        alert("Réponse envoyée avec succès !");
-
-        setReplyText("");
-        closeViewer();
-
-        if (data.conversationId) {
-          router.push(`/chat/${data.conversationId}`);
-        }
+  try {
+    const token = localStorage.getItem("token");
+    const response = await fetch(
+      `${API_URL}/api/status/${currentStatus._id}/reply`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: replyText }),
       }
-    } catch (error) {
-      console.error("Erreur réponse:", error);
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log("Réponse /status/:id/reply =>", data); // 👈 pour vérifier
+
+      setReplyText("");
+
+      if (data.conversationId) {
+        router.push(`/chat/${data.conversationId}`);
+      } else {
+        closeViewer();
+      }
+    } else {
+      console.error("Réponse non OK:", await response.text());
     }
-  };
+  } catch (error) {
+    console.error("Erreur réponse:", error);
+  }
+};
 
   const handleDelete = async () => {
     if (!currentStatus || !confirm("Supprimer cette story ?")) return;
