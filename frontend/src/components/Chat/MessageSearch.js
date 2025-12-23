@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import Image from 'next/image';
 import { useTheme } from '@/hooks/useTheme';
+import api from '@/lib/api'; // ✅ IMPORT DE L'INSTANCE AXIOS
 
 export default function MessageSearch({ 
   conversationId, 
@@ -21,60 +22,54 @@ export default function MessageSearch({
   const searchTimeoutRef = useRef(null);
 
   useEffect(() => {
-  if (!searchQuery.trim() || searchQuery.length < 2) {
-    setResults([]);
-    setCurrentIndex(0);
-    return;
-  }
-
-  if (searchTimeoutRef.current) {
-    clearTimeout(searchTimeoutRef.current);
-  }
-
-  searchTimeoutRef.current = setTimeout(async () => {
-    setIsSearching(true);
-    try {
-      const token = localStorage.getItem('token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-      
-      console.log('🔍 Recherche:', { conversationId, query: searchQuery, apiUrl });
-      
-      const response = await fetch(
-        `${apiUrl}/messages/search/${conversationId}?query=${encodeURIComponent(searchQuery)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('📡 Statut réponse:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Résultats:', data);
-        setResults(data.messages || []);
-        setCurrentIndex(0);
-      } else {
-        const errorData = await response.json();
-        console.error('❌ Erreur API:', errorData);
-        setResults([]);
-      }
-    } catch (error) {
-      console.error('❌ Erreur recherche:', error);
+    // 🔹 Si la requête est vide ou trop courte → on reset
+    if (!searchQuery.trim() || searchQuery.length < 2) {
       setResults([]);
-    } finally {
-      setIsSearching(false);
+      setCurrentIndex(0);
+      return;
     }
-  }, 500);
 
-  return () => {
+    // 🔹 On annule le précédent debounce
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-  };
-}, [searchQuery, conversationId]);
+
+    // 🔹 Debounce de 500ms
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        console.log('🔍 Recherche:', { conversationId, query: searchQuery });
+
+        // ✅ UTILISATION DE api (baseURL + Authorization déjà gérés)
+        const response = await api.get(`/messages/search/${conversationId}`, {
+          params: { query: searchQuery },
+        });
+
+        console.log('📡 Statut réponse:', response.status);
+
+        if (response.data?.success) {
+          console.log('✅ Résultats:', response.data);
+          setResults(response.data.messages || []);
+          setCurrentIndex(0);
+        } else {
+          console.error('❌ Erreur API:', response.data);
+          setResults([]);
+        }
+      } catch (error) {
+        console.error('❌ Erreur recherche:', error);
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500);
+
+    // 🔹 Cleanup du timeout quand searchQuery ou conversationId change
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery, conversationId]);
 
   const handleNext = () => {
     if (currentIndex < results.length - 1) {
@@ -121,77 +116,118 @@ export default function MessageSearch({
   return (
     <div className={`border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg ${
-            isDark ? 'bg-slate-700' : 'bg-gray-100'
-          }`}>
-            <Search className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-gray-400'}`} />
-            <input
-              type="text"
-              placeholder="Rechercher dans la conversation..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`flex-1 bg-transparent outline-none text-sm ${
-                isDark ? 'text-white placeholder-slate-400' : 'text-gray-900 placeholder-gray-400'
-              }`}
-              autoFocus
-            />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setResults([]);
-                }}
-                className={`p-1 rounded hover:bg-opacity-10 ${
-                  isDark ? 'hover:bg-white' : 'hover:bg-black'
-                }`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {results.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                {currentIndex + 1} / {results.length}
-              </span>
-              <div className="flex gap-1">
-                <button
-                  onClick={handlePrevious}
-                  disabled={currentIndex === 0}
-                  className={`p-1 rounded ${
-                    currentIndex === 0
-                      ? isDark ? 'text-slate-600' : 'text-gray-300'
-                      : isDark ? 'text-white hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleNext}
-                  disabled={currentIndex === results.length - 1}
-                  className={`p-1 rounded ${
-                    currentIndex === results.length - 1
-                      ? isDark ? 'text-slate-600' : 'text-gray-300'
-                      : isDark ? 'text-white hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-lg ${
-              isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-200'
-            }`}
-          >
-            <X className="w-5 h-5" />
-          </button>
+        <div className="flex items-center gap-3 mb-3">
+  {/* 🔍 Barre de recherche améliorée */}
+  <div className="flex-1">
+    <div className="relative group">
+      {/* Halo / bordure subtile */}
+      <div
+        className={`
+          absolute inset-0 rounded-2xl pointer-events-none transition-all duration-200
+          ${isDark
+            ? 'bg-gradient-to-r from-blue-500/20 via-cyan-500/10 to-purple-500/20 opacity-0 group-focus-within:opacity-100'
+            : 'bg-gradient-to-r from-blue-500/10 via-cyan-500/5 to-purple-500/10 opacity-0 group-focus-within:opacity-100'}
+        `}
+      />
+      
+      {/* Conteneur principal */}
+      <div
+        className={`
+          relative flex items-center gap-2 px-4 py-2.5 rounded-2xl border transition-all duration-200
+          focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-400
+          ${isDark
+            ? 'bg-slate-800/90 border-slate-600 shadow-sm'
+            : 'bg-white border-gray-200 shadow-sm'}
+        `}
+      >
+        {/* Icône dans un petit badge */}
+        <div
+          className={`
+            flex items-center justify-center w-8 h-8 rounded-full shrink-0
+            ${isDark ? 'bg-slate-700 text-slate-200' : 'bg-blue-50 text-blue-600'}
+          `}
+        >
+          <Search className="w-4 h-4" />
         </div>
+
+        {/* Champ texte */}
+        <input
+          type="text"
+          placeholder="Rechercher dans la conversation..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={`
+            flex-1 bg-transparent outline-none text-sm border-none
+            ${isDark ? 'text-white placeholder-slate-400' : 'text-gray-900 placeholder-gray-400'}
+          `}
+          autoFocus
+        />
+
+        {/* Bouton pour effacer */}
+        {searchQuery && (
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setResults([]);
+            }}
+            className={`
+              flex items-center justify-center w-7 h-7 rounded-full transition-colors
+              ${isDark
+                ? 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}
+            `}
+            title="Effacer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+
+  {/* 🔢 Compteur & navigation des résultats (inchangé) */}
+  {results.length > 0 && (
+    <div className="flex items-center gap-2">
+      <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+        {currentIndex + 1} / {results.length}
+      </span>
+      <div className="flex gap-1">
+        <button
+          onClick={handlePrevious}
+          disabled={currentIndex === 0}
+          className={`p-1 rounded ${
+            currentIndex === 0
+              ? isDark ? 'text-slate-600' : 'text-gray-300'
+              : isDark ? 'text-white hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <ChevronUp className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleNext}
+          disabled={currentIndex === results.length - 1}
+          className={`p-1 rounded ${
+            currentIndex === results.length - 1
+              ? isDark ? 'text-slate-600' : 'text-gray-300'
+              : isDark ? 'text-white hover:bg-slate-700' : 'text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <ChevronDown className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* ❌ Bouton fermer (inchangé) */}
+  <button
+    onClick={onClose}
+    className={`p-2 rounded-lg ${
+      isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-200'
+    }`}
+  >
+    <X className="w-5 h-5" />
+  </button>
+</div>
 
         {isSearching && (
           <div className={`text-sm text-center py-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
