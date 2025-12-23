@@ -621,6 +621,7 @@ export default function ChatPage() {
                 onBack={() => router.push('/')}
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
+                onSearchOpen={() => setIsSearchOpen(true)}
               />
             </div>
             
@@ -758,5 +759,6 @@ export default function ChatPage() {
         </div>
       </div>
     </ProtectedRoute>
-  );
+ 
+);
 }

@@ -1634,15 +1634,34 @@ if (onBack) {
       )}
 
       {showMediaPanel && (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-end">
-    <div className="w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col">
-      
-      {/* 🔵 HEADER BLEU */}
+  <div
+    className={`fixed inset-0 backdrop-blur-sm z-50 flex justify-end ${
+      isDark ? 'bg-black/80' : 'bg-black/60'
+    }`}
+  >
+    <div
+      className={`w-full max-w-3xl h-full shadow-2xl flex flex-col ${
+        isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-gray-900'
+      }`}
+    >
+      {/* HEADER */}
       <div className="relative overflow-hidden">
-        {/* Dégradé bleu */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')] opacity-30"></div>
-        
+        {/* Dégradé selon le thème */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${
+            isDark
+              ? 'from-slate-800 via-slate-900 to-slate-950'
+              : 'from-blue-600 via-blue-700 to-cyan-600'
+          }`}
+        ></div>
+
+        {/* Motif de fond */}
+        <div
+          className={`absolute inset-0 opacity-30 ${
+            isDark ? 'mix-blend-soft-light' : ''
+          } bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]`}
+        ></div>
+
         <div className="relative p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
@@ -1660,16 +1679,16 @@ if (onBack) {
                 </div>
               </div>
             </div>
-            
-            <button 
-              onClick={() => setShowMediaPanel(false)} 
+
+            <button
+              onClick={() => setShowMediaPanel(false)}
               className="p-2.5 hover:bg-white/20 rounded-xl transition-all backdrop-blur-sm text-white group active:scale-95"
             >
               <X className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
             </button>
           </div>
 
-          {/* Statistiques en bleu */}
+          {/* Statistiques */}
           <div className="grid grid-cols-5 gap-2">
             {[
               { label: 'Images', count: mediaData?.images?.length || 0, icon: Image },
@@ -1678,58 +1697,100 @@ if (onBack) {
               { label: 'Vidéos', count: mediaData?.videos?.length || 0, icon: Play },
               { label: 'Liens', count: mediaData?.links?.length || 0, icon: Link },
             ].map((stat) => (
-              <div key={stat.label} className="bg-white/20 backdrop-blur-sm rounded-xl p-2.5 text-center text-white">
+              <div
+                key={stat.label}
+                className="bg-white/20 backdrop-blur-sm rounded-xl p-2.5 text-center text-white"
+              >
                 <stat.icon className="w-4 h-4 mx-auto mb-1" />
                 <div className="text-xl font-bold">{stat.count}</div>
-                <div className="text-[10px] font-medium opacity-90">{stat.label}</div>
+                <div className="text-[10px] font-medium opacity-90">
+                  {stat.label}
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Onglets en bleu */}
-      <div className="flex border-b bg-gradient-to-r from-gray-50 to-white overflow-x-auto scrollbar-hide">
+      {/* ONGLETS */}
+      <div
+        className={`
+          flex border-b overflow-x-auto scrollbar-hide
+          ${
+            isDark
+              ? 'border-slate-800 bg-slate-900'
+              : 'bg-gradient-to-r from-gray-50 to-white'
+          }
+        `}
+      >
         {[
           { id: 'images', label: 'Images', icon: Image },
           { id: 'files', label: 'Fichiers', icon: FileText },
           { id: 'audio', label: 'Audio', icon: Music },
           { id: 'videos', label: 'Vidéos', icon: Play },
-          { id: 'links', label: 'Liens', icon: Link }
+          { id: 'links', label: 'Liens', icon: Link },
         ].map((tab) => {
           const count = mediaData?.[tab.id]?.length || 0;
           const isActive = mediaType === tab.id;
-          
+
           return (
             <button
               key={tab.id}
               onClick={() => loadMedia(tab.id)}
-              className={`relative flex items-center gap-2 px-5 py-4 font-semibold whitespace-nowrap transition-all duration-300 group ${
-                isActive 
-                  ? 'text-blue-600' 
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
-              }`}
+              className={`
+                relative flex items-center gap-2 px-5 py-4 font-semibold whitespace-nowrap
+                transition-all duration-300 group
+                ${
+                  isActive
+                    ? isDark
+                      ? 'text-blue-400'
+                      : 'text-blue-600'
+                    : isDark
+                    ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
+                }
+              `}
             >
-              <div className={`p-1.5 rounded-lg transition-all duration-300 ${
-                isActive 
-                  ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-md' 
-                  : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
-              }`}>
-                <tab.icon className={`w-4 h-4 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-105'}`} />
+              <div
+                className={`
+                  p-1.5 rounded-lg transition-all duration-300
+                  ${
+                    isActive
+                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-md'
+                      : isDark
+                      ? 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
+                      : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
+                  }
+                `}
+              >
+                <tab.icon
+                  className={`w-4 h-4 transition-transform ${
+                    isActive ? 'scale-110' : 'group-hover:scale-105'
+                  }`}
+                />
               </div>
-              
+
               <span className="text-sm sm:text-base">{tab.label}</span>
-              
+
               {count > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold transition-all ${
-                  isActive 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'bg-gray-200 text-gray-600 group-hover:bg-gray-300'
-                }`}>
+                <span
+                  className={`
+                    px-2 py-0.5 rounded-full text-xs font-bold transition-all
+                    ${
+                      isActive
+                        ? isDark
+                          ? 'bg-blue-900/60 text-blue-200'
+                          : 'bg-blue-100 text-blue-700'
+                        : isDark
+                        ? 'bg-slate-700 text-slate-200 group-hover:bg-slate-600'
+                        : 'bg-gray-200 text-gray-600 group-hover:bg-gray-300'
+                    }
+                  `}
+                >
                   {count}
                 </span>
               )}
-              
+
               {isActive && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
               )}
@@ -1738,34 +1799,46 @@ if (onBack) {
         })}
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* CONTENU */}
+      <div
+        className={`flex-1 overflow-y-auto ${
+          isDark
+            ? 'bg-gradient-to-br from-slate-900 to-slate-950'
+            : 'bg-gradient-to-br from-gray-50 to-gray-100'
+        }`}
+      >
         {loadingMedia ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="relative w-20 h-20 mb-4">
               <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-ping"></div>
               <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <p className="text-gray-500 font-medium">Chargement...</p>
+            <p
+              className={`font-medium ${
+                isDark ? 'text-slate-300' : 'text-gray-500'
+              }`}
+            >
+              Chargement...
+            </p>
           </div>
         ) : (
           <div className="p-6">
-            
             {/* IMAGES */}
             {mediaType === 'images' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {mediaData?.images?.length > 0 ? (
-                  mediaData.images.map((img, index) => (
-                    <div 
-                      key={img.id} 
+                  mediaData.images.map((img) => (
+                    <div
+                      key={img.id}
                       className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
                     >
-                      <img 
-                        src={img.url} 
-                        alt="" 
+                      <img
+                        src={img.url}
+                        alt=""
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         onClick={() => openImage(img)}
                       />
-                      
+
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <div className="absolute bottom-0 left-0 right-0 p-4">
                           <p className="text-white text-sm font-medium truncate mb-1">
@@ -1775,7 +1848,7 @@ if (onBack) {
                             {formatFileSize(img.size)}
                           </p>
                         </div>
-                        
+
                         <div className="absolute top-3 right-3 flex gap-2">
                           <button
                             onClick={(e) => {
@@ -1786,7 +1859,7 @@ if (onBack) {
                           >
                             <Expand className="w-4 h-4 text-white" />
                           </button>
-                          
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1802,11 +1875,39 @@ if (onBack) {
                   ))
                 ) : (
                   <div className="col-span-3 text-center py-20">
-                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
-                      <Image className="w-16 h-16 text-blue-400" />
+                    <div
+                      className={`
+                        inline-flex p-6 rounded-3xl mb-4
+                        ${
+                          isDark
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
+                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
+                        }
+                      `}
+                    >
+                      <Image
+                        className={`w-16 h-16 ${
+                          isDark ? 'text-blue-300' : 'text-blue-400'
+                        }`}
+                      />
                     </div>
-                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucune image</p>
-                    <p className="text-gray-400 text-sm">Les images partagées apparaîtront ici</p>
+                    <p
+                      className={`
+                        font-semibold text-lg mb-2
+                        ${
+                          isDark ? 'text-slate-200' : 'text-gray-600'
+                        }
+                      `}
+                    >
+                      Aucune image
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        isDark ? 'text-slate-500' : 'text-gray-400'
+                      }`}
+                    >
+                      Les images partagées apparaîtront ici
+                    </p>
                   </div>
                 )}
               </div>
@@ -1816,10 +1917,18 @@ if (onBack) {
             {mediaType === 'files' && (
               <div className="space-y-3">
                 {mediaData?.files?.length > 0 ? (
-                  mediaData.files.map((file, index) => (
-                    <div 
-                      key={file.id} 
-                      className="group flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                  mediaData.files.map((file) => (
+                    <div
+                      key={file.id}
+                      className={`
+                        group flex items-center gap-4 p-4 rounded-2xl shadow-md hover:shadow-xl border
+                        transition-all duration-300
+                        ${
+                          isDark
+                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
+                            : 'bg-white border-gray-100 hover:border-blue-200'
+                        }
+                      `}
                     >
                       <div className="relative">
                         <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
@@ -1829,41 +1938,102 @@ if (onBack) {
                           {file.type?.toUpperCase() || 'FILE'}
                         </div>
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        <p
+                          className={`
+                            font-semibold truncate group-hover:text-blue-500 transition-colors
+                            ${
+                              isDark ? 'text-slate-100' : 'text-gray-900'
+                            }
+                          `}
+                        >
                           {file.name}
                         </p>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm text-gray-500">
+                          <span
+                            className={`text-sm ${
+                              isDark ? 'text-slate-400' : 'text-gray-500'
+                            }`}
+                          >
                             {formatFileSize(file.size)}
                           </span>
                           {file.createdAt && (
                             <>
                               <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                              <span className="text-sm text-gray-400">
+                              <span
+                                className={`text-sm ${
+                                  isDark
+                                    ? 'text-slate-500'
+                                    : 'text-gray-400'
+                                }`}
+                              >
                                 {formatMessageDate(file.createdAt)}
                               </span>
                             </>
                           )}
                         </div>
                       </div>
-                      
-                      <button 
+
+                      <button
                         onClick={() => downloadFile(file)}
-                        className="p-3 hover:bg-blue-50 rounded-xl transition-all group/btn active:scale-95"
+                        className={`
+                          p-3 rounded-xl transition-all group/btn active:scale-95
+                          ${
+                            isDark
+                              ? 'hover:bg-slate-800'
+                              : 'hover:bg-blue-50'
+                          }
+                        `}
                       >
-                        <Download className="w-5 h-5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
+                        <Download
+                          className={`
+                            w-5 h-5 transition-colors
+                            ${
+                              isDark
+                                ? 'text-slate-300 group-hover/btn:text-blue-400'
+                                : 'text-gray-400 group-hover/btn:text-blue-600'
+                            }
+                          `}
+                        />
                       </button>
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-20">
-                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
-                      <FileText className="w-16 h-16 text-blue-400" />
+                    <div
+                      className={`
+                        inline-flex p-6 rounded-3xl mb-4
+                        ${
+                          isDark
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
+                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
+                        }
+                      `}
+                    >
+                      <FileText
+                        className={`w-16 h-16 ${
+                          isDark ? 'text-blue-300' : 'text-blue-400'
+                        }`}
+                      />
                     </div>
-                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucun fichier</p>
-                    <p className="text-gray-400 text-sm">Les documents partagés apparaîtront ici</p>
+                    <p
+                      className={`
+                        font-semibold text-lg mb-2
+                        ${
+                          isDark ? 'text-slate-200' : 'text-gray-600'
+                        }
+                      `}
+                    >
+                      Aucun fichier
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        isDark ? 'text-slate-500' : 'text-gray-400'
+                      }`}
+                    >
+                      Les documents partagés apparaîtront ici
+                    </p>
                   </div>
                 )}
               </div>
@@ -1873,43 +2043,75 @@ if (onBack) {
             {mediaType === 'audio' && (
               <div className="space-y-3">
                 {mediaData?.audio?.length > 0 ? (
-                  mediaData.audio.map((audio, index) => (
-                    <div 
-                      key={audio.id} 
-                      className="group flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                  mediaData.audio.map((audio) => (
+                    <div
+                      key={audio.id}
+                      className={`
+                        group flex items-center gap-4 p-4 rounded-2xl shadow-md hover:shadow-xl border
+                        transition-all duration-300
+                        ${
+                          isDark
+                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
+                            : 'bg-white border-gray-100 hover:border-blue-200'
+                        }
+                      `}
                     >
                       <div className="relative">
-                        <div className={`p-4 rounded-xl shadow-md transition-all ${
-                          playingAudio === audio.id 
-                            ? 'bg-gradient-to-br from-blue-500 to-cyan-500 animate-pulse' 
-                            : 'bg-gradient-to-br from-blue-400 to-cyan-400 group-hover:scale-110'
-                        }`}>
+                        <div
+                          className={`
+                            p-4 rounded-xl shadow-md transition-all
+                            ${
+                              playingAudio === audio.id
+                                ? 'bg-gradient-to-br from-blue-500 to-cyan-500 animate-pulse'
+                                : 'bg-gradient-to-br from-blue-400 to-cyan-400 group-hover:scale-110'
+                            }
+                          `}
+                        >
                           <Music className="w-7 h-7 text-white" />
                         </div>
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">
+                        <p
+                          className={`
+                            font-semibold truncate
+                            ${
+                              isDark ? 'text-slate-100' : 'text-gray-900'
+                            }
+                          `}
+                        >
                           {audio.name || `Audio ${audio.duration}s`}
                         </p>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm text-gray-500">
+                          <span
+                            className={`text-sm ${
+                              isDark ? 'text-slate-400' : 'text-gray-500'
+                            }`}
+                          >
                             {formatFileSize(audio.size)}
                           </span>
                           <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
                           <span className="text-sm text-blue-600 font-medium">
-                            {Math.floor(audio.duration / 60)}:{(audio.duration % 60).toString().padStart(2, '0')}
+                            {Math.floor(audio.duration / 60)}:
+                            {(audio.duration % 60)
+                              .toString()
+                              .padStart(2, '0')}
                           </span>
                         </div>
                       </div>
-                      
-                      <button 
+
+                      <button
                         onClick={() => playAudio(audio)}
-                        className={`p-3.5 rounded-full transition-all shadow-lg hover:shadow-xl active:scale-95 ${
-                          playingAudio === audio.id 
-                            ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white' 
-                            : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                        }`}
+                        className={`
+                          p-3.5 rounded-full transition-all shadow-lg hover:shadow-xl active:scale-95
+                          ${
+                            playingAudio === audio.id
+                              ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
+                              : isDark
+                              ? 'bg-slate-800 text-blue-400 hover:bg-slate-700'
+                              : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                          }
+                        `}
                       >
                         {playingAudio === audio.id ? (
                           <Pause className="w-5 h-5" />
@@ -1921,11 +2123,39 @@ if (onBack) {
                   ))
                 ) : (
                   <div className="text-center py-20">
-                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
-                      <Music className="w-16 h-16 text-blue-400" />
+                    <div
+                      className={`
+                        inline-flex p-6 rounded-3xl mb-4
+                        ${
+                          isDark
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
+                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
+                        }
+                      `}
+                    >
+                      <Music
+                        className={`w-16 h-16 ${
+                          isDark ? 'text-blue-300' : 'text-blue-400'
+                        }`}
+                      />
                     </div>
-                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucun audio</p>
-                    <p className="text-gray-400 text-sm">Les fichiers audio partagés apparaîtront ici</p>
+                    <p
+                      className={`
+                        font-semibold text-lg mb-2
+                        ${
+                          isDark ? 'text-slate-200' : 'text-gray-600'
+                        }
+                      `}
+                    >
+                      Aucun audio
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        isDark ? 'text-slate-500' : 'text-gray-400'
+                      }`}
+                    >
+                      Les fichiers audio partagés apparaîtront ici
+                    </p>
                   </div>
                 )}
               </div>
@@ -1935,10 +2165,18 @@ if (onBack) {
             {mediaType === 'videos' && (
               <div className="space-y-3">
                 {mediaData?.videos?.length > 0 ? (
-                  mediaData.videos.map((video, index) => (
-                    <div 
-                      key={video.id} 
-                      className="group flex items-center gap-4 p-4 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                  mediaData.videos.map((video) => (
+                    <div
+                      key={video.id}
+                      className={`
+                        group flex items-center gap-4 p-4 rounded-2xl shadow-md hover:shadow-xl border
+                        transition-all duration-300
+                        ${
+                          isDark
+                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
+                            : 'bg-white border-gray-100 hover:border-blue-200'
+                        }
+                      `}
                     >
                       <div className="relative shrink-0">
                         <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
@@ -1946,48 +2184,121 @@ if (onBack) {
                           <Play className="w-10 h-10 text-blue-500 relative z-10" />
                         </div>
                         <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs font-bold rounded-md backdrop-blur-sm">
-                          {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+                          {Math.floor(video.duration / 60)}:
+                          {(video.duration % 60).toString().padStart(2, '0')}
                         </div>
                       </div>
-                      
+
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        <p
+                          className={`
+                            font-semibold truncate group-hover:text-blue-500 transition-colors
+                            ${
+                              isDark ? 'text-slate-100' : 'text-gray-900'
+                            }
+                          `}
+                        >
                           {video.name}
                         </p>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm text-gray-500">
+                          <span
+                            className={`text-sm ${
+                              isDark ? 'text-slate-400' : 'text-gray-500'
+                            }`}
+                          >
                             {formatFileSize(video.size)}
                           </span>
                           <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
                           <span className="text-sm text-blue-600 font-medium">
-                            {Math.floor(video.duration / 60)}min {video.duration % 60}s
+                            {Math.floor(video.duration / 60)}min{' '}
+                            {video.duration % 60}s
                           </span>
                         </div>
                       </div>
-                      
+
                       <div className="flex gap-2">
-                        <button 
+                        <button
                           onClick={() => window.open(video.url, '_blank')}
-                          className="p-3 hover:bg-blue-50 rounded-xl transition-all group/btn active:scale-95"
+                          className={`
+                            p-3 rounded-xl transition-all group/btn active:scale-95
+                            ${
+                              isDark
+                                ? 'hover:bg-slate-800'
+                                : 'hover:bg-blue-50'
+                            }
+                          `}
                         >
-                          <Play className="w-5 h-5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
+                          <Play
+                            className={`
+                              w-5 h-5 transition-colors
+                              ${
+                                isDark
+                                  ? 'text-slate-300 group-hover/btn:text-blue-400'
+                                  : 'text-gray-400 group-hover/btn:text-blue-600'
+                              }
+                            `}
+                          />
                         </button>
-                        <button 
+                        <button
                           onClick={() => downloadFile(video)}
-                          className="p-3 hover:bg-blue-50 rounded-xl transition-all group/btn active:scale-95"
+                          className={`
+                            p-3 rounded-xl transition-all group/btn active:scale-95
+                            ${
+                              isDark
+                                ? 'hover:bg-slate-800'
+                                : 'hover:bg-blue-50'
+                            }
+                          `}
                         >
-                          <Download className="w-5 h-5 text-gray-400 group-hover/btn:text-blue-600 transition-colors" />
+                          <Download
+                            className={`
+                              w-5 h-5 transition-colors
+                              ${
+                                isDark
+                                  ? 'text-slate-300 group-hover/btn:text-blue-400'
+                                  : 'text-gray-400 group-hover/btn:text-blue-600'
+                              }
+                            `}
+                          />
                         </button>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-20">
-                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
-                      <Play className="w-16 h-16 text-blue-400" />
+                    <div
+                      className={`
+                        inline-flex p-6 rounded-3xl mb-4
+                        ${
+                          isDark
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
+                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
+                        }
+                      `}
+                    >
+                      <Play
+                        className={`w-16 h-16 ${
+                          isDark ? 'text-blue-300' : 'text-blue-400'
+                        }`}
+                      />
                     </div>
-                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucune vidéo</p>
-                    <p className="text-gray-400 text-sm">Les vidéos partagées apparaîtront ici</p>
+                    <p
+                      className={`
+                        font-semibold text-lg mb-2
+                        ${
+                          isDark ? 'text-slate-200' : 'text-gray-600'
+                        }
+                      `}
+                    >
+                      Aucune vidéo
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        isDark ? 'text-slate-500' : 'text-gray-400'
+                      }`}
+                    >
+                      Les vidéos partagées apparaîtront ici
+                    </p>
                   </div>
                 )}
               </div>
@@ -1997,16 +2308,23 @@ if (onBack) {
             {mediaType === 'links' && (
               <div className="space-y-3">
                 {mediaData?.links?.length > 0 ? (
-                  mediaData.links.map((link, index) => (
-                    <div 
-                      key={link.id} 
-                      className="p-5 bg-white rounded-2xl shadow-md hover:shadow-xl border border-gray-100 hover:border-blue-200 transition-all duration-300"
+                  mediaData.links.map((link) => (
+                    <div
+                      key={link.id}
+                      className={`
+                        p-5 rounded-2xl shadow-md hover:shadow-xl border transition-all duration-300
+                        ${
+                          isDark
+                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
+                            : 'bg-white border-gray-100 hover:border-blue-200'
+                        }
+                      `}
                     >
                       <div className="flex items-start gap-4">
                         <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-md shrink-0">
                           <Link className="w-6 h-6 text-white" />
                         </div>
-                        
+
                         <div className="flex-1 min-w-0 space-y-2">
                           {link.links.map((url, idx) => (
                             <a
@@ -2014,16 +2332,37 @@ if (onBack) {
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="group/link flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors"
+                              className="group/link flex items-center gap-2 text-blue-500 hover:text-blue-400 transition-colors"
                             >
-                              <span className="truncate font-medium">{url}</span>
-                              <svg className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              <span className="truncate font-medium">
+                                {url}
+                              </span>
+                              <svg
+                                className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
                               </svg>
                             </a>
                           ))}
-                          
-                          <div className="flex items-center gap-2 text-xs text-gray-400 pt-2 border-t">
+
+                          <div
+                            className={`
+                              flex items-center gap-2 text-xs pt-2 border-t
+                              ${
+                                isDark
+                                  ? 'border-slate-700 text-slate-500'
+                                  : 'border-gray-100 text-gray-400'
+                              }
+                            `}
+                          >
                             <span>Par {link.sender?.name}</span>
                             <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
                             <span>{formatMessageDate(link.createdAt)}</span>
@@ -2034,11 +2373,39 @@ if (onBack) {
                   ))
                 ) : (
                   <div className="text-center py-20">
-                    <div className="inline-flex p-6 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl mb-4">
-                      <Link className="w-16 h-16 text-blue-400" />
+                    <div
+                      className={`
+                        inline-flex p-6 rounded-3xl mb-4
+                        ${
+                          isDark
+                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
+                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
+                        }
+                      `}
+                    >
+                      <Link
+                        className={`w-16 h-16 ${
+                          isDark ? 'text-blue-300' : 'text-blue-400'
+                        }`}
+                      />
                     </div>
-                    <p className="text-gray-600 font-semibold text-lg mb-2">Aucun lien</p>
-                    <p className="text-gray-400 text-sm">Les liens partagés apparaîtront ici</p>
+                    <p
+                      className={`
+                        font-semibold text-lg mb-2
+                        ${
+                          isDark ? 'text-slate-200' : 'text-gray-600'
+                        }
+                      `}
+                    >
+                      Aucun lien
+                    </p>
+                    <p
+                      className={`text-sm ${
+                        isDark ? 'text-slate-500' : 'text-gray-400'
+                      }`}
+                    >
+                      Les liens partagés apparaîtront ici
+                    </p>
                   </div>
                 )}
               </div>
@@ -2049,7 +2416,6 @@ if (onBack) {
     </div>
   </div>
 )}
-
 
       {/* Modal pour l'image en plein écran */}
       {selectedImage && (
@@ -2091,5 +2457,14 @@ if (onBack) {
         />
       )}
     </>
+  );
+}
+
+export function MobileHeader(props) {
+  // on réutilise exactement ChatHeader, mais caché en desktop
+  return (
+    <div className="lg:hidden">
+      <ChatHeader {...props} />
+    </div>
   );
 }
