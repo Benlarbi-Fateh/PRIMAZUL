@@ -864,12 +864,19 @@ const renderTextMessage = () => {
           )}
 
           {/* Colonne principale : preview story + (icônes + bulle) */}
-          <div className="flex flex-col max-w-xs lg:max-w-md xl:max-w-lg gap-1">
-            {/* 🔹 Ligne "Réponse à un statut" + vignette, cliquable */}
+          <div
+            className={`flex flex-col max-w-xs lg:max-w-md xl:max-w-lg gap-1 ${
+              isMine ? 'items-end' : 'items-start'
+            }`}
+          >
+            {/* 🔹 "Réponse à un statut" (en haut) + vignette (en dessous), cliquable */}
             <div
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={handleOpenStoryFromReply}
-            >
+  className={`flex flex-col gap-1 cursor-pointer ${
+    isMine ? 'items-end self-end' : 'items-start'
+  }`}
+  onClick={handleOpenStoryFromReply}
+>
+              {/* Texte au-dessus */}
               <span
                 className={`text-[10px] uppercase tracking-wide ${
                   isDark ? 'text-slate-400' : 'text-slate-500'
@@ -878,25 +885,40 @@ const renderTextMessage = () => {
                 Réponse à un statut
               </span>
 
-              {(story.storyType === 'image' || story.storyType === 'video') &&
-                story.storyUrl && (
-                  <div className="relative w-16 h-24 rounded-md overflow-hidden flex-shrink-0">
-                    <Image
-                      src={story.storyUrl}
-                      alt="Statut"
-                      fill
-                      sizes="64px"
-                      className="object-cover"
-                    />
-                    {story.storyType === 'video' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                        <span className="text-[8px] font-semibold text-white bg-black/60 px-1 py-0.5 rounded-full">
-                          VIDÉO
-                        </span>
-                      </div>
-                    )}
+              {/* Ligne des vignettes en dessous */}
+              <div className="flex items-center gap-2">
+                {/* 🟣 VIGNETTE POUR STORY TEXTE */}
+                {story.storyType === 'text' && story.storyText && (
+                  <div className="relative w-20 h-24 rounded-md overflow-hidden flex-shrink-0">
+                    <div className="w-full h-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center px-1">
+                      <p className="text-[10px] text-white text-center leading-snug line-clamp-4 whitespace-pre-wrap">
+                        {story.storyText}
+                      </p>
+                    </div>
                   </div>
                 )}
+
+                {/* 🟢 VIGNETTE POUR IMAGE / VIDÉO */}
+                {(story.storyType === 'image' || story.storyType === 'video') &&
+                  story.storyUrl && (
+                    <div className="relative w-16 h-24 rounded-md overflow-hidden flex-shrink-0">
+                      <Image
+                        src={story.storyUrl}
+                        alt="Statut"
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                      {story.storyType === 'video' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <span className="text-[8px] font-semibold text-white bg-black/60 px-1 py-0.5 rounded-full">
+                            VIDÉO
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+              </div>
             </div>
 
             {/* Ligne ICÔNES + BULLE, alignées ensemble */}
@@ -1263,7 +1285,7 @@ const renderTextMessage = () => {
 
           {/* BULLE DE MESSAGE */}
           <div
-            className={`max-w-xs lg:max-w-md xl:max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
+            className={`max-w-xs lg:max-w-md xl-max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
               isMine
                 ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
                 : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
@@ -1314,7 +1336,7 @@ const renderTextMessage = () => {
       {renderTimestamp()}
     </div>
   );
-};
+}
 
   // ========================================
   // 📁 RENDU MESSAGE FICHIER
