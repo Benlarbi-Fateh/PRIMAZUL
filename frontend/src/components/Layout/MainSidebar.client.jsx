@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ChevronLeft,
   CircleDashed,
+  ListTodo,
 } from "lucide-react";
 
 export default function MainSidebar() {
@@ -69,6 +70,12 @@ export default function MainSidebar() {
     { label: "Statuts",
        icon: CircleDashed, 
        href: "/status" },
+       // 🆕 PAGE LISTES DE TÂCHES
+  {
+    label: "Listes",
+    icon: ListTodo,
+    href: "/tasks",
+  },
     {
       label: "Paramètres",
       icon: Settings,
