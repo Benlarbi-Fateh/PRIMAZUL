@@ -12,7 +12,7 @@ const server = http.createServer(app);
 // ✅ CORS Configuration
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://192.168.1.7:3000"],
+    origin: ["http://localhost:3000", "http://192.168.1.7:3000", /\.vercel\.app$/],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
@@ -35,7 +35,7 @@ app.use((req, res, next) => {
 // ✅ Socket.IO Configuration
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.1.7:3000"],
+    origin: ["http://localhost:3000", "http://192.168.1.7:3000", /\.vercel\.app$/],
     methods: ["GET", "POST"],
   },
   pingTimeout: 60000,
