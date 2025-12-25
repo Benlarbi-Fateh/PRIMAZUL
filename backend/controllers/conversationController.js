@@ -191,7 +191,7 @@ exports.getOrCreateConversation = async (req, res) => {
     if (!contactExists) {
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
-     // 🔥 NOUVEAU : VÉRIFIER SI BLOQUÉ
+    
     const isBlocked = await BlockedUser.findOne({
       $or: [
         { blocker: userId, blocked: contactId },
@@ -205,7 +205,6 @@ exports.getOrCreateConversation = async (req, res) => {
       });
     }
 
-    // ✅ VÉRIFIER SI C'EST UN CONTACT ACTUEL
     const isContact = await Contact.findOne({
       owner: userId,
       contact: contactId
@@ -218,20 +217,37 @@ exports.getOrCreateConversation = async (req, res) => {
       });
     }
 
-    // ✅ CHERCHER UNE CONVERSATION EXISTANTE (MÊME SI SOFT-DELETED)
+    // ✅ CHERCHER UNE CONVERSATION EXISTANTE
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, contactId], $size: 2 },
       isGroup: false
     }).populate('participants', 'name email profilePicture isOnline lastSeen');
 
+    // 🔥 CORRECTION : AJOUTER CETTE LIGNE
+    let restored = false;
+    
     if (conversation) {
       console.log('✅ Conversation trouvée:', conversation._id);
       
+      // Vérifier si supprimée par cet utilisateur
+      const wasDeletedByMe = conversation.deletedBy?.some(
+        item => item.userId && item.userId.toString() === userId.toString()
+      );
+      
+      if (wasDeletedByMe) {
+        // Restaurer la conversation
+        conversation.deletedBy = conversation.deletedBy.filter(
+          item => !item.userId || item.userId.toString() !== userId.toString()
+        );
+        await conversation.save();
+        restored = true;
+        console.log('🔄 Conversation restaurée pour l\'utilisateur');
+      }
       
       return res.json({ 
         success: true, 
         conversation,
-        restored: wasDeletedByMe // 🔥 NOUVEAU : Indiquer si restaurée
+        restored // ✅ CORRECT
       });
     }
 
@@ -249,7 +265,7 @@ exports.getOrCreateConversation = async (req, res) => {
     res.json({ 
       success: true, 
       conversation,
-      isNew: true // 🔥 NOUVEAU : Indiquer que c'est nouveau
+      isNew: true
     });
   } catch (error) {
     console.error('❌ Erreur getOrCreateConversation:', error);

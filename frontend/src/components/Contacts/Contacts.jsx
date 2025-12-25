@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { 
-  Search, ArrowLeft, Mail, Star, CalendarDays, UserPlus, 
+import { useRouter } from "next/navigation";
+import {
+  Search, ArrowLeft, Mail, Star, CalendarDays, UserPlus,
   Phone, MessageCircle, Video, Sparkles, X, Check
 } from "lucide-react";
 import api from "../../lib/api";
@@ -14,7 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 /* ---------------- AVATAR ---------------- */
 function Avatar({ user, size = "md", showStatus = true }) {
   const { isDark } = useTheme();
-  
+
   const getInitials = (name) => {
     if (!name) return "?";
     const parts = name.trim().split(" ");
@@ -26,15 +27,15 @@ function Avatar({ user, size = "md", showStatus = true }) {
   const statusSizes = { sm: "w-3 h-3", md: "w-3 h-3", lg: "w-4 h-4" };
 
   return (
-    <div className="relative group">
+    <div className="relative">
       {user.profilePicture ? (
-        <div className={`${sizes[size]} rounded-full overflow-hidden border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'} shadow-lg group-hover:shadow-2xl group-hover:scale-105 transition-all duration-300`}>
+        <div className={`${sizes[size]} rounded-full overflow-hidden border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'}`}>
           <Image
             src={user.profilePicture}
             alt={user.name}
             width={size === "sm" ? 48 : size === "md" ? 56 : 112}
             height={size === "sm" ? 48 : size === "md" ? 56 : 112}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            className="w-full h-full object-cover"
             onError={(e) => {
               e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                 user.name || "User"
@@ -45,14 +46,14 @@ function Avatar({ user, size = "md", showStatus = true }) {
         </div>
       ) : (
         <div
-          className={`${sizes[size]} ${isDark ? 'bg-gradient-to-br from-blue-600 to-cyan-600' : 'bg-gradient-to-br from-blue-500 to-cyan-500'} rounded-full flex items-center justify-center text-white font-bold shadow-lg border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'} group-hover:shadow-2xl group-hover:scale-105 transition-all duration-300 animate-glow-pulse`}
+          className={`${sizes[size]} ${isDark ? 'bg-gradient-to-br from-blue-600 to-cyan-600' : 'bg-gradient-to-br from-blue-500 to-cyan-500'} rounded-full flex items-center justify-center text-white font-bold border-2 ${isDark ? 'border-cyan-500/30' : 'border-blue-300'}`}
         >
           {getInitials(user.name)}
         </div>
       )}
       {showStatus && (
         <span
-          className={`absolute bottom-1 right-1 ${statusSizes[size]} rounded-full border-2 ${isDark ? "border-blue-900" : "border-white"} ${user.isOnline ? "bg-emerald-500 animate-pulse" : "bg-gray-400"} shadow-lg`}
+          className={`absolute bottom-1 right-1 ${statusSizes[size]} rounded-full border-2 ${isDark ? "border-blue-900" : "border-white"} ${user.isOnline ? "bg-emerald-500" : "bg-gray-400"}`}
         />
       )}
     </div>
@@ -62,7 +63,7 @@ function Avatar({ user, size = "md", showStatus = true }) {
 /* ---------------- FAVORITES BAR ---------------- */
 function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
   const { isDark } = useTheme();
-  
+
   const favorites = contacts.filter(
     (c) => favoriteIds.has(c.user?._id) && c.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -71,22 +72,18 @@ function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
 
   return (
     <div className="mb-6 max-w-2xl mx-auto">
-      <h2 className={`font-bold text-lg mb-3 flex items-center gap-2 ${isDark ? "text-cyan-50" : "text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500"}`}>
-        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-blue-700 to-cyan-700' : 'bg-gradient-to-br from-purple-500 to-pink-500'} shadow-lg animate-glow-pulse`}>
-          <Star className="w-4 h-4 text-white" />
-        </div>
+      <h2 className={`font-bold text-lg mb-3 ${isDark ? "text-cyan-50" : "text-blue-600"}`}>
         Favoris
       </h2>
-      <div className={`flex gap-4 overflow-x-auto p-4 rounded-3xl border-2 shadow-xl hover:shadow-2xl transition-all ${isDark ? "bg-blue-900/50 border-blue-800" : "bg-white/80 border-blue-100"} backdrop-blur-md`}>
+      <div className={`flex gap-4 overflow-x-auto p-[1px] rounded-xl border-2 ${isDark ? "bg-blue-900/50 border-blue-800" : "bg-white/80 border-blue-100"}`}>
         {favorites.map((contact) => (
           <div
             key={contact._id}
-            className={`flex flex-col items-center cursor-pointer transition-all transform hover:scale-110 active:scale-95 rounded-2xl p-3 min-w-[80px] ${isDark ? "hover:bg-blue-800/50" : "hover:bg-blue-50"} animate-float`}
-            style={{ animationDelay: `${Math.random() * 2}s` }}
+            className={`flex flex-col items-center cursor-pointer rounded-3xl p-3 min-w-[80px] ${isDark ? "hover:bg-blue-800/50" : "hover:bg-blue-50"}`}
             onClick={() => setSelected(contact)}
           >
             <Avatar user={contact.user} size="sm" showStatus={true} />
-            <p className={`text-xs font-medium truncate max-w-[60px] text-center mt-2 ${isDark ? "text-blue-200" : "text-blue-700"}`}>
+            <p className={`text-xs font-medium truncate max-w-[60px] text-center mt-1 ${isDark ? "text-blue-200" : "text-blue-700"}`}>
               {contact.user.name}
             </p>
           </div>
@@ -96,49 +93,98 @@ function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
   );
 }
 
+
+/* CONTACT DETAILS */
 /* CONTACT DETAILS */
 function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
   const { isDark } = useTheme();
+  const router = useRouter();
+
+  // Debug: Voir la structure du contact
+  console.log("DEBUG - Contact reçu:", {
+    id: contact._id,
+    conversationId: contact.conversation,
+    user: contact.user?.name,
+    fullContact: JSON.stringify(contact, null, 2)
+  });
+
   const user = contact.user;
   const isFav = favoriteIds.has(user._id);
 
+  // Fonction pour gérer le clic sur le bouton Message
+  // Fonction pour gérer le clic sur le bouton Message
+  // Fonction pour gérer le clic sur le bouton Message
+  // Fonction pour gérer le clic sur le bouton Message
+  const handleMessageClick = async () => {
+    try {
+      console.log("📞 Appel API...");
+
+      const response = await api.post('/conversations/get-or-create', {
+        contactId: user._id
+      });
+
+      console.log("📦 Réponse brute:", response.data);
+
+      // 🔥 CORRECTION : Même si 'restored' cause une erreur backend,
+      // on peut QUAND MÊME récupérer l'ID de conversation !
+      if (response.data.conversation?._id) {
+        const conversationId = response.data.conversation._id;
+        console.log(`✅ Conversation ID récupérée: ${conversationId}`);
+        router.push(`/chat/${conversationId}`);
+        return;
+      }
+
+      // Si pas de conversation dans la réponse
+      alert("Erreur backend: wasDeletedByMe is not defined\n\nContacte le développeur backend pour corriger conversationController.js");
+
+    } catch (error) {
+      console.error("❌ Erreur totale:", error);
+
+      // Analyse l'erreur
+      if (error.response?.data?.error?.includes('wasDeletedByMe is not defined')) {
+        console.log("⚠️ Erreur backend connue, mais on cherche quand même...");
+
+        // Essaie de récupérer l'ID même dans l'erreur
+        if (error.response?.data?.conversation?._id) {
+          const conversationId = error.response.data.conversation._id;
+          console.log(`🔧 Conversation ID trouvée malgré l'erreur: ${conversationId}`);
+          router.push(`/chat/${conversationId}`);
+          return;
+        }
+      }
+
+      alert("Erreur: " + (error.response?.data?.error || error.message));
+    }
+  };
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
     : "bg-gradient-to-br from-blue-50 via-white to-cyan-50";
 
   const cardBg = isDark
-    ? "bg-blue-900/80 backdrop-blur-xl border-blue-800"
-    : "bg-white/80 backdrop-blur-xl border-blue-100";
+    ? "bg-blue-900/80 border-blue-800"
+    : "bg-white/80 border-blue-100";
 
   const textPrimary = isDark ? "text-blue-50" : "text-blue-900";
   const textSecondary = isDark ? "text-blue-300" : "text-blue-600";
   const textMuted = isDark ? "text-blue-400" : "text-blue-400";
 
   const buttonStyle = isDark
-    ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
-    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white shadow-2xl hover:shadow-blue-500/50";
+    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white"
+    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 text-white";
 
   const actionButtonStyle = isDark
-    ? "bg-blue-800 hover:bg-blue-700 text-blue-100"
-    : "bg-blue-100 hover:bg-blue-200 text-blue-800";
+    ? "bg-blue-800 text-blue-100"
+    : "bg-blue-100 text-blue-800";
 
   return (
-    <div className={`min-h-screen ${pageBg} relative overflow-hidden p-4`}>
-      {/* Background décoratif */}
-      {!isDark && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
-        </div>
-      )}
-
-      <div className="max-w-md mx-auto relative z-10">
+    <div className={`min-h-screen ${pageBg} p-4`}>
+      <div className="max-w-md mx-auto">
         {/* Header */}
-        <div className="mb-6 animate-fade-in">
+        <div className="mb-6">
           <div className="flex items-center gap-4 mb-4">
             <button
               onClick={onBack}
-              className={`p-3 rounded-2xl border-2 transition-all transform hover:scale-105 active:scale-95 shadow-md ${isDark ? "bg-blue-800 hover:bg-blue-700 border-blue-700" : "bg-white hover:bg-blue-50 border-blue-100 hover:border-blue-300"}`}
+              className={`p-3 rounded-2xl border-2 ${isDark ? "bg-blue-800 border-blue-700" : "bg-white border-blue-100"}`}
             >
               <ArrowLeft className={`w-6 h-6 ${isDark ? "text-cyan-400" : "text-blue-600"}`} />
             </button>
@@ -155,64 +201,89 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
         </div>
 
         {/* Carte principale */}
-        <div className={`rounded-3xl p-6 sm:p-8 shadow-xl border-2 hover:shadow-2xl transition-all ${cardBg}`}>
-          {/* Favorite button */}
-          <button 
-            onClick={() => toggleFavorite(user._id)} 
-            className="absolute top-6 right-6 transform hover:scale-110 transition-transform"
+        <div className={`rounded-3xl p-6 sm:p-8 border-2 ${cardBg} relative`}>
+          {/* Bouton favori POSITIONNÉ EN ABSOLU */}
+          <button
+            onClick={() => toggleFavorite(user._id)}
+            className={`absolute top-6 right-6 p-3 rounded-xl z-10 ${isDark
+              ? 'bg-blue-800/50 hover:bg-blue-700/70'
+              : 'bg-blue-100 hover:bg-blue-200'
+              }`}
           >
             <Star
-              size={30}
-              className={`transition-all ${isFav 
-                ? "text-yellow-400 fill-yellow-400 drop-shadow-lg" 
-                : isDark 
-                  ? "text-blue-400 hover:text-yellow-400" 
-                  : "text-blue-300 hover:text-yellow-400"
-              }`}
+              size={28}
+              className={`${isFav
+                ? "text-yellow-400 fill-yellow-400"
+                : isDark
+                  ? "text-blue-300"
+                  : "text-blue-400"
+                }`}
             />
           </button>
 
-          {/* Avatar & Name */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <Avatar user={user} size="lg" showStatus={true} />
-            <h1 className={`text-2xl font-bold mt-6 ${textPrimary}`}>{user.name}</h1>
-            <p className={`mt-2 ${textSecondary}`}>
+          {/* Contenu centré : Photo -> Nom -> Statut */}
+          <div className="flex flex-col items-center text-center">
+            {/* Avatar en premier */}
+            <div className="flex justify-center mb-6">
+              <Avatar user={user} size="lg" showStatus={true} />
+            </div>
+
+            {/* Nom en deuxième */}
+            <h1 className={`text-2xl font-bold mb-2 ${textPrimary}`}>
+              {user.name}
+            </h1>
+
+            {/* Statut en troisième */}
+            <p className={`mb-8 ${textSecondary}`}>
               {user.status || "Aucun statut défini"}
             </p>
           </div>
 
           {/* Action buttons */}
           <div className="grid grid-cols-3 gap-4 mb-8">
-  <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 group ${actionButtonStyle} shadow-lg hover:shadow-xl`}>
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700 group-hover:bg-cyan-600' : 'bg-blue-200 group-hover:bg-blue-300'} transition-colors`}>
-      <Phone size={22} className="group-hover:animate-bounce" />
-    </div>
-    <span className="text-xs font-semibold">Appeler</span>
-  </button>
-  <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 group ${actionButtonStyle} shadow-lg hover:shadow-xl`}>
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700 group-hover:bg-cyan-600' : 'bg-blue-200 group-hover:bg-blue-300'} transition-colors`}>
-      <MessageCircle size={22} className="group-hover:animate-bounce" />
-    </div>
-    <span className="text-xs font-semibold">Message</span>
-  </button>
-  <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all transform hover:scale-110 active:scale-95 group ${actionButtonStyle} shadow-lg hover:shadow-xl`}>
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700 group-hover:bg-cyan-600' : 'bg-blue-200 group-hover:bg-blue-300'} transition-colors`}>
-      <Video size={22} className="group-hover:animate-bounce" />
-    </div>
-    <span className="text-xs font-semibold">Vidéo</span>
-  </button>
-</div>
+            <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl ${actionButtonStyle}`}>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700' : 'bg-blue-200'}`}>
+                <Phone size={22} />
+              </div>
+              <span className="text-xs font-semibold">Appeler</span>
+            </button>
+
+            {/* Bouton Message MODIFIÉ */}
+            {/* Bouton Message avec effet hover */}
+            <button
+              onClick={handleMessageClick}
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200 ${isDark
+                ? 'bg-blue-800 hover:bg-blue-700/80 text-blue-100 hover:scale-[1.02]'
+                : 'bg-blue-100 hover:bg-blue-200 text-blue-800 hover:scale-[1.02]'}`}
+            >
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${isDark
+                ? 'bg-blue-700 group-hover:bg-blue-600'
+                : 'bg-blue-200 group-hover:bg-blue-300'}`}>
+                <MessageCircle size={22} className={isDark ? 'text-cyan-300' : 'text-blue-600'} />
+              </div>
+              <span className="text-xs font-semibold">Message</span>
+            </button>
+
+            <button className={`flex flex-col items-center gap-2 p-4 rounded-2xl ${actionButtonStyle}`}>
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700' : 'bg-blue-200'}`}>
+                <Video size={22} />
+              </div>
+              <span className="text-xs font-semibold">Vidéo</span>
+            </button>
+          </div>
 
           {/* Informations */}
           <div className="space-y-4">
             <div className={`p-4 rounded-2xl border-2 ${isDark ? "bg-blue-800/50 border-blue-700" : "bg-blue-50 border-blue-200"}`}>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isDark ? "bg-blue-700" : "bg-blue-100"}`}>
                   <Mail className={`w-5 h-5 ${isDark ? "text-cyan-400" : "text-blue-600"}`} />
                 </div>
-                <div>
-                  <p className={`text-sm font-medium ${textSecondary}`}>Adresse email</p>
-                  <p className={`font-bold ${textPrimary}`}>{user.email}</p>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${textSecondary} mb-1`}>Adresse email</p>
+                  <p className={`font-bold ${textPrimary} truncate`} title={user.email}>
+                    {user.email}
+                  </p>
                 </div>
               </div>
             </div>
@@ -236,18 +307,11 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
               </div>
             </div>
           </div>
-
-          {/* Bouton message */}
-          <button className={`w-full mt-8 py-4 rounded-2xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 ${buttonStyle}`}>
-            <MessageCircle className="w-5 h-5" />
-            Envoyer un message
-          </button>
         </div>
       </div>
     </div>
   );
 }
-
 /* ---------------- ADD CONTACT TAB ---------------- */
 function AddContactTab({ contactIds }) {
   const { isDark } = useTheme();
@@ -263,69 +327,80 @@ function AddContactTab({ contactIds }) {
     : "bg-gradient-to-br from-blue-50 via-white to-cyan-50";
 
   const cardBg = isDark
-    ? "bg-blue-900/80 backdrop-blur-xl border-blue-800"
-    : "bg-white/80 backdrop-blur-xl border-blue-100";
+    ? "bg-blue-900/80 border-blue-800"
+    : "bg-white/80 border-blue-100";
 
   const textPrimary = isDark ? "text-blue-50" : "text-blue-900";
   const textSecondary = isDark ? "text-blue-300" : "text-blue-600";
   const textMuted = isDark ? "text-blue-400" : "text-blue-400";
 
   const inputBg = isDark
-    ? "bg-blue-800 border-blue-700 focus:ring-cyan-500 focus:border-cyan-400"
-    : "bg-white border-blue-200 focus:ring-blue-300 focus:border-blue-400";
+    ? "bg-blue-800 border-blue-700"
+    : "bg-white border-blue-200";
 
   const inputText = isDark ? "text-blue-100 placeholder-blue-400" : "text-blue-900 placeholder-blue-400";
 
   const buttonStyle = isDark
-    ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
-    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white shadow-2xl hover:shadow-blue-500/50";
+    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white"
+    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 text-white";
 
-  // APRÈS (avec filtrage des bloqués)
-useEffect(() => {
-  if (!searchQuery.trim()) return;
-  clearTimeout(searchTimeoutRef.current);
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    clearTimeout(searchTimeoutRef.current);
 
-  const performSearch = async () => {
-    try {
-      setSearching(true);
-      
-      // ✅ 1. Charger les utilisateurs bloqués
-      let blockedIds = new Set();
+    const performSearch = async () => {
       try {
-        const blockedResponse = await api.get('/message-settings/blocked');
-        const blockedUsers = blockedResponse.data.blockedUsers || [];
-        blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
-      } catch (err) {
-        console.error('Erreur chargement bloqués:', err);
-      }
-      
-      // ✅ 2. Rechercher les utilisateurs
-      const response = await searchUsers(searchQuery);
-      
-      // ✅ 3. Filtrer : exclure contacts existants ET bloqués
-      const filteredUsers = (response.data.users || []).filter((user) => {
-        const isContact = contactIds.has(user._id);
-        const isBlocked = blockedIds.has(user._id.toString());
-        
-        if (isBlocked) {
-          console.log(`⚠️ Utilisateur ${user.name} exclu (bloqué)`);
-        }
-        
-        return !isContact && !isBlocked;
-      });
-      
-      setSearchResults(filteredUsers);
-    } catch (error) {
-      console.error(error);
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  };
+        setSearching(true);
 
-  searchTimeoutRef.current = setTimeout(performSearch, 500);
-  return () => clearTimeout(searchTimeoutRef.current);
-}, [searchQuery, contactIds]);
+        // 📍 AJOUT: Vérifier la longueur de la recherche
+        const searchTerm = searchQuery.trim();
+        if (searchTerm.length < 2) {
+          setSearchResults([]);
+          setSearching(false);
+          return;
+        }
+
+        let blockedIds = new Set();
+        try {
+          const blockedResponse = await api.get('/message-settings/blocked');
+          const blockedUsers = blockedResponse.data.blockedUsers || [];
+          blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
+        } catch (err) {
+          console.error('Erreur chargement bloqués:', err);
+        }
+
+        // 📍 MODIFICATION: Appeler searchUsers avec le terme de recherche
+        const response = await searchUsers(searchTerm);
+
+        // 📍 MODIFICATION: Filtrer les résultats côté client par NOM
+        const filteredUsers = (response.data.users || []).filter((user) => {
+          const isContact = contactIds.has(user._id);
+          const isBlocked = blockedIds.has(user._id.toString());
+
+          // 📍 IMPORTANT: Filtrer par nom uniquement
+          const userName = user.name ? user.name.toLowerCase() : '';
+          const searchLower = searchTerm.toLowerCase();
+          const matchesName = userName.includes(searchLower);
+
+          // Optionnel: aussi filtrer par email si vous voulez
+          // const userEmail = user.email ? user.email.toLowerCase() : '';
+          // const matchesEmail = userEmail.includes(searchLower);
+
+          return !isContact && !isBlocked && matchesName;
+        });
+
+        setSearchResults(filteredUsers);
+      } catch (error) {
+        console.error(error);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    };
+
+    searchTimeoutRef.current = setTimeout(performSearch, 500);
+    return () => clearTimeout(searchTimeoutRef.current);
+  }, [searchQuery, contactIds]);
 
   useEffect(() => {
     const fetchSentInvitations = async () => {
@@ -374,46 +449,22 @@ useEffect(() => {
 
   return (
     <div className={`min-h-screen ${pageBg} p-4`}>
-      {/* Background décoratif */}
-      {!isDark && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
-        </div>
-      )}
-
-      <div className="max-w-2xl mx-auto relative z-10">
-        {/* Header */}
-        <div className="mb-6 animate-fade-in">
-          <div className="flex items-center gap-4 mb-4">
-            <h1 className={`text-2xl font-bold ${isDark ? 'text-cyan-50' : 'text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-cyan-500'}`}>
-              Ajouter un contact
-            </h1>
-          </div>
-          <p className={`flex items-center gap-2 ${textSecondary}`}>
-            <Sparkles className="w-4 h-4" />
-            Recherchez et invitez de nouvelles personnes
-          </p>
-        </div>
-
+      <div className="max-w-2xl mx-auto">
         {/* Search Bar */}
-        <div className={`sticky top-0 z-40 pb-2 ${isDark ? "bg-linear-to-b from-blue-950 to-transparent" : "bg-linear-to-b from-white/80 to-transparent backdrop-blur-sm"}`}>
-          <div className="relative group">
-            {!isDark && (
-              <div className="absolute inset-0 bg-linear-to-r from-blue-500/10 to-cyan-500/10 rounded-2xl blur-sm group-focus-within:blur-md transition-all"></div>
-            )}
-            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 z-10 ${isDark ? "text-blue-400" : "text-blue-400"}`} />
+        <div className="pb-2">
+          <div className="relative">
+            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-400"}`} />
             <input
               type="text"
-              placeholder="Rechercher par nom ou email..."
+              placeholder="Trouver de nouveaux contacts ..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className={`relative w-full pl-12 pr-10 py-4 rounded-2xl border-2 focus:ring-4 outline-none font-medium transition-all ${inputBg} ${inputText}`}
+              className={`w-full pl-12 pr-10 py-4 rounded-full border-2 outline-none font-medium ${inputBg} ${inputText}`}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 ${isDark ? "text-blue-400 hover:text-cyan-300" : "text-blue-400 hover:text-blue-600"}`}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 ${isDark ? "text-blue-400" : "text-blue-400"}`}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -424,9 +475,9 @@ useEffect(() => {
         {/* Results */}
         <div className="mt-6">
           {searchResults.length > 0 && (
-            <div className={`rounded-3xl p-6 shadow-xl border-2 animate-scale-in ${cardBg}`}>
+            <div className={`rounded-3xl p-6 border-2 ${cardBg}`}>
               <h3 className={`text-lg font-bold mb-4 flex items-center gap-2 ${textPrimary}`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-linear-to-br from-blue-700 to-cyan-700' : 'bg-linear-to-br from-purple-500 to-pink-500'}`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDark ? 'bg-blue-700' : 'bg-purple-500'}`}>
                   <UserPlus className="w-4 h-4 text-white" />
                 </div>
                 Résultats ({searchResults.length})
@@ -434,10 +485,22 @@ useEffect(() => {
               <ul className="space-y-3">
                 {searchResults.map((user) => {
                   const isInvitationSent = sentInvitations.has(user._id);
+
+                  // Fonction pour masquer l'email
+                  const maskEmail = (email) => {
+                    if (!email) return '';
+                    const [localPart, domain] = email.split('@');
+                    if (!localPart || !domain) return email;
+
+                    // Garde seulement la dernière lettre du nom d'utilisateur
+                    const maskedLocal = '*****' + localPart.slice(-1);
+                    return `${maskedLocal}@${domain}`;
+                  };
+
                   return (
                     <li
                       key={user._id}
-                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${isDark ? "hover:bg-blue-800/50 border-blue-800" : "hover:bg-blue-50 border-blue-200"}`}
+                      className={`flex items-center justify-between p-4 rounded-2xl border-2 ${isDark ? "border-blue-800" : "border-blue-200"}`}
                     >
                       <div className="flex items-center min-w-0 flex-1">
                         <Avatar user={user} size="md" showStatus={false} />
@@ -445,15 +508,15 @@ useEffect(() => {
                           <p className={`font-bold truncate ${textPrimary}`}>
                             {user.name}
                           </p>
-                          <p className={`text-sm truncate ${textMuted}`}>
-                            {user.email}
+                          <p className={`text-sm truncate ${textMuted}`} title={user.email}>
+                            {maskEmail(user.email)}
                           </p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleSendInvitation(user._id)}
                         disabled={sendingTo === user._id || isInvitationSent}
-                        className={`ml-3 px-4 py-2.5 text-sm font-semibold rounded-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${buttonStyle}`}
+                        className={`ml-3 px-4 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed ${buttonStyle}`}
                       >
                         {sendingTo === user._id ? (
                           <div className="flex items-center gap-2">
@@ -488,11 +551,11 @@ useEffect(() => {
 
           {searchQuery.length < 2 && !searching && (
             <div className={`text-center py-12 rounded-3xl border-2 ${cardBg}`}>
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDark ? "bg-linear-to-br from-blue-800 to-cyan-800" : "bg-linear-to-br from-blue-100 to-cyan-100"}`}>
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDark ? "bg-blue-800" : "bg-blue-100"}`}>
                 <UserPlus className={`w-8 h-8 ${isDark ? "text-cyan-400" : "text-blue-500"}`} />
               </div>
               <p className={`font-bold ${textPrimary}`}>Commencez à taper...</p>
-              <p className={`text-sm mt-2 ${textMuted}`}>Recherchez des utilisateurs par nom ou email</p>
+              <p className={`text-sm mt-2 ${textMuted}`}>Recherchez des utilisateurs </p>
             </div>
           )}
 
@@ -522,52 +585,46 @@ export default function ContactsPage() {
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [blockedUserIds, setBlockedUserIds] = useState(new Set());
 
-
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
     : "bg-gradient-to-br from-blue-50 via-white to-cyan-50";
 
   const cardBg = isDark
-    ? "bg-blue-900/80 backdrop-blur-xl border-blue-800"
-    : "bg-white/80 backdrop-blur-xl border-blue-100";
+    ? "bg-blue-900/80 border-blue-800"
+    : "bg-white/80 border-blue-100";
 
   const textPrimary = isDark ? "text-blue-50" : "text-blue-900";
   const textSecondary = isDark ? "text-blue-300" : "text-blue-600";
   const textMuted = isDark ? "text-blue-400" : "text-blue-400";
 
-  const buttonStyle = isDark
-    ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
-    : "bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-600 hover:from-blue-700 hover:via-blue-800 hover:to-cyan-700 text-white shadow-2xl hover:shadow-blue-500/50";
-
   const tabButtonActive = isDark
-    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg"
-    : "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg";
+    ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white"
+    : "bg-gradient-to-r from-blue-600 to-cyan-500 text-white";
 
   const tabButtonInactive = isDark
-    ? "bg-blue-800 hover:bg-blue-700 text-blue-300"
-    : "bg-white hover:bg-blue-50 text-blue-700";
+    ? "bg-blue-800 text-blue-300"
+    : "bg-white text-blue-700";
 
   const inputBg = isDark
-    ? "bg-blue-800 border-blue-700 focus:ring-cyan-500 focus:border-cyan-400"
-    : "bg-white border-blue-200 focus:ring-blue-300 focus:border-blue-400";
+    ? "bg-blue-800 border-blue-700"
+    : "bg-white border-blue-200";
 
   const inputText = isDark ? "text-blue-100 placeholder-blue-400" : "text-blue-900 placeholder-blue-400";
 
-useEffect(() => {
-  const fetchBlockedUsers = async () => {
-    try {
-      const response = await api.get('/message-settings/blocked');
-      const blockedUsers = response.data.blockedUsers || [];
-      const blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
-      setBlockedUserIds(blockedIds);
-      console.log('🚫 Utilisateurs bloqués chargés:', blockedIds.size);
-    } catch (error) {
-      console.error('❌ Erreur chargement bloqués:', error);
-    }
-  };
-  
-  fetchBlockedUsers();
-}, []);
+  useEffect(() => {
+    const fetchBlockedUsers = async () => {
+      try {
+        const response = await api.get('/message-settings/blocked');
+        const blockedUsers = response.data.blockedUsers || [];
+        const blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
+        setBlockedUserIds(blockedIds);
+      } catch (error) {
+        console.error('Erreur chargement bloqués:', error);
+      }
+    };
+
+    fetchBlockedUsers();
+  }, []);
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -587,28 +644,26 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-  const handleBlockChange = async () => {
-    try {
-      const response = await api.get('/message-settings/blocked');
-      const blockedUsers = response.data.blockedUsers || [];
-      const blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
-      setBlockedUserIds(blockedIds);
-      console.log('🔄 Liste bloqués mise à jour');
-      
-      // ✅ Recharger les contacts pour mettre à jour la liste
-      const res = await api.get("/contacts");
-      const fetchedContacts = res.data.contacts || [];
-      setContacts(fetchedContacts);
-      setContactIds(new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean)));
-      setFavoriteIds(new Set(fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id)));
-    } catch (error) {
-      console.error('❌ Erreur rechargement:', error);
-    }
-  };
+    const handleBlockChange = async () => {
+      try {
+        const response = await api.get('/message-settings/blocked');
+        const blockedUsers = response.data.blockedUsers || [];
+        const blockedIds = new Set(blockedUsers.map(u => u._id.toString()));
+        setBlockedUserIds(blockedIds);
 
-  window.addEventListener('block-status-changed', handleBlockChange);
-  return () => window.removeEventListener('block-status-changed', handleBlockChange);
-}, []);
+        const res = await api.get("/contacts");
+        const fetchedContacts = res.data.contacts || [];
+        setContacts(fetchedContacts);
+        setContactIds(new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean)));
+        setFavoriteIds(new Set(fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id)));
+      } catch (error) {
+        console.error('Erreur rechargement:', error);
+      }
+    };
+
+    window.addEventListener('block-status-changed', handleBlockChange);
+    return () => window.removeEventListener('block-status-changed', handleBlockChange);
+  }, []);
 
   const toggleFavorite = async (userId) => {
     const wasFavorite = favoriteIds.has(userId);
@@ -634,20 +689,19 @@ useEffect(() => {
   };
 
   const filteredContacts = contacts.filter((c) => {
-  if (!c?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())) {
-    return false;
-  }
-  
-  // ✅ EXCLURE LES UTILISATEURS BLOQUÉS
-  const userId = c.user?._id?.toString();
-  const isBlocked = blockedUserIds.has(userId);
-  
-  if (isBlocked) {
-    console.log(`⚠️ Contact ${c.user?.name} exclu (bloqué)`);
-  }
-  
-  return !isBlocked;
-});
+    if (!c?.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+
+    const userId = c.user?._id?.toString();
+    const isBlocked = blockedUserIds.has(userId);
+
+    if (isBlocked) {
+      console.log(`⚠️ Contact ${c.user?.name} exclu (bloqué)`);
+    }
+
+    return !isBlocked;
+  });
 
   if (loading) return (
     <div className={`min-h-screen flex items-center justify-center ${pageBg}`}>
@@ -659,43 +713,21 @@ useEffect(() => {
   );
 
   return (
-    <div className={`min-h-screen ${pageBg} relative overflow-hidden`}>
-      {/* Background décoratif */}
-      {!isDark && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
-        </div>
-      )}
-
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 relative z-10">
-        
-        {/* Header */}
-        <div className="mb-6 animate-fade-in">
-          <h1 className={`text-3xl font-bold flex items-center gap-3 ${isDark ? 'text-cyan-50' : 'text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-cyan-500'}`}>
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${isDark ? 'bg-linear-to-br from-blue-700 to-cyan-700' : 'bg-linear-to-br from-purple-500 to-pink-500'}`}>
-              <UserPlus className="w-6 h-6 text-white" />
-            </div>
-            Contacts
-          </h1>
-          <p className={`mt-1 ml-1 flex items-center gap-2 ${textSecondary}`}>
-            <Sparkles className="w-4 h-4" />
-            Gérez vos contacts et favorites
-          </p>
-        </div>
+    <div className={`min-h-screen ${pageBg}`}>
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
 
         {/* Tabs */}
-        <div className={`sticky top-0 z-50 pb-4 pt-2 ${isDark ? "bg-linear-to-b from-blue-950 to-transparent" : "bg-linear-to-b from-white/80 to-transparent backdrop-blur-sm"}`}>
+        <div className="pb-4 pt-2">
           <div className="flex gap-3 max-w-lg mx-auto">
             <button
               onClick={() => { setActiveTab("contacts"); setSelected(null); }}
-              className={`flex-1 py-3.5 rounded-xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] ${activeTab === "contacts" ? tabButtonActive : tabButtonInactive}`}
+              className={`flex-1 py-3.5 rounded-xl font-bold ${activeTab === "contacts" ? tabButtonActive : tabButtonInactive}`}
             >
               Mes Contacts
             </button>
             <button
               onClick={() => { setActiveTab("add"); setSelected(null); }}
-              className={`flex-1 py-3.5 rounded-xl font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${activeTab === "add" ? tabButtonActive : tabButtonInactive}`}
+              className={`flex-1 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 ${activeTab === "add" ? tabButtonActive : tabButtonInactive}`}
             >
               <UserPlus className="w-5 h-5" />
               Ajouter
@@ -707,53 +739,50 @@ useEffect(() => {
           {activeTab === "add" ? (
             <AddContactTab contactIds={contactIds} />
           ) : selected ? (
-            <ContactDetails 
-              contact={selected} 
-              toggleFavorite={toggleFavorite} 
-              favoriteIds={favoriteIds} 
-              onBack={() => setSelected(null)} 
+            <ContactDetails
+              contact={selected}
+              toggleFavorite={toggleFavorite}
+              favoriteIds={favoriteIds}
+              onBack={() => setSelected(null)}
             />
           ) : (
             <>
               {/* Search Bar */}
-              <div className={`sticky top-0 z-40 pb-2 ${isDark ? "bg-gradient-to-b from-blue-950 to-transparent" : "bg-gradient-to-b from-white/80 to-transparent backdrop-blur-sm"}`}>
-  <div className="relative group max-w-lg mx-auto">
-    {/* Effet de lueur au focus */}
-    <div className={`absolute inset-0 rounded-2xl blur-xl transition-opacity duration-300 ${isDark ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20' : 'bg-gradient-to-r from-blue-500/10 to-cyan-500/10'} opacity-0 group-focus-within:opacity-100`}></div>
-    
-    <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 z-10 transition-colors ${isDark ? "text-blue-400 group-focus-within:text-cyan-400" : "text-blue-400 group-focus-within:text-blue-600"}`} />
-    <input
-      type="text"
-      placeholder="Rechercher un contact..."
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      className={`relative w-full pl-12 pr-10 py-4 rounded-2xl border-2 focus:ring-4 outline-none font-medium transition-all ${inputBg} ${inputText}`}
-    />
-    {searchTerm && (
-      <button
-        onClick={() => setSearchTerm('')}
-        className={`absolute right-4 top-1/2 -translate-y-1/2 z-10 transform hover:scale-110 hover:rotate-90 transition-all ${isDark ? "text-blue-400 hover:text-cyan-300" : "text-blue-400 hover:text-blue-600"}`}
-      >
-        <X className="w-5 h-5" />
-      </button>
-    )}
-  </div>
-</div>
+              <div className="pb-2">
+                <div className="max-w-lg mx-auto">
+                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-400"}`} />
+                  <input
+                    type="text"
+                    placeholder="Rechercher un contact..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`w-full pl-12 pr-10 py-4 rounded-2xl border-2 outline-none font-medium ${inputBg} ${inputText}`}
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className={`absolute right-4 top-1/2 -translate-y-1/2 ${isDark ? "text-blue-400" : "text-blue-400"}`}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
               {/* Favorites */}
-              <FavoritesBar 
-                contacts={contacts} 
-                favoriteIds={favoriteIds} 
-                setSelected={setSelected} 
-                searchTerm={searchTerm} 
+              <FavoritesBar
+                contacts={contacts}
+                favoriteIds={favoriteIds}
+                setSelected={setSelected}
+                searchTerm={searchTerm}
               />
 
               {/* Contact List */}
               <div className="max-w-2xl mx-auto">
-                <h2 className={`font-bold text-lg mb-3 flex items-center gap-2 ${textPrimary}`}>
+                <h2 className={`font-bold text-lg mb-3 ${textPrimary}`}>
                   Tous les contacts ({filteredContacts.length})
                 </h2>
-                <div className={`rounded-3xl p-6 shadow-xl border-2 animate-slide-in-up ${cardBg}`}>
+                <div className={`rounded-3xl p-6 border-2 ${cardBg}`}>
                   {filteredContacts.length === 0 ? (
                     <div className="text-center py-8">
                       <p className={`font-medium ${textPrimary}`}>Aucun contact trouvé</p>
@@ -770,58 +799,53 @@ useEffect(() => {
 
                         return (
                           <li
-  key={contact._id}
-  className={`contact-card-glow flex items-center justify-between p-4 rounded-2xl border-2 transition-all transform hover:scale-[1.02] cursor-pointer group ${isDark ? "hover:bg-blue-800/50 border-blue-800 hover:border-cyan-600" : "hover:bg-blue-50 border-blue-200 hover:border-blue-400"} backdrop-blur-sm relative`}
-  onClick={() => setSelected(contact)}
->
-  <div className="flex items-center flex-1 min-w-0 pr-4">
-    <div className="relative shrink-0">
-      <Avatar user={user} size="md" showStatus={true} />
-    </div>
-    <div className="ml-4 flex-1 min-w-0">
-      <p className={`font-bold text-lg truncate ${textPrimary} group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-500 group-hover:to-cyan-500 transition-all`}>
-        {user.name}
-      </p>
-      <div className="flex items-center gap-2 mt-1 flex-wrap">
-        <span className={`text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 ${user.isOnline ? (isDark ? "bg-green-900/40 text-green-400" : "bg-green-100 text-green-700") : (isDark ? "bg-blue-800/50 text-blue-300" : "bg-blue-100 text-blue-600")} shadow-sm`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${user.isOnline ? 'bg-green-400 animate-pulse' : 'bg-blue-400'}`}></span>
-          {user.isOnline ? "En ligne" : "Hors ligne"}
-        </span>
-        <span className={`text-xs ${textMuted} truncate max-w-[150px]`}>
-          {user.email}
-        </span>
-      </div>
-    </div>
-  </div>
+                            key={contact._id}
+                            className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer ${isDark ? "border-blue-800" : "border-blue-200"}`}
+                            onClick={() => setSelected(contact)}
+                          >
+                            <div className="flex items-center flex-1 min-w-0 pr-4">
+                              <div className="relative shrink-0">
+                                <Avatar user={user} size="md" showStatus={true} />
+                              </div>
+                              <div className="ml-4 flex-1 min-w-0">
+                                <p className={`font-bold text-lg truncate ${textPrimary}`}>
+                                  {user.name}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
 
-  {/* Bouton étoile - repositionné avec meilleure visibilité */}
-  <button 
-    onClick={(e) => { 
-      e.stopPropagation(); 
-      toggleFavorite(user._id); 
-    }}
-    className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 transform hover:scale-125 hover:rotate-12 z-10 ${
-      isFav 
-        ? (isDark 
-          ? 'bg-yellow-500/20 hover:bg-yellow-500/30' 
-          : 'bg-yellow-50 hover:bg-yellow-100')
-        : (isDark 
-          ? 'bg-blue-800/50 hover:bg-blue-700/70' 
-          : 'bg-blue-50 hover:bg-blue-100')
-    }`}
-    title={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
-  >
-    <Star
-      size={24}
-      className={`transition-all duration-300 ${isFav 
-        ? "text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" 
-        : isDark 
-          ? "text-blue-300 hover:text-yellow-400" 
-          : "text-blue-400 hover:text-yellow-400"
-      }`}
-    />
-  </button>
-</li>
+                                  <span className={`text-xs ${textMuted} truncate max-w-[150px]`}>
+                                    {user.email}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(user._id);
+                              }}
+                              className={`shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${isFav
+                                ? (isDark
+                                  ? 'bg-yellow-500/20'
+                                  : 'bg-yellow-50')
+                                : (isDark
+                                  ? 'bg-blue-800/50'
+                                  : 'bg-blue-50')
+                                }`}
+                              title={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
+                            >
+                              <Star
+                                size={24}
+                                className={`${isFav
+                                  ? "text-yellow-400 fill-yellow-400"
+                                  : isDark
+                                    ? "text-blue-300"
+                                    : "text-blue-400"
+                                  }`}
+                              />
+                            </button>
+                          </li>
                         );
                       })}
                     </ul>
