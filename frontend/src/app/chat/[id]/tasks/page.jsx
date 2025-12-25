@@ -13,6 +13,8 @@ export default function TasksPage() {
   /* ================= STATES ================= */
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [projectSearch, setProjectSearch] = useState("");
+
 
   const [currentProjectId, setCurrentProjectId] = useState("all");
   const [newProjectName, setNewProjectName] = useState("");
@@ -27,6 +29,9 @@ export default function TasksPage() {
 
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [commentText, setCommentText] = useState("");
 
   /* ================= FETCH TASKS ================= */
   const fetchTasks = useCallback(async () => {
@@ -101,10 +106,7 @@ export default function TasksPage() {
       };
       if (newDueDate) payload.dueDate = newDueDate;
 
-      const res = await api.post(
-        `/conversations/${conversationId}/tasks`,
-        payload
-      );
+      const res = await api.post(`/conversations/${conversationId}/tasks`, payload);
 
       if (res.data?.task) {
         setTasks((prev) => [...prev, res.data.task]);
@@ -152,6 +154,49 @@ export default function TasksPage() {
       setTasks((prev) => prev.filter((t) => t._id !== taskId));
     } catch (err) {
       console.error("DELETE ERROR:", err);
+    }
+  };
+
+  const updateTaskDetails = async () => {
+    if (!selectedTask) return;
+    try {
+      const res = await api.patch(`/tasks/${selectedTask._id}`, {
+        title: selectedTask.title,
+        description: selectedTask.description,
+        priority: selectedTask.priority,
+        dueDate: selectedTask.dueDate,
+      });
+      if (res.data?.task) {
+        setTasks((prev) =>
+          prev.map((t) => (t._id === selectedTask._id ? res.data.task : t))
+        );
+      }
+      setSelectedTask(null);
+    } catch (err) {
+      console.error("UPDATE TASK DETAILS ERROR:", err);
+    }
+  };
+
+  const addComment = async () => {
+    if (!commentText.trim() || !selectedTask) return;
+    try {
+      const res = await api.post(`/tasks/${selectedTask._id}/comments`, { text: commentText });
+      if (res.data?.comment) {
+        setSelectedTask({
+          ...selectedTask,
+          comments: [...(selectedTask.comments || []), res.data.comment],
+        });
+        setTasks((prev) =>
+          prev.map((t) =>
+            t._id === selectedTask._id
+              ? { ...t, comments: [...(t.comments || []), res.data.comment] }
+              : t
+          )
+        );
+        setCommentText("");
+      }
+    } catch (err) {
+      console.error("ADD COMMENT ERROR:", err);
     }
   };
 
@@ -203,9 +248,23 @@ export default function TasksPage() {
 
   const columns = {
     todo: { title: "À faire", tasks: filteredTasks.filter((t) => t.status === "todo") },
-    in_progress: { title: "En cours", tasks: filteredTasks.filter((t) => t.status === "in_progress") },
+    inProgress: { title: "En cours", tasks: filteredTasks.filter((t) => t.status === "inProgress") },
     done: { title: "Terminées", tasks: filteredTasks.filter((t) => t.status === "done") },
   };
+  const currentProject = useMemo(() => {
+  if (currentProjectId === "all") return null;
+  return projects.find((p) => p._id === currentProjectId);
+}, [currentProjectId, projects]);
+
+
+  const filteredProjects = useMemo(() => {
+  if (!projectSearch.trim()) return projects;
+
+  const q = projectSearch.toLowerCase();
+  return projects.filter((p) =>
+    p.name.toLowerCase().includes(q)
+  );
+}, [projects, projectSearch]);
 
   /* ================= DRAG & DROP ================= */
   const onDragEnd = (result) => {
@@ -262,149 +321,345 @@ export default function TasksPage() {
       <main className="flex-1 p-4">
         {/* HEADER */}
         <div className="flex items-center gap-3 mb-4 max-w-7xl mx-auto">
-          <button onClick={() => router.push(`/chat/${conversationId}`)}>
-            <ArrowLeft />
-          </button>
-          <h1 className="text-xl font-bold">Tâches</h1>
+          <button
+  onClick={() => {
+    if (currentProjectId !== "all") {
+      setCurrentProjectId("all");
+    } else {
+      router.push(`/chat/${conversationId}`);
+    }
+  }}
+>
+  <ArrowLeft />
+</button>
+
+          <h1 className="text-xl font-bold transition-all duration-200">
+          {currentProjectId === "all"
+          ? "📁 Tous les projets"
+          : `📌 Projet : ${currentProject?.name || "Projet"}`}
+        </h1>
+
         </div>
 
-        {/* SEARCH + SORT + ADD TASK */}
-        <div className="flex flex-wrap gap-2 max-w-7xl mx-auto mb-4">
-          <div className="flex items-center gap-2 border p-2 rounded flex-1">
-            <Search size={16} className="text-gray-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher une tâche…"
-              className="flex-1 outline-none"
-            />
-          </div>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border p-2 rounded"
-          >
-            <option value="all">Toutes</option>
-            <option value="todo">À faire</option>
-            <option value="in_progress">En cours</option>
-            <option value="done">Terminées</option>
-          </select>
-
-          <select
-            value={sortOption}
-            onChange={(e) => setSortOption(e.target.value)}
-            className="border p-2 rounded"
-          >
-            <option value="none">Trier</option>
-            <option value="date_recent">📅 Récentes</option>
-            <option value="date_oldest">📅 Anciennes</option>
-            <option value="important">⭐ Importantes</option>
-            <option value="due_today">⏰ Aujourd’hui</option>
-            <option value="due_overdue">⚠️ En retard</option>
-            <option value="due_upcoming">➡️ À venir</option>
-          </select>
-        </div>
-
+        {/* ================= BARRE SUPÉRIEURE ================= */}
+    {currentProjectId === "all" ? (
+      /* 🔍 RECHERCHE DE PROJETS */
         <div className="flex gap-2 max-w-7xl mx-auto mb-4">
-          <input
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Nouvelle tâche…"
-            className="border p-2 rounded flex-1"
-          />
-          <div className="flex items-center gap-2">
-            <Calendar size={16} />
-            <input
-              type="date"
-              value={newDueDate}
-              onChange={(e) => setNewDueDate(e.target.value)}
-              className="border p-2 rounded"
-            />
-            <button
-              onClick={addTask}
-              disabled={!newTitle.trim()}
-              className="bg-black text-white p-2 rounded"
-            >
-              <Plus />
-            </button>
-          </div>
-        </div>
+        <div className="flex items-center gap-2 border p-2 rounded flex-1">
+        <Search size={16} className="text-gray-400" />
+        <input
+        value={projectSearch}
+        onChange={(e) => setProjectSearch(e.target.value)}
+        placeholder="Rechercher un projet…"
+        className="flex-1 outline-none"
+        />
+       </div>
+      </div>
+    ) : (
+  /* 🔍 RECHERCHE + ➕ AJOUT DE TÂCHE */
+  <>
+    <div className="flex flex-wrap gap-2 max-w-7xl mx-auto mb-4">
+      <div className="flex items-center gap-2 border p-2 rounded flex-1">
+        <Search size={16} className="text-gray-400" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher une tâche…"
+          className="flex-1 outline-none"
+        />
+      </div>
 
-        {/* DRAG & DROP COLUMNS */}
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-4 max-w-7xl mx-auto">
-            {Object.entries(columns).map(([colId, col]) => (
-              <Droppable key={colId} droppableId={colId}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`flex-1 p-2 border rounded min-h-[400px] transition-colors duration-200 ${
-                      snapshot.isDraggingOver ? "bg-blue-50" : "bg-gray-50"
-                    }`}
-                  >
-                    <h2 className="font-semibold mb-2 flex justify-between items-center">
-                      {col.title} <span className="text-sm text-gray-500">{col.tasks.length}</span>
-                    </h2>
-                    {col.tasks.map((task, index) => (
-                      <Draggable key={task._id} draggableId={task._id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`p-2 mb-2 bg-white rounded shadow transition-colors duration-200 ${
-                              snapshot.isDragging ? "bg-blue-100" : ""
-                            }`}
-                          >
-                            <TaskItem
-                              task={task}
-                              deleteTask={deleteTask}
-                              updateDueDate={updateDueDate}
-                              updateTaskStatus={updateTaskStatus}
-                            />
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            ))}
-          </div>
-        </DragDropContext>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="border p-2 rounded"
+      >
+        <option value="all">Toutes</option>
+        <option value="todo">À faire</option>
+        <option value="inProgress">En cours</option>
+        <option value="done">Terminées</option>
+      </select>
+
+      <select
+        value={sortOption}
+        onChange={(e) => setSortOption(e.target.value)}
+        className="border p-2 rounded"
+      >
+        <option value="none">Trier</option>
+        <option value="date_recent">📅 Récentes</option>
+        <option value="date_oldest">📅 Anciennes</option>
+        <option value="important">⭐ Importantes</option>
+        <option value="due_today">⏰ Aujourd’hui</option>
+        <option value="due_overdue">⚠️ En retard</option>
+        <option value="due_upcoming">➡️ À venir</option>
+      </select>
+    </div>
+
+    {/* ➕ AJOUT TÂCHE */}
+    <div className="flex gap-2 max-w-7xl mx-auto mb-4">
+      <input
+        value={newTitle}
+        onChange={(e) => setNewTitle(e.target.value)}
+        placeholder="Nouvelle tâche…"
+        className="border p-2 rounded flex-1"
+      />
+      <div className="flex items-center gap-2">
+        <Calendar size={16} />
+        <input
+          type="date"
+          value={newDueDate}
+          onChange={(e) => setNewDueDate(e.target.value)}
+          className="border p-2 rounded"
+        />
+        <button
+          onClick={addTask}
+          disabled={!newTitle.trim()}
+          className="bg-black text-white p-2 rounded"
+        >
+          <Plus />
+        </button>
+      </div>
+    </div>
+  </>
+)}
+     {/* ================= CONTENU CENTRAL ================= */}
+{currentProjectId === "all" ? (
+  projects.length === 0 ? (
+    /* CAS 1 : Aucun projet */
+    <div className="flex flex-col items-center justify-center text-center mt-20 text-gray-600">
+      <h2 className="text-xl font-semibold mb-2">
+        🚀 Créez votre premier projet Primazul
+      </h2>
+      <p className="mb-4">
+        Organisez vos tâches et collaborez avec vos amis en toute simplicité.
+      </p>
+      <button
+        onClick={() =>
+          document
+            .querySelector("input[placeholder='Nouveau projet']")
+            ?.focus()
+        }
+        className="bg-black text-white px-4 py-2 rounded"
+      >
+        + Créer un projet
+      </button>
+    </div>
+  ) : (
+    /* CAS 2 : Projets récents */
+    <div className="max-w-7xl mx-auto mt-6">
+      <h2 className="text-lg font-semibold mb-4">📁 Projets récents</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {filteredProjects.slice(0, 6).map((project) => (
+          <button
+            key={project._id}
+            onClick={() => setCurrentProjectId(project._id)}
+            className="border rounded p-4 text-left hover:shadow transition"
+          >
+            <h3 className="font-semibold">{project.name}</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Voir les tâches →
+            </p>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+) : (
+  <DragDropContext onDragEnd={onDragEnd}>
+    <div className="flex gap-4 max-w-7xl mx-auto">
+      {Object.entries(columns).map(([colId, col]) => (
+        <Droppable key={colId} droppableId={colId}>
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={`flex-1 p-2 border rounded min-h-[400px] transition-colors duration-200 ${
+                snapshot.isDraggingOver ? "bg-blue-50" : "bg-gray-50"
+              }`}
+            >
+              <h2 className="font-semibold mb-2 flex justify-between items-center">
+                {col.title}
+                <span className="text-sm text-gray-500">
+                  {col.tasks.length}
+                </span>
+              </h2>
+
+              {col.tasks.map((task, index) => (
+                <Draggable
+                  key={task._id}
+                  draggableId={task._id}
+                  index={index}
+                >
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      className={`p-2 mb-2 bg-white rounded shadow transition-colors duration-200 ${
+                        snapshot.isDragging ? "bg-blue-100" : ""
+                      }`}
+                    >
+                      <TaskItem
+                        task={task}
+                        deleteTask={deleteTask}
+                        updateDueDate={updateDueDate}
+                        updateTaskStatus={updateTaskStatus}
+                        onOpen={setSelectedTask}
+                      />
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      ))}
+    </div>
+  </DragDropContext>
+)}
+
+
+       {/* POP-UP DÉTAILS TÂCHE */}
+{selectedTask && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white w-full max-w-lg rounded p-4 space-y-3">
+      <div className="flex justify-between items-center">
+        <h2 className="font-bold text-lg">Détails de la tâche</h2>
+        <button onClick={() => setSelectedTask(null)}>✖</button>
+      </div>
+
+      {/* Titre */}
+      <label className="font-semibold">Titre</label>
+      <input
+        value={selectedTask.title}
+        onChange={(e) =>
+          setSelectedTask({ ...selectedTask, title: e.target.value })
+        }
+        className="border p-2 w-full rounded"
+      />
+
+      {/* Description */}
+      <label className="font-semibold">Description</label>
+      <textarea
+        value={selectedTask.description}
+        onChange={(e) =>
+          setSelectedTask({ ...selectedTask, description: e.target.value })
+        }
+        placeholder="Description..."
+        className="border p-2 w-full rounded"
+      />
+
+      {/* Priorité */}
+      <label className="font-semibold">Priorité</label>
+      <select
+        value={selectedTask.priority}
+        onChange={(e) =>
+          setSelectedTask({ ...selectedTask, priority: e.target.value })
+        }
+        className="border p-2 rounded w-full"
+      >
+        <option value="low">🟢 Faible</option>
+        <option value="normal">🟡 Normal</option>
+        <option value="urgent">🔴 Urgent</option>
+      </select>
+
+      {/* Date limite */}
+      <label className="font-semibold">Date limite</label>
+      <div
+        className={`flex items-center gap-2 ${
+          selectedTask.dueDate && new Date(selectedTask.dueDate) < new Date()
+            ? "text-red-600 font-bold"
+            : ""
+        }`}
+      >
+        ⏰
+        <input
+          type="date"
+          value={selectedTask.dueDate?.split("T")[0] || ""}
+          onChange={(e) =>
+            setSelectedTask({ ...selectedTask, dueDate: e.target.value })
+          }
+          className="border p-2 rounded"
+        />
+      </div>
+
+      {/* Commentaires */}
+      <label className="font-semibold">Commentaires</label>
+      <div>
+        {selectedTask.comments?.map((c) => (
+          <div key={c._id} className="text-sm border-b py-1">{c.text}</div>
+        ))}
+
+        <div className="flex gap-2 mt-2">
+          <input
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            placeholder="Ajouter un commentaire..."
+            className="border p-2 w-full rounded"
+          />
+          <button
+            onClick={addComment}
+            className="bg-black text-white p-2 rounded"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <button
+        className="bg-black text-white px-4 py-2 rounded w-full"
+        onClick={updateTaskDetails}
+      >
+        Fermer & Sauvegarder
+      </button>
+    </div>
+  </div>
+)}
       </main>
     </div>
   );
 }
 
 /* ================= TASK ITEM ================= */
-function TaskItem({ task, deleteTask, updateDueDate, updateTaskStatus }) {
+function TaskItem({ task, deleteTask, updateDueDate, updateTaskStatus, onOpen }) {
   let textStyle = "";
   if (task.status === "done") textStyle = "line-through text-gray-400";
-  else if (task.status === "in_progress") textStyle = "italic text-yellow-700";
+  else if (task.status === "inProgress") textStyle = "italic text-yellow-700";
+
+  const isOverdue =
+    task.dueDate &&
+    new Date(task.dueDate) < new Date() &&
+    task.status !== "done";
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-2 cursor-pointer"
+      onClick={() => onOpen(task)}
+    >
       <input
         type="checkbox"
         checked={task.status === "done"}
-        onChange={() => {
-          if (task.status === "todo") updateTaskStatus(task._id, "in_progress");
-          else if (task.status === "in_progress") updateTaskStatus(task._id, "done");
-          else if (task.status === "done") updateTaskStatus(task._id, "todo");
+        onChange={(e) => {
+          e.stopPropagation();
+          if (task.status === "todo") updateTaskStatus(task._id, "inProgress");
+          else if (task.status === "inProgress") updateTaskStatus(task._id, "done");
+          else updateTaskStatus(task._id, "todo");
         }}
       />
       <span className={`flex-1 ${textStyle}`}>{task.title}</span>
-      <input
-        type="date"
-        value={task.dueDate ? task.dueDate.split("T")[0] : ""}
-        onChange={(e) => updateDueDate(task._id, e.target.value)}
-        className="border p-1 rounded text-sm"
-      />
-      <button onClick={() => deleteTask(task._id)}>
+
+      <span className={`text-xs ${isOverdue ? "text-red-600 font-bold" : "text-gray-500"}`}>
+        {task.dueDate ? task.dueDate.split("T")[0] : ""}
+      </span>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteTask(task._id);
+        }}
+      >
         <Trash2 size={16} className="text-red-500" />
       </button>
     </div>
