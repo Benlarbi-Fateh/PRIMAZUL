@@ -169,34 +169,34 @@ export default function StatusPage() {
   }, [user, fetchStatuses]);
 
   useEffect(() => {
-  const statusId = searchParams?.get("statusId");
-  if (!statusId) return;
-  if (!user) return;
-  if (loading) return;
+    const statusId = searchParams?.get("statusId");
+    if (!statusId) return;
+    if (!user) return;
+    if (loading) return;
 
-  // 1️⃣ Chercher dans MES statuts
-  const myIndex = myStatuses.findIndex((s) => s._id === statusId);
-  if (myIndex !== -1) {
-    // Ouvrir le viewer sur mon statut
-    openViewer({ user, statuses: myStatuses });
-    setCurrentIndex(myIndex);
-    setShowMobileSidebar(false);
-    return;
-  }
-
-  // 2️⃣ Chercher dans les statuts des amis
-  for (const group of friendsStatuses) {
-    const idx = group.statuses.findIndex((s) => s._id === statusId);
-    if (idx !== -1) {
-      openViewer(group);        // ouvre le viewer pour cette personne
-      setCurrentIndex(idx);     // se positionne sur la bonne story
+    // 1️⃣ Chercher dans MES statuts
+    const myIndex = myStatuses.findIndex((s) => s._id === statusId);
+    if (myIndex !== -1) {
+      // Ouvrir le viewer sur mon statut
+      openViewer({ user, statuses: myStatuses });
+      setCurrentIndex(myIndex);
       setShowMobileSidebar(false);
       return;
     }
-  }
 
-  // 3️⃣ Si pas trouvé (story expirée, par ex.), on ne fait rien de spécial
-}, [searchParams, user, loading, myStatuses, friendsStatuses]);
+    // 2️⃣ Chercher dans les statuts des amis
+    for (const group of friendsStatuses) {
+      const idx = group.statuses.findIndex((s) => s._id === statusId);
+      if (idx !== -1) {
+        openViewer(group);        // ouvre le viewer pour cette personne
+        setCurrentIndex(idx);     // se positionne sur la bonne story
+        setShowMobileSidebar(false);
+        return;
+      }
+    }
+
+    // 3️⃣ Si pas trouvé (story expirée, par ex.), on ne fait rien de spécial
+  }, [searchParams, user, loading, myStatuses, friendsStatuses]);
 
   // ============================================
   // GESTION DU VIEWER
@@ -339,40 +339,40 @@ export default function StatusPage() {
   };
 
   const handleReply = async () => {
-  if (!replyText.trim() || !currentStatus) return;
+    if (!replyText.trim() || !currentStatus) return;
 
-  try {
-    const token = localStorage.getItem("token");
-    const response = await fetch(
-      `${API_URL}/api/status/${currentStatus._id}/reply`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: replyText }),
-      }
-    );
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_URL}/api/status/${currentStatus._id}/reply`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: replyText }),
+        }
+      );
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log("Réponse /status/:id/reply =>", data); // 👈 pour vérifier
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Réponse /status/:id/reply =>", data); // 👈 pour vérifier
 
-      setReplyText("");
+        setReplyText("");
 
-      if (data.conversationId) {
-        router.push(`/chat/${data.conversationId}`);
+        if (data.conversationId) {
+          router.push(`/chat/${data.conversationId}`);
+        } else {
+          closeViewer();
+        }
       } else {
-        closeViewer();
+        console.error("Réponse non OK:", await response.text());
       }
-    } else {
-      console.error("Réponse non OK:", await response.text());
+    } catch (error) {
+      console.error("Erreur réponse:", error);
     }
-  } catch (error) {
-    console.error("Erreur réponse:", error);
-  }
-};
+  };
 
   const handleDelete = async () => {
     if (!currentStatus || !confirm("Supprimer cette story ?")) return;
@@ -480,8 +480,7 @@ export default function StatusPage() {
       createType === "video" ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
       alert(
-        `Fichier trop volumineux. Max: ${
-          createType === "video" ? "50" : "10"
+        `Fichier trop volumineux. Max: ${createType === "video" ? "50" : "10"
         }MB`
       );
       return;
@@ -545,11 +544,10 @@ export default function StatusPage() {
           {/* ✅ BOUTON RETOUR */}
           <button
             onClick={handleGoBack}
-            className={`p-2 rounded-full transition-colors ${
-              isDark
+            className={`p-2 rounded-full transition-colors ${isDark
                 ? "hover:bg-slate-800 text-slate-300"
                 : "hover:bg-gray-100 text-slate-600"
-            }`}
+              }`}
             title="Retour"
           >
             <ArrowLeft size={22} />
@@ -582,11 +580,10 @@ export default function StatusPage() {
           >
             <div className="relative flex-shrink-0">
               <div
-                className={`w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden border-2 ${
-                  myStatuses.length > 0
+                className={`w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden border-2 ${myStatuses.length > 0
                     ? "border-blue-500 p-[2px]"
                     : "border-slate-300"
-                }`}
+                  }`}
               >
                 <SafeAvatar user={user} size={56} className="w-full h-full" />
               </div>
@@ -606,9 +603,8 @@ export default function StatusPage() {
               </h3>
               <p className={`text-sm ${textSecondary} truncate`}>
                 {myStatuses.length > 0
-                  ? `${myStatuses.length} publication${
-                      myStatuses.length > 1 ? "s" : ""
-                    }`
+                  ? `${myStatuses.length} publication${myStatuses.length > 1 ? "s" : ""
+                  }`
                   : "Ajouter un statut"}
               </p>
             </div>
@@ -619,9 +615,8 @@ export default function StatusPage() {
           {/* Statuts des amis */}
           <div>
             <h4
-              className={`text-xs md:text-sm font-bold mb-3 md:mb-4 uppercase ${
-                isDark ? "text-blue-400" : "text-blue-600"
-              }`}
+              className={`text-xs md:text-sm font-bold mb-3 md:mb-4 uppercase ${isDark ? "text-blue-400" : "text-blue-600"
+                }`}
             >
               Mises à jour récentes
             </h4>
@@ -645,11 +640,10 @@ export default function StatusPage() {
                   >
                     <div className="relative flex-shrink-0">
                       <div
-                        className={`w-11 h-11 md:w-12 md:h-12 rounded-full p-[2px] ${
-                          group.hasUnviewed
+                        className={`w-11 h-11 md:w-12 md:h-12 rounded-full p-[2px] ${group.hasUnviewed
                             ? "bg-gradient-to-tr from-blue-500 to-cyan-400"
                             : "bg-slate-400"
-                        }`}
+                          }`}
                       >
                         <div className="w-full h-full rounded-full border-2 border-white dark:border-slate-900 overflow-hidden">
                           <SafeAvatar
@@ -747,11 +741,10 @@ export default function StatusPage() {
                     setMediaFile(null);
                     setMediaPreview("");
                   }}
-                  className={`flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl transition flex-1 max-w-[100px] md:max-w-none ${
-                    createType === type
+                  className={`flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl transition flex-1 max-w-[100px] md:max-w-none ${createType === type
                       ? "bg-blue-600"
                       : "bg-slate-800 hover:bg-slate-700"
-                  }`}
+                    }`}
                 >
                   <Icon size={20} className="md:w-6 md:h-6" />
                   <span className="text-xs md:text-sm">{label}</span>
@@ -887,8 +880,8 @@ export default function StatusPage() {
                         idx < currentIndex
                           ? "100%"
                           : idx === currentIndex
-                          ? `${progress}%`
-                          : "0%",
+                            ? `${progress}%`
+                            : "0%",
                     }}
                   />
                 </div>
@@ -992,18 +985,37 @@ export default function StatusPage() {
                   )}
                 </div>
               ) : (
-                <div className="relative w-full h-full bg-black flex items-center justify-center">
-                  <img
-                    src={getMediaUrl(currentStatus.mediaUrl)}
-                    alt="Status"
-                    className="max-h-full max-w-full object-contain"
-                  />
-                  {currentStatus.content && (
-                    <div className="absolute bottom-20 md:bottom-24 bg-black/60 px-4 py-1.5 md:px-6 md:py-2 rounded-full text-white backdrop-blur-md text-sm md:text-base max-w-[90%] text-center">
-                      {currentStatus.content}
+                <>
+                  {/* SOLUTION : Image entière avec espace libre autorisé */}
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    {/* Fond TRANSPARENT ou personnalisable */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background: isDark ? '#0f172a' : '#f8fafc' // Fond clair/sombre selon thème
+                      }}
+                    />
+
+                    <div className="relative z-10">
+                      <img
+                        src={getMediaUrl(currentStatus.mediaUrl)}
+                        alt="Status"
+                        className="object-contain max-w-[95vw] max-h-[95vh]"
+                        style={{
+                          display: 'block',
+                          // Option : ombre pour mieux voir les bords
+                          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        }}
+                      />
                     </div>
-                  )}
-                </div>
+
+                    {currentStatus.content && (
+                      <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-black/60 px-6 py-2 rounded-full text-white backdrop-blur-md text-base max-w-[90%] text-center z-20">
+                        {currentStatus.content}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
 
               {/* Zones de navigation tactile */}
