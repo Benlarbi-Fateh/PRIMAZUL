@@ -67,6 +67,9 @@ const statusRoutes = require("./routes/statusRoutes");
 // 🆕 NOUVELLE ROUTE PROFILE
 const profileRoutes = require("./routes/profileRoutes");
 const messageSettingsRoutes = require("./routes/messageSettingsRoutes");
+// En haut du fichier server.js
+const taskListRoutes = require("./routes/taskListRoutes");
+const taskRoutes = require("./routes/taskRoutes");
 
 // Configuration des routes
 app.use("/api/auth", authRoutes);
@@ -80,6 +83,8 @@ app.use("/api/message-settings", messageSettingsRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/agora", agoraRoutes);
 app.use("/api/status", statusRoutes);
+app.use("/api/task-lists", taskListRoutes);
+app.use("/api/tasks", taskRoutes);
 
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use("/api/profile", profileRoutes);

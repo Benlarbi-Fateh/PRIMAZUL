@@ -1,55 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import api from "@/lib/api";
 import TaskItem from "./TaskItem";
 
-export default function TaskList({ list }) {
-  const [tasks, setTasks] = useState([]);
-  const [text, setText] = useState("");
-
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  const fetchTasks = async () => {
-    const res = await api.get(`/tasks/${list._id}`);
-    setTasks(res.data);
-  };
-
-  const addTask = async () => {
-    if (!text) return;
-    await api.post("/tasks", {
-      text,
-      listId: list._id,
-    });
-    setText("");
-    fetchTasks();
-  };
+export default function TaskList({ list, onDeleteTask }) {
+  if (!list) return null;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-5 w-80">
-      <h2 className="font-semibold text-lg mb-4">{list.title}</h2>
+    <div className="bg-white rounded-xl shadow p-4">
+      <h3 className="font-bold text-lg mb-4">{list.title}</h3>
+      
+      <div className="flex flex-col gap-3">
+        {list.tasks.length === 0 ? (
+  <div className="w-full px-4 py-2 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-200 min-h-[48px]">
+    <p className="text-gray-500">Aucune tâche</p>
+  </div>
+) : (
+  list.tasks.map((task) => (
+    <div
+      key={task._id}
+      className="w-full px-4 py-2 bg-slate-50 rounded-xl flex justify-between items-center border border-slate-200"
+    >
+      <span className="text-slate-800">{task.text}</span>
+      <button
+        onClick={() => onDeleteTask(list._id, task._id)}
+        className="text-red-500 font-bold ml-2"
+      >
+        X
+      </button>
+    </div>
+  ))
+)}
 
-      <div className="space-y-2">
-        {tasks.map((task) => (
-          <TaskItem key={task._id} task={task} refresh={fetchTasks} />
-        ))}
-      </div>
-
-      <div className="flex mt-4 gap-2">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Nouvelle tâche"
-          className="border rounded-lg px-2 py-1 w-full"
-        />
-        <button
-          onClick={addTask}
-          className="bg-blue-500 text-white px-3 rounded-lg"
-        >
-          +
-        </button>
       </div>
     </div>
   );

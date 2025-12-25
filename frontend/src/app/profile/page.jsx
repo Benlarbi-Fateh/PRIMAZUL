@@ -31,6 +31,7 @@ import {
   Zap,
   Heart,
 } from "lucide-react";
+import api from "@/lib/api";
 
 // Composant ActivityIcon séparé
 const ActivityIcon = ({ className }) => (
@@ -68,6 +69,8 @@ export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showEmailCodeInput, setShowEmailCodeInput] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
 
   // Styles basés sur le thème (mêmes couleurs que sidebar)
   const pageBg = isDark
@@ -205,38 +208,53 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSave = async () => {
-    setIsLoading(true);
-    setError("");
-    setSuccess("");
+ const handleSave = async () => {
+  setIsLoading(true);
+  setError("");
+  setSuccess("");
 
-    try {
-      const dataToUpdate = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        bio: formData.bio,
-        profilePicture: profilePicture,
-      };
+  try {
+    const emailIsDifferent = formData.email !== user.email;
 
-      const result = await updateProfile(dataToUpdate);
+    // 🔹 Mise à jour des infos SANS l'email
+    const dataToUpdate = {
+      name: formData.name,
+      phone: formData.phone,
+      location: formData.location,
+      bio: formData.bio,
+      profilePicture,
+    };
 
-      if (result.success) {
-        setSuccess("✅ Profil mis à jour avec succès !");
-        setIsEditing(false);
+    const result = await updateProfile(dataToUpdate);
 
-        setTimeout(() => {
-          setSuccess("");
-        }, 3000);
-      }
-    } catch (error) {
-      console.error("Erreur mise à jour profil:", error);
-      setError(error.message || "Erreur lors de la mise à jour du profil");
-    } finally {
-      setIsLoading(false);
+    if (!result.success) {
+      throw new Error("Échec de la mise à jour du profil");
     }
-  };
+
+    // 📩 Si l’email a changé → demander confirmation
+    if (emailIsDifferent) {
+      await api.post("/user/request-email-change", {
+        newEmail: formData.email,
+      });
+
+      setShowEmailCodeInput(true);
+      setSuccess("📩 Un code de confirmation a été envoyé au nouvel email");
+      setIsEditing(false);
+      return;
+    }
+
+    setSuccess("✅ Profil mis à jour avec succès !");
+    setIsEditing(false);
+
+    setTimeout(() => setSuccess(""), 3000);
+  } catch (error) {
+    console.error(error);
+    setError(error.message || "Erreur lors de la mise à jour du profil");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleCancel = () => {
     if (user) {
@@ -275,6 +293,25 @@ export default function ProfilePage() {
       </div>
     );
   }
+  const handleConfirmEmailChange = async () => {
+  try {
+    await api.post("/user/confirm-email-change", {
+      code: emailCode,
+    });
+
+    setSuccess("✅ Email modifié avec succès !");
+    setShowEmailCodeInput(false);
+    setEmailCode("");
+
+    // 🔁 Mise à jour locale du user
+    setUser((prev) => ({
+      ...prev,
+      email: formData.email,
+    }));
+  } catch (error) {
+    setError("❌ Code invalide ou expiré");
+  }
+};
 
   return (
     <div className={`min-h-screen ${pageBg}`}>
@@ -595,29 +632,58 @@ export default function ProfilePage() {
                         </div>
 
                         <div className={`rounded-xl p-4 border ${detailCardBg}`}>
-                          <label className={`flex items-center text-sm font-medium mb-3 ${
-                            isDark ? 'text-blue-200' : 'text-slate-700'
-                          }`}>
-                            <Mail className={`w-4 h-4 mr-2 ${
-                              isDark ? 'text-cyan-400' : 'text-blue-600'
-                            }`} />
-                            Adresse email
-                          </label>
-                          {isEditing ? (
-                            <input
-                              type="email"
-                              name="email"
-                              value={formData.email}
-                              onChange={handleInputChange}
-                              className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:border-transparent transition-all text-sm ${inputBg}`}
-                              placeholder="votre@email.com"
-                            />
-                          ) : (
-                            <p className={`font-semibold text-lg ${textPrimary}`}>
-                              {formData.email}
-                            </p>
-                          )}
-                        </div>
+  <label className={`flex items-center text-sm font-medium mb-3 ${
+    isDark ? 'text-blue-200' : 'text-slate-700'
+  }`}>
+    <Mail className={`w-4 h-4 mr-2 ${
+      isDark ? 'text-cyan-400' : 'text-blue-600'
+    }`} />
+    Adresse email
+  </label>
+
+  {isEditing ? (
+    <input
+      type="email"
+      name="email"
+      value={formData.email}
+      onChange={handleInputChange}
+      className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:border-transparent transition-all text-sm ${inputBg}`}
+      placeholder="votre@email.com"
+    />
+  ) : (
+    <p className={`font-semibold text-lg ${textPrimary}`}>
+      {formData.email}
+    </p>
+  )}
+
+  {/* 🔐 Confirmation par code (affiché seulement si nécessaire) */}
+  {showEmailCodeInput && (
+    <div className="mt-4">
+      <label className={`block text-sm font-medium mb-2 ${
+        isDark ? 'text-blue-200' : 'text-slate-700'
+      }`}>
+        Code de confirmation reçu par email
+      </label>
+
+      <input
+        type="text"
+        value={emailCode}
+        onChange={(e) => setEmailCode(e.target.value)}
+        className={`w-full px-3 py-2 rounded-lg focus:ring-2 focus:border-transparent transition-all text-sm ${inputBg}`}
+        placeholder="Ex : 123456"
+      />
+
+      <button
+        type="button"
+        onClick={handleConfirmEmailChange}
+        className={`mt-3 w-full px-4 py-2 rounded-lg font-semibold transition-all ${buttonStyle}`}
+      >
+        Confirmer l’email
+      </button>
+    </div>
+  )}
+</div>
+
 
                         {/* Section activité récente */}
                         <div className={`rounded-xl p-4 border ${activityCardBg}`}>
