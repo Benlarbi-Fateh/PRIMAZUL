@@ -216,8 +216,12 @@ const initSocket = (io) => {
           const userId = rawId.toString(); // Force string pour correspondre aux clés de la Map/Room
 
           // 1. Vérifier si user est dans la map Online (Optionnel, car socket.join(userId) gère ça)
-          if (onlineUsers.has(userId)) {
-            console.log(`📡 Envoi signal d'appel à ${userId}`);
+          const isUserInOnlineMap = onlineUsers.has(userId);
+            console.log(
+      `📡 Envoi signal d'appel à ${userId} ${
+        isUserInOnlineMap ? "(en ligne)" : "(socket peut être connecté)"
+      }`
+    );
 
             // 2. Envoyer à la "Room" de l'utilisateur (plus fiable que le socketId direct)
             io.to(userId).emit("call-incoming", {
@@ -233,11 +237,6 @@ const initSocket = (io) => {
               },
               conversationId,
             });
-          } else {
-            console.log(
-              `⚠️ Utilisateur ${userId} semble hors ligne ou non connecté au socket`
-            );
-          }
         });
       }
     });
