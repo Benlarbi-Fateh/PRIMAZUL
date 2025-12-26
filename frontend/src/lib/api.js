@@ -5,7 +5,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api";
 
 // 🔹 Instance Axios
 const api = axios.create({
-  baseURL: API_URL,
+  //baseURL: API_URL,
+  baseURL: `${API_URL}/api`,
   headers: {
     "Content-Type": "application/json",
   },
@@ -43,16 +44,18 @@ api.interceptors.response.use(
 
 // =================== UPLOAD DE FICHIERS ===================
 export const uploadFile = (formData) => {
-  console.log('📤 uploadFile: Début upload');
-  return api.post('/upload', formData, {
+  console.log("📤 uploadFile: Début upload");
+  return api.post("/upload", formData, {
     headers: {
-      'Content-Type': 'multipart/form-data',
+      "Content-Type": "multipart/form-data",
     },
     timeout: 60000, // ✅ AJOUT: 60 secondes pour les gros fichiers
     onUploadProgress: (progressEvent) => {
-      const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      const percentCompleted = Math.round(
+        (progressEvent.loaded * 100) / progressEvent.total
+      );
       console.log(`📊 Upload: ${percentCompleted}%`);
-    }
+    },
   });
 };
 
@@ -63,10 +66,12 @@ export const login = (data) => api.post("/auth/login", data);
 export const searchUsers = (query) => api.get(`/auth/search?query=${query}`);
 
 // Fonctions d'authentification supplémentaires
-export const verifyRegistration = (data) => api.post("/auth/verify-registration", data);
+export const verifyRegistration = (data) =>
+  api.post("/auth/verify-registration", data);
 export const verifyLogin = (data) => api.post("/auth/verify-login", data);
 export const resendCode = (data) => api.post("/auth/resend-code", data);
-export const finalizeRegistration = (data) => api.post("/auth/finalize-registration", data);
+export const finalizeRegistration = (data) =>
+  api.post("/auth/finalize-registration", data);
 
 export const updateLastLogin = () => api.put("/auth/update-last-login");
 
@@ -82,9 +87,12 @@ export const uploadProfilePicture = (formData) => {
     timeout: 60000,
   });
 };
-export const updatePrivacySettings = (data) => api.put("/profile/privacy", data);
-export const updatePreferences = (data) => api.put("/profile/preferences", data);
-export const changePassword = (data) => api.put("/profile/change-password", data);
+export const updatePrivacySettings = (data) =>
+  api.put("/profile/privacy", data);
+export const updatePreferences = (data) =>
+  api.put("/profile/preferences", data);
+export const changePassword = (data) =>
+  api.put("/profile/change-password", data);
 
 // =================== CONVERSATIONS ===================
 export const getConversations = () => api.get("/conversations");
@@ -102,12 +110,10 @@ export const leaveGroup = (groupId) => api.delete(`/groups/${groupId}/leave`);
 // 🆕 NOUVELLES FONCTIONS
 export const removeParticipantFromGroup = (data) =>
   api.post("/groups/remove-participant", data);
-export const promoteToAdmin = (data) =>
-  api.post("/groups/promote-admin", data);
+export const promoteToAdmin = (data) => api.post("/groups/promote-admin", data);
 export const removeAdminFromGroup = (data) =>
   api.post("/groups/remove-admin", data);
-export const updateGroupName = (data) =>
-  api.put("/groups/update-name", data);
+export const updateGroupName = (data) => api.put("/groups/update-name", data);
 export const updateGroupImage = (groupId, formData) =>
   api.put(`/groups/${groupId}/update-image`, formData, {
     headers: {
@@ -119,7 +125,8 @@ export const updateGroupImage = (groupId, formData) =>
 // =================== CONTACTS ===================
 export const addContact = (data) => api.post("/contacts", data);
 export const getMyContacts = () => api.get("/contacts");
-export const deleteContact = (contactId) => api.delete(`/contacts/${contactId}`);
+export const deleteContact = (contactId) =>
+  api.delete(`/contacts/${contactId}`);
 
 // =================== INVITATIONS ===================
 export const sendInvitation = (data) => api.post("/invitations/send", data);
@@ -162,10 +169,10 @@ export const getConversationMedia = (conversationId) =>
 export const saveTheme = (theme, wallpaperUrl) =>
   api.post("/message-settings/save-theme", {
     theme,
-    wallpaperUrl
+    wallpaperUrl,
   });
 
-  // =================== ARCHIVAGE ===================
+// =================== ARCHIVAGE ===================
 export const archiveConversation = (conversationId) =>
   api.post(`/message-settings/conversations/${conversationId}/archive`);
 
@@ -177,7 +184,8 @@ export const getArchivedConversations = () =>
 
 // =================== RÉINITIALISATION MOT DE PASSE ===================
 export const forgotPassword = (data) => api.post("/auth/forgot-password", data);
-export const verifyResetCode = (data) => api.post("/auth/verify-reset-code", data);
+export const verifyResetCode = (data) =>
+  api.post("/auth/verify-reset-code", data);
 export const resetPassword = (data) => api.post("/auth/reset-password", data);
 
 // =================== PARAMÈTRES - CHANGEMENT DE MOT DE PASSE AVEC OTP ===================
@@ -185,7 +193,5 @@ export const sendPasswordOtp = (data) =>
   api.post("/auth/settings/send-password-otp", data);
 export const verifyChangePassword = (data) =>
   api.put("/auth/settings/verify-change-password", data);
-
-
 
 export default api;
