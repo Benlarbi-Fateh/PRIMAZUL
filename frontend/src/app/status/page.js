@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import MainSidebar from "@/components/Layout/MainSidebar.client";
 import Image from "next/image";
+import dynamic from "next/dynamic"; // 👈 1. Import dynamic
 import {
   Plus,
   X,
@@ -32,7 +33,6 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
-export const dynamic = "force-dynamic";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 const REACTION_EMOJIS = ["❤️", "😂", "😮", "😢", "😡", "🔥", "👏", "👍"];
 
@@ -96,7 +96,7 @@ const SafeAvatar = ({ user, size = 40, className = "" }) => {
 // ============================================
 // COMPOSANT PRINCIPAL
 // ============================================
-export default function StatusPage() {
+function StatusPage() {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const router = useRouter();
@@ -1233,3 +1233,6 @@ export default function StatusPage() {
     </div>
   );
 }
+export default dynamic(() => Promise.resolve(StatusPageContent), {
+  ssr: false,
+});
