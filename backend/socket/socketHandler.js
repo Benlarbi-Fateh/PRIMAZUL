@@ -418,6 +418,8 @@ const initSocket = (io) => {
     });
 
     // Participant quitte l'appel
+
+    // ✅ APRÈS - Ajouter émission socket
     socket.on("call-leave", async (data) => {
       const { callId } = data;
       const userId = socket.userId;
@@ -447,8 +449,33 @@ const initSocket = (io) => {
       );
 
       if (activeParticipants.length <= 1) {
-        // Terminer automatiquement
-        socket.emit("call-end", { callId });
+        // ✅ AJOUTER: Mettre à jour la BD et émettre socket
+        const duration = call.answeredAt
+          ? Math.round((Date.now() - call.answeredAt) / 1000)
+          : 0;
+
+        const finalStatus = call.answeredAt ? "ended" : "missed";
+
+        const message = await Message.findOneAndUpdate(
+          { "callDetails.callId": callId },
+          {
+            "callDetails.status": finalStatus,
+            "callDetails.endedAt": new Date(),
+            "callDetails.duration": duration,
+          },
+          { new: true }
+        );
+
+        // ✅ ÉMETTRE l'événement call-ended
+        if (message) {
+          io.to(message.conversationId.toString()).emit("call-ended", {
+            callId,
+            duration,
+            status: finalStatus,
+          });
+        }
+
+        activeCallsMap.delete(callId);
       }
     });
 
