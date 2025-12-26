@@ -1,5 +1,5 @@
 "use client";
-import api from "@/lib/api"; // doit pointer vers le fichier exact
+
 import { useState, useContext, useEffect } from "react";
 import { AuthContext } from '@/context/AuthProvider';
 import { useTheme } from '@/hooks/useTheme';
@@ -31,7 +31,9 @@ import {
   Zap,
   Heart,
 } from "lucide-react";
-import VerifyCode from "@/components/Auth/VerifyCode"; 
+import VerifyCode from "@/components/Auth/VerifyCode";
+
+import { requestEmailChange, confirmEmailChange } from "@/lib/api"; // doit pointer vers le fichier exact
 // Composant ActivityIcon séparé
 const ActivityIcon = ({ className }) => (
   <svg
@@ -212,38 +214,31 @@ export default function ProfilePage() {
 
 const handleChangeEmail = async (newEmail) => {
   try {
-    // 🔹 Appel au backend
-   await requestEmailChange(newEmail);
-
+    await requestEmailChange(newEmail); // ⚡ frontend appelle le backend
 
     setTempEmail(newEmail); // mémoriser temporairement
     setShowVerify(true);    // afficher le composant VerifyCode
   } catch (error) {
     console.error("ERREUR API:", error.response?.data || error.message);
     alert(
-      error.response?.data?.error || // ⚠️ ici backend envoie `error`
-      "Erreur lors de l’envoi du code"
+      error.response?.data?.error || "Erreur lors de l’envoi du code"
     );
   }
 };
 
 const handleVerify = async (code) => {
   try {
-    // 🔹 Appel au backend pour confirmer le code
-   const result = await confirmEmailChange(code);
-
-    setUser({ ...user, email: result.data.email }); // mettre à jour l'email
+    const result = await confirmEmailChange(code); // ⚡ backend confirme OTP
+    setUser({ ...user, email: result.data.email }); // <- result.data.email
     setShowVerify(false);
     setIsEditing(false);
-
     alert("Adresse email mise à jour !");
   } catch (error) {
-    alert(
-      error.response?.data?.error || // ⚠️ backend envoie `error`
-      "Code incorrect ou expiré"
-    );
+    alert(error.response?.data?.error || "Code incorrect ou expiré");
   }
 };
+
+
 
 
 const handleResend = async () => {
@@ -476,19 +471,35 @@ const handleSave = async () => {
                   {formData.email}
                 </p>
               </div>
-                
-              <div className="p-6 text-sm space-y-3 ">
-                <div className="flex justify-between">
-                  <span>Statut</span>
-                  <span className="text-cyan-500 font-semibold">En ligne</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Membre depuis</span>
-                  <span>
-                    {new Date(user.createdAt || Date.now()).toLocaleDateString("fr-FR")}
-                  </span>
-                </div>
-              </div>
+               <div className={`rounded-xl p-4 border ${statCardBg} space-y-4`}>
+  {/* Header */}
+  <h3 className={`flex items-center text-sm font-bold ${
+    isDark ? 'text-blue-200' : 'text-slate-800'
+  }`}>
+    <Clock className={`w-4 h-4 mr-2 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`} />
+    Statut et activité
+  </h3>
+
+  {/* Statut en ligne */}
+  <div className="flex items-center justify-between">
+    <div className="flex items-center ">
+      <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
+      <span className={`font-semibold ${isDark ? 'text-cyan-400' : 'text-cyan-600'}`}>
+        En ligne
+      </span>
+    </div>
+    <span className="text-sm font-medium text-cyan-500">Statut</span>
+  </div>
+
+  {/* Membre depuis */}
+  <div className="flex justify-between text-sm">
+    <span className={isDark ? 'text-blue-300' : 'text-slate-600'}>Membre depuis :</span>
+    <span className={`font-medium ${isDark ? 'text-blue-200' : 'text-slate-700'}`}>
+      {new Date(user.createdAt || Date.now()).toLocaleDateString("fr-FR")}
+    </span>
+  </div>
+</div>
+
               {/* Conversations */}
           <div className="p-4 pt-3">
             <button
@@ -498,13 +509,7 @@ const handleSave = async () => {
             <MessageCircle className="w-4 h-4" />
              Conversations
           </button>
-          <button
-           onClick={() => router.push("/settings")} // redirige vers la page "settings"
-           className={`w-full flex items-center gap-2 p-2 rounded-lg border text-sm font-medium transition-all ${quickActionBg}`}
-            >
-            <Settings className="w-4 h-4" /> {/* Icone paramètre */}
-  Paramètres
-</button>
+
 
       </div>
             </div>
