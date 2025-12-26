@@ -36,7 +36,7 @@ import MessageBubble, { DateSeparator } from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
 import MessageSearch from '@/components/Chat/MessageSearch';
-import { Plane, Users, Loader2 } from 'lucide-react';
+import { Plane, Users, Loader2 , ClipboardList} from 'lucide-react';
 
 export default function ChatPage() {
   const params = useParams();
@@ -320,6 +320,12 @@ export default function ChatPage() {
       initiateCall(conversationId, contact, "audio", false);
     }
   };
+
+  const handleGoToTasks = () => {
+  if (!conversation?.isGroup) return;
+  router.push(`/chat/${conversationId}/tasks`);
+};
+
 
   const handleSendMessage = async (content) => {
     try {
@@ -622,6 +628,7 @@ export default function ChatPage() {
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
                 onSearchOpen={() => setIsSearchOpen(true)}
+                onOpenTasks={conversation.isGroup ? handleGoToTasks : null}
               />
             </div>
             
@@ -633,6 +640,7 @@ export default function ChatPage() {
                 onSearchOpen={() => setIsSearchOpen(true)}
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
+                onOpenTasks={conversation.isGroup ? handleGoToTasks : null}
               />
             </div>
 

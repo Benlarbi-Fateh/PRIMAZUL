@@ -174,6 +174,23 @@ export const unarchiveConversation = (conversationId) =>
 
 export const getArchivedConversations = () =>
   api.get("/message-settings/archived");
+// =================== Tasks  ===================
+export const fetchTasks = (conversationId) => api.get(`/conversations/${conversationId}/tasks`);
+export const createTask = (conversationId, payload) => api.post(`/conversations/${conversationId}/tasks`, payload);
+export const updateTask = (taskId, patch) => api.patch(`/tasks/${taskId}`, patch);
+export const deleteTask = (taskId) => api.delete(`/tasks/${taskId}`);
+
+
+// =================== PROJECTS ===================
+export const fetchProjects = (conversationId) =>
+  api.get(`/conversations/${conversationId}/projects`);
+
+export const createProject = (conversationId, payload) =>
+  api.post(`/conversations/${conversationId}/projects`, payload);
+
+export const deleteProject = (conversationId, projectId) =>
+  api.delete(`/conversations/${conversationId}/projects/${projectId}`);
+
 
 // =================== RÉINITIALISATION MOT DE PASSE ===================
 export const forgotPassword = (data) => api.post("/auth/forgot-password", data);

@@ -19,6 +19,7 @@ import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music
   Camera, 
   Search,
   Check ,
+  ClipboardList,
   ChevronDown, 
 } from 'lucide-react';
 import useBlockCheck from '../../hooks/useBlockCheck';
@@ -40,7 +41,7 @@ import MessageSearch from '@/components/Chat/MessageSearch';
 import AddMembersModal from '@/components/Group/AddMembersModal';
 
 // ✅ AJOUT DE onVideoCall ET onAudioCall DANS LES PROPS
-export default function ChatHeader({ contact, conversation, onBack, onSearchOpen, onVideoCall, onAudioCall }) {
+export default function ChatHeader({ contact, conversation, onBack, onSearchOpen, onVideoCall, onAudioCall, onOpenTasks, }) {
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
   const router = useRouter();
@@ -893,6 +894,17 @@ if (onBack) {
           
           <div className="flex items-center gap-1 shrink-0">
             {/* ✅ BOUTONS D'APPEL AVEC onClick */}
+            {conversation?.isGroup && onOpenTasks && (
+  <button
+    onClick={onOpenTasks}
+    className={`p-2 rounded-xl transition-all shrink-0 ${buttonStyle}`}
+    title="Collaboration"
+  >
+    <ClipboardList className="w-4 h-4" />
+  </button>
+)}
+
+
             <button 
               onClick={onAudioCall}
               className={`p-2 rounded-xl transition-all ${buttonStyle}`}
@@ -1267,7 +1279,7 @@ if (onBack) {
                   ${isDark ? 'text-slate-100' : 'text-purple-700'}
                 `}
               >
-                Modifier l'image du groupe
+                Modifier l&apos;image du groupe
               </span>
             </>
           )}
