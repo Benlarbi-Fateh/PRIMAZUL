@@ -197,14 +197,19 @@ const initSocket = (io) => {
         if (call && call.status === "ringing") {
           console.log(`⏰ Timeout appel ${callId}`);
           // ✅ IMPORTANT: Mettre à jour la base de données
-          await Message.findOneAndUpdate(
+          const updatedMessage = await Message.findOneAndUpdate(
             { "callDetails.callId": callId },
             {
               "callDetails.status": "missed",
               "callDetails.endedAt": new Date(),
               "callDetails.duration": 0,
-            }
-          );
+            },
+            { new: true }
+          ).populate("sender", "name profilePicture");
+          // ✅ INDISPENSABLE : Envoyer la mise à jour à TOUTE la room
+          if (updatedMessage) {
+            io.to(call.conversationId).emit("receive-message", updatedMessage);
+          }
 
           io.to(callerId).emit("call-timeout", { callId });
 
@@ -322,14 +327,18 @@ const initSocket = (io) => {
       if (!call.isGroup) {
         call.status = "missed";
 
-        await Message.findOneAndUpdate(
+        const updatedMessage = await Message.findOneAndUpdate(
           { "callDetails.callId": callId },
           {
             "callDetails.status": "missed",
             "callDetails.endedAt": new Date(),
             "callDetails.duration": 0,
-          }
-        );
+          },
+          { new: true }
+        ).populate("sender", "name profilePicture");
+        if (updatedMessage) {
+          io.to(call.conversationId).emit("receive-message", updatedMessage);
+        }
 
         const timeout = callTimeouts.get(callId);
         if (timeout) {
@@ -371,14 +380,19 @@ const initSocket = (io) => {
       }
 
       // Mettre à jour le message
-      await Message.findOneAndUpdate(
+      const updatedMessage = await Message.findOneAndUpdate(
         { "callDetails.callId": callId },
         {
           "callDetails.status": finalStatus,
           "callDetails.endedAt": new Date(),
           "callDetails.duration": duration,
-        }
-      );
+        },
+        { new: true }
+      ).populate("sender", "name profilePicture");
+      // ✅ On diffuse à toute la conversation
+      if (updatedMessage) {
+        io.to(call.conversationId).emit("receive-message", updatedMessage);
+      }
 
       // Notifier tous les participants
       call.participants.forEach((_, participantId) => {

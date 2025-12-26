@@ -24,6 +24,8 @@ import {
   onMessageStatusUpdated,
   onConversationStatusUpdated,
   onReactionUpdated,
+  onCallMissed, // ✅ AJOUT
+  onCallEnded, // ✅ AJOUT
 } from "@/services/socket";
 import { useSocket } from "@/hooks/useSocket";
 import { useTheme } from "@/hooks/useTheme";
@@ -185,7 +187,10 @@ export default function ChatPage() {
         if (message.conversationId === conversationId) {
           setMessages((prev) => {
             const exists = prev.some((m) => m._id === message._id);
-            if (exists) return prev;
+            if (exists) {
+              // ✅ On met à jour le message existant avec les nouvelles données (statut d'appel, etc.)
+              return prev.map((m) => (m._id === message._id ? message : m));
+            }
             return [...prev, message];
           });
 
