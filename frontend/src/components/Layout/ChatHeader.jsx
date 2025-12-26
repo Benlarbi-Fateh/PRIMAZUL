@@ -1594,12 +1594,10 @@ if (onBack) {
 
             {showMediaPanel && (
         <div
-          className={`
-            fixed inset-0 z-50 flex
-            ${isDark ? 'bg-black/80' : 'bg-black/60'}
-            backdrop-blur-sm
-          `}
-        >
+    className={`fixed inset-0 backdrop-blur-sm z-[70] flex justify-end ${
+      isDark ? 'bg-black/80' : 'bg-black/60'
+    }`}
+  >
           <div
             className={`
               relative w-full h-full md:max-w-3xl md:ml-auto
