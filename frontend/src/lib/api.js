@@ -187,5 +187,11 @@ export const verifyChangePassword = (data) =>
   api.put("/auth/settings/verify-change-password", data);
 
 
+// =================== CHANGEMENT D'EMAIL ===================
+export const requestEmailChange = (newEmail) =>
+  api.post("/request-email-change", { newEmail });
+
+export const confirmEmailChange = (code) =>
+  api.post("/confirm-email-change", { code });
 
 export default api;
