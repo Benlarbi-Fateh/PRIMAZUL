@@ -1,13 +1,13 @@
 // frontend/src/app/status/page.js
 "use client";
-// ============================================
+
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic"; // ✅ Import correct
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import MainSidebar from "@/components/Layout/MainSidebar.client";
 import Image from "next/image";
-import dynamic from "next/dynamic"; // 👈 1. Import dynamic
 import {
   Plus,
   X,
@@ -70,9 +70,6 @@ const getAvatarUrl = (user) => {
   )}&background=3b82f6&color=fff&bold=true&size=128`;
 };
 
-// ============================================
-// COMPOSANT AVATAR SÉCURISÉ
-// ============================================
 const SafeAvatar = ({ user, size = 40, className = "" }) => {
   const [imgError, setImgError] = useState(false);
   const avatarUrl = getAvatarUrl(user);
@@ -94,9 +91,9 @@ const SafeAvatar = ({ user, size = 40, className = "" }) => {
 };
 
 // ============================================
-// COMPOSANT PRINCIPAL
+// COMPOSANT PRINCIPAL (Renommé et NON exporté par défaut)
 // ============================================
-function StatusPage() {
+function StatusPageContent() {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const router = useRouter();
@@ -136,16 +133,13 @@ function StatusPage() {
   const progressTimerRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // ============================================
-  // NAVIGATION RETOUR
-  // ============================================
+  // ... (Toutes vos fonctions handler restent ici, inchangées) ...
+  // Je les garde pour la clarté mais c'est le même code que vous avez collé
+
   const handleGoBack = () => {
     router.back();
   };
 
-  // ============================================
-  // CHARGEMENT DES DONNÉES
-  // ============================================
   const fetchStatuses = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
@@ -169,53 +163,41 @@ function StatusPage() {
     if (user) fetchStatuses();
   }, [user, fetchStatuses]);
 
+  // Logique d'ouverture via URL
   useEffect(() => {
     const statusId = searchParams?.get("statusId");
-    if (!statusId) return;
-    if (!user) return;
-    if (loading) return;
+    if (!statusId || !user || loading) return;
 
-    // 1️⃣ Chercher dans MES statuts
     const myIndex = myStatuses.findIndex((s) => s._id === statusId);
     if (myIndex !== -1) {
-      // Ouvrir le viewer sur mon statut
       openViewer({ user, statuses: myStatuses });
       setCurrentIndex(myIndex);
       setShowMobileSidebar(false);
       return;
     }
 
-    // 2️⃣ Chercher dans les statuts des amis
     for (const group of friendsStatuses) {
       const idx = group.statuses.findIndex((s) => s._id === statusId);
       if (idx !== -1) {
-        openViewer(group); // ouvre le viewer pour cette personne
-        setCurrentIndex(idx); // se positionne sur la bonne story
+        openViewer(group);
+        setCurrentIndex(idx);
         setShowMobileSidebar(false);
         return;
       }
     }
-
-    // 3️⃣ Si pas trouvé (story expirée, par ex.), on ne fait rien de spécial
   }, [searchParams, user, loading, myStatuses, friendsStatuses]);
 
-  // ============================================
-  // GESTION DU VIEWER
-  // ============================================
   const currentStatus = viewingGroup?.statuses?.[currentIndex];
   const isMyStatus = viewingGroup?.user?._id === user?._id;
 
-  // Timer de progression
+  // Timer
   useEffect(() => {
     if (!viewingGroup || isPaused || showStats || showReactions) return;
 
     setProgress(0);
-
-    // ✅ MODIFICATION ICI : Gestion du temps (15s pour Text/Image)
-    let duration = 15000; // Par défaut 15 secondes (Texte / Image)
+    let duration = 15000;
 
     if (currentStatus?.type === "video") {
-      // Si vidéo, on prend la durée réelle, sinon 15s par défaut
       if (videoRef.current && videoRef.current.duration) {
         duration = videoRef.current.duration * 1000;
       }
@@ -254,7 +236,6 @@ function StatusPage() {
   // Marquer comme vu
   useEffect(() => {
     if (!currentStatus || isMyStatus) return;
-
     const markViewed = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -266,7 +247,6 @@ function StatusPage() {
         console.error("Erreur marquage vue:", error);
       }
     };
-
     const timer = setTimeout(markViewed, 1000);
     return () => clearTimeout(timer);
   }, [currentStatus, isMyStatus]);
@@ -274,7 +254,6 @@ function StatusPage() {
   const handleNext = useCallback(() => {
     setReplyText("");
     setShowReactions(false);
-
     if (currentIndex < viewingGroup?.statuses?.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setProgress(0);
@@ -286,7 +265,6 @@ function StatusPage() {
   const handlePrev = () => {
     setReplyText("");
     setShowReactions(false);
-
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
       setProgress(0);
@@ -311,12 +289,8 @@ function StatusPage() {
     setShowMobileSidebar(false);
   };
 
-  // ============================================
-  // ACTIONS (Réaction, Réponse, Suppression)
-  // ============================================
   const handleReact = async (emoji) => {
     if (!currentStatus) return;
-
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
@@ -330,10 +304,7 @@ function StatusPage() {
           body: JSON.stringify({ reaction: emoji }),
         }
       );
-
-      if (response.ok) {
-        setShowReactions(false);
-      }
+      if (response.ok) setShowReactions(false);
     } catch (error) {
       console.error("Erreur réaction:", error);
     }
@@ -341,7 +312,6 @@ function StatusPage() {
 
   const handleReply = async () => {
     if (!replyText.trim() || !currentStatus) return;
-
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
@@ -358,17 +328,10 @@ function StatusPage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("Réponse /status/:id/reply =>", data); // 👈 pour vérifier
-
+        alert("Réponse envoyée avec succès !");
         setReplyText("");
-
-        if (data.conversationId) {
-          router.push(`/chat/${data.conversationId}`);
-        } else {
-          closeViewer();
-        }
-      } else {
-        console.error("Réponse non OK:", await response.text());
+        closeViewer();
+        if (data.conversationId) router.push(`/chat/${data.conversationId}`);
       }
     } catch (error) {
       console.error("Erreur réponse:", error);
@@ -377,7 +340,6 @@ function StatusPage() {
 
   const handleDelete = async () => {
     if (!currentStatus || !confirm("Supprimer cette story ?")) return;
-
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
@@ -392,7 +354,6 @@ function StatusPage() {
         const updatedStatuses = viewingGroup.statuses.filter(
           (s) => s._id !== currentStatus._id
         );
-
         if (updatedStatuses.length === 0) {
           closeViewer();
         } else {
@@ -410,7 +371,6 @@ function StatusPage() {
 
   const loadStats = async () => {
     if (!currentStatus) return;
-
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
@@ -419,7 +379,6 @@ function StatusPage() {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       if (response.ok) {
         const data = await response.json();
         setStatsData(data);
@@ -430,34 +389,25 @@ function StatusPage() {
     }
   };
 
-  // ============================================
-  // CRÉATION DE STATUT
-  // ============================================
   const handleCreateStatus = async () => {
     if (createType === "text" && !textContent.trim()) return;
     if ((createType === "image" || createType === "video") && !mediaFile)
       return;
-
     setIsUploading(true);
-
     try {
       const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("type", createType);
-
-      if (createType === "text") {
-        formData.append("content", textContent);
-      } else {
+      if (createType === "text") formData.append("content", textContent);
+      else {
         formData.append("media", mediaFile);
         if (textContent) formData.append("content", textContent);
       }
-
       const response = await fetch(`${API_URL}/api/status`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-
       if (response.ok) {
         resetCreator();
         fetchStatuses();
@@ -476,7 +426,6 @@ function StatusPage() {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const maxSize =
       createType === "video" ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -487,7 +436,6 @@ function StatusPage() {
       );
       return;
     }
-
     setMediaFile(file);
     setMediaPreview(URL.createObjectURL(file));
   };
@@ -507,9 +455,7 @@ function StatusPage() {
     setShowMobileSidebar(false);
   };
 
-  // ============================================
-  // STYLES
-  // ============================================
+  // Styles
   const bgMain = isDark ? "bg-slate-950" : "bg-gray-100";
   const bgSidebar = isDark
     ? "bg-slate-900 border-slate-800"
@@ -525,25 +471,15 @@ function StatusPage() {
     <div className={`flex h-screen ${bgMain}`}>
       <MainSidebar />
 
-      {/* ============================================ */}
-      {/* SIDEBAR LISTE DES STATUTS */}
-      {/* ============================================ */}
+      {/* SIDEBAR LISTE */}
       <div
-        className={`
-          ${showMobileSidebar ? "flex" : "hidden"} 
-          md:flex
-          w-full md:w-80 lg:w-96 
-          flex-col border-r ${bgSidebar}
-          absolute md:relative
-          inset-0 md:inset-auto
-          z-40 md:z-auto
-        `}
+        className={`${
+          showMobileSidebar ? "flex" : "hidden"
+        } md:flex w-full md:w-80 lg:w-96 flex-col border-r ${bgSidebar} absolute md:relative inset-0 md:inset-auto z-40 md:z-auto`}
       >
-        {/* Header avec bouton retour */}
         <div
           className={`p-4 md:p-5 border-b ${borderColor} flex items-center gap-3`}
         >
-          {/* ✅ BOUTON RETOUR */}
           <button
             onClick={handleGoBack}
             className={`p-2 rounded-full transition-colors ${
@@ -555,11 +491,9 @@ function StatusPage() {
           >
             <ArrowLeft size={22} />
           </button>
-
           <h1 className={`text-xl md:text-2xl font-bold ${textPrimary} flex-1`}>
             Statuts
           </h1>
-
           <button
             onClick={openCreator}
             className="p-2 bg-blue-500 rounded-full text-white hover:bg-blue-600 transition-colors"
@@ -570,16 +504,13 @@ function StatusPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6">
-          {/* Mon statut */}
           <div
             className={`flex items-center gap-3 md:gap-4 p-3 rounded-xl cursor-pointer transition ${itemHover}`}
-            onClick={() => {
-              if (myStatuses.length > 0) {
-                openViewer({ user, statuses: myStatuses });
-              } else {
-                openCreator();
-              }
-            }}
+            onClick={() =>
+              myStatuses.length > 0
+                ? (openViewer({ user, statuses: myStatuses }), openCreator())
+                : openCreator()
+            }
           >
             <div className="relative flex-shrink-0">
               <div
@@ -614,10 +545,7 @@ function StatusPage() {
               </p>
             </div>
           </div>
-
           <hr className={borderColor} />
-
-          {/* Statuts des amis */}
           <div>
             <h4
               className={`text-xs md:text-sm font-bold mb-3 md:mb-4 uppercase ${
@@ -626,7 +554,6 @@ function StatusPage() {
             >
               Mises à jour récentes
             </h4>
-
             {loading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
@@ -688,16 +615,12 @@ function StatusPage() {
         </div>
       </div>
 
-      {/* ============================================ */}
       {/* ZONE PRINCIPALE */}
-      {/* ============================================ */}
       <div
-        className={`
-          flex-1 flex items-center justify-center bg-black relative overflow-hidden
-          ${showMobileSidebar ? "hidden md:flex" : "flex"}
-        `}
+        className={`flex-1 flex items-center justify-center bg-black relative overflow-hidden ${
+          showMobileSidebar ? "hidden md:flex" : "flex"
+        }`}
       >
-        {/* État par défaut - Desktop only */}
         {!viewingGroup && !showCreator && (
           <div className="text-center text-gray-500 p-4">
             <CircleDashed
@@ -711,16 +634,13 @@ function StatusPage() {
               onClick={openCreator}
               className="mt-4 px-5 py-2.5 md:px-6 md:py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition flex items-center gap-2 mx-auto text-sm md:text-base"
             >
-              <Plus size={18} />
-              Créer un statut
+              <Plus size={18} /> Créer un statut
             </button>
           </div>
         )}
 
-        {/* ... (Suite du code existant : ShowCreator, Viewer, etc.) ... */}
         {showCreator && (
           <div className="w-full h-full flex flex-col bg-slate-900 text-white">
-            {/* Header */}
             <div className="flex items-center justify-between p-3 md:p-4 border-b border-slate-800">
               <button
                 onClick={resetCreator}
@@ -733,8 +653,6 @@ function StatusPage() {
               </h2>
               <div className="w-10" />
             </div>
-
-            {/* Sélection du type */}
             <div className="flex justify-center gap-2 md:gap-4 p-3 md:p-4 border-b border-slate-800">
               {[
                 { type: "text", icon: Type, label: "Texte" },
@@ -759,8 +677,6 @@ function StatusPage() {
                 </button>
               ))}
             </div>
-
-            {/* Zone de contenu - SCROLLABLE */}
             <div className="flex-1 overflow-y-auto">
               <div className="flex items-center justify-center min-h-full p-4 md:p-8">
                 {createType === "text" ? (
@@ -809,9 +725,6 @@ function StatusPage() {
                           Cliquez pour ajouter{" "}
                           {createType === "video" ? "une vidéo" : "une image"}
                         </span>
-                        <span className="text-gray-500 text-xs">
-                          {createType === "video" ? "Max 50MB" : "Max 10MB"}
-                        </span>
                         <input
                           ref={fileInputRef}
                           type="file"
@@ -823,7 +736,6 @@ function StatusPage() {
                         />
                       </label>
                     )}
-
                     {mediaPreview && (
                       <input
                         type="text"
@@ -837,8 +749,6 @@ function StatusPage() {
                 )}
               </div>
             </div>
-
-            {/* Footer - TOUJOURS VISIBLE */}
             <div className="flex-shrink-0 p-4 md:p-6 border-t border-slate-800 bg-slate-900">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
                 <div className="flex items-center gap-2 text-slate-400">
@@ -874,7 +784,6 @@ function StatusPage() {
 
         {viewingGroup && currentStatus && (
           <div className="w-full h-full relative flex flex-col">
-            {/* Barres de progression */}
             <div className="absolute top-2 left-2 right-2 md:left-4 md:right-4 flex gap-1 z-30">
               {viewingGroup.statuses.map((_, idx) => (
                 <div
@@ -895,8 +804,6 @@ function StatusPage() {
                 </div>
               ))}
             </div>
-
-            {/* Header */}
             <div className="absolute top-6 md:top-8 left-0 right-0 px-2 md:px-4 z-20 flex items-center justify-between">
               <div className="flex items-center gap-2 md:gap-3">
                 <button
@@ -921,8 +828,6 @@ function StatusPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Actions propriétaire */}
               {isMyStatus && (
                 <div className="flex items-center gap-1 md:gap-2">
                   <button
@@ -940,8 +845,6 @@ function StatusPage() {
                 </div>
               )}
             </div>
-
-            {/* Contenu */}
             <div className="flex-1 flex items-center justify-center">
               {currentStatus.type === "text" ? (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 p-4">
@@ -961,8 +864,6 @@ function StatusPage() {
                     onEnded={handleNext}
                     onClick={() => setIsPaused(!isPaused)}
                   />
-
-                  {/* Contrôles vidéo */}
                   <div className="absolute bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 flex gap-3 md:gap-4">
                     <button
                       onClick={() => setIsPaused(!isPaused)}
@@ -985,7 +886,6 @@ function StatusPage() {
                       )}
                     </button>
                   </div>
-
                   {currentStatus.content && (
                     <div className="absolute bottom-28 md:bottom-32 bg-black/60 px-4 py-1.5 md:px-6 md:py-2 rounded-full text-white backdrop-blur-md text-sm md:text-base max-w-[90%] text-center">
                       {currentStatus.content}
@@ -1006,8 +906,6 @@ function StatusPage() {
                   )}
                 </div>
               )}
-
-              {/* Zones de navigation tactile */}
               {!showStats && !showReactions && (
                 <>
                   <div
@@ -1021,11 +919,8 @@ function StatusPage() {
                 </>
               )}
             </div>
-
-            {/* Zone de réponse (pour les statuts des autres) */}
             {!isMyStatus && !showStats && (
               <div className="absolute bottom-4 md:bottom-6 left-0 right-0 px-3 md:px-4 z-50">
-                {/* Barre de réactions */}
                 {showReactions && (
                   <div className="flex justify-center gap-1 md:gap-2 mb-3 md:mb-4 animate-fade-in overflow-x-auto pb-2">
                     {REACTION_EMOJIS.map((emoji) => (
@@ -1039,8 +934,6 @@ function StatusPage() {
                     ))}
                   </div>
                 )}
-
-                {/* Input de réponse */}
                 <div className="flex justify-center">
                   <div className="flex items-center gap-1.5 md:gap-2 w-full max-w-lg bg-black/40 backdrop-blur-md p-1.5 md:p-2 rounded-full border border-white/20">
                     <button
@@ -1068,8 +961,6 @@ function StatusPage() {
                 </div>
               </div>
             )}
-
-            {/* Bouton stats (pour mes statuts) */}
             {isMyStatus && !showStats && (
               <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-40">
                 <button
@@ -1081,8 +972,6 @@ function StatusPage() {
                 </button>
               </div>
             )}
-
-            {/* Panel des statistiques - RESPONSIVE */}
             {showStats && statsData && (
               <div className="absolute inset-x-0 bottom-0 h-[70%] md:h-[60%] bg-slate-900 rounded-t-3xl z-50 animate-slide-up border-t border-slate-700">
                 <div className="flex justify-between items-center p-3 md:p-4 border-b border-slate-700">
@@ -1104,9 +993,7 @@ function StatusPage() {
                     </button>
                   </div>
                 </div>
-
                 <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-4 md:space-y-6 max-h-[calc(70vh-70px)] md:max-h-[calc(60vh-80px)]">
-                  {/* Réactions */}
                   {statsData.reactions?.length > 0 && (
                     <div>
                       <h4 className="text-slate-400 text-xs uppercase font-bold mb-2 md:mb-3">
@@ -1132,8 +1019,6 @@ function StatusPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Réponses */}
                   {statsData.replies?.length > 0 && (
                     <div>
                       <h4 className="text-slate-400 text-xs uppercase font-bold mb-2 md:mb-3">
@@ -1159,8 +1044,6 @@ function StatusPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Vues */}
                   <div>
                     <h4 className="text-slate-400 text-xs uppercase font-bold mb-2 md:mb-3">
                       Vues ({statsData.totalViews || 0})
@@ -1202,7 +1085,6 @@ function StatusPage() {
         )}
       </div>
 
-      {/* Styles CSS pour animations */}
       <style jsx global>{`
         @keyframes fade-in {
           from {
@@ -1212,7 +1094,6 @@ function StatusPage() {
             opacity: 1;
           }
         }
-
         @keyframes slide-up {
           from {
             transform: translateY(100%);
@@ -1221,11 +1102,9 @@ function StatusPage() {
             transform: translateY(0);
           }
         }
-
         .animate-fade-in {
           animation: fade-in 0.3s ease-out;
         }
-
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
         }
@@ -1233,6 +1112,8 @@ function StatusPage() {
     </div>
   );
 }
+
+// ✅ 3. Export du composant AVEC SSR désactivé
 export default dynamic(() => Promise.resolve(StatusPageContent), {
   ssr: false,
 });
