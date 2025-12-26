@@ -1288,7 +1288,8 @@ const renderTextMessage = () => {
             className={`max-w-xs lg:max-w-md xl-max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
               isMine
                 ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
-                : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
+                : 'bg-slate-700 text-white rounded-bl-md border-2 border-slate-600'
+
             }`}
           >
             {message.replyTo && (
@@ -1437,7 +1438,7 @@ const renderTextMessage = () => {
                     <File className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate" title={message.fileName}>
+                    <p className="text-sm font-semibold text-slate-100 truncate" title={message.fileName}>
                       {message.fileName}
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">

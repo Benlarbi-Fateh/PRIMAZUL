@@ -165,7 +165,7 @@ export default function VerifyCode({
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
               disabled={loading}
-              className={`w-14 h-16 text-center text-2xl font-bold bg-white border-2 rounded-xl text-gray-900 transition-all duration-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 ${
+              className={`w-14 h-16 text-center text-2xl font-bold bg-white border-2 rounded-xl bg-white transition-all duration-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 ${
                 digit 
                   ? 'border-blue-500 bg-blue-50 shadow-md' 
                   : 'border-gray-300 hover:border-gray-400'
