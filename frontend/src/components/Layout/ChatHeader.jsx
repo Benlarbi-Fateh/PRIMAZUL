@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useContext } from 'react';
-import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Music, Download, 
+import { ArrowLeft, MoreVertical, Phone, Video, Users, X, Image, FileText, Download, 
   Trash2, 
   AlertCircle, 
   Link, 
@@ -55,8 +55,6 @@ export default function ChatHeader({ contact, conversation, onBack, onSearchOpen
     muted: false
   });
   const [selectedImage, setSelectedImage] = useState(null);
-  const [playingAudio, setPlayingAudio] = useState(null);
-  const audioRef = useRef(null);
   const menuRef = useRef(null);
   const fileInputRef = useRef(null);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
@@ -161,92 +159,52 @@ export default function ChatHeader({ contact, conversation, onBack, onSearchOpen
     setSelectedImage(image);
   };
 
-  // Fonction pour lire un audio
-  const playAudio = async (audio) => {
-    try {
-      if (playingAudio === audio.id) {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          setPlayingAudio(null);
-        }
-      } else {
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-
-        const audioElement = new Audio(audio.url);
-        audioRef.current = audioElement;
-
-        audioElement.addEventListener('ended', () => {
-          setPlayingAudio(null);
-        });
-
-        audioElement.addEventListener('error', () => {
-          console.error('Erreur lecture audio');
-          setPlayingAudio(null);
-        });
-
-        await audioElement.play();
-        setPlayingAudio(audio.id);
-      }
-    } catch (error) {
-      console.error('Erreur lecture audio:', error);
-      alert('Impossible de lire l\'audio');
-    }
-  };
 
   // Fonction corrigée pour charger les médias
-  const loadMedia = async (type) => {
-    setLoadingMedia(true);
-    setMediaType(type);
-    try {
-      console.log(`📥 Chargement des médias de type: ${type} pour conversation:`, conversation._id);
-      
-      const response = await api.get(`/message-settings/conversations/${conversation._id}/media?type=${type}`);
-      const data = response.data;
-      
-      console.log(`✅ Données reçues pour ${type}:`, data);
-      
-      // ✅ CORRECTION : Le backend retourne directement images, files, audio, videos, links
-      if (data && data.success) {
-        setMediaData({
-          images: data.images || [],
-          files: data.files || [],
-          audio: data.audio || [],
-          videos: data.videos || [], // ✅ AJOUT
-          links: data.links || []
-        });
-      } else {
-        setMediaData({
-          images: [],
-          files: [],
-          audio: [],
-          videos: [], // ✅ AJOUT
-          links: []
-        });
-      }
-    } catch (err) {
-      console.error('❌ Erreur chargement média:', err);
+  // 🔁 Charger TOUS les médias d'un coup (images, fichiers, vidéos, liens)
+const loadAllMedia = async () => {
+  if (!conversation?._id) return;
+
+  setLoadingMedia(true);
+  try {
+    console.log('📥 Chargement de tous les médias pour la conversation :', conversation._id);
+
+    // 👉 SANS "type" dans l'URL, on récupère tout
+    const response = await api.get(
+      `/message-settings/conversations/${conversation._id}/media`
+    );
+    const data = response.data;
+
+    console.log('✅ Données médias reçues :', data);
+
+    if (data && data.success) {
+      setMediaData({
+        images: data.images || [],
+        files: data.files || [],
+        videos: data.videos || [],
+        links: data.links || [],
+      });
+    } else {
       setMediaData({
         images: [],
         files: [],
-        audio: [],
-        videos: [], // ✅ AJOUT
-        links: []
+        videos: [],
+        links: [],
       });
     }
+  } catch (err) {
+    console.error('❌ Erreur chargement média:', err);
+    setMediaData({
+      images: [],
+      files: [],
+      videos: [],
+      links: [],
+    });
+  } finally {
     setLoadingMedia(false);
-  };
+  }
+};
 
-  // Nettoyer l'audio quand le composant est démonté
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!conversation?._id) return;
@@ -651,10 +609,11 @@ if (onBack) {
   };
 
   const openMediaPanel = async () => {
-    setShowMediaPanel(true);
-    setShowMenu(false);
-    await loadMedia('images');
-  };
+  setShowMediaPanel(true);
+  setShowMenu(false);
+  setMediaType('images');     // onglet actif par défaut
+  await loadAllMedia();       // on charge TOUT d'un coup
+};
 
   
   // ✅ CORRECTION : Écouter les changements de statut de blocage
@@ -1633,789 +1592,590 @@ if (onBack) {
         </div>
       )}
 
-      {showMediaPanel && (
-  <div
-    className={`fixed inset-0 backdrop-blur-sm z-50 flex justify-end ${
-      isDark ? 'bg-black/80' : 'bg-black/60'
-    }`}
-  >
-    <div
-      className={`w-full max-w-3xl h-full shadow-2xl flex flex-col ${
-        isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-gray-900'
-      }`}
-    >
-      {/* HEADER */}
-      <div className="relative overflow-hidden">
-        {/* Dégradé selon le thème */}
+            {showMediaPanel && (
         <div
-          className={`absolute inset-0 bg-gradient-to-br ${
-            isDark
-              ? 'from-slate-800 via-slate-900 to-slate-950'
-              : 'from-blue-600 via-blue-700 to-cyan-600'
-          }`}
-        ></div>
-
-        {/* Motif de fond */}
-        <div
-          className={`absolute inset-0 opacity-30 ${
-            isDark ? 'mix-blend-soft-light' : ''
-          } bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]`}
-        ></div>
-
-        <div className="relative p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
-                  <Image className="w-6 h-6 text-white" />
+          className={`
+            fixed inset-0 z-50 flex
+            ${isDark ? 'bg-black/80' : 'bg-black/60'}
+            backdrop-blur-sm
+          `}
+        >
+          <div
+            className={`
+              relative w-full h-full md:max-w-3xl md:ml-auto
+              flex flex-col shadow-2xl
+              ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-white text-gray-900'}
+            `}
+          >
+            {/* HEADER */}
+            <div
+              className={`
+                flex items-center justify-between px-4 py-3
+                border-b
+                ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}
+              `}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`
+                    flex items-center justify-center w-9 h-9 rounded-xl
+                    ${isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-600'}
+                  `}
+                >
+                  <Image className="w-5 h-5" />
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white drop-shadow-lg">
+                <div className="min-w-0">
+                  <p
+                    className={`
+                      text-sm font-semibold truncate
+                      ${isDark ? 'text-slate-100' : 'text-gray-900'}
+                    `}
+                  >
                     Multimédia
-                  </h2>
-                  <p className="text-sm text-white/80 font-medium">
-                    Tous vos fichiers partagés
+                  </p>
+                  <p
+                    className={`
+                      text-xs
+                      ${isDark ? 'text-slate-400' : 'text-gray-500'}
+                    `}
+                  >
+                    Images, documents, vidéos et liens partagés
                   </p>
                 </div>
               </div>
-            </div>
 
-            <button
-              onClick={() => setShowMediaPanel(false)}
-              className="p-2.5 hover:bg-white/20 rounded-xl transition-all backdrop-blur-sm text-white group active:scale-95"
-            >
-              <X className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
-            </button>
-          </div>
-
-          {/* Statistiques */}
-          <div className="grid grid-cols-5 gap-2">
-            {[
-              { label: 'Images', count: mediaData?.images?.length || 0, icon: Image },
-              { label: 'Fichiers', count: mediaData?.files?.length || 0, icon: FileText },
-              { label: 'Audio', count: mediaData?.audio?.length || 0, icon: Music },
-              { label: 'Vidéos', count: mediaData?.videos?.length || 0, icon: Play },
-              { label: 'Liens', count: mediaData?.links?.length || 0, icon: Link },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="bg-white/20 backdrop-blur-sm rounded-xl p-2.5 text-center text-white"
-              >
-                <stat.icon className="w-4 h-4 mx-auto mb-1" />
-                <div className="text-xl font-bold">{stat.count}</div>
-                <div className="text-[10px] font-medium opacity-90">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ONGLETS */}
-      <div
-        className={`
-          flex border-b overflow-x-auto scrollbar-hide
-          ${
-            isDark
-              ? 'border-slate-800 bg-slate-900'
-              : 'bg-gradient-to-r from-gray-50 to-white'
-          }
-        `}
-      >
-        {[
-          { id: 'images', label: 'Images', icon: Image },
-          { id: 'files', label: 'Fichiers', icon: FileText },
-          { id: 'audio', label: 'Audio', icon: Music },
-          { id: 'videos', label: 'Vidéos', icon: Play },
-          { id: 'links', label: 'Liens', icon: Link },
-        ].map((tab) => {
-          const count = mediaData?.[tab.id]?.length || 0;
-          const isActive = mediaType === tab.id;
-
-          return (
-            <button
-              key={tab.id}
-              onClick={() => loadMedia(tab.id)}
-              className={`
-                relative flex items-center gap-2 px-5 py-4 font-semibold whitespace-nowrap
-                transition-all duration-300 group
-                ${
-                  isActive
-                    ? isDark
-                      ? 'text-blue-400'
-                      : 'text-blue-600'
-                    : isDark
-                    ? 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
-                }
-              `}
-            >
-              <div
+              <button
+                onClick={() => setShowMediaPanel(false)}
                 className={`
-                  p-1.5 rounded-lg transition-all duration-300
-                  ${
-                    isActive
-                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-md'
-                      : isDark
-                      ? 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
-                      : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
-                  }
+                  p-2 rounded-full transition-colors
+                  ${isDark ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-gray-100 text-gray-600'}
                 `}
               >
-                <tab.icon
-                  className={`w-4 h-4 transition-transform ${
-                    isActive ? 'scale-110' : 'group-hover:scale-105'
-                  }`}
-                />
-              </div>
-
-              <span className="text-sm sm:text-base">{tab.label}</span>
-
-              {count > 0 && (
-                <span
-                  className={`
-                    px-2 py-0.5 rounded-full text-xs font-bold transition-all
-                    ${
-                      isActive
-                        ? isDark
-                          ? 'bg-blue-900/60 text-blue-200'
-                          : 'bg-blue-100 text-blue-700'
-                        : isDark
-                        ? 'bg-slate-700 text-slate-200 group-hover:bg-slate-600'
-                        : 'bg-gray-200 text-gray-600 group-hover:bg-gray-300'
-                    }
-                  `}
-                >
-                  {count}
-                </span>
-              )}
-
-              {isActive && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-cyan-500"></div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* CONTENU */}
-      <div
-        className={`flex-1 overflow-y-auto ${
-          isDark
-            ? 'bg-gradient-to-br from-slate-900 to-slate-950'
-            : 'bg-gradient-to-br from-gray-50 to-gray-100'
-        }`}
-      >
-        {loadingMedia ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="relative w-20 h-20 mb-4">
-              <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-ping"></div>
-              <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <p
-              className={`font-medium ${
-                isDark ? 'text-slate-300' : 'text-gray-500'
-              }`}
+
+            {/* ONGLET : 4 onglets, icônes seules en mobile, texte à partir de sm/md */}
+            <div
+              className={`
+                flex gap-2 px-3 py-2 border-b
+                ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}
+              `}
             >
-              Chargement...
-            </p>
-          </div>
-        ) : (
-          <div className="p-6">
-            {/* IMAGES */}
-            {mediaType === 'images' && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {mediaData?.images?.length > 0 ? (
-                  mediaData.images.map((img) => (
+              {[
+                { id: 'images', label: 'Images', icon: Image },
+                { id: 'files', label: 'Fichiers', icon: FileText },
+                { id: 'videos', label: 'Vidéos', icon: Play },
+                { id: 'links', label: 'Liens', icon: Link },
+              ].map((tab) => {
+                const count = mediaData?.[tab.id]?.length || 0;
+                const isActive = mediaType === tab.id;
+
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setMediaType(tab.id)}
+                    className={`
+                      relative flex-1 flex flex-col items-center gap-1
+                      py-1.5 rounded-xl border text-[11px] sm:text-xs
+                      transition-colors
+                      ${
+                        isActive
+                          ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                          : isDark
+                          ? 'bg-slate-800 text-slate-200 border-slate-700'
+                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                      }
+                    `}
+                  >
+                    {/* Icône dans un cercle */}
                     <div
-                      key={img.id}
-                      className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
+                      className={`
+                        flex items-center justify-center w-8 h-8 rounded-full
+                        ${
+                          isActive
+                            ? 'bg-white/20'
+                            : isDark
+                            ? 'bg-slate-900/60'
+                            : 'bg-white'
+                        }
+                      `}
                     >
-                      <img
-                        src={img.url}
-                        alt=""
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        onClick={() => openImage(img)}
-                      />
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <p className="text-white text-sm font-medium truncate mb-1">
-                            {img.name || 'Image'}
-                          </p>
-                          <p className="text-white/70 text-xs">
-                            {formatFileSize(img.size)}
-                          </p>
-                        </div>
-
-                        <div className="absolute top-3 right-3 flex gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openImage(img);
-                            }}
-                            className="p-2.5 bg-blue-500 hover:bg-blue-600 rounded-full transition-all shadow-lg hover:scale-110 active:scale-95"
-                          >
-                            <Expand className="w-4 h-4 text-white" />
-                          </button>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadImage(img);
-                            }}
-                            className="p-2.5 bg-blue-500 hover:bg-blue-600 rounded-full transition-all shadow-lg hover:scale-110 active:scale-95"
-                          >
-                            <Download className="w-4 h-4 text-white" />
-                          </button>
-                        </div>
-                      </div>
+                      <tab.icon className="w-4 h-4" />
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-3 text-center py-20">
-                    <div
-                      className={`
-                        inline-flex p-6 rounded-3xl mb-4
-                        ${
-                          isDark
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
-                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
-                        }
-                      `}
-                    >
-                      <Image
-                        className={`w-16 h-16 ${
-                          isDark ? 'text-blue-300' : 'text-blue-400'
-                        }`}
-                      />
-                    </div>
-                    <p
-                      className={`
-                        font-semibold text-lg mb-2
-                        ${
-                          isDark ? 'text-slate-200' : 'text-gray-600'
-                        }
-                      `}
-                    >
-                      Aucune image
-                    </p>
-                    <p
-                      className={`text-sm ${
-                        isDark ? 'text-slate-500' : 'text-gray-400'
-                      }`}
-                    >
-                      Les images partagées apparaîtront ici
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* FICHIERS */}
-            {mediaType === 'files' && (
-              <div className="space-y-3">
-                {mediaData?.files?.length > 0 ? (
-                  mediaData.files.map((file) => (
-                    <div
-                      key={file.id}
-                      className={`
-                        group flex items-center gap-4 p-4 rounded-2xl shadow-md hover:shadow-xl border
-                        transition-all duration-300
-                        ${
-                          isDark
-                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
-                            : 'bg-white border-gray-100 hover:border-blue-200'
-                        }
-                      `}
-                    >
-                      <div className="relative">
-                        <div className="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all">
-                          <FileText className="w-7 h-7 text-white" />
-                        </div>
-                        <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-blue-600 text-white text-[9px] font-bold rounded-md shadow">
-                          {file.type?.toUpperCase() || 'FILE'}
-                        </div>
-                      </div>
+                    {/* Label : caché sur mobile, visible à partir de sm */}
+                    <span className="hidden sm:inline mt-0.5">
+                      {tab.label}
+                    </span>
 
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`
-                            font-semibold truncate group-hover:text-blue-500 transition-colors
-                            ${
-                              isDark ? 'text-slate-100' : 'text-gray-900'
-                            }
-                          `}
-                        >
-                          {file.name}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span
-                            className={`text-sm ${
-                              isDark ? 'text-slate-400' : 'text-gray-500'
-                            }`}
-                          >
-                            {formatFileSize(file.size)}
-                          </span>
-                          {file.createdAt && (
-                            <>
-                              <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                              <span
-                                className={`text-sm ${
-                                  isDark
-                                    ? 'text-slate-500'
-                                    : 'text-gray-400'
-                                }`}
-                              >
-                                {formatMessageDate(file.createdAt)}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => downloadFile(file)}
+                    {/* Compteur en badge */}
+                    {count > 0 && (
+                      <span
                         className={`
-                          p-3 rounded-xl transition-all group/btn active:scale-95
-                          ${
-                            isDark
-                              ? 'hover:bg-slate-800'
-                              : 'hover:bg-blue-50'
-                          }
+                          absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full
+                          text-[10px] font-semibold
+                          ${isActive ? 'bg-white text-blue-600' : 'bg-blue-500 text-white'}
                         `}
                       >
-                        <Download
-                          className={`
-                            w-5 h-5 transition-colors
-                            ${
-                              isDark
-                                ? 'text-slate-300 group-hover/btn:text-blue-400'
-                                : 'text-gray-400 group-hover/btn:text-blue-600'
-                            }
-                          `}
-                        />
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-20">
-                    <div
-                      className={`
-                        inline-flex p-6 rounded-3xl mb-4
-                        ${
-                          isDark
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
-                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
-                        }
-                      `}
-                    >
-                      <FileText
-                        className={`w-16 h-16 ${
-                          isDark ? 'text-blue-300' : 'text-blue-400'
-                        }`}
-                      />
-                    </div>
-                    <p
-                      className={`
-                        font-semibold text-lg mb-2
-                        ${
-                          isDark ? 'text-slate-200' : 'text-gray-600'
-                        }
-                      `}
-                    >
-                      Aucun fichier
-                    </p>
-                    <p
-                      className={`text-sm ${
-                        isDark ? 'text-slate-500' : 'text-gray-400'
-                      }`}
-                    >
-                      Les documents partagés apparaîtront ici
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* AUDIO */}
-            {mediaType === 'audio' && (
-              <div className="space-y-3">
-                {mediaData?.audio?.length > 0 ? (
-                  mediaData.audio.map((audio) => (
-                    <div
-                      key={audio.id}
-                      className={`
-                        group flex items-center gap-4 p-4 rounded-2xl shadow-md hover:shadow-xl border
-                        transition-all duration-300
-                        ${
-                          isDark
-                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
-                            : 'bg-white border-gray-100 hover:border-blue-200'
-                        }
-                      `}
-                    >
-                      <div className="relative">
-                        <div
-                          className={`
-                            p-4 rounded-xl shadow-md transition-all
-                            ${
-                              playingAudio === audio.id
-                                ? 'bg-gradient-to-br from-blue-500 to-cyan-500 animate-pulse'
-                                : 'bg-gradient-to-br from-blue-400 to-cyan-400 group-hover:scale-110'
-                            }
-                          `}
-                        >
-                          <Music className="w-7 h-7 text-white" />
-                        </div>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`
-                            font-semibold truncate
-                            ${
-                              isDark ? 'text-slate-100' : 'text-gray-900'
-                            }
-                          `}
-                        >
-                          {audio.name || `Audio ${audio.duration}s`}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span
-                            className={`text-sm ${
-                              isDark ? 'text-slate-400' : 'text-gray-500'
-                            }`}
-                          >
-                            {formatFileSize(audio.size)}
-                          </span>
-                          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                          <span className="text-sm text-blue-600 font-medium">
-                            {Math.floor(audio.duration / 60)}:
-                            {(audio.duration % 60)
-                              .toString()
-                              .padStart(2, '0')}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => playAudio(audio)}
-                        className={`
-                          p-3.5 rounded-full transition-all shadow-lg hover:shadow-xl active:scale-95
-                          ${
-                            playingAudio === audio.id
-                              ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
-                              : isDark
-                              ? 'bg-slate-800 text-blue-400 hover:bg-slate-700'
-                              : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-                          }
-                        `}
-                      >
-                        {playingAudio === audio.id ? (
-                          <Pause className="w-5 h-5" />
-                        ) : (
-                          <Play className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-20">
-                    <div
-                      className={`
-                        inline-flex p-6 rounded-3xl mb-4
-                        ${
-                          isDark
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
-                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
-                        }
-                      `}
-                    >
-                      <Music
-                        className={`w-16 h-16 ${
-                          isDark ? 'text-blue-300' : 'text-blue-400'
-                        }`}
-                      />
-                    </div>
-                    <p
-                      className={`
-                        font-semibold text-lg mb-2
-                        ${
-                          isDark ? 'text-slate-200' : 'text-gray-600'
-                        }
-                      `}
-                    >
-                      Aucun audio
-                    </p>
-                    <p
-                      className={`text-sm ${
-                        isDark ? 'text-slate-500' : 'text-gray-400'
-                      }`}
-                    >
-                      Les fichiers audio partagés apparaîtront ici
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* VIDÉOS */}
-            {mediaType === 'videos' && (
-              <div className="space-y-3">
-                {mediaData?.videos?.length > 0 ? (
-                  mediaData.videos.map((video) => (
-                    <div
-                      key={video.id}
-                      className={`
-                        group flex items-center gap-4 p-4 rounded-2xl shadow-md hover:shadow-xl border
-                        transition-all duration-300
-                        ${
-                          isDark
-                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
-                            : 'bg-white border-gray-100 hover:border-blue-200'
-                        }
-                      `}
-                    >
-                      <div className="relative shrink-0">
-                        <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
-                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20"></div>
-                          <Play className="w-10 h-10 text-blue-500 relative z-10" />
-                        </div>
-                        <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs font-bold rounded-md backdrop-blur-sm">
-                          {Math.floor(video.duration / 60)}:
-                          {(video.duration % 60).toString().padStart(2, '0')}
-                        </div>
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className={`
-                            font-semibold truncate group-hover:text-blue-500 transition-colors
-                            ${
-                              isDark ? 'text-slate-100' : 'text-gray-900'
-                            }
-                          `}
-                        >
-                          {video.name}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span
-                            className={`text-sm ${
-                              isDark ? 'text-slate-400' : 'text-gray-500'
-                            }`}
-                          >
-                            {formatFileSize(video.size)}
-                          </span>
-                          <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                          <span className="text-sm text-blue-600 font-medium">
-                            {Math.floor(video.duration / 60)}min{' '}
-                            {video.duration % 60}s
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => window.open(video.url, '_blank')}
-                          className={`
-                            p-3 rounded-xl transition-all group/btn active:scale-95
-                            ${
-                              isDark
-                                ? 'hover:bg-slate-800'
-                                : 'hover:bg-blue-50'
-                            }
-                          `}
-                        >
-                          <Play
-                            className={`
-                              w-5 h-5 transition-colors
-                              ${
-                                isDark
-                                  ? 'text-slate-300 group-hover/btn:text-blue-400'
-                                  : 'text-gray-400 group-hover/btn:text-blue-600'
-                              }
-                            `}
-                          />
-                        </button>
-                        <button
-                          onClick={() => downloadFile(video)}
-                          className={`
-                            p-3 rounded-xl transition-all group/btn active:scale-95
-                            ${
-                              isDark
-                                ? 'hover:bg-slate-800'
-                                : 'hover:bg-blue-50'
-                            }
-                          `}
-                        >
-                          <Download
-                            className={`
-                              w-5 h-5 transition-colors
-                              ${
-                                isDark
-                                  ? 'text-slate-300 group-hover/btn:text-blue-400'
-                                  : 'text-gray-400 group-hover/btn:text-blue-600'
-                              }
-                            `}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-20">
-                    <div
-                      className={`
-                        inline-flex p-6 rounded-3xl mb-4
-                        ${
-                          isDark
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
-                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
-                        }
-                      `}
-                    >
-                      <Play
-                        className={`w-16 h-16 ${
-                          isDark ? 'text-blue-300' : 'text-blue-400'
-                        }`}
-                      />
-                    </div>
-                    <p
-                      className={`
-                        font-semibold text-lg mb-2
-                        ${
-                          isDark ? 'text-slate-200' : 'text-gray-600'
-                        }
-                      `}
-                    >
-                      Aucune vidéo
-                    </p>
-                    <p
-                      className={`text-sm ${
-                        isDark ? 'text-slate-500' : 'text-gray-400'
-                      }`}
-                    >
-                      Les vidéos partagées apparaîtront ici
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* LIENS */}
-            {mediaType === 'links' && (
-              <div className="space-y-3">
-                {mediaData?.links?.length > 0 ? (
-                  mediaData.links.map((link) => (
-                    <div
-                      key={link.id}
-                      className={`
-                        p-5 rounded-2xl shadow-md hover:shadow-xl border transition-all duration-300
-                        ${
-                          isDark
-                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500/60'
-                            : 'bg-white border-gray-100 hover:border-blue-200'
-                        }
-                      `}
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-md shrink-0">
-                          <Link className="w-6 h-6 text-white" />
-                        </div>
-
-                        <div className="flex-1 min-w-0 space-y-2">
-                          {link.links.map((url, idx) => (
-                            <a
-                              key={idx}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="group/link flex items-center gap-2 text-blue-500 hover:text-blue-400 transition-colors"
+            {/* CONTENU */}
+            <div
+              className={`
+                flex-1 overflow-y-auto
+                ${isDark ? 'bg-slate-900' : 'bg-gray-50'}
+              `}
+            >
+              {loadingMedia ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <div className="w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <p
+                    className={`
+                      text-sm font-medium
+                      ${isDark ? 'text-slate-300' : 'text-gray-600'}
+                    `}
+                  >
+                    Chargement des fichiers...
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 sm:p-4 md:p-6 space-y-6">
+                  {/* IMAGES */}
+                  {mediaType === 'images' && (
+                    <>
+                      {mediaData?.images?.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+                          {mediaData.images.map((img) => (
+                            <div
+                              key={img.id}
+                              className={`
+                                group relative aspect-square rounded-xl overflow-hidden
+                                ${isDark ? 'bg-slate-800' : 'bg-white shadow-sm'}
+                                cursor-pointer
+                              `}
+                              onClick={() => openImage(img)}
                             >
-                              <span className="truncate font-medium">
-                                {url}
-                              </span>
-                              <svg
-                                className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                />
-                              </svg>
-                            </a>
-                          ))}
+                              <img
+                                src={img.url}
+                                alt={img.name || ''}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
 
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-2">
+                                <p className="text-xs text-white font-medium truncate">
+                                  {img.name || 'Image'}
+                                </p>
+                                <p className="text-[10px] text-white/70">
+                                  {formatFileSize(img.size)}
+                                </p>
+                              </div>
+
+                              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openImage(img);
+                                  }}
+                                  className="p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white"
+                                >
+                                  <Expand className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadImage(img);
+                                  }}
+                                  className="p-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
                           <div
                             className={`
-                              flex items-center gap-2 text-xs pt-2 border-t
-                              ${
-                                isDark
-                                  ? 'border-slate-700 text-slate-500'
-                                  : 'border-gray-100 text-gray-400'
-                              }
+                              p-4 rounded-2xl mb-3
+                              ${isDark ? 'bg-slate-800' : 'bg-white shadow'}
                             `}
                           >
-                            <span>Par {link.sender?.name}</span>
-                            <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                            <span>{formatMessageDate(link.createdAt)}</span>
+                            <Image
+                              className={`
+                                w-10 h-10
+                                ${isDark ? 'text-slate-400' : 'text-gray-400'}
+                              `}
+                            />
                           </div>
+                          <p
+                            className={`
+                              text-sm font-semibold mb-1
+                              ${isDark ? 'text-slate-200' : 'text-gray-700'}
+                            `}
+                          >
+                            Aucune image
+                          </p>
+                          <p
+                            className={`
+                              text-xs
+                              ${isDark ? 'text-slate-500' : 'text-gray-500'}
+                            `}
+                          >
+                            Les images partagées apparaîtront ici.
+                          </p>
                         </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-20">
-                    <div
-                      className={`
-                        inline-flex p-6 rounded-3xl mb-4
-                        ${
-                          isDark
-                            ? 'bg-gradient-to-br from-slate-800 to-slate-700'
-                            : 'bg-gradient-to-br from-blue-100 to-cyan-100'
-                        }
-                      `}
-                    >
-                      <Link
-                        className={`w-16 h-16 ${
-                          isDark ? 'text-blue-300' : 'text-blue-400'
-                        }`}
-                      />
-                    </div>
-                    <p
-                      className={`
-                        font-semibold text-lg mb-2
-                        ${
-                          isDark ? 'text-slate-200' : 'text-gray-600'
-                        }
-                      `}
-                    >
-                      Aucun lien
-                    </p>
-                    <p
-                      className={`text-sm ${
-                        isDark ? 'text-slate-500' : 'text-gray-400'
-                      }`}
-                    >
-                      Les liens partagés apparaîtront ici
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+                      )}
+                    </>
+                  )}
+
+                  {/* FICHIERS */}
+                  {mediaType === 'files' && (
+                    <>
+                      {mediaData?.files?.length > 0 ? (
+                        <div className="space-y-3">
+                          {mediaData.files.map((file) => (
+                            <div
+                              key={file.id}
+                              className={`
+                                flex items-center gap-3 p-3 rounded-xl
+                                border
+                                ${isDark
+                                  ? 'bg-slate-900 border-slate-800'
+                                  : 'bg-white border-gray-200 shadow-sm'}
+                              `}
+                            >
+                              <div
+                                className={`
+                                  flex items-center justify-center w-10 h-10 rounded-lg
+                                  ${isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-600'}
+                                `}
+                              >
+                                <FileText className="w-5 h-5" />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`
+                                    text-sm font-medium truncate
+                                    ${isDark ? 'text-slate-100' : 'text-gray-900'}
+                                  `}
+                                >
+                                  {file.name || 'Fichier'}
+                                </p>
+                                <div className="flex items-center gap-2 text-[11px] mt-1">
+                                  <span
+                                    className={`
+                                      ${isDark ? 'text-slate-400' : 'text-gray-500'}
+                                    `}
+                                  >
+                                    {formatFileSize(file.size)}
+                                  </span>
+                                  {file.createdAt && (
+                                    <>
+                                      <span className="w-1 h-1 rounded-full bg-gray-400/60" />
+                                      <span
+                                        className={`
+                                          ${isDark ? 'text-slate-500' : 'text-gray-400'}
+                                        `}
+                                      >
+                                        {formatMessageDate(file.createdAt)}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => downloadFile(file)}
+                                className={`
+                                  p-2 rounded-full
+                                  ${isDark ? 'hover:bg-slate-800 text-slate-200' : 'hover:bg-gray-100 text-gray-600'}
+                                `}
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <div
+                            className={`
+                              p-4 rounded-2xl mb-3
+                              ${isDark ? 'bg-slate-800' : 'bg-white shadow'}
+                            `}
+                          >
+                            <FileText
+                              className={`
+                                w-10 h-10
+                                ${isDark ? 'text-slate-400' : 'text-gray-400'}
+                              `}
+                            />
+                          </div>
+                          <p
+                            className={`
+                              text-sm font-semibold mb-1
+                              ${isDark ? 'text-slate-200' : 'text-gray-700'}
+                            `}
+                          >
+                            Aucun fichier
+                          </p>
+                          <p
+                            className={`
+                              text-xs
+                              ${isDark ? 'text-slate-500' : 'text-gray-500'}
+                            `}
+                          >
+                            Les documents partagés apparaîtront ici.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* VIDÉOS */}
+                  {mediaType === 'videos' && (
+                    <>
+                      {mediaData?.videos?.length > 0 ? (
+                        <div className="space-y-3">
+                          {mediaData.videos.map((video) => (
+                            <div
+                              key={video.id}
+                              className={`
+                                flex items-center gap-3 p-3 rounded-xl
+                                border
+                                ${isDark
+                                  ? 'bg-slate-900 border-slate-800'
+                                  : 'bg-white border-gray-200 shadow-sm'}
+                              `}
+                            >
+                              <div className="relative w-20 h-14 rounded-lg overflow-hidden flex items-center justify-center bg-black/10">
+                                <Play className="w-6 h-6 text-white drop-shadow" />
+                                <div className="absolute inset-0 bg-gradient-to-tr from-black/50 to-transparent" />
+                                {video.thumbnail && (
+                                  <img
+                                    src={video.thumbnail}
+                                    alt={video.name || ''}
+                                    className="absolute inset-0 w-full h-full object-cover opacity-60"
+                                  />
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`
+                                    text-sm font-medium truncate
+                                    ${isDark ? 'text-slate-100' : 'text-gray-900'}
+                                  `}
+                                >
+                                  {video.name || 'Vidéo'}
+                                </p>
+                                <div className="flex items-center gap-2 text-[11px] mt-1">
+                                  {video.size && (
+                                    <span
+                                      className={`
+                                        ${isDark ? 'text-slate-400' : 'text-gray-500'}
+                                      `}
+                                    >
+                                      {formatFileSize(video.size)}
+                                    </span>
+                                  )}
+                                  {video.duration && (
+                                    <>
+                                      <span className="w-1 h-1 rounded-full bg-gray-400/60" />
+                                      <span
+                                        className={`
+                                          ${isDark ? 'text-slate-500' : 'text-gray-400'}
+                                        `}
+                                      >
+                                        {Math.floor(video.duration / 60)}:
+                                        {(video.duration % 60)
+                                          .toString()
+                                          .padStart(2, '0')}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => window.open(video.url, '_blank')}
+                                  className={`
+                                    px-3 py-1.5 rounded-lg text-xs font-medium
+                                    flex items-center gap-1 justify-center
+                                    ${isDark
+                                      ? 'bg-slate-800 text-slate-100 hover:bg-slate-700'
+                                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}
+                                  `}
+                                >
+                                  <Play className="w-3 h-3" />
+                                  <span className="hidden sm:inline">Lire</span>
+                                </button>
+                                <button
+                                  onClick={() => downloadFile(video)}
+                                  className={`
+                                    px-3 py-1.5 rounded-lg text-xs font-medium
+                                    flex items-center gap-1 justify-center
+                                    ${isDark
+                                      ? 'bg-slate-800 text-slate-100 hover:bg-slate-700'
+                                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}
+                                  `}
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span className="hidden sm:inline">Télécharger</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <div
+                            className={`
+                              p-4 rounded-2xl mb-3
+                              ${isDark ? 'bg-slate-800' : 'bg-white shadow'}
+                            `}
+                          >
+                            <Play
+                              className={`
+                                w-10 h-10
+                                ${isDark ? 'text-slate-400' : 'text-gray-400'}
+                              `}
+                            />
+                          </div>
+                          <p
+                            className={`
+                              text-sm font-semibold mb-1
+                              ${isDark ? 'text-slate-200' : 'text-gray-700'}
+                            `}
+                          >
+                            Aucune vidéo
+                          </p>
+                          <p
+                            className={`
+                              text-xs
+                              ${isDark ? 'text-slate-500' : 'text-gray-500'}
+                            `}
+                          >
+                            Les vidéos partagées apparaîtront ici.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* LIENS */}
+                  {mediaType === 'links' && (
+                    <>
+                      {mediaData?.links?.length > 0 ? (
+                        <div className="space-y-3">
+                          {mediaData.links.map((link) => (
+                            <div
+                              key={link.id}
+                              className={`
+                                p-3 rounded-xl border
+                                ${isDark
+                                  ? 'bg-slate-900 border-slate-800'
+                                  : 'bg-white border-gray-200 shadow-sm'}
+                              `}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div
+                                  className={`
+                                    flex items-center justify-center w-9 h-9 rounded-lg
+                                    ${isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-600'}
+                                  `}
+                                >
+                                  <Link className="w-5 h-5" />
+                                </div>
+
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                  {link.links?.map((url, idx) => (
+                                    <a
+                                      key={idx}
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`
+                                        block text-xs sm:text-sm truncate
+                                        ${isDark ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-500'}
+                                      `}
+                                    >
+                                      {url}
+                                    </a>
+                                  ))}
+
+                                  <div
+                                    className={`
+                                      flex items-center gap-2 pt-1 text-[11px]
+                                      ${isDark ? 'text-slate-500' : 'text-gray-400'}
+                                    `}
+                                  >
+                                    {link.sender?.name && (
+                                      <span>Par {link.sender.name}</span>
+                                    )}
+                                    {link.createdAt && (
+                                      <>
+                                        <span className="w-1 h-1 rounded-full bg-gray-400/60" />
+                                        <span>{formatMessageDate(link.createdAt)}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-16 text-center">
+                          <div
+                            className={`
+                              p-4 rounded-2xl mb-3
+                              ${isDark ? 'bg-slate-800' : 'bg-white shadow'}
+                            `}
+                          >
+                            <Link
+                              className={`
+                                w-10 h-10
+                                ${isDark ? 'text-slate-400' : 'text-gray-400'}
+                              `}
+                            />
+                          </div>
+                          <p
+                            className={`
+                              text-sm font-semibold mb-1
+                              ${isDark ? 'text-slate-200' : 'text-gray-700'}
+                            `}
+                          >
+                            Aucun lien
+                          </p>
+                          <p
+                            className={`
+                              text-xs
+                              ${isDark ? 'text-slate-500' : 'text-gray-500'}
+                            `}
+                          >
+                            Les liens partagés apparaîtront ici.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+        </div>
+      )}
 
       {/* Modal pour l'image en plein écran */}
       {selectedImage && (
