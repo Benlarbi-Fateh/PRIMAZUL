@@ -1,6 +1,6 @@
 // frontend/src/app/status/page.js
 "use client";
-
+// ============================================
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
