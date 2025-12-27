@@ -197,17 +197,18 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
 
     // Si appel P2P, le marquer comme refusé
     if (activeCall && !activeCall.isGroup) {
-      activeCall.status = "declined";
+      activeCall.status = "missed";
 
       await Message.findOneAndUpdate(
         { "callDetails.callId": callId },
         {
-          "callDetails.status": "declined",
+          "callDetails.status": "missed",
           "callDetails.endedAt": new Date(),
+          "callDetails.duration": 0,
         }
       );
 
-      activeCallsMap.delete(callId);
+      //activeCallsMap.delete(callId);
     }
 
     res.json({ success: true });
@@ -223,25 +224,41 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
 router.post("/calls/:callId/end", auth, async (req, res) => {
   try {
     const { callId } = req.params;
-    const { reason } = req.body;
 
-    console.log(`🛑 Fin appel ${callId} - Raison: ${reason || "ended"}`);
+    console.log(`🛑 Fin appel ${callId}`);
 
-    const activeCall = activeCallsMap.get(callId);
+    const existingMessage = await Message.findOne({
+      "callDetails.callId": callId,
+    });
 
-    let duration = 0;
-    let finalStatus = reason || "ended";
-
-    if (activeCall) {
-      if (activeCall.answeredAt) {
-        duration = Math.round((Date.now() - activeCall.answeredAt) / 1000);
-        finalStatus = "ended";
-      } else {
-        finalStatus = "missed";
-      }
+    if (!existingMessage) {
+      return res.status(404).json({ error: "Appel introuvable" });
     }
 
-    // Mettre à jour le message
+    // 🔐 PROTECTION ABSOLUE CONTRE DOUBLE FIN
+    if (
+      existingMessage.callDetails.status === "ended" ||
+      existingMessage.callDetails.status === "missed"
+    ) {
+      console.log("⚠️ Appel déjà terminé, on ignore");
+      return res.json({
+        success: true,
+        ignored: true,
+        status: existingMessage.callDetails.status,
+      });
+    }
+
+    let finalStatus = "missed";
+    let duration = 0;
+
+    // ✅ LOGIQUE CORRECTE
+    if (existingMessage.callDetails.answeredBy.length > 0) {
+      finalStatus = "ended";
+      duration = Math.round(
+        (Date.now() - new Date(existingMessage.callDetails.startedAt)) / 1000
+      );
+    }
+
     const message = await Message.findOneAndUpdate(
       { "callDetails.callId": callId },
       {
@@ -252,30 +269,8 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
       { new: true }
     );
 
-    // Calculer les utilisateurs qui ont manqué
-    if (message && finalStatus === "missed") {
-      const allParticipants = (message.callDetails.participants || [])
-        .map((p) => p.userId?.toString())
-        .filter(Boolean);
-
-      const answered = (message.callDetails.answeredBy || []).map((id) =>
-        id.toString()
-      );
-
-      const missed = allParticipants.filter((id) => !answered.includes(id));
-
-      if (missed.length > 0) {
-        await Message.findOneAndUpdate(
-          { "callDetails.callId": callId },
-          { "callDetails.missedBy": missed }
-        );
-      }
-    }
-
-    // Nettoyer
     activeCallsMap.delete(callId);
 
-    // Notifier via socket
     const io = req.app.get("io");
     if (io && message) {
       io.to(message.conversationId.toString()).emit("call-ended", {
@@ -289,11 +284,7 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
       `✅ Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`
     );
 
-    res.json({
-      success: true,
-      duration,
-      status: finalStatus,
-    });
+    res.json({ success: true, duration, status: finalStatus });
   } catch (error) {
     console.error("❌ Erreur fin appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
@@ -440,6 +431,5 @@ router.get("/calls/history", auth, async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
-
 
 module.exports = router;

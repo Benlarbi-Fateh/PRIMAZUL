@@ -304,7 +304,6 @@ export const CallProvider = ({ children }) => {
 
     console.log(`❌ Appel refusé`);
   }, [incomingCall, stopRingtone]);
-  
 
   // ============================================
   // 4. TERMINER UN APPEL
@@ -317,10 +316,13 @@ export const CallProvider = ({ children }) => {
     stopDurationTimer();
 
     if (currentCallId) {
+      // Déterminer si c'est un groupe
+      const isGroupCall = callData?.isGroup || incomingCall?.isGroup || false;
+
       // Notifier socket
       if (socket) {
         // Si c'est un groupe, on quitte, sinon on termine
-        if (callData?.isGroup) {
+        if (isGroupCall) {
           socket.emit("call-leave", { callId: currentCallId });
         } else {
           socket.emit("call-end", { callId: currentCallId });
@@ -329,11 +331,14 @@ export const CallProvider = ({ children }) => {
 
       // Notifier backend
       try {
-        const endpoint = callData?.isGroup ? "leave" : "end";
+        const endpoint = isGroupCall ? "leave" : "end";
         // ✅ CORRECTION : Utilisation de /agora/calls/...
         await api.post(`/agora/calls/${currentCallId}/${endpoint}`, {
           reason: callState === "ongoing" ? "ended" : "cancelled",
         });
+        console.log(
+          `✅ Appel ${endpoint} envoyé au backend pour ${currentCallId}`
+        );
       } catch (error) {
         console.error("Erreur fin appel API:", error);
       }
@@ -350,7 +355,14 @@ export const CallProvider = ({ children }) => {
     setCallError(null);
 
     console.log(`🛑 Appel terminé localement`);
-  }, [currentCallId, callState, stopRingtone, stopDurationTimer, callData]);
+  }, [
+    currentCallId,
+    callState,
+    stopRingtone,
+    stopDurationTimer,
+    callData,
+    incomingCall,
+  ]);
 
   // ============================================
   // ÉCOUTEURS SOCKET
