@@ -17,9 +17,15 @@ export default function ScheduleModal({ isOpen, onClose, onSchedule, initialCont
       return;
     }
 
-    // Combiner date et heure
-    const scheduledFor = new Date(`${date}T${time}`);
+    // ✅ CORRECTION : Créer la date en LOCAL, puis convertir en ISO
+    const localDateTime = `${date}T${time}`;
+    const scheduledFor = new Date(localDateTime);
     const now = new Date();
+
+    console.log('🕐 Date programmée (LOCAL):', scheduledFor);
+    console.log('🕐 Date actuelle:', now);
+    console.log('🕐 ISO envoyé au backend:', scheduledFor.toISOString());
+    console.log('🕐 Différence (minutes):', Math.round((scheduledFor - now) / 60000));
 
     if (scheduledFor <= now) {
       alert('La date doit être dans le futur');
@@ -31,7 +37,7 @@ export default function ScheduleModal({ isOpen, onClose, onSchedule, initialCont
     try {
       await onSchedule({
         content: content.trim(),
-        scheduledFor: scheduledFor.toISOString()
+        scheduledFor: scheduledFor.toISOString() // ✅ Envoie en ISO (UTC)
       });
 
       // Réinitialiser

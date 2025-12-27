@@ -432,6 +432,60 @@ export default function ChatPage() {
       alert('Impossible de supprimer le message');
     }
   };
+  // ========================================
+  // 🆕 FONCTION SUPPRIMER POUR MOI
+  // ========================================
+  const handleDeleteMessageForMe = async (messageId) => {
+    console.log('🗑️ ChatPage: Suppression pour moi demandée pour:', messageId);
+
+    try {
+      const response = await api.delete(`/messages/${messageId}/for-me`);
+      console.log('📦 Réponse suppression pour moi:', response.data);
+      
+      if (response.data.success) {
+        console.log('✅ Message supprimé pour moi');
+        // Retirer le message du state localement
+        setMessages((prev) => prev.filter(msg => msg._id !== messageId));
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression pour moi:', error);
+      alert('Impossible de supprimer le message');
+    }
+  };
+  // ========================================
+// 🆕 FONCTION PROGRAMMER UN MESSAGE
+// ========================================
+// ========================================
+// 🆕 FONCTION PROGRAMMER UN MESSAGE
+// ========================================
+const handleScheduleMessage = async (scheduleData) => {
+  console.log('⏰ ChatPage: Programmation message:', scheduleData);
+
+  try {
+    const response = await api.post('/messages/schedule', {
+      conversationId,
+      content: scheduleData.content,
+      scheduledFor: scheduleData.scheduledFor,
+      type: 'text'
+    });
+    
+    console.log('📦 Réponse programmation:', response.data);
+    
+    if (response.data.success) {
+      console.log('✅ Message programmé avec succès');
+      
+      // ✅ AJOUTER LE MESSAGE PROGRAMMÉ À LA LISTE (SEULEMENT POUR MOI)
+      const scheduledMessage = response.data.message;
+      setMessages((prev) => [...prev, scheduledMessage]);
+      
+      alert(`✅ Message programmé pour ${new Date(scheduleData.scheduledFor).toLocaleString('fr-FR')}`);
+    }
+  } catch (error) {
+    console.error('❌ Erreur programmation:', error);
+    alert('Impossible de programmer le message');
+    throw error;
+  }
+};
 
   // ========================================
   // 🆕 FONCTION MODIFIER (ACTIVER LE MODE)
@@ -722,6 +776,7 @@ export default function ChatPage() {
           onEdit={handleEditMessage}
           onTranslate={handleTranslateMessage}
           onReply={handleReplyMessage}
+          onDeleteForMe={handleDeleteMessageForMe} // ✅ AJOUT
         />
       )}
     </div>
@@ -753,6 +808,7 @@ export default function ChatPage() {
               replyingToContent={replyingToContent}
               replyingToSender={replyingToSender}
               onCancelReply={handleCancelReply}
+              onSchedule={handleScheduleMessage} // ✅ AJOUT
             />
           </div>
         </div>

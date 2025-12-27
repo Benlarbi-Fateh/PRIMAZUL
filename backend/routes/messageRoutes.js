@@ -77,5 +77,6 @@ router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
   
   return res.json({ success: true, typing: isTyping || true });
 });
+router.delete('/:messageId/for-me', authMiddleware, messageController.deleteMessageForMe);
 
 module.exports = router;

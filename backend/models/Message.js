@@ -144,6 +144,11 @@ const messageSchema = new mongoose.Schema(
 
     // Réactions
     reactions: [reactionSchema],
+    // 🆕 SUPPRESSION POUR UN UTILISATEUR
+  deletedFor: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   },
   { timestamps: true }
 );
