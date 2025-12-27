@@ -60,30 +60,56 @@ export const CallProvider = ({ children }) => {
   const callStartTimeRef = useRef(null);
   const ringtoneRef = useRef(null);
   const durationIntervalRef = useRef(null);
+  const incomingRingtoneRef = useRef(null);  // Pour le destinataire
+  const outgoingRingtoneRef = useRef(null);  // Pour l'émetteur
 
   // ============================================
   // GESTION SONNERIE & TIMER
-  // ============================================
-  const playRingtone = useCallback(() => {
-    try {
-      if (!ringtoneRef.current) {
-        ringtoneRef.current = new Audio("/sounds/ringtone.mp3");
-        ringtoneRef.current.loop = true;
-      }
-      ringtoneRef.current.play().catch((err) => {
-        console.warn("Autoplay bloqué par le navigateur:", err);
-      });
-    } catch (e) {
-      console.log("Audio non supporté");
-    }
-  }, []);
 
-  const stopRingtone = useCallback(() => {
-    if (ringtoneRef.current) {
-      ringtoneRef.current.pause();
-      ringtoneRef.current.currentTime = 0;
+// Sonnerie pour le DESTINATAIRE (appel entrant)
+const playIncomingRingtone = useCallback(() => {
+  try {
+    if (!incomingRingtoneRef.current) {
+      incomingRingtoneRef.current = new Audio("/sounds/appel recue '.wav");
+      incomingRingtoneRef.current.loop = true;
     }
-  }, []);
+    incomingRingtoneRef.current.play().catch((err) => {
+      console.warn("Autoplay bloqué:", err);
+    });
+  } catch (e) {
+    console.log("Audio non supporté");
+  }
+}, []);
+
+const stopIncomingRingtone = useCallback(() => {
+  if (incomingRingtoneRef.current) {
+    incomingRingtoneRef.current.pause();
+    incomingRingtoneRef.current.currentTime = 0;
+  }
+}, []);
+
+// Sonnerie pour l'ÉMETTEUR (appel sortant)
+const playOutgoingRingtone = useCallback(() => {
+  try {
+    if (!outgoingRingtoneRef.current) {
+      outgoingRingtoneRef.current = new Audio("/sounds/quand tu appelles.wav");
+      outgoingRingtoneRef.current.loop = true;
+      outgoingRingtoneRef.current.volume = 0.7;
+    }
+    outgoingRingtoneRef.current.play().catch((err) => {
+      console.warn("Autoplay émetteur bloqué:", err);
+    });
+  } catch (e) {
+    console.log("Audio émetteur non supporté");
+  }
+}, []);
+
+const stopOutgoingRingtone = useCallback(() => {
+  if (outgoingRingtoneRef.current) {
+    outgoingRingtoneRef.current.pause();
+    outgoingRingtoneRef.current.currentTime = 0;
+  }
+}, []);
 
   const startDurationTimer = useCallback(() => {
     callStartTimeRef.current = Date.now();
@@ -195,6 +221,7 @@ export const CallProvider = ({ children }) => {
 
         setCallState("ringing");
         setInCall(true);
+         playOutgoingRingtone();
 
         console.log(`📞 Appel initié: ${callMessageData.callId}`);
       } catch (error) {
@@ -204,7 +231,7 @@ export const CallProvider = ({ children }) => {
         setInCall(false);
       }
     },
-    [user]
+    [user, playOutgoingRingtone]
   );
 
   // ============================================
@@ -225,11 +252,11 @@ const acceptCall = useCallback(async () => {
   }
 
   try {
+       stopIncomingRingtone(); // Arrêter sonnerie destinataire
+       setCallState("connecting");
     console.log("📞 Acceptation de l'appel:", incomingCall);
     
-    stopRingtone();
-    setCallState("connecting");
-
+  
     const {
       callId,
       channelName: channel,
@@ -286,7 +313,7 @@ const acceptCall = useCallback(async () => {
     setInCall(true);
     setCallState("ongoing");
     setIncomingCall(null);
-
+     
     console.log("✅ État local mis à jour:", {
       callId,
       channel,
@@ -314,7 +341,7 @@ const acceptCall = useCallback(async () => {
     setIncomingCall(null);
     setInCall(false);
   }
-}, [incomingCall, user, stopRingtone, startDurationTimer, generateNumericUid]);
+}, [incomingCall, user, stopIncomingRingtone, startDurationTimer, generateNumericUid]);
 
   // ============================================
   // 3. REFUSER UN APPEL
@@ -339,12 +366,12 @@ const acceptCall = useCallback(async () => {
       console.error("Erreur refus appel:", error);
     }
 
-    stopRingtone();
+    stopIncomingRingtone();
     setIncomingCall(null);
     setCallState("idle");
 
     console.log(`❌ Appel refusé`);
-  }, [incomingCall, stopRingtone]);
+  }, [incomingCall, stopIncomingRingtone]);
 
   // ============================================
   // 4. TERMINER UN APPEL
@@ -353,7 +380,8 @@ const acceptCall = useCallback(async () => {
     const socket = getSocket();
 
     // Arrêter timers et sons immédiatement
-    stopRingtone();
+    stopIncomingRingtone();
+  stopOutgoingRingtone();
     stopDurationTimer();
 
     if (currentCallId) {
@@ -399,7 +427,8 @@ const acceptCall = useCallback(async () => {
   }, [
     currentCallId,
     callState,
-    stopRingtone,
+    stopIncomingRingtone,
+    stopOutgoingRingtone,
     stopDurationTimer,
     callData,
     incomingCall,
@@ -419,11 +448,11 @@ const acceptCall = useCallback(async () => {
         socket.emit("call-decline", { callId: data.callId, reason: "busy" });
         return;
       }
-
+     
       console.log("📱 Appel entrant:", data);
       setIncomingCall(data);
       setCallState("ringing");
-      playRingtone();
+      playIncomingRingtone();
     };
 
     // Appel répondu (pour l'initiateur)
@@ -461,7 +490,7 @@ const acceptCall = useCallback(async () => {
     // Appel manqué (si reçu sur un autre appareil ou annulé)
     const handleCallMissed = (data) => {
       console.log("📵 Appel manqué/annulé:", data);
-      stopRingtone();
+      stopIncomingRingtone();
       setIncomingCall(null);
       setCallState("idle");
     };
@@ -489,15 +518,16 @@ const acceptCall = useCallback(async () => {
       socket.off("call-missed", handleCallMissed);
       socket.off("call-error", handleCallError);
     };
-  }, [user, inCall, playRingtone, stopRingtone, startDurationTimer, endCall]);
+  }, [user, inCall, playIncomingRingtone, stopIncomingRingtone, startDurationTimer, endCall]);
 
   // Cleanup au démontage du composant
   useEffect(() => {
     return () => {
-      stopRingtone();
-      stopDurationTimer();
+  stopIncomingRingtone();
+  stopOutgoingRingtone();
+  stopDurationTimer();
     };
-  }, [stopRingtone, stopDurationTimer]);
+  }, [stopIncomingRingtone, stopOutgoingRingtone, stopDurationTimer]);
 
   return (
     <CallContext.Provider
