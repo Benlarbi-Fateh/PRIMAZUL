@@ -13,6 +13,12 @@ const conversationSchema = new Schema({
   //   CHAMPS POUR LES GROUPES
   // ============================
   isGroup: { type: Boolean, default: false },
+   // ✅ AJOUT ICI
+    groupType: {
+      type: String,
+      enum: ["chat", "work"],
+      default: "chat", // Par défaut, c'est un groupe de discussion normal
+    },
   groupName: { type: String, default: '' },
   groupImage: { type: String, default: '' },
 
