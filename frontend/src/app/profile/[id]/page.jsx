@@ -4,7 +4,8 @@ import { useState, useEffect, useContext } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthProvider';
 import { useTheme } from '@/hooks/useTheme';
-import { getUserProfile } from '@/lib/api';
+import { getUserProfile} from '@/lib/api';
+import api from '@/lib/api';
 import Image from 'next/image';
 import { 
   ArrowLeft, 
@@ -27,9 +28,12 @@ import {
   Zap,
   TrendingUp,
   Eye,
-  Download
+  Download,
+  Unlock,
+  Lock
+   
 } from 'lucide-react';
-
+import useBlockCheck from '@/hooks/useBlockCheck';
 export default function UserProfilePage() {
   const { id } = useParams();
   const router = useRouter();
@@ -41,7 +45,8 @@ export default function UserProfilePage() {
   const [error, setError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
-
+  const { blockStatus, loading: blockLoading, refresh: refreshBlockStatus 
+  } = useBlockCheck(id); // Utilise l'ID du profil visité
   // Styles basés sur le thème (mêmes couleurs que sidebar)
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
@@ -147,7 +152,58 @@ export default function UserProfilePage() {
       fetchUserProfile();
     }
   }, [id, isMounted]);
+  // Ajoute cette fonction après fetchUserProfile
+const handleBlockToggle = async () => {
+  if (!id || !profileUser) return;
 
+  const action = blockStatus?.iBlocked ? 'débloquer' : 'bloquer';
+  
+  const confirmMsg = blockStatus?.iBlocked 
+    ? `Êtes-vous sûr de vouloir débloquer ${profileUser.name} ?
+
+💡 Après le déblocage :
+- Il ne sera PAS automatiquement rajouté à vos contacts
+- Vous devrez lui renvoyer une invitation
+- La conversation réapparaîtra une fois qu'il accepte l'invitation`
+    : `Êtes-vous sûr de vouloir bloquer ${profileUser.name} ?
+
+⚠️ Conséquences :
+- ${profileUser.name} sera RETIRÉ de vos contacts
+- Votre conversation sera MASQUÉE (pas supprimée)
+- Vous ne recevrez plus ses messages
+- Il ne pourra plus vous contacter`;
+
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const endpoint = blockStatus?.iBlocked 
+      ? '/message-settings/unblock' 
+      : '/message-settings/block';
+    
+    const response = await api.post(endpoint, { targetUserId: id });
+    
+    if (response.data.success) {
+      // 1️⃣ Rafraîchir le statut
+      await refreshBlockStatus();
+      
+      // 2️⃣ Émettre l'événement pour rafraîchir la sidebar ET l'autre bouton
+      window.dispatchEvent(new CustomEvent('block-status-changed'));
+      
+      // 3️⃣ Message de succès différent selon l'action
+      if (blockStatus?.iBlocked) {
+        alert(`✅ ${profileUser.name} a été débloqué`);
+      } else {
+        alert(`🚫 ${profileUser.name} a été bloqué et retiré de vos contacts`);
+        
+        // 4️⃣ Rediriger vers la page d'accueil après blocage
+        setTimeout(() => router.push('/contacts'), 1000);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erreur blocage:', error);
+    alert('Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
   // Données simulées pour remplir l'espace
   const userStats = {
     level: 3,
@@ -483,6 +539,38 @@ export default function UserProfilePage() {
                       }`} />
                       <span>Groupes</span>
                     </button>
+                    {!isOwnProfile && (
+    <button
+      onClick={handleBlockToggle}
+      disabled={blockLoading}
+      className={`
+        w-full flex items-center gap-2 p-2 rounded-lg transition-all text-sm font-medium border
+        ${blockLoading 
+          ? 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600' 
+          : blockStatus?.iBlocked
+            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white border-emerald-600'
+            : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white border-red-600'
+        }
+      `}
+    >
+      {blockLoading ? (
+        <>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          <span>Chargement...</span>
+        </>
+      ) : blockStatus?.iBlocked ? (
+        <>
+          <Unlock className="w-4 h-4" />
+          <span>Débloquer l'utilisateur</span>
+        </>
+      ) : (
+        <>
+          <Shield className="w-4 h-4" />
+          <span>Bloquer l'utilisateur</span>
+        </>
+      )}
+    </button>
+  )}
                   </div>
                 </div>
               </div>
