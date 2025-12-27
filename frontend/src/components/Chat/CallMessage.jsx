@@ -67,58 +67,30 @@ export default function CallMessage({ message, isMine, currentUserId }) {
     ? "text-blue-100"
     : "text-gray-500 dark:text-gray-400";
 
-  switch (status) {
-    case "ended":
-      if (duration > 0) {
-        statusText = isGroup ? "Appel de groupe terminé" : "Appel terminé";
-        StatusIcon = callType === "video" ? Video : Phone;
-        iconColor = isMine ? "text-white" : "text-green-500";
-      } else {
-        statusText = "Appel annulé";
-        StatusIcon = PhoneOff;
-        iconColor = isMine ? "text-white" : "text-gray-500";
-      }
-      break;
-
-    case "missed":
-      if (isInitiator) {
-        statusText = "Pas de réponse";
-      } else {
-        statusText = "Appel manqué";
-      }
-      StatusIcon = PhoneMissed;
-      iconColor = "text-red-500";
-      if (!isMine) {
-        bgColor =
-          "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800";
-      }
-      break;
-
-    case "declined":
-      if (isInitiator) {
-        statusText = "Appel refusé";
-      } else {
-        statusText = "Vous avez refusé l'appel";
-      }
-      StatusIcon = PhoneOff;
-      iconColor = "text-orange-500";
-      break;
-
-    case "no_answer":
-      statusText = "Pas de réponse";
-      StatusIcon = PhoneMissed;
-      iconColor = "text-orange-500";
-      break;
-
-    case "busy":
-      statusText = "Occupé";
-      StatusIcon = PhoneOff;
-      iconColor = "text-yellow-500";
-      break;
-
-    default:
-      statusText = "Appel";
-      StatusIcon = callType === "video" ? Video : Phone;
+  // ✅ NOUVELLE LOGIQUE SIMPLIFIÉE (remplace le switch)
+  if (status === "ended") {
+    // ✅ Appel réellement répondu puis terminé
+    statusText = isGroup ? "Appel de groupe terminé" : "Appel terminé";
+    StatusIcon = callType === "video" ? Video : Phone;
+    iconColor = isMine ? "text-white" : "text-green-500";
+  } else if (status === "ongoing" && (!duration || duration === 0)) {
+    // ⚠️ Appel lancé mais pas encore répondu
+    statusText = isGroup ? "Appel de groupe manqué" : "Appel manqué";
+    StatusIcon = PhoneMissed;
+    iconColor = isMine ? "text-white" : "text-red-500";
+  } else if (status === "missed" || status === "declined" || !status) {
+    // Appel manqué (non répondu, refusé, ou timeout)
+    statusText = isGroup ? "Appel de groupe manqué" : "Appel manqué";
+    StatusIcon = PhoneMissed;
+    iconColor = isMine ? "text-white" : "text-red-500";
+    if (!isMine) {
+      bgColor =
+        "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800";
+    }
+  } else {
+    // Fallback (ne devrait pas arriver ici)
+    statusText = callType === "video" ? "Appel vidéo" : "Appel audio";
+    StatusIcon = callType === "video" ? Video : Phone;
   }
 
   // Formater l'heure
@@ -142,7 +114,7 @@ export default function CallMessage({ message, isMine, currentUserId }) {
             ${
               isMine
                 ? "bg-white/20"
-                : status === "missed"
+                : status === "missed" || status === "declined"
                 ? "bg-red-100 dark:bg-red-900/30"
                 : "bg-gray-100 dark:bg-slate-700"
             }
@@ -181,43 +153,6 @@ export default function CallMessage({ message, isMine, currentUserId }) {
             )}
             <span>{formattedTime}</span>
           </div>
-
-          {/* Participants (pour les appels de groupe) */}
-          {isGroup && participants && participants.length > 0 && (
-            <div className="flex items-center gap-1 mt-2">
-              <Users className="w-3 h-3" />
-              <span className="text-xs">
-                {participants.length} participant
-                {participants.length > 1 ? "s" : ""}
-              </span>
-              {/* Avatars miniatures */}
-              <div className="flex -space-x-2 ml-2">
-                {participants.slice(0, 3).map((p, i) => (
-                  <div
-                    key={i}
-                    className="w-5 h-5 rounded-full border-2 border-white dark:border-slate-800 overflow-hidden bg-gray-200"
-                  >
-                    {p.profilePicture ? (
-                      <img
-                        src={p.profilePicture}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-bold">
-                        {p.name?.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {participants.length > 3 && (
-                  <div className="w-5 h-5 rounded-full border-2 border-white dark:border-slate-800 bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-[8px] font-bold">
-                    +{participants.length - 3}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Indicateur de lecture (pour mes messages) */}
