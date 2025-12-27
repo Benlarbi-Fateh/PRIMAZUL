@@ -15,7 +15,7 @@ const activeCallsMap = new Map();
 // ============================================
 router.post("/token", auth, (req, res) => {
   try {
-    const { channelName, uid } = req.body;
+    const { channelName, uid ,isGroup} = req.body;
     const appID = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
     const role = RtcRole.PUBLISHER;
@@ -45,7 +45,11 @@ router.post("/token", auth, (req, res) => {
 
     console.log(`🎫 Token Agora généré pour channel: ${channelName}`);
 
-    res.json({ token, channelName, uid });
+    res.json({ token, channelName, uid , config: {
+        mode: 'rtc',
+        codec: 'vp8',
+        isGroup: isGroup || false
+      }});
   } catch (error) {
     console.error("❌ Erreur génération token:", error);
     res.status(500).json({ error: "Erreur génération token" });

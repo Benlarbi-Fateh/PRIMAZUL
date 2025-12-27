@@ -180,53 +180,67 @@ export default function VideoCall({
   // =========================================================
   // 2. INITIALISATION AGORA (CORRIGÉE)
   // =========================================================
-  const initAgora = useCallback(async () => {
-    if (!channelName || !token) return;
-    if (isJoiningRef.current) return; // Évite les appels simultanés
+  // frontend/src/components/Chat/VideoCall.jsx
 
-    try {
-      isJoiningRef.current = true;
-      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-      AgoraRTC.setLogLevel(3); // ERROR level seulement pour cleaner la console
+const initAgora = useCallback(async () => {
+  if (!channelName || !token) {
+    console.log("⚠️ Pas de channelName ou token, abandon");
+    return;
+  }
+  if (isJoiningRef.current) {
+    console.log("⚠️ Jointure déjà en cours, abandon");
+    return;
+  }
 
-      if (!clientRef.current) {
-        clientRef.current = AgoraRTC.createClient({
-          mode: "rtc",
-          codec: "vp8",
-        });
+  try {
+    isJoiningRef.current = true;
+    const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+    AgoraRTC.setLogLevel(3);
+
+    // Créer le client une seule fois
+    if (!clientRef.current) {
+      console.log("🔧 Création du client Agora");
+      clientRef.current = AgoraRTC.createClient({
+        mode: "rtc",
+        codec: "vp8",
+      });
+    }
+    const client = clientRef.current;
+
+    // Éviter les double listeners
+    client.removeAllListeners();
+
+    // ===== LISTENERS (votre code existant) =====
+    client.on("connection-state-change", (curState, prevState, reason) => {
+      console.log(`📡 État connexion: ${prevState} → ${curState} (${reason || 'normal'})`);
+      if (mountedRef.current) setConnectionState(curState);
+
+      if (curState === "RECONNECTING") setIsReconnecting(true);
+      else if (curState === "CONNECTED") {
+        setIsReconnecting(false);
+        reconnectAttemptsRef.current = 0;
+      } else if (curState === "DISCONNECTED" && reason === "NETWORK_ERROR") {
+        handleReconnect();
       }
-      const client = clientRef.current;
+    });
 
-      // Nettoyage préventif des listeners
-      client.removeAllListeners();
+    client.on("network-quality", (stats) => {
+      const quality = Math.round(
+        (stats.uplinkNetworkQuality + stats.downlinkNetworkQuality) / 2
+      );
+      if (quality <= 1) setNetworkQuality("excellent");
+      else if (quality <= 2) setNetworkQuality("good");
+      else if (quality <= 4) setNetworkQuality("medium");
+      else setNetworkQuality("poor");
+    });
 
-      // Listeners
-      client.on("connection-state-change", (curState, prevState, reason) => {
-        console.log(`📡 État: ${curState}`);
-        if (mountedRef.current) setConnectionState(curState);
-
-        if (curState === "RECONNECTING") setIsReconnecting(true);
-        else if (curState === "CONNECTED") {
-          setIsReconnecting(false);
-          reconnectAttemptsRef.current = 0;
-        } else if (curState === "DISCONNECTED" && reason === "NETWORK_ERROR") {
-          handleReconnect();
-        }
-      });
-
-      client.on("network-quality", (stats) => {
-        const quality = Math.round(
-          (stats.uplinkNetworkQuality + stats.downlinkNetworkQuality) / 2
-        );
-        if (quality <= 1) setNetworkQuality("excellent");
-        else if (quality <= 2) setNetworkQuality("good");
-        else if (quality <= 4) setNetworkQuality("medium");
-        else setNetworkQuality("poor");
-      });
-
-      client.on("user-published", async (user, mediaType) => {
-        if (String(user.uid) === String(uid)) return;
+    client.on("user-published", async (user, mediaType) => {
+      console.log(`👤 Utilisateur ${user.uid} a publié ${mediaType}`);
+      if (String(user.uid) === String(uid)) return;
+      
+      try {
         await client.subscribe(user, mediaType);
+        console.log(`✅ Souscrit à ${mediaType} de ${user.uid}`);
 
         if (mountedRef.current) {
           setRemoteUsers((prev) => {
@@ -242,80 +256,131 @@ export default function VideoCall({
           });
         }
 
-        if (mediaType === "audio") user.audioTrack?.play();
-      });
-
-      client.on("user-unpublished", (user, mediaType) => {
-        setRemoteUsers((prev) =>
-          prev.map((u) =>
-            u.uid === user.uid ? { ...u, [mediaType + "Track"]: null } : u
-          )
-        );
-      });
-
-      client.on("user-left", (user) => {
-        setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-      });
-
-      client.on("token-privilege-did-expire", () => {
-        console.error("Token expiré");
-        handleHangup();
-      });
-
-      // ✅ JOIN SÉCURISÉ
-      if (client.connectionState === "DISCONNECTED") {
-        await client.join(APP_ID, channelName, token, uid);
+        if (mediaType === "audio") {
+          user.audioTrack?.play();
+          console.log(`🔊 Lecture audio de ${user.uid}`);
+        }
+      } catch (error) {
+        console.error(`❌ Erreur souscription ${mediaType}:`, error);
       }
+    });
 
-      if (!mountedRef.current) return;
+    client.on("user-unpublished", (user, mediaType) => {
+      console.log(`👤 Utilisateur ${user.uid} a dépublié ${mediaType}`);
+      setRemoteUsers((prev) =>
+        prev.map((u) =>
+          u.uid === user.uid ? { ...u, [mediaType + "Track"]: null } : u
+        )
+      );
+    });
 
-      // ✅ CRÉATION DES PISTES LOCALES
-      if (!localTracksRef.current.audio) {
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-          encoderConfig: "music_standard",
-          AEC: true,
-          ANS: true,
-          AGC: true,
-        });
+    client.on("user-left", (user) => {
+      console.log(`👋 Utilisateur ${user.uid} a quitté`);
+      setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+    });
 
-        let videoTrack = null;
-        if (callType === "video") {
-          const cameras = await AgoraRTC.getCameras();
+    client.on("token-privilege-did-expire", () => {
+      console.error("❌ Token expiré");
+      handleHangup();
+    });
+
+    // ===== JOINTURE DU CANAL =====
+    if (client.connectionState === "DISCONNECTED") {
+      console.log(`🚀 Jointure du canal ${channelName} avec UID ${uid}`);
+      await client.join(APP_ID, channelName, token, uid);
+      console.log("✅ Canal rejoint avec succès");
+    } else {
+      console.log(`ℹ️ Déjà connecté (état: ${client.connectionState})`);
+    }
+
+    if (!mountedRef.current) {
+      console.log("⚠️ Composant démonté, abandon");
+      return;
+    }
+
+    // ===== CRÉATION DES PISTES LOCALES =====
+    console.log("🎤 Création des pistes audio/vidéo locales...");
+    
+    // ✅ FIX: Vérifier que les pistes existent AVANT de les fermer
+    if (localTracksRef.current.audio) {
+      try {
+        localTracksRef.current.audio.stop();
+        localTracksRef.current.audio.close();
+        console.log("🗑️ Ancienne piste audio fermée");
+      } catch (e) {
+        console.warn("Erreur fermeture audio:", e);
+      }
+    }
+    if (localTracksRef.current.video) {
+      try {
+        localTracksRef.current.video.stop();
+        localTracksRef.current.video.close();
+        console.log("🗑️ Ancienne piste vidéo fermée");
+      } catch (e) {
+        console.warn("Erreur fermeture vidéo:", e);
+      }
+    }
+
+    // Créer l'audio
+    const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+      encoderConfig: "music_standard",
+      AEC: true,
+      ANS: true,
+      AGC: true,
+    });
+    console.log("✅ Piste audio créée");
+
+    let videoTrack = null;
+    if (callType === "video") {
+      try {
+        const cameras = await AgoraRTC.getCameras();
+        if (cameras.length > 0) {
           const cameraId = selectedCamera || cameras[0]?.deviceId;
           videoTrack = await AgoraRTC.createCameraVideoTrack({
             encoderConfig: "720p_2",
             cameraId,
           });
-        }
-
-        if (!mountedRef.current) {
-          audioTrack?.close();
-          videoTrack?.close();
-          return;
-        }
-
-        localTracksRef.current = { audio: audioTrack, video: videoTrack };
-
-        if (videoTrack) {
-          setLocalVideoReady(true);
-        }
-
-        // ✅ PUBLISH SÉCURISÉ : On vérifie qu'on est bien connecté
-        if (client.connectionState === "CONNECTED") {
-          const tracks = [audioTrack];
-          if (videoTrack) tracks.push(videoTrack);
-          await client.publish(tracks);
-          console.log("✅ Pistes publiées avec succès");
+          console.log("✅ Piste vidéo créée");
         } else {
-          console.warn("⚠️ Impossible de publier: Client non connecté");
+          console.warn("⚠️ Aucune caméra détectée");
         }
+      } catch (e) {
+        console.error("❌ Erreur création vidéo:", e);
       }
-    } catch (error) {
-      console.error("Agora Init Error:", error);
-    } finally {
-      isJoiningRef.current = false;
     }
-  }, [channelName, token, uid, callType, selectedCamera, handleHangup]);
+
+    if (!mountedRef.current) {
+      audioTrack?.close();
+      videoTrack?.close();
+      console.log("⚠️ Composant démonté après création pistes");
+      return;
+    }
+
+    localTracksRef.current = { audio: audioTrack, video: videoTrack };
+
+    if (videoTrack) {
+      setLocalVideoReady(true);
+    }
+
+    // ===== PUBLICATION =====
+    if (client.connectionState === "CONNECTED") {
+      const tracks = [audioTrack];
+      if (videoTrack) tracks.push(videoTrack);
+      
+      console.log(`📤 Publication de ${tracks.length} piste(s)...`);
+      await client.publish(tracks);
+      console.log("✅ Pistes publiées avec succès");
+      console.log(`📊 Participants dans le canal: ${client.remoteUsers.length + 1}`);
+    } else {
+      console.error(`❌ Impossible de publier: État client = ${client.connectionState}`);
+    }
+  } catch (error) {
+    console.error("❌ Erreur Agora Init:", error);
+    console.error("Détails:", error.message, error.code);
+  } finally {
+    isJoiningRef.current = false;
+  }
+}, [channelName, token, uid, callType, selectedCamera, handleHangup]);
 
   const handleReconnect = async () => {
     if (reconnectAttemptsRef.current < maxReconnectAttempts) {

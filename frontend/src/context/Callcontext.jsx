@@ -140,6 +140,7 @@ export const CallProvider = ({ children }) => {
         const { data: tokenData } = await api.post("/agora/token", {
           channelName: channel,
           uid: myUid,
+           isGroup,
         });
 
         // 2. Créer le message d'appel via API (Backend)
@@ -209,71 +210,111 @@ export const CallProvider = ({ children }) => {
   // ============================================
   // 2. ACCEPTER UN APPEL
   // ============================================
-  const acceptCall = useCallback(async () => {
-    if (!incomingCall || !user) return;
+  // frontend/src/context/CallContext.js
 
-    const socket = getSocket();
-    if (!socket?.connected) {
-      setCallError("Connexion perdue");
-      return;
-    }
+const acceptCall = useCallback(async () => {
+  if (!incomingCall || !user) {
+    console.log("⚠️ Pas d'appel entrant ou pas d'utilisateur");
+    return;
+  }
 
-    try {
-      stopRingtone();
-      setCallState("connecting");
+  const socket = getSocket();
+  if (!socket?.connected) {
+    setCallError("Connexion perdue");
+    return;
+  }
 
-      const {
-        callId,
-        channelName: channel,
-        callType: type,
-        isGroup,
-        groupName,
-        from,
-        conversationId,
-      } = incomingCall;
+  try {
+    console.log("📞 Acceptation de l'appel:", incomingCall);
+    
+    stopRingtone();
+    setCallState("connecting");
 
-      const myUid = generateNumericUid(user._id || user.id);
+    const {
+      callId,
+      channelName: channel,
+      callType: type,
+      isGroup,
+      groupName,
+      from,
+      conversationId,
+      participants, // ← Important pour les groupes
+    } = incomingCall;
 
-      // 1. Obtenir le token Agora
-      const { data: tokenData } = await api.post("/agora/token", {
-        channelName: channel,
-        uid: myUid,
-      });
+    const myUid = generateNumericUid(user._id || user.id);
 
-      // 2. Notifier le backend
-      // ✅ CORRECTION : Utilisation de /agora/calls/...
-      await api.post(`/agora/calls/${callId}/answer`);
+    console.log("🎫 Demande de token pour:", {
+      channel,
+      myUid,
+      isGroup,
+      callType: type
+    });
 
-      // 3. Mise à jour état local
-      setCurrentCallId(callId);
-      setChannelName(channel);
-      setAgoraToken(tokenData.token);
-      setCallType(type);
-      setCallData({
-        isGroup,
-        name: isGroup ? groupName : from.name,
-        profilePicture: from.profilePicture,
-        participants: [from],
-        conversationId,
-      });
+    // 1. Obtenir le token Agora
+    const { data: tokenData } = await api.post("/agora/token", {
+      channelName: channel,
+      uid: myUid,
+      isGroup,
+    });
 
-      // 4. Notifier via socket
-      socket.emit("call-answer", { callId, channelName: channel });
+    console.log("✅ Token reçu");
 
-      setCallState("ongoing");
-      setInCall(true);
-      setIncomingCall(null);
+    // 2. Notifier le backend
+    await api.post(`/agora/calls/${callId}/answer`);
+    console.log("✅ Backend notifié");
 
-      startDurationTimer();
+    // 3. ✅ FIX: Mise à jour état AVANT de notifier via socket
+    setCurrentCallId(callId);
+    setChannelName(channel);
+    setAgoraToken(tokenData.token);
+    setCallType(type);
+    
+    // ✅ FIX: Préparer correctement les données pour le composant VideoCall
+    const allParticipants = isGroup 
+      ? (participants || [from]) 
+      : [from];
+    
+    setCallData({
+      isGroup,
+      name: isGroup ? groupName : from.name,
+      profilePicture: from.profilePicture,
+      participants: allParticipants,
+      conversationId,
+    });
 
-      console.log(`✅ Appel ${callId} accepté`);
-    } catch (error) {
-      console.error("❌ Erreur acceptation:", error);
-      setCallError("Impossible de rejoindre l'appel");
-      setCallState("idle");
-      setIncomingCall(null);
-    }
-  }, [incomingCall, user, stopRingtone, startDurationTimer]);
+    // ✅ FIX: Mettre inCall AVANT ongoing pour déclencher l'affichage
+    setInCall(true);
+    setCallState("ongoing");
+    setIncomingCall(null);
+
+    console.log("✅ État local mis à jour:", {
+      callId,
+      channel,
+      type,
+      participantsCount: allParticipants.length
+    });
+
+    // 4. Notifier via socket APRÈS la mise à jour de l'état
+    socket.emit("call-answer", { 
+      callId, 
+      channelName: channel,
+      userId: user._id || user.id 
+    });
+
+    console.log("✅ Socket notifié");
+
+    // 5. Démarrer le timer
+    startDurationTimer();
+
+    console.log(`✅ Appel ${callId} accepté et interface affichée`);
+  } catch (error) {
+    console.error("❌ Erreur acceptation appel:", error);
+    setCallError("Impossible de rejoindre l'appel");
+    setCallState("idle");
+    setIncomingCall(null);
+    setInCall(false);
+  }
+}, [incomingCall, user, stopRingtone, startDurationTimer, generateNumericUid]);
 
   // ============================================
   // 3. REFUSER UN APPEL
@@ -546,7 +587,7 @@ export const CallProvider = ({ children }) => {
       {/* ============================================ */}
       {/* COMPOSANT APPEL VIDÉO */}
       {/* ============================================ */}
-      {inCall && agoraToken && (
+      {inCall && agoraToken && channelName && (
         <VideoCall
           channelName={channelName}
           token={agoraToken}
