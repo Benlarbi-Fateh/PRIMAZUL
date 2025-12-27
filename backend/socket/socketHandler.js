@@ -17,11 +17,19 @@ const initSocket = (io) => {
     // USER ONLINE/OFFLINE
     // ============================================
     socket.on("user-online", (userId) => {
+      //  AJOUT : Vérification que userId existe
+  if (!userId) {
+    console.error("❌ user-online: userId manquant");
+    return;
+  }
       onlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
       socket.userId = userId;
       socket.join(userId);
 
-      console.log(`👤 User ${userId} en ligne (${onlineUsers.size} total)`);
+        console.log(`👤 User ${userId} en ligne (${onlineUsers.size} total)`);
+        console.log(`   Socket ID: ${socket.id}`);
+        console.log(`   Room jointe: ${userId}`);
+       console.log(`   Total en ligne: ${onlineUsers.size}`);
 
       const onlineUserIds = Array.from(onlineUsers.keys());
       io.emit("online-users-update", onlineUserIds);
@@ -168,13 +176,67 @@ const initSocket = (io) => {
       } = data;
 
       const callerId = socket.userId;
-      if (!callerId) return;
+       if (!callerId) {
+    console.error("❌ call-initiate: callerId manquant");
+    socket.emit("call-error", { error: "User non authentifié" });
+    return;
+  }
+   // 🆕 AJOUT : Validation targetUserIds
+  if (!Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+    console.error("❌ call-initiate: targetUserIds invalide:", targetUserIds);
+    socket.emit("call-error", { error: "Destinataires manquants" });
+    return;
+  }
+   // 🆕 AJOUT : Logs détaillés pour debug
+  console.log(`\n📞 === INITIATION APPEL ===`);
+  console.log(`CallId: ${callId}`);
+  console.log(`Initiateur: ${callerId} (${callerName})`);
+  console.log(`Type: ${callType} ${isGroup ? "(groupe)" : "(1-1)"}`);
+  console.log(`Destinataires: ${targetUserIds.length} utilisateur(s)`);
+  console.log(`Channel: ${channelName}`);
+      // 🆕 CORRECTION : Récupérer les infos complètes de tous les participants
+  let allParticipants = [];
+  
+  try {
+     const User = require("../models/User");
+    if (isGroup && conversationId) {
+      // Pour un groupe, récupérer TOUS les participants de la conversation
+      const conversation = await Conversation.findById(conversationId)
+        .populate('participants', '_id name profilePicture email')
+        .lean();
+      
+      if (conversation) {
+        allParticipants = conversation.participants;
+        console.log(`✅ ${allParticipants.length} participants récupérés depuis la conversation`);
+      }
+    } else {
+      // Pour un appel 1-1, récupérer juste l'info du destinataire
+         const caller = await User.findById(callerId)
+      
+        .select('_id name profilePicture email')
+        .lean();
+         if (caller) {
+        allParticipants.push(caller);
+        console.log(`✅ Initiateur ajouté: ${caller.name}`);
+      }
+       // 2. Récupérer le destinataire
+      const targetUser = await User.findById(targetUserIds[0])
+        .select('_id name profilePicture email')
+        .lean();
+      if (targetUser) {
+         allParticipants.push(targetUser);
+        console.log(`✅ Destinataire ajouté: ${targetUser.name}`);
+      }
+    }
+    
+    console.log(`📊 Total participants à envoyer: ${allParticipants.length}`);
+      
+    
+  } catch (err) {
+    console.error("❌ Erreur récupération participants:", err);
+  }
 
-      console.log(
-        `📞 Appel de groupe initié par ${callerId} vers:`,
-        targetUserIds
-      );
-
+    
       // Stocker l'appel actif
       activeCallsMap.set(callId, {
         callId,
@@ -210,47 +272,98 @@ const initSocket = (io) => {
 
       callTimeouts.set(callId, timeout);
 
-      // ✅ CORRECTION MAJEURE ICI : Boucle robuste pour envoyer à TOUS
-      if (Array.isArray(targetUserIds)) {
-        targetUserIds.forEach((rawId) => {
-          const userId = rawId.toString(); // Force string pour correspondre aux clés de la Map/Room
+       // ✅ SECTION CRITIQUE : Envoi des notifications
+  // 🆕 MODIFICATION MAJEURE : Logs détaillés et compteurs
+  console.log(`📡 Envoi notifications aux destinataires...`);
+  
+  let sentCount = 0;      // 🆕 Compteur d'envois
+  let onlineCount = 0;    // 🆕 Compteur en ligne
 
-          // 1. Vérifier si user est dans la map Online (Optionnel, car socket.join(userId) gère ça)
-          const isUserInOnlineMap = onlineUsers.has(userId);
-            console.log(
-      `📡 Envoi signal d'appel à ${userId} ${
-        isUserInOnlineMap ? "(en ligne)" : "(socket peut être connecté)"
-      }`
-    );
+  targetUserIds.forEach((rawId) => {
+    const userId = rawId.toString(); // ✅ IMPORTANT : Convertir en string
+    const isOnline = onlineUsers.has(userId); // 🆕 Vérifier si en ligne
+    
+    if (isOnline) 
+      onlineCount++; // 🆕 Incrémenter si en ligne
+    
+    
+    // 🆕 AJOUT : Log par utilisateur avec statut
+    const statusIcon = isOnline ? "✅" : "⚠️";
+    console.log(`  ${statusIcon} User ${userId} ${isOnline ? "(EN LIGNE)" : "(hors ligne)"}`);
 
-            // 2. Envoyer à la "Room" de l'utilisateur (plus fiable que le socketId direct)
-            io.to(userId).emit("call-incoming", {
-              callId,
-              channelName,
-              callType,
-              isGroup,
-              groupName,
-              from: {
-                userId: callerId,
-                name: callerName,
-                profilePicture: callerImage,
-              },
-              conversationId,
-            });
-        });
-      }
-    });
+    // ✅ CRITIQUE : Émettre à la room de l'utilisateur
+    // io.to(userId) émet à TOUS les sockets dans cette room
+    // Fonctionne même si l'utilisateur a plusieurs onglets ouverts
+     // 🆕 DONNÉES ENRICHIES avec tous les participants
+    const callPayload = {
+      callId,
+      channelName,
+      callType,
+      isGroup,
+      groupName,
+      from: {
+        userId: callerId,
+        name: callerName,
+        profilePicture: callerImage,
+      },
+      conversationId,
+      // 🔥 AJOUT CRUCIAL : Envoyer la liste complète des participants
+      participants: allParticipants,
+      // 🔥 Alternative : Envoyer aussi sous forme de members
+      members: allParticipants,
+    };
+     io.to(userId).emit("call-incoming", callPayload);
+    
+    sentCount++; // 🆕 Incrémenter compteur
+  });
+
+  // 🆕 AJOUT : Logs de résumé
+  console.log(`✅ Notifications envoyées: ${sentCount}/${targetUserIds.length}`);
+  console.log(`👥 Utilisateurs en ligne: ${onlineCount}/${targetUserIds.length}`);
+  console.log(`=========================\n`);
+
+  // 🆕 AJOUT : Avertissement si aucun destinataire en ligne
+  if (onlineCount === 0) {
+    console.log(`⚠️ AUCUN destinataire en ligne pour l'appel ${callId}`);
+    // Le timeout gèrera l'échec de l'appel automatiquement
+  }
+});
 
     // Répondre à un appel
-    socket.on("call-answer", async (data) => {
-      const { callId, channelName } = data;
-      const userId = socket.userId;
+       socket.on("call-answer", async ({ callId }) => {
+  const call = activeCallsMap.get(callId);
+  if (!call) return;
 
-      const call = activeCallsMap.get(callId);
-      if (!call) {
-        socket.emit("call-error", { error: "Appel introuvable ou terminé" });
-        return;
-      }
+  const userId = socket.userId;
+
+  // Ajouter le participant
+  call.participants.set(userId, {
+    joinedAt: Date.now(),
+    status: "connected",
+  });
+
+  console.log(`👥 Nouveau participant rejoint l'appel: ${userId}`);
+
+  // 🔥 RÉCUPÉRER LES INFOS DU NOUVEAU PARTICIPANT
+  const User = require("../models/User");
+  const newParticipant = await User.findById(userId)
+    .select("_id name profilePicture email")
+    .lean();
+
+  // 🔥 NOTIFIER TOUS LES AUTRES PARTICIPANTS
+  call.participants.forEach((_, participantId) => {
+    if (participantId !== userId) {
+      io.to(participantId).emit("call-answered", {
+        callId,
+        newParticipant,
+      });
+    }
+  });
+
+  // Notifier le nouveau (optionnel)
+  socket.emit("call-joined", { callId });
+
+
 
       // Annuler le timeout
       const timeout = callTimeouts.get(callId);
