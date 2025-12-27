@@ -96,6 +96,7 @@ function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
 
 /* CONTACT DETAILS */
 /* CONTACT DETAILS */
+/* CONTACT DETAILS */
 function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
   const { isDark } = useTheme();
   const router = useRouter();
@@ -111,9 +112,11 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
   const user = contact.user;
   const isFav = favoriteIds.has(user._id);
 
-  // Fonction pour gérer le clic sur le bouton Message
-  // Fonction pour gérer le clic sur le bouton Message
-  // Fonction pour gérer le clic sur le bouton Message
+  // 📍 FONCTION POUR ALLER VERS LE PROFIL DU CONTACT
+  const handleAvatarClick = () => {
+    router.push(`/profile/${user._id}`);
+  };
+
   // Fonction pour gérer le clic sur le bouton Message
   const handleMessageClick = async () => {
     try {
@@ -156,6 +159,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
       alert("Erreur: " + (error.response?.data?.error || error.message));
     }
   };
+
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
     : "bg-gradient-to-br from-blue-50 via-white to-cyan-50";
@@ -223,13 +227,29 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
 
           {/* Contenu centré : Photo -> Nom -> Statut */}
           <div className="flex flex-col items-center text-center">
-            {/* Avatar en premier */}
-            <div className="flex justify-center mb-6">
-              <Avatar user={user} size="lg" showStatus={true} />
+            {/* 📍 Avatar CLIQUABLE - Redirige vers le profil du contact */}
+            <div 
+              className="flex justify-center mb-6 cursor-pointer group relative"
+              onClick={handleAvatarClick}
+              title="Voir le profil de ce contact"
+            >
+              <div className="relative">
+                <Avatar user={user} size="lg" showStatus={true} />
+                {/* Overlay au hover */}
+                <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm bg-black/60 px-3 py-1 rounded-full">
+                    Voir profil
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Nom en deuxième */}
-            <h1 className={`text-2xl font-bold mb-2 ${textPrimary}`}>
+            {/* 📍 Nom CLIQUABLE - Redirige aussi vers le profil du contact */}
+            <h1 
+              className={`text-2xl font-bold mb-2 ${textPrimary} cursor-pointer hover:opacity-80 transition-opacity`}
+              onClick={handleAvatarClick}
+              title="Voir le profil de ce contact"
+            >
               {user.name}
             </h1>
 
@@ -249,7 +269,6 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
             </button>
 
             {/* Bouton Message MODIFIÉ */}
-            {/* Bouton Message avec effet hover */}
             <button
               onClick={handleMessageClick}
               className={`flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200 ${isDark

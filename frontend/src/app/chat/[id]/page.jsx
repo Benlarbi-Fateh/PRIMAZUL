@@ -6,15 +6,15 @@ import { isSameDay } from 'date-fns';
 import { AuthContext } from '@/context/AuthProvider';
 import { getConversation, getMessages, sendMessage, markMessagesAsDelivered, markConversationAsRead } from '@/lib/api';
 import api from '@/lib/api';
-import { 
-  getSocket, 
+import {
+  getSocket,
   joinConversation,
   leaveConversation,
-  onReceiveMessage, 
-  emitTyping, 
-  emitStopTyping, 
-  onUserTyping, 
-  onUserStoppedTyping, 
+  onReceiveMessage,
+  emitTyping,
+  emitStopTyping,
+  onUserTyping,
+  onUserStoppedTyping,
   onMessageStatusUpdated,
   onConversationStatusUpdated,
   onReactionUpdated
@@ -31,12 +31,312 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
 import Sidebar from '@/components/Layout/Sidebar';
 import MobileHeader from '@/components/Layout/MobileHeader';
-import ChatHeader from '@/components/Layout/ChatHeader';
 import MessageBubble, { DateSeparator } from '@/components/Chat/MessageBubble';
 import MessageInput from '@/components/Chat/MessageInput';
 import TypingIndicator from '@/components/Chat/TypingIndicator';
 import MessageSearch from '@/components/Chat/MessageSearch';
-import { Plane, Users, Loader2 } from 'lucide-react';
+import { Plane, Users, Loader2, Phone, Video, Search, MoreVertical, ArrowLeft, Circle } from 'lucide-react';
+
+// 📍📍📍 COMPOSANT CHATHEADER MODIFIÉ COMPLET 📍📍📍
+function ChatHeaderWithStatus({ 
+  contact, 
+  conversation, 
+  onBack, 
+  onSearchOpen, 
+  onVideoCall, 
+  onAudioCall 
+}) {
+  const router = useRouter();
+  const { isDark } = useTheme();
+  
+  // 📍 ÉTAT POUR LES STATUTS
+  const [userStatus, setUserStatus] = useState(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+
+  // 📍 FONCTION POUR RÉCUPÉRER LE STATUT
+  useEffect(() => {
+    if (!contact?._id || conversation?.isGroup) {
+      console.log('❌ Pas de contact ID ou c\'est un groupe');
+      return;
+    }
+
+    console.log('🔍 Recherche statut pour contact:', contact._id, contact.name);
+
+    const fetchUserStatus = async () => {
+      try {
+        setIsLoadingStatus(true);
+        console.log('📡 Appel API /status...');
+        
+        // Utilisez la même API que StatusList.js
+        const { data } = await api.get("/status");
+        console.log('📦 Données reçues de /status:', data);
+        
+        let contactStatuses = [];
+        
+        // Gérer différentes structures de données
+        if (Array.isArray(data)) {
+          // Cas 1: data est un tableau direct
+          contactStatuses = data.filter(status => 
+            status.user?._id === contact._id || status.userId === contact._id
+          );
+        } else if (data && typeof data === 'object') {
+          // Cas 2: data est un objet avec différentes propriétés
+          if (data.friendsStatuses) {
+            const allStatuses = [...(data.myStatuses || []), ...(data.friendsStatuses || [])];
+            contactStatuses = allStatuses.filter(status => 
+              status.user?._id === contact._id || status.userId === contact._id
+            );
+          } else if (data.statuses) {
+            contactStatuses = data.statuses.filter(status => 
+              status.user?._id === contact._id || status.userId === contact._id
+            );
+          }
+        }
+        
+        console.log('📊 Statuts trouvés pour ce contact:', contactStatuses.length);
+        
+        if (contactStatuses.length > 0) {
+          // Prendre le plus récent
+          const sortedStatuses = contactStatuses.sort((a, b) => 
+            new Date(b.createdAt || b.created) - new Date(a.createdAt || a.created)
+          );
+          const latestStatus = sortedStatuses[0];
+          console.log('✅ Dernier statut trouvé:', latestStatus);
+          setUserStatus(latestStatus);
+        } else {
+          console.log('❌ Aucun statut trouvé pour ce contact');
+          setUserStatus(null);
+        }
+      } catch (error) {
+        console.error('❌ Erreur chargement statut:', error);
+        setUserStatus(null);
+      } finally {
+        setIsLoadingStatus(false);
+      }
+    };
+
+    fetchUserStatus();
+  }, [contact?._id, conversation?.isGroup]);
+
+  // 📍 FONCTION POUR CLIQUER SUR LA PHOTO (CORRIGÉE)
+  const handleAvatarClick = (e) => {
+  e.stopPropagation();
+  e.preventDefault();
+  
+  console.log('🖱️ Clic sur avatar, statut:', userStatus ? 'OUI' : 'NON');
+  
+  if (userStatus && contact?._id) {
+    console.log('➡️ Redirection vers statut du contact');
+    // Ajouter le paramètre "open" avec l'ID du contact
+    router.push(`/status?open=${contact._id}`);
+  } else {
+    console.log('⚠️ Pas de statut à afficher');
+    alert("Ce contact n'a pas de statut récent");
+  }
+};
+
+  // Styles
+  const headerBg = isDark 
+    ? "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700"
+    : "bg-gradient-to-r from-white via-sky-50 to-white border-slate-200";
+
+  const textPrimary = isDark ? "text-slate-50" : "text-slate-900";
+  const textSecondary = isDark ? "text-slate-400" : "text-slate-600";
+  const buttonStyle = isDark 
+    ? "hover:bg-slate-700 text-slate-300" 
+    : "hover:bg-slate-100 text-slate-600";
+
+  // Si c'est un groupe, on affiche pas les statuts
+  if (conversation?.isGroup) {
+    return (
+      <div className={`flex items-center justify-between p-4 border-b ${headerBg}`}>
+        {/* Partie gauche */}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onBack}
+            className={`p-2 rounded-full ${buttonStyle} lg:hidden`}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+
+          {/* Avatar groupe */}
+          <div className="relative">
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-purple-500 to-pink-500">
+              {conversation.groupImage ? (
+                <img 
+                  src={conversation.groupImage}
+                  alt={conversation.groupName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white">
+                  <Users className="w-5 h-5" />
+                </div>
+              )}
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center">
+              <Users className="w-2 h-2 text-white" />
+            </div>
+          </div>
+
+          {/* Infos groupe */}
+          <div>
+            <h2 className={`font-semibold ${textPrimary}`}>
+              {conversation.groupName || "Groupe"}
+            </h2>
+            <p className={`text-xs ${textSecondary}`}>
+              {conversation.participants?.length || 0} participants
+            </p>
+          </div>
+        </div>
+
+        {/* Partie droite */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onSearchOpen}
+            className={`p-2 rounded-full ${buttonStyle}`}
+            title="Rechercher"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onAudioCall}
+            className={`p-2 rounded-full ${buttonStyle}`}
+            title="Appel audio"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
+          <button
+            onClick={onVideoCall}
+            className={`p-2 rounded-full ${buttonStyle}`}
+            title="Appel vidéo"
+          >
+            <Video className="w-5 h-5" />
+          </button>
+          <button
+            className={`p-2 rounded-full ${buttonStyle}`}
+            title="Plus d'options"
+          >
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Version pour les conversations individuelles (AVEC STATUTS)
+  return (
+    <div className={`flex items-center justify-between p-4 border-b ${headerBg}`}>
+      {/* Partie gauche : Photo + Nom + Statut */}
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={onBack}
+          className={`p-2 rounded-full ${buttonStyle} lg:hidden`}
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+
+        {/* 📍 AVATAR AVEC STATUT STYLE MESSENGER */}
+        <div 
+          className="relative cursor-pointer group"
+          onClick={handleAvatarClick}
+          title={userStatus ? "Voir le statut" : contact?.isOnline ? "En ligne" : "Hors ligne"}
+        >
+          {/* Cercle de gradient pour les statuts */}
+          {userStatus && (
+            <div  className="absolute -inset-2 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px] animate-pulse">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 blur-sm opacity-70"></div>
+            </div>
+          )}
+          
+          {/* Avatar */}
+          <div className={`relative w-10 h-10 rounded-full overflow-hidden ${
+            userStatus ? "ring-2 ring-white dark:ring-slate-900" : ""
+          }`}>
+            {contact?.profilePicture ? (
+              <img 
+                src={contact.profilePicture}
+                alt={contact?.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold">
+                {contact?.name?.charAt(0).toUpperCase() || '?'}
+              </div>
+            )}
+          </div>
+
+          {/* Petit point pour statut en ligne (si pas de story) */}
+          {!userStatus && contact?.isOnline && (
+            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-slate-900"></div>
+          )}
+        </div>
+
+        {/* Infos contact + statut */}
+        <div>
+          <h2 className={`font-semibold ${textPrimary}`}>
+            {contact?.name || "Utilisateur"}
+          </h2>
+          
+          {/* 📍 AFFICHAGE DU STATUT */}
+          {isLoadingStatus ? (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></div>
+              <p className={`text-xs ${textSecondary}`}>Chargement...</p>
+            </div>
+          ) : userStatus ? (
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-yellow-400 to-purple-600 animate-pulse"></div>
+              <p className={`text-xs ${textSecondary} truncate max-w-[200px]`}>
+                {userStatus.text || "Statut actif"}
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-full ${contact?.isOnline ? "bg-green-500" : "bg-slate-400"}`}></div>
+              <p className={`text-xs ${textSecondary}`}>
+                {contact?.isOnline ? "En ligne" : "Hors ligne"}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Partie droite : Boutons d'action */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onSearchOpen}
+          className={`p-2 rounded-full ${buttonStyle}`}
+          title="Rechercher"
+        >
+          <Search className="w-5 h-5" />
+        </button>
+        <button
+          onClick={onAudioCall}
+          className={`p-2 rounded-full ${buttonStyle}`}
+          title="Appel audio"
+        >
+          <Phone className="w-5 h-5" />
+        </button>
+        <button
+          onClick={onVideoCall}
+          className={`p-2 rounded-full ${buttonStyle}`}
+          title="Appel vidéo"
+        >
+          <Video className="w-5 h-5" />
+        </button>
+        <button
+          className={`p-2 rounded-full ${buttonStyle}`}
+          title="Plus d'options"
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 📍📍📍 FIN DU COMPOSANT CHATHEADER MODIFIÉ 📍📍📍
 
 export default function ChatPage() {
   const params = useParams();
@@ -48,7 +348,7 @@ export default function ChatPage() {
   const { initiateCall } = useContext(CallContext);
 
   const conversationId = params.id;
-  
+
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,16 +358,16 @@ export default function ChatPage() {
   // 🆕 États pour la modification
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
-  
+
   // 🆕 États pour la réponse
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyingToContent, setReplyingToContent] = useState('');
   const [replyingToSender, setReplyingToSender] = useState(null);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  
+
   const messagesEndRef = useRef(null);
-  const messagesContainerRef = useRef(null); 
+  const messagesContainerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
 
@@ -77,14 +377,14 @@ export default function ChatPage() {
   const scrollToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
-      messageElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
+      messageElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
       });
-      
-      messageElement.classList.add('highlight-message');
+
+      messageElement.classList.add('bg-yellow-100', 'dark:bg-yellow-900/30');
       setTimeout(() => {
-        messageElement.classList.remove('highlight-message');
+        messageElement.classList.remove('bg-yellow-100', 'dark:bg-yellow-900/30');
       }, 2000);
     }
   };
@@ -105,30 +405,30 @@ export default function ChatPage() {
     const loadConversation = async () => {
       try {
         setLoading(true);
-        
+
         const convResponse = await getConversation(conversationId);
         setConversation(convResponse.data.conversation);
 
-        // ✅ Extraire l'ID du contact (l'autre participant)
+        // ✅ Extraire l'ID du contact
         const convData = convResponse.data.conversation;
         if (!convData.isGroup) {
           const userId = user._id || user.id;
           const otherParticipant = convData.participants?.find(
             p => p._id !== userId
           );
-          
+
           if (otherParticipant) {
             console.log('👤 Contact ID trouvé:', otherParticipant._id);
             setContactId(otherParticipant._id);
           }
         }
-        
+
         const messagesResponse = await getMessages(conversationId);
         const loadedMessages = messagesResponse.data.messages || [];
         setMessages(loadedMessages);
-        
+
         setLoading(false);
-        
+
         const socket = getSocket();
         if (socket) {
           joinConversation(conversationId);
@@ -142,7 +442,7 @@ export default function ChatPage() {
             const receivedMessageIds = loadedMessages
               .filter(msg => msg.sender._id !== (user._id || user.id) && msg.status === 'sent')
               .map(msg => msg._id);
-            
+
             if (receivedMessageIds.length > 0) {
               await markMessagesAsDelivered(receivedMessageIds);
             }
@@ -154,7 +454,7 @@ export default function ChatPage() {
             isMarkingAsReadRef.current = false;
           }
         }, 500);
-        
+
       } catch (error) {
         console.error('Erreur chargement conversation:', error);
         setLoading(false);
@@ -170,7 +470,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     const socket = getSocket();
-    
+
     if (socket && conversationId && user) {
       onReceiveMessage((message) => {
         if (message.conversationId === conversationId) {
@@ -190,10 +490,10 @@ export default function ChatPage() {
       });
 
       onMessageStatusUpdated(({ messageIds, status }) => {
-        setMessages((prevMessages) => 
-          prevMessages.map(msg => 
-            messageIds.includes(msg._id) 
-              ? { ...msg, status } 
+        setMessages((prevMessages) =>
+          prevMessages.map(msg =>
+            messageIds.includes(msg._id)
+              ? { ...msg, status }
               : msg
           )
         );
@@ -203,25 +503,19 @@ export default function ChatPage() {
         console.log('📊 Statut conversation mis à jour:', { conversationId: updatedConvId, status });
       });
 
-      // 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
+      // 🆕 ÉCOUTER LES SUPPRESSIONS
       socket.off('message-deleted');
       socket.on('message-deleted', ({ messageId, conversationId: deletedConvId }) => {
-        console.log('🗑️ Message supprimé reçu:', messageId);
         if (deletedConvId === conversationId || !deletedConvId) {
-          setMessages((prev) => {
-            const filtered = prev.filter(msg => msg._id !== messageId);
-            console.log(`✅ Message ${messageId} supprimé. Avant: ${prev.length}, Après: ${filtered.length}`);
-            return filtered;
-          });
+          setMessages((prev) => prev.filter(msg => msg._id !== messageId));
         }
       });
 
-      // 🆕 ÉCOUTER LES MODIFICATIONS EN TEMPS RÉEL
+      // 🆕 ÉCOUTER LES MODIFICATIONS
       socket.off('message-edited');
       socket.on('message-edited', ({ messageId, content, isEdited, editedAt }) => {
-        console.log('✏️ Message modifié reçu:', messageId);
-        setMessages((prev) => prev.map(msg => 
-          msg._id === messageId 
+        setMessages((prev) => prev.map(msg =>
+          msg._id === messageId
             ? { ...msg, content, isEdited, editedAt }
             : msg
         ));
@@ -282,7 +576,6 @@ export default function ChatPage() {
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
 
-      // Ordre des arguments : (conversationId, participants, type, isGroup, groupName)
       initiateCall(
         conversationId,
         participants,
@@ -351,7 +644,6 @@ export default function ChatPage() {
           conversationId,
           content: content.trim(),
           type: 'text',
-          // 🆕 Ajouter les infos de réponse si applicable
           ...(replyingToId && {
             replyTo: replyingToId,
             replyToContent: replyingToContent,
@@ -359,33 +651,31 @@ export default function ChatPage() {
           })
         };
       }
-      
+
       const response = await sendMessage(messageData);
-      
-      // 🆕 Gestion de la redirection si nouvelle conversation créée
+
       if (response.data.conversationId && response.data.conversationId !== conversationId) {
         console.log('🔄 Nouvelle conversation créée, redirection...');
-        
-        // Émettre un événement global pour rafraîchir la sidebar
+
         window.dispatchEvent(new CustomEvent('refresh-sidebar-conversations', {
           detail: { newConversationId: response.data.conversationId }
         }));
-        
-        // Rediriger vers la nouvelle conversation
+
         router.push(`/chat/${response.data.conversationId}`);
         return;
       }
-      
-      // 🆕 Réinitialiser la réponse après envoi
+
       if (replyingToId) {
-        handleCancelReply();
+        setReplyingToId(null);
+        setReplyingToContent('');
+        setReplyingToSender(null);
       }
-      
+
       if (user) {
         const userId = user._id || user.id;
         emitStopTyping(conversationId, userId);
       }
-      
+
     } catch (error) {
       console.error('❌ Erreur envoi message:', error);
       alert('Erreur lors de l\'envoi du message');
@@ -414,8 +704,6 @@ export default function ChatPage() {
   // 🆕 FONCTION SUPPRIMER
   // ========================================
   const handleDeleteMessage = async (messageId) => {
-    console.log('🗑️ ChatPage: Suppression demandée pour:', messageId);
-    
     if (!window.confirm('Voulez-vous vraiment supprimer ce message ?')) {
       return;
     }
@@ -423,7 +711,7 @@ export default function ChatPage() {
     try {
       const response = await api.delete(`/messages/${messageId}`);
       console.log('📦 Réponse suppression:', response.data);
-      
+
       if (response.data.success) {
         console.log('✅ Message supprimé avec succès');
       }
@@ -434,10 +722,10 @@ export default function ChatPage() {
   };
 
   // ========================================
-  // 🆕 FONCTION MODIFIER (ACTIVER LE MODE)
+  // 🆕 FONCTION MODIFIER
   // ========================================
   const handleEditMessage = (messageId, currentContent) => {
-    console.log('✏️ ChatPage: Mode édition activé pour:', messageId);
+    console.log('✏️ Mode édition activé pour:', messageId);
     setEditingMessageId(messageId);
     setEditingContent(currentContent);
   };
@@ -459,9 +747,9 @@ export default function ChatPage() {
       const response = await api.put(`/messages/${editingMessageId}`, {
         content: newContent.trim()
       });
-      
+
       console.log('📦 Réponse modification:', response.data);
-      
+
       if (response.data.success) {
         console.log('✅ Message modifié avec succès');
         setEditingMessageId(null);
@@ -486,15 +774,15 @@ export default function ChatPage() {
   // 🆕 FONCTION TRADUIRE
   // ========================================
   const handleTranslateMessage = async (content, messageId, targetLang) => {
-    console.log('🌍 ChatPage: Traduction demandée pour:', messageId, 'en', targetLang);
-    
+    console.log('🌍 Traduction demandée pour:', messageId, 'en', targetLang);
+
     try {
       const response = await api.post(`/messages/${messageId}/translate`, {
         targetLang
       });
-      
+
       console.log('📦 Réponse traduction:', response.data);
-      
+
       if (response.data.success) {
         console.log('✅ Message traduit:', response.data.translatedContent);
         return response.data.translatedContent;
@@ -511,7 +799,7 @@ export default function ChatPage() {
   // 🆕 FONCTION RÉPONDRE
   // ========================================
   const handleReplyMessage = (messageId, content, sender) => {
-    console.log('↩️ ChatPage: Réponse activée pour:', messageId);
+    console.log('↩️ Réponse activée pour:', messageId);
     setReplyingToId(messageId);
     setReplyingToContent(content);
     setReplyingToSender(sender);
@@ -572,8 +860,8 @@ export default function ChatPage() {
             <p className={`mt-6 font-bold text-lg ${isDark ? 'text-sky-300' : 'text-blue-800'}`}>Chargement de la conversation...</p>
             <div className="flex gap-2 justify-center mt-3">
               <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`}></span>
-              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`} style={{animationDelay: '0.2s'}}></span>
-              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`} style={{animationDelay: '0.4s'}}></span>
+              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`} style={{ animationDelay: '0.2s' }}></span>
+              <span className={`w-2 h-2 rounded-full animate-bounce ${isDark ? 'bg-sky-500' : 'bg-blue-500'}`} style={{ animationDelay: '0.4s' }}></span>
             </div>
           </div>
         </div>
@@ -591,8 +879,8 @@ export default function ChatPage() {
             </div>
             <h2 className={`text-2xl font-bold mb-3 ${textPrimary}`}>Conversation introuvable</h2>
             <p className={`mb-8 leading-relaxed ${textSecondary}`}>Cette conversation n&apos;existe pas ou a été supprimée</p>
-            <button 
-              onClick={() => router.push('/')} 
+            <button
+              onClick={() => router.push('/')}
               className={`px-8 py-4 text-white rounded-2xl font-bold transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl ${buttonStyle}`}
             >
               Retour à l&apos;accueil
@@ -615,20 +903,20 @@ export default function ChatPage() {
 
           <div className="flex-1 flex flex-col">
             <div className="lg:hidden">
-              <MobileHeader 
-                contact={contact} 
-                conversation={conversation} 
+              <MobileHeader
+                contact={contact}
+                conversation={conversation}
                 onBack={() => router.push('/')}
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
                 onSearchOpen={() => setIsSearchOpen(true)}
               />
             </div>
-            
+
             <div className="hidden lg:block">
-              <ChatHeader 
-                contact={contact} 
-                conversation={conversation} 
+              <ChatHeaderWithStatus
+                contact={contact}
+                conversation={conversation}
                 onBack={() => router.push('/')}
                 onSearchOpen={() => setIsSearchOpen(true)}
                 onVideoCall={handleVideoCall}
@@ -644,11 +932,11 @@ export default function ChatPage() {
               onClose={() => setIsSearchOpen(false)}
             />
 
-            {/* Container des messages avec scrollbar cachée */}
-            <div 
+            {/* Container des messages */}
+            <div
               ref={messagesContainerRef}
               className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}>
-            
+
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full animate-fade-in">
                   <div className={`text-center max-w-sm p-8 rounded-3xl ${cardStyle} border`}>
@@ -661,7 +949,7 @@ export default function ChatPage() {
                     </div>
                     <p className={`font-bold text-lg mb-2 ${textPrimary}`}>Aucun message pour l&apos;instant</p>
                     <p className={`text-sm leading-relaxed ${textSecondary}`}>
-                      {conversation.isGroup 
+                      {conversation.isGroup
                         ? `Commencez la discussion dans ${conversation.groupName || 'ce groupe'}`
                         : `Envoyez votre premier message à ${contact?.name || 'cet utilisateur'}`
                       }
@@ -671,67 +959,65 @@ export default function ChatPage() {
               ) : (
                 <>
                   {messages.map((message, index) => {
-  const userId = user?._id || user?.id;
-  const prevMessage = messages[index - 1];
-  const isLast = index === messages.length - 1;
+                    const userId = user?._id || user?.id;
+                    const prevMessage = messages[index - 1];
+                    const isLast = index === messages.length - 1;
 
-  const showDateSeparator = !prevMessage || !isSameDay(
-    new Date(message.createdAt),
-    new Date(prevMessage.createdAt)
-  );
+                    const showDateSeparator = !prevMessage || !isSameDay(
+                      new Date(message.createdAt),
+                      new Date(prevMessage.createdAt)
+                    );
 
-  return (
-    <div 
-      key={message._id}
-      id={`message-${message._id}`}
-      className="transition-all duration-300"
-    >
-      {showDateSeparator && (
-        <DateSeparator date={message.createdAt} />
-      )}
+                    return (
+                      <div
+                        key={message._id}
+                        id={`message-${message._id}`}
+                        className="transition-all duration-300"
+                      >
+                        {showDateSeparator && (
+                          <DateSeparator date={message.createdAt} />
+                        )}
 
-      {/* ✅ HISTORIQUE D'APPEL */}
-      {message.type === "call" ? (
-        <div className="flex w-full mb-2 justify-center">
-          <CallMessage
-            message={message}
-            isMine={message.sender?._id === userId}
-            currentUserId={userId}
-          />
-        </div>
-      ) : message.type === "story_reaction" ? (
-        // ✅ MESSAGE DE RÉACTION À UNE STORY (format commentaire)
-        <div className="flex w-full mb-2 justify-center">
-          <div
-            className={`
+                        {/* ✅ HISTORIQUE D'APPEL */}
+                        {message.type === "call" ? (
+                          <div className="flex w-full mb-2 justify-center">
+                            <CallMessage
+                              message={message}
+                              isMine={message.sender?._id === userId}
+                              currentUserId={userId}
+                            />
+                          </div>
+                        ) : message.type === "story_reaction" ? (
+                          <div className="flex w-full mb-2 justify-center">
+                            <div
+                              className={`
               px-3 py-1.5 rounded-full text-xs
               ${isDark ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600'}
             `}
-          >
-            {message.content}
-          </div>
-        </div>
-      ) : (
-        // ✅ TOUS LES AUTRES MESSAGES (bulle normale)
-        <MessageBubble
-          message={message}
-          isMine={message.sender?._id === userId}
-          isGroup={conversation?.isGroup || false}
-          isLast={isLast}
-          onDelete={handleDeleteMessage}
-          onEdit={handleEditMessage}
-          onTranslate={handleTranslateMessage}
-          onReply={handleReplyMessage}
-        />
-      )}
-    </div>
-  );
-})}
-                  
+                            >
+                              {message.content}
+                            </div>
+                          </div>
+                        ) : (
+                          <MessageBubble
+                            message={message}
+                            isMine={message.sender?._id === userId}
+                            isGroup={conversation?.isGroup || false}
+                            isLast={isLast}
+                            onDelete={handleDeleteMessage}
+                            onEdit={handleEditMessage}
+                            onTranslate={handleTranslateMessage}
+                            onReply={handleReplyMessage}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+
                   {typingUsers.length > 0 && (
                     <TypingIndicator contactName={contact?.name || 'Quelqu\'un'} />
                   )}
-                  
+
                   <div ref={messagesEndRef} />
                 </>
               )}
@@ -758,6 +1044,5 @@ export default function ChatPage() {
         </div>
       </div>
     </ProtectedRoute>
- 
-);
+  );
 }
