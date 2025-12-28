@@ -1257,7 +1257,7 @@ const markStatusAsViewed = (contactId) => {
   </div>
 
                           <div className="flex-1 text-left min-w-0">
-                            <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center justify-between mb-1 pr-8">
                               <h3
                                 className={`font-bold truncate pr-2 ${
                                   isActive
@@ -1330,7 +1330,7 @@ const markStatusAsViewed = (contactId) => {
                         </button>
 
                         {menuOpen === conv._id && (
-                          <div className={`absolute right-2 top-full mt-2 rounded-2xl shadow-2xl border-2 py-2 z-20 w-52 animate-scale-in ${
+                          <div className={`absolute right-2 top-[120%] -translate-y-1/2 rounded-2xl shadow-2xl border-2 py-2 z-20 w-52 animate-scale-in ${
                             isDark 
                               ? 'bg-linear-to-r from-blue-900 to-blue-800 border-blue-700' 
                               : 'bg-white border-blue-100'

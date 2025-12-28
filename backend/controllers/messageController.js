@@ -4,6 +4,27 @@ const BlockedUser = require('../models/BlockedUser');
 const Contact = require('../models/Contact');
 const axios = require('axios');
 
+
+async function recomputeLastMessage(conversationId) {
+  // On prend le dernier message encore existant dans la conversation
+  const lastMsg = await Message.findOne({
+    conversationId,
+    // Ne pas prendre en compte les messages programmés PAS encore envoyés
+    $or: [
+      { isSent: { $exists: false } }, // messages "normaux"
+      { isSent: true }                // messages programmés déjà envoyés
+    ]
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const update = lastMsg
+    ? { lastMessage: lastMsg._id, updatedAt: lastMsg.createdAt }
+    : { lastMessage: null };
+
+  await Conversation.findByIdAndUpdate(conversationId, update);
+}
+
 exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -385,26 +406,49 @@ exports.deleteMessage = async (req, res) => {
     
     if (messageSenderId.toString() !== currentUserId.toString()) {
       console.log('❌ Non autorisé - sender:', messageSenderId, 'user:', currentUserId);
-      return res.status(403).json({success: false,
+      return res.status(403).json({
+        success: false,
         error: 'Non autorisé à supprimer ce message' 
       });
     }
 
     const conversationId = message.conversationId.toString();
 
+    // 1️⃣ Supprimer le message
     await Message.findByIdAndDelete(messageId);
     console.log('✅ Message supprimé de la BDD');
+
+    // 2️⃣ Recalculer le lastMessage de la conversation
+    await recomputeLastMessage(conversationId);
+
+    // 3️⃣ Récupérer la conversation mise à jour pour l'envoyer au front
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate('participants', 'name email profilePicture isOnline lastSeen')
+      .populate({
+        path: 'lastMessage',
+        populate: { path: 'sender', select: 'name' }
+      });
 
     const io = req.app.get('io');
     if (io) {
       console.log(`📡 Émission message-deleted pour conversation ${conversationId}`);
       
+      // ➜ Pour enlever le message dans la fenêtre de chat
       io.to(conversationId).emit('message-deleted', {
         messageId,
         conversationId
       });
-      
-      console.log(`✅ Événement message-deleted émis`);
+
+      if (updatedConversation) {
+        // ➜ Pour mettre à jour la liste des conversations (sidebar) chez chaque participant
+        updatedConversation.participants.forEach(p => {
+          const pid = p._id.toString();
+          io.to(pid).emit('conversation-updated', updatedConversation);
+          io.to(pid).emit('should-refresh-conversations');
+        });
+      }
+
+      console.log(`✅ Événements de mise à jour émis`);
     } else {
       console.warn('⚠️ Socket.io non disponible');
     }
@@ -452,6 +496,12 @@ exports.deleteMessageForMe = async (req, res) => {
 
     console.log('✅ Message masqué pour:', userId);
 
+     // 🔔 Demander au client de rafraîchir la liste des conversations
+    const io = req.app.get('io');
+    if (io) {
+      io.to(userId.toString()).emit('should-refresh-conversations');
+    }
+    
     res.json({ 
       success: true, 
       messageId,

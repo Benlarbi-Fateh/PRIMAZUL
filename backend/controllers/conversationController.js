@@ -116,46 +116,72 @@ for (const conv of allConversations) {
 
     console.log(`✅ ${visibleConversations.length} conversations visibles`);
 
-    // 6️⃣ CALCULER LES NON-LUS + MASQUER HISTORIQUE SI SUPPRIMÉ
-    // 6️⃣ CALCULER LES NON-LUS + MASQUER HISTORIQUE SI SUPPRIMÉ
+// 6️⃣ CALCULER LES NON-LUS + DERNIER MESSAGE VISIBLE POUR L'UTILISATEUR
 const conversationsWithUnread = await Promise.all(
   visibleConversations.map(async (conv) => {
-    // 🔥 Vérifier si l'utilisateur a supprimé cette conversation
     const wasDeletedByMe = conv.deletedBy?.find(
       item => item.userId && item.userId.toString() === userId.toString()
     );
 
-    // 🔥 Si supprimée, compter UNIQUEMENT les messages APRÈS la suppression
-    let unreadCount;
+    // ---- 1) Unread count (en tenant compte de "vider la discussion" + "supprimer pour moi") ----
+    const unreadFilter = {
+      conversationId: conv._id,
+      sender: { $ne: userId },
+      status: { $ne: 'read' },
+      deletedFor: { $nin: [userId] }, // ✅ messages PAS "supprimés pour moi"
+    };
+
     if (wasDeletedByMe) {
-      unreadCount = await Message.countDocuments({
-        conversationId: conv._id,
-        sender: { $ne: userId },
-        status: { $ne: 'read' },
-        deletedBy: { $ne: userId },
-        createdAt: { $gt: wasDeletedByMe.deletedAt } // ✅ UNIQUEMENT APRÈS suppression
-      });
-    } else {
-      unreadCount = await Message.countDocuments({
-        conversationId: conv._id,
-        sender: { $ne: userId },
-        status: { $ne: 'read' },
-        deletedBy: { $ne: userId }
-      });
+      unreadFilter.createdAt = { $gt: wasDeletedByMe.deletedAt };
     }
 
+    const unreadCount = await Message.countDocuments(unreadFilter);
+
     let conversationObj = conv.toObject();
-    
-    // 🔥 MASQUER lastMessage si la conversation a été supprimée
-    if (wasDeletedByMe && conversationObj.lastMessage) {
-      const messageDate = new Date(conversationObj.lastMessage.createdAt);
-      const deletionDate = new Date(wasDeletedByMe.deletedAt);
-      
-      if (messageDate <= deletionDate) {
-        console.log(`🔇 LastMessage masqué pour ${conv._id}`);
-        conversationObj.lastMessage = null;
-      }
+
+    // ---- 2) Dernier message VISIBLE pour CET utilisateur ----
+    const lastMsgFilter = {
+      conversationId: conv._id,
+      deletedFor: { $nin: [userId] }, // ✅ pas "supprimé pour moi"
+    };
+
+    if (wasDeletedByMe) {
+      lastMsgFilter.createdAt = { $gt: wasDeletedByMe.deletedAt };
     }
+
+    // Ne pas prendre les messages programmés non envoyés
+    lastMsgFilter.$or = [
+      { isSent: { $exists: false } }, // messages normaux
+      { isSent: true },               // programmés déjà envoyés
+    ];
+
+    // 2.1) Essayer d'abord avec les filtres par utilisateur
+    let lastVisibleMessage = await Message.findOne(lastMsgFilter)
+      .sort({ createdAt: -1 })
+      .populate('sender', 'name profilePicture')
+      .lean();
+
+    // 2.2) FALLBACK : si aucun message visible pour cet utilisateur,
+    //      on récupère le dernier message GLOBAL de la conversation,
+    //      pour éviter d'afficher "Démarrer la conversation" alors que
+    //      la conversation n'est pas vraiment vide en BDD.
+    if (!lastVisibleMessage) {
+      const globalLastMsgFilter = {
+        conversationId: conv._id,
+        $or: [
+          { isSent: { $exists: false } }, // messages normaux
+          { isSent: true },               // programmés déjà envoyés
+        ],
+      };
+
+      lastVisibleMessage = await Message.findOne(globalLastMsgFilter)
+        .sort({ createdAt: -1 })
+        .populate('sender', 'name profilePicture')
+        .lean();
+    }
+
+    // 👉 Ce lastMessage sera utilisé par le front pour le preview dans la sidebar
+    conversationObj.lastMessage = lastVisibleMessage || null;
 
     return {
       ...conversationObj,
