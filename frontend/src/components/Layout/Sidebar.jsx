@@ -1220,7 +1220,7 @@ const markStatusAsViewed = (contactId) => {
     
     {/* Avatar - CLICK POUR STATUT SI LE CONTACT EN A UN */}
     <div 
-      className={`relative w-16 h-16 rounded-full overflow-hidden cursor-pointer ${
+      className={`relative w-13 h-13 rounded-full overflow-hidden cursor-pointer ${
         !conv.isGroup && contact && contactHasStatus ? "ring-2 ring-white dark:ring-slate-900" : ""
       }`}
       onClick={(e) => {

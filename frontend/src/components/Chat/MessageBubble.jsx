@@ -418,52 +418,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-                  <div 
-                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* ✅ RÉPONDRE - POUR TOUS */}
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Répondre
-                    </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                    {/* ✅ SUPPRIMER POUR MOI - POUR LES MESSAGES REÇUS */}
-                    {!isMine && (
-                      <button
-                        onClick={handleDeleteForMe}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer pour moi
-                      </button>
-                    )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer
+    </button>
 
-                    {/* ✅ MODIFIER ET SUPPRIMER - POUR MES MESSAGES */}
-                    {isMine && (
-                      <>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer pour tous
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retirer
+        </button>
+      </>
+    )}
+  </div>
+)}
               </div>
 
               {/* REACTION PICKER */}
@@ -651,49 +651,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-                  <div 
-                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Répondre
-                    </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                    {!isMine && (
-                      <button
-                        onClick={handleDeleteForMe}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer pour moi
-                      </button>
-                    )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer
+    </button>
 
-                    {isMine && (
-                      <>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer pour tous
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retirer
+        </button>
+      </>
+    )}
+  </div>
+)}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
@@ -789,49 +792,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-                  <div 
-                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Répondre
-                    </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                    {!isMine && (
-                      <button
-                        onClick={handleDeleteForMe}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer pour moi
-                      </button>
-                    )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer
+    </button>
 
-                    {isMine && (
-                      <>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer pour tous
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retire
+        </button>
+      </>
+    )}
+  </div>
+)}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
@@ -947,49 +953,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-                  <div 
-                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Répondre
-                    </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                    {!isMine && (
-                      <button
-                        onClick={handleDeleteForMe}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer pour moi
-                      </button>
-                    )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer 
+    </button>
 
-                    {isMine && (
-                      <>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer pour tous
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retirer
+        </button>
+      </>
+    )}
+  </div>
+)}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
@@ -1110,49 +1119,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-                  <div 
-                    className={`absolute ${isMine ? 'left-0' : 'right-0'} top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Répondre
-                    </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                    {!isMine && (
-                      <button
-                        onClick={handleDeleteForMe}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer pour moi
-                      </button>
-                    )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer
+    </button>
 
-                    {isMine && (
-                      <>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer pour tous
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retirer
+        </button>
+      </>
+    )}
+  </div>
+)}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
@@ -1356,51 +1368,52 @@ export default function MessageBubble({
                     </button>
 
                     {showMenu && (
-                      <div
-                        className={`absolute ${
-                          isMine ? 'left-0' : 'right-0'
-                        } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={handleReply}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                        >
-                          <Reply className="w-4 h-4" />
-                          Répondre
-                        </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                        {!isMine && (
-                          <button
-                            onClick={handleDeleteForMe}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Supprimer pour moi
-                          </button>
-                        )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer
+    </button>
 
-                        {isMine && (
-                          <>
-                            <div className="border-t border-gray-200 my-1"></div>
-                            <button
-                              onClick={handleEdit}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                              Modifier
-                            </button>
-                            <button
-                              onClick={handleDelete}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Supprimer pour tous
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retirer
+        </button>
+      </>
+    )}
+  </div>
+)}
                   </div>
 
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-[2px]">
@@ -1588,51 +1601,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-                  <div
-                    className={`absolute ${
-                      isMine ? 'left-0' : 'right-0'
-                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={handleReply}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-                    >
-                      <Reply className="w-4 h-4" />
-                      Répondre
-                    </button>
+  <div
+    className={`absolute ${
+      isMine ? 'left-0' : 'right-0'
+    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* Répondre – pour tout le monde */}
+    <button
+      onClick={handleReply}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+    >
+      <Reply className="w-4 h-4" />
+      Répondre
+    </button>
 
-                    {!isMine && (
-                      <button
-                        onClick={handleDeleteForMe}
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Supprimer pour moi
-                      </button>
-                    )}
+    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+    <button
+      onClick={handleDeleteForMe}
+      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+    >
+      <Trash2 className="w-4 h-4" />
+      Supprimer
+    </button>
 
-                    {isMine && (
-                      <>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <button
-                          onClick={handleEdit}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                          Modifier
-                        </button>
-                        <button
-                          onClick={handleDelete}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Supprimer pour tous
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+    {/* Options supplémentaires uniquement pour MES messages */}
+    {isMine && (
+      <>
+        <div className="border-t border-gray-200 my-1"></div>
+        <button
+          onClick={handleEdit}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+        >
+          <Edit2 className="w-4 h-4" />
+          Modifier
+        </button>
+        <button
+          onClick={handleDelete}
+          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+        >
+          <Trash2 className="w-4 h-4" />
+          Retirer
+        </button>
+      </>
+    )}
+  </div>
+)}
               </div>
 
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
