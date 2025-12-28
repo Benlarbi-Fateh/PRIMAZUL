@@ -275,7 +275,9 @@ export default function MessageBubble({
     }
     
     setShowMenu(false);
-  };// ========================================
+  };
+
+  // ========================================
   // 🌍 GESTION DE LA TRADUCTION
   // ========================================
   const languages = [
@@ -418,52 +420,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                  <div
+                    className={`absolute ${
+                      isMine ? 'left-0' : 'right-0'
+                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Répondre – pour tout le monde */}
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer
-    </button>
+                    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                    <button
+                      onClick={handleDeleteForMe}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer
+                    </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retirer
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {/* Options supplémentaires uniquement pour MES messages */}
+                    {isMine && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Retirer
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* REACTION PICKER */}
@@ -471,7 +473,11 @@ export default function MessageBubble({
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
+              <div
+                className={`rounded-3xl overflow-hidden shadow-lg ${
+                  isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border-2 border-blue-100'
+                }`}
+              >
                 {message.replyTo && (
                   <div className={`p-2 border-l-4 ${
                     isMine 
@@ -590,18 +596,24 @@ export default function MessageBubble({
                 
                 {message.content && (
                   <div className="p-4 border-t-2 border-blue-50 bg-gradient-to-b from-white to-blue-50/30">
-                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDark ? 'text-slate-100' : 'text-slate-700'
+                      }`}
+                    >
+                      {message.content}
+                    </p>
                   </div>
                 )}
               </div>
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
+                {message.isScheduled && (
+                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                    ⏰ Programmé
+                  </span>
+                )}
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
@@ -611,7 +623,9 @@ export default function MessageBubble({
         {renderReactions()}
       </div>
     );
-  };// ========================================
+  };
+
+  // ========================================
   // 🎤 RENDU MESSAGE VOCAL
   // ========================================
   const renderVoiceMessage = () => {
@@ -651,59 +665,63 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                  <div
+                    className={`absolute ${
+                      isMine ? 'left-0' : 'right-0'
+                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Répondre – pour tout le monde */}
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer
-    </button>
+                    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                    <button
+                      onClick={handleDeleteForMe}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer
+                    </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retirer
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {/* Options supplémentaires uniquement pour MES messages */}
+                    {isMine && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Retirer
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
             </div>
 
             <div className="flex flex-col max-w-xs lg:max-w-md">
-              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100">
+              <div
+                className={`rounded-3xl overflow-hidden shadow-lg ${
+                  isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border-2 border-blue-100'
+                }`}
+              >
                 {message.replyTo && (
                   <div className={`p-2 border-l-4 ${
                     isMine 
@@ -735,11 +753,11 @@ export default function MessageBubble({
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
+                {message.isScheduled && (
+                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                    ⏰ Programmé
+                  </span>
+                )}
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
@@ -792,52 +810,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                  <div
+                    className={`absolute ${
+                      isMine ? 'left-0' : 'right-0'
+                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Répondre – pour tout le monde */}
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer
-    </button>
+                    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                    <button
+                      onClick={handleDeleteForMe}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer
+                    </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retire
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {/* Options supplémentaires uniquement pour MES messages */}
+                    {isMine && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Retire
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
@@ -845,7 +863,9 @@ export default function MessageBubble({
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
               <div 
-                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer"
+                className={`rounded-3xl overflow-hidden shadow-lg hover:border-blue-300 transition-all transform hover:scale-[1.02] cursor-pointer ${
+                  isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border-2 border-blue-100'
+                }`}
                 onClick={handleOpenFile}
               >
                 {message.replyTo && (
@@ -890,18 +910,24 @@ export default function MessageBubble({
 
                 {message.content && (
                   <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
-                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDark ? 'text-slate-100' : 'text-slate-700'
+                      }`}
+                    >
+                      {message.content}
+                    </p>
                   </div>
                 )}
               </div>
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
-               {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
+                {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
+                {message.isScheduled && (
+                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                    ⏰ Programmé
+                  </span>
+                )}
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
@@ -953,52 +979,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                  <div
+                    className={`absolute ${
+                      isMine ? 'left-0' : 'right-0'
+                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Répondre – pour tout le monde */}
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer 
-    </button>
+                    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                    <button
+                      onClick={handleDeleteForMe}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer 
+                    </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retirer
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {/* Options supplémentaires uniquement pour MES messages */}
+                    {isMine && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Retirer
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
@@ -1025,17 +1051,28 @@ export default function MessageBubble({
               )}
 
               <div 
-                className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]"
+                className={`rounded-3xl overflow-hidden shadow-lg hover:border-blue-300 transition-all transform hover:scale-[1.02] ${
+                  isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border-2 border-blue-100'
+                }`}
               >
                 <div className="p-4 flex items-center gap-3">
                   <div className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl">
                     <File className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate" title={message.fileName}>
+                    <p
+                      className={`text-sm font-medium truncate ${
+                        isDark ? 'text-slate-100' : 'text-slate-800'
+                      }`}
+                      title={message.fileName}
+                    >
                       {message.fileName}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p
+                      className={`text-xs mt-0.5 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
                       {formatFileSize(message.fileSize)}
                     </p>
                   </div>
@@ -1058,18 +1095,24 @@ export default function MessageBubble({
                 </div>
                 {message.content && (
                   <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
-                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDark ? 'text-slate-100' : 'text-slate-700'
+                      }`}
+                    >
+                      {message.content}
+                    </p>
                   </div>
                 )}
               </div>
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
+                {message.isScheduled && (
+                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                    ⏰ Programmé
+                  </span>
+                )}
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
@@ -1079,7 +1122,9 @@ export default function MessageBubble({
         {renderReactions()}
       </div>
     );
-  };// ========================================
+  };
+
+  // ========================================
   // 🎵 RENDU MESSAGE AUDIO
   // ========================================
   const renderAudioMessage = () => {
@@ -1119,59 +1164,63 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                  <div
+                    className={`absolute ${
+                      isMine ? 'left-0' : 'right-0'
+                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Répondre – pour tout le monde */}
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer
-    </button>
+                    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                    <button
+                      onClick={handleDeleteForMe}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer
+                    </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retirer
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {/* Options supplémentaires uniquement pour MES messages */}
+                    {isMine && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Retirer
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <ReactionPicker onSelect={handleReaction} isMine={isMine} />
             </div>
 
             <div className={`max-w-xs lg:max-w-md ${isMine ? 'ml-auto' : 'mr-auto'}`}>
-              <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-2 border-blue-100 hover:border-blue-300 transition-all transform hover:scale-[1.02]">
+              <div
+                className={`rounded-3xl overflow-hidden shadow-lg hover:border-blue-300 transition-all transform hover:scale-[1.02] ${
+                  isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border-2 border-blue-100'
+                }`}
+              >
                 {message.replyTo && (
                   <div className={`p-2 border-l-4 ${
                     isMine 
@@ -1196,10 +1245,19 @@ export default function MessageBubble({
                     <Mic className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate" title={message.fileName}>
+                    <p
+                      className={`text-sm font-medium truncate ${
+                        isDark ? 'text-slate-100' : 'text-slate-800'
+                      }`}
+                      title={message.fileName}
+                    >
                       {message.fileName || 'Fichier audio'}
                     </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p
+                      className={`text-xs mt-0.5 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
                       {formatFileSize(message.fileSize)}
                       {message.audioDuration && ` • ${formatDuration(message.audioDuration)}`}
                     </p>
@@ -1223,18 +1281,24 @@ export default function MessageBubble({
                 </div>
                 {message.content && (
                   <div className="p-4 border-t-2 border-blue-50 bg-linear-to-b from-white to-blue-50/30">
-                    <p className="text-sm text-slate-700 font-medium">{message.content}</p>
+                    <p
+                      className={`text-sm font-medium ${
+                        isDark ? 'text-slate-100' : 'text-slate-700'
+                      }`}
+                    >
+                      {message.content}
+                    </p>
                   </div>
                 )}
               </div>
               
               <span className={`text-xs mt-1.5 flex items-center ${isMine ? 'justify-end text-blue-300' : 'text-slate-500'}`}>
                 {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
+                {message.isScheduled && (
+                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                    ⏰ Programmé
+                  </span>
+                )}
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
@@ -1368,52 +1432,52 @@ export default function MessageBubble({
                     </button>
 
                     {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                      <div
+                        className={`absolute ${
+                          isMine ? 'left-0' : 'right-0'
+                        } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Répondre – pour tout le monde */}
+                        <button
+                          onClick={handleReply}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                        >
+                          <Reply className="w-4 h-4" />
+                          Répondre
+                        </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer
-    </button>
+                        {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                        <button
+                          onClick={handleDeleteForMe}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Supprimer
+                        </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retirer
-        </button>
-      </>
-    )}
-  </div>
-)}
+                        {/* Options supplémentaires uniquement pour MES messages */}
+                        {isMine && (
+                          <>
+                            <div className="border-t border-gray-200 my-1"></div>
+                            <button
+                              onClick={handleEdit}
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Modifier
+                            </button>
+                            <button
+                              onClick={handleDelete}
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Retirer
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity mt-[2px]">
@@ -1489,7 +1553,9 @@ export default function MessageBubble({
                   className={`px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
                     isMine
                       ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
-                      : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
+                      : isDark
+                        ? 'bg-slate-800 text-slate-100 rounded-bl-md border border-slate-700'
+                        : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
                   }`}
                 >
                   {message.replyTo && (
@@ -1521,18 +1587,20 @@ export default function MessageBubble({
                     {isTranslated ? translatedText : message.content}
                   </p>
 
-                  <span className={`text-xs mt-2 flex items-center gap-1 ${
-  isMine ? 'text-blue-100 justify-end' : 'text-slate-500'
-}`}>
-  {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
-  {formatTime(message.isScheduled ? message.scheduledFor : message.createdAt)}
-  {renderStatus()}
-</span>
+                  <span
+                    className={`text-xs mt-2 flex items-center gap-1 ${
+                      isMine ? 'text-blue-100 justify-end' : 'text-slate-500'
+                    }`}
+                  >
+                    {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
+                    {message.isScheduled && (
+                      <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                        ⏰ Programmé
+                      </span>
+                    )}
+                    {formatTime(message.isScheduled ? message.scheduledFor : message.createdAt)}
+                    {renderStatus()}
+                  </span>
   
                 </div>
               </div>
@@ -1601,52 +1669,52 @@ export default function MessageBubble({
                 </button>
 
                 {showMenu && (
-  <div
-    className={`absolute ${
-      isMine ? 'left-0' : 'right-0'
-    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* Répondre – pour tout le monde */}
-    <button
-      onClick={handleReply}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
-    >
-      <Reply className="w-4 h-4" />
-      Répondre
-    </button>
+                  <div
+                    className={`absolute ${
+                      isMine ? 'left-0' : 'right-0'
+                    } top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[150px]`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Répondre – pour tout le monde */}
+                    <button
+                      onClick={handleReply}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 flex items-center gap-2 text-blue-700"
+                    >
+                      <Reply className="w-4 h-4" />
+                      Répondre
+                    </button>
 
-    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
-    <button
-      onClick={handleDeleteForMe}
-      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
-    >
-      <Trash2 className="w-4 h-4" />
-      Supprimer
-    </button>
+                    {/* ✅ Supprimer pour moi – pour TOUT LE MONDE (envoyé ou reçu) */}
+                    <button
+                      onClick={handleDeleteForMe}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-orange-50 flex items-center gap-2 text-orange-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer
+                    </button>
 
-    {/* Options supplémentaires uniquement pour MES messages */}
-    {isMine && (
-      <>
-        <div className="border-t border-gray-200 my-1"></div>
-        <button
-          onClick={handleEdit}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-        >
-          <Edit2 className="w-4 h-4" />
-          Modifier
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
-        >
-          <Trash2 className="w-4 h-4" />
-          Retirer
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {/* Options supplémentaires uniquement pour MES messages */}
+                    {isMine && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <button
+                          onClick={handleEdit}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Modifier
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Retirer
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1722,7 +1790,9 @@ export default function MessageBubble({
               className={`max-w-xs lg:max-w-md xl-max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
                 isMine
                   ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
-                  : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
+                  : isDark
+                    ? 'bg-slate-800 text-slate-100 rounded-bl-md border border-slate-700'
+                    : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
               }`}
             >
               {message.replyTo && (
@@ -1760,11 +1830,11 @@ export default function MessageBubble({
                 }`}
               >
                 {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-  {message.isScheduled && (
-    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-      ⏰ Programmé
-    </span>
-  )}
+                {message.isScheduled && (
+                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
+                    ⏰ Programmé
+                  </span>
+                )}
                 {formatTime(message.createdAt)}
                 {renderStatus()}
               </span>
