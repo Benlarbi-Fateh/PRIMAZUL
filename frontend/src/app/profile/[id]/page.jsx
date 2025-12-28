@@ -196,7 +196,7 @@ const handleBlockToggle = async () => {
         alert(`🚫 ${profileUser.name} a été bloqué et retiré de vos contacts`);
         
         // 4️⃣ Rediriger vers la page d'accueil après blocage
-        setTimeout(() => router.push('/contacts'), 1000);
+        setTimeout(() => router.push('/'), 500);
       }
     }
   } catch (error) {
