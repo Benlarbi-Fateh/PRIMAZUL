@@ -76,7 +76,8 @@ export default function Sidebar({ activeConversationId }) {
   const [sentInvitations, setSentInvitations] = useState([]);
   const [invitationTab, setInvitationTab] = useState("received");
   const [hiddenConversationIds, setHiddenConversationIds] = useState(new Set());
-
+  const [statusViewedCache, setStatusViewedCache] = useState(new Map());
+  const [statusCache, setStatusCache] = useState(new Map());
   const searchTimeoutRef = useRef(null);
   const refreshTimeoutRef = useRef(null);
 
@@ -658,47 +659,80 @@ export default function Sidebar({ activeConversationId }) {
     return null;
   };
 
-  // 🆕 Charger les statuts des contacts
-  const [statusCache, setStatusCache] = useState(new Map());
-
+  
+  
+  
   // 🆕 Fonction pour charger les statuts une fois
   const loadAllStatuses = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  try {
+    const token = localStorage.getItem("token");
+    console.log('🔍 Chargement des statuts pour sidebar...');
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('📦 Données statuts complètes:', data);
       
-      if (response.ok) {
-        const data = await response.json();
-        const statusMap = new Map();
+      const statusMap = new Map();
+      const unviewedMap = new Map();
+      
+      if (data?.friendsStatuses && Array.isArray(data.friendsStatuses)) {
+        console.log(`👥 ${data.friendsStatuses.length} amis avec statuts`);
         
-        // Remplir le Map avec les statuts
-        if (Array.isArray(data)) {
-          data.forEach(status => {
-            if (status.user?._id) {
-              statusMap.set(status.user._id, true);
-            }
-          });
-        } else if (data?.friendsStatuses) {
-          const allStatuses = [...(data.myStatuses || []), ...(data.friendsStatuses || [])];
-          allStatuses.forEach(status => {
-            if (status.user?._id) {
-              statusMap.set(status.user._id, true);
-            }
-          });
-        }
-        
-        setStatusCache(statusMap);
-        console.log(`✅ Statuts chargés pour ${statusMap.size} utilisateurs`);
+        data.friendsStatuses.forEach((group, index) => {
+          if (group.user?._id) {
+            const userId = group.user._id;
+            statusMap.set(userId, true);
+            
+            // ✅ Debug détaillé
+            console.log(`[${index}] ${group.user.name}: hasUnviewed = ${group.hasUnviewed} (${typeof group.hasUnviewed})`);
+            
+            // Assurez-vous que c'est un boolean
+            const isUnviewed = Boolean(group.hasUnviewed);
+            unviewedMap.set(userId, isUnviewed);
+          }
+        });
+      } else {
+        console.log('⚠️ Aucun friendsStatuses reçu');
       }
-    } catch (error) {
-      console.error('❌ Erreur chargement global statuts:', error);
+      
+      console.log(`✅ Cache: ${statusMap.size} utilisateurs`);
+      console.log('📊 Vue d\'ensemble:', Array.from(unviewedMap.entries()));
+      
+      setStatusCache(statusMap);
+      setStatusViewedCache(unviewedMap);
+    } else {
+      console.error('❌ Erreur API:', await response.text());
     }
-  }, []);
+  } catch (error) {
+    console.error('❌ Erreur chargement:', error);
+  }
+}, [currentUserId]);
+
+// 🆕 Vérifier si un contact a des statuts NON VUS
+// 🆕 Vérifier si un contact a des statuts NON VUS
+const checkContactHasUnviewedStatus = (contactId) => {
+  if (!contactId || !statusCache.has(contactId)) return false;
+  
+  const hasUnviewed = statusViewedCache.get(contactId);
+  
+  console.log(`🔍 checkContactHasUnviewedStatus(${contactId}):`, {
+    hasUnviewed: hasUnviewed,
+    expectedCircleColor: hasUnviewed ? "BLEU (non vu)" : "GRIS (vu)"
+  });
+  
+  // ✅ hasUnviewed = true → CERCLE COLORÉ (non vu)
+  // ✅ hasUnviewed = false → CERCLE GRIS (déjà vu)
+  return hasUnviewed === true;
+};
+
 
   // 🆕 Charger les statuts au montage
   useEffect(() => {
+    console.log('🚀 Chargement des statuts...');
     loadAllStatuses();
   }, [loadAllStatuses]);
 
@@ -706,7 +740,16 @@ export default function Sidebar({ activeConversationId }) {
   const checkContactHasStatus = (contactId) => {
     return statusCache.has(contactId);
   };
+  // 🆕 Vérifier si un contact a des statuts non vus
 
+// Fonction pour marquer un statut comme vu
+const markStatusAsViewed = (contactId) => {
+  setStatusViewedCache(prev => {
+    const next = new Map(prev);
+    next.set(contactId, true);
+    return next;
+  });
+};
   const totalInvitations = receivedInvitations.length;
 
   return (
@@ -850,35 +893,9 @@ export default function Sidebar({ activeConversationId }) {
                         : 'bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 hover:border-blue-200'
                     }`}
                   >
-                    <div className="relative shrink-0">
-                      <div className={`w-14 h-14 rounded-full overflow-hidden ring-2 transition-all ${
-                        isDark 
-                          ? 'ring-blue-800 group-hover:ring-cyan-500' 
-                          : 'ring-blue-100 group-hover:ring-blue-400'
-                      }`}>
-                        <Image
-                          src={
-                            contact.profilePicture?.trim() ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                              contact.name || "User"
-                            )}&background=0ea5e9&color=fff&bold=true`
-                          }
-                          alt={contact.name}
-                          width={56}
-                          height={56}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                              contact.name || "User"
-                            )}&background=0ea5e9&color=fff&bold=true`;
-                          }}
-                          unoptimized
-                        />
-                      </div>
-                      {isUserOnline(contact._id) && (
-                        <span className="absolute bottom-0 right-0 w-4 h-4 bg-cyan-500 border-2 border-blue-900 rounded-full shadow-md"></span>
-                      )}
-                    </div>
+                    {/* Remplacer tout le code de l'avatar (lignes ~500-550) par : */}
+
+
                     <div className="flex-1 text-left min-w-0">
                       <h3 className={`font-bold truncate transition-colors ${
                         isDark 
@@ -1191,8 +1208,15 @@ export default function Sidebar({ activeConversationId }) {
   <div className="relative shrink-0">
     {/* Cercle de statut pour les conversations individuelles */}
     {!conv.isGroup && contact && contactHasStatus && (
-      <div  className="absolute -inset-1 rounded-full border-3 border-blue-500"></div>
-    )}
+  <div 
+  className="absolute -inset-1 rounded-full border-3"
+  style={{
+    borderColor: checkContactHasUnviewedStatus(contact._id) 
+      ? '#3b82f6' // Bleu pour non-vus
+      : '#9ca3af' // Vert pour vus
+  }}
+></div>
+)}
     
     {/* Avatar - CLICK POUR STATUT SI LE CONTACT EN A UN */}
     <div 
@@ -1200,11 +1224,12 @@ export default function Sidebar({ activeConversationId }) {
         !conv.isGroup && contact && contactHasStatus ? "ring-2 ring-white dark:ring-slate-900" : ""
       }`}
       onClick={(e) => {
-        e.stopPropagation(); // 🔥 IMPORTANT : empêche l'ouverture de la conversation
-        if (!conv.isGroup && contact && contactHasStatus) {
-          router.push(`/status?open=${contact._id}`)
-        }
-      }}
+       e.stopPropagation(); // 🔥 IMPORTANT : empêche l'ouverture de la conversation
+       if (!conv.isGroup && contact && contactHasStatus) {
+         markStatusAsViewed(contact._id); // 🔥 AJOUTER CETTE LIGNE
+         router.push(`/status?open=${contact._id}`)
+       }
+     }}
     >
       <img
         src={displayImage}
