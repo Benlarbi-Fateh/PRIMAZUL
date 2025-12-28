@@ -1,663 +1,808 @@
+// frontend/src/components/Chat/VideoCall.jsx
 "use client";
-
-import { useEffect, useState, useRef, useContext, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useContext,
+  useCallback,
+} from "react";
 import {
-  Mic, MicOff, Video as VideoIcon, VideoOff, PhoneOff,
-  Minimize2, Maximize2, Users, Volume2, VolumeX, AlertCircle
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  PhoneOff,
+  Users,
+  Minimize2,
+  Maximize2,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  MonitorUp,
+  XSquare,
+  LayoutGrid,
+  Layout,
 } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext";
 import { CallContext } from "@/context/Callcontext";
-import api from "@/lib/api";
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
 const formatTime = (seconds) => {
   if (!seconds || seconds < 0) return "00:00";
-  const mins = Math.floor(seconds / 60);
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  return hours > 0
+    ? `${hours.toString().padStart(2, "0")}:${mins
+        .toString()
+        .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+    : `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
-const NetworkIndicator = ({ quality }) => {
-  const bars = quality === "excellent" ? 4 : quality === "good" ? 3 : quality === "medium" ? 2 : 1;
-  const color = quality === "excellent" ? "bg-green-500" : quality === "good" ? "bg-green-400" : quality === "medium" ? "bg-yellow-500" : "bg-orange-500";
-  
-  return (
-    <div className="flex items-end gap-0.5 h-4">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className={`w-1 rounded-sm ${i <= bars ? color : "bg-white/30"}`} style={{ height: `${i * 25}%` }} />
-      ))}
-    </div>
-  );
-};
+// ==========================================
+// COMPOSANT VIDÉO DISTANT
+// ==========================================
+const RemoteVideoPlayer = React.memo(
+  ({ user, getUserInfo, isMini, onClick }) => {
+    const videoRef = useRef(null);
 
-export default function VideoCall({ 
-  channelName, 
-  token, 
-  uid, 
-  onHangup, 
-  callType = "video", 
-  callData, 
-  callState = "connecting", 
-  callDuration = 0, 
-  callError: externalCallError = null // 🔥 Renommer pour éviter conflit
+    useEffect(() => {
+      if (user.videoTrack && videoRef.current) {
+        try {
+          user.videoTrack.play(videoRef.current);
+        } catch (err) {}
+      }
+    }, [user.videoTrack]);
+
+    const info = getUserInfo(user.uid);
+    const name = info?.name || `User ${user.uid}`;
+    const pic = info?.profilePicture;
+
+    return (
+      <div
+        onClick={onClick}
+        className={`relative w-full h-full bg-gray-900 overflow-hidden border border-gray-700 cursor-pointer transition-all ${
+          isMini
+            ? "rounded-lg border-0"
+            : "rounded-2xl shadow-lg hover:border-blue-500"
+        }`}
+      >
+        <div
+          ref={videoRef}
+          className={`w-full h-full object-contain ${
+            !user.videoTrack ? "hidden" : "block"
+          }`}
+        />
+
+        {!user.videoTrack && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
+            {pic && !isMini ? (
+              <img
+                src={pic}
+                className="w-16 h-16 rounded-full object-cover mb-2"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                {name.charAt(0)}
+              </div>
+            )}
+            {!isMini && <p className="text-gray-400 text-xs mt-2">{name}</p>}
+          </div>
+        )}
+        {!isMini && (
+          <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-white text-xs">
+            {name}
+          </div>
+        )}
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.user.uid === next.user.uid &&
+    prev.user.videoTrack === next.user.videoTrack &&
+    prev.isMini === next.isMini
+);
+
+RemoteVideoPlayer.displayName = "RemoteVideoPlayer";
+
+// ==========================================
+// COMPOSANT PRINCIPAL
+// ==========================================
+export default function VideoCall({
+  channelName,
+  token,
+  uid,
+  onHangup,
+  callType,
+  callData,
+  callState,
+  callDuration,
+  callError,
 }) {
-  const { theme } = useTheme();
   const { generateNumericUid } = useContext(CallContext);
 
   const [remoteUsers, setRemoteUsers] = useState([]);
+  const remoteUsersRef = useRef([]);
+
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(callType === "video");
   const [speakerOn, setSpeakerOn] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [networkQuality, setNetworkQuality] = useState("good");
-  const [isReconnecting, setIsReconnecting] = useState(false);
   const [localVideoReady, setLocalVideoReady] = useState(false);
-  const [usersInfo, setUsersInfo] = useState({});
-  
-  // 🔥 AJOUT : État local pour les erreurs
-  const [internalError, setInternalError] = useState(null);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+
+  // ✅ GESTION DU SPOTLIGHT (Vue Principale)
+  const [spotlightUser, setSpotlightUser] = useState(null); // null = mode grille auto
+  const [layoutMode, setLayoutMode] = useState("grid"); // "grid" ou "spotlight"
+
+  const [position, setPosition] = useState({
+    x: window.innerWidth - 340,
+    y: window.innerHeight - 260,
+  });
+  const isDragging = useRef(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
 
   const clientRef = useRef(null);
-  const localTracksRef = useRef({ audio: null, video: null });
+  const localTracksRef = useRef({
+    audio: null,
+    video: null,
+    screenVideo: null,
+  });
   const localVideoRef = useRef(null);
+  const screenTrackRef = useRef(null);
   const mountedRef = useRef(true);
-  const isInitializingRef = useRef(false);
-  const isInitializedRef = useRef(false);
+  const joiningRef = useRef(false);
 
-  // 🔥 Utiliser l'erreur externe OU interne
-  const displayError = externalCallError || internalError;
-
-  // ============================================
-  // MAPPING DES PARTICIPANTS
-  // ============================================
-  useEffect(() => {
-    if (!callData) return;
-    
-    console.log("📊 CallData:", callData);
-    
-    let allParticipants = [];
-    
-    if (callData.participants) {
-      const parts = Array.isArray(callData.participants) 
-        ? callData.participants 
+  const getUserInfo = useCallback(
+    (agoraUid) => {
+      if (!callData?.participants) return null;
+      const participants = Array.isArray(callData.participants)
+        ? callData.participants
         : [callData.participants];
-      allParticipants = [...parts];
-    }
-    
-    if (callData.members) {
-      allParticipants = [...allParticipants, ...callData.members];
-    }
-    
-    const mapping = {};
-    
-    allParticipants.forEach((p) => {
-      if (!p) return;
-      
-      const mongoId = p._id || p.id || p.userId;
-      if (!mongoId) return;
-      
-      const agoraUid = generateNumericUid(mongoId);
-      
-      mapping[agoraUid] = {
-        name: p.name || p.username || "Utilisateur",
-        profilePicture: p.profilePicture || p.avatar,
-        userId: mongoId
-      };
-      
-      console.log(`✅ ${mapping[agoraUid].name} → ${agoraUid}`);
+      return participants.find(
+        (p) => String(generateNumericUid(p._id || p.id)) === String(agoraUid)
+      );
+    },
+    [callData, generateNumericUid]
+  );
+
+  const updateRemoteUsers = (action, user) => {
+    if (!mountedRef.current) return;
+    setRemoteUsers((prev) => {
+      const newList = [...prev];
+      const index = newList.findIndex((u) => u.uid === user.uid);
+      if (action === "add" || action === "update") {
+        if (index !== -1) newList[index] = { ...newList[index], ...user };
+        else newList.push(user);
+      } else if (action === "remove") {
+        if (index !== -1) newList.splice(index, 1);
+      }
+      remoteUsersRef.current = newList;
+      return newList;
     });
-    
-    if (!mapping[uid]) {
-      mapping[uid] = {
-        name: "Vous",
-        profilePicture: null,
-        userId: "local"
-      };
-    }
-    
-    setUsersInfo(mapping);
-  }, [callData, generateNumericUid, uid]);
-
-  // ============================================
-  // CLEANUP
-  // ============================================
-  const cleanup = useCallback(async () => {
-    console.log("🧹 Cleanup...");
-    
-    isInitializingRef.current = false;
-    isInitializedRef.current = false;
-    
-    try {
-      // 🔥 Arrêter tracks AVANT de les fermer
-      if (localTracksRef.current.audio) {
-        try {
-          await localTracksRef.current.audio.setEnabled(false);
-          localTracksRef.current.audio.stop();
-          localTracksRef.current.audio.close();
-        } catch (e) {
-          console.warn("⚠️ Erreur audio cleanup:", e);
-        }
-      }
-      
-      if (localTracksRef.current.video) {
-        try {
-          await localTracksRef.current.video.setEnabled(false);
-          localTracksRef.current.video.stop();
-          localTracksRef.current.video.close();
-        } catch (e) {
-          console.warn("⚠️ Erreur vidéo cleanup:", e);
-        }
-      }
-      
-      localTracksRef.current = { audio: null, video: null };
-
-      if (clientRef.current) {
-        try {
-          const state = clientRef.current.connectionState;
-          
-          if (state === "CONNECTED") {
-            await clientRef.current.unpublish().catch(e => console.warn("unpublish:", e));
-          }
-          
-          if (state !== "DISCONNECTED") {
-            await clientRef.current.leave().catch(e => console.warn("leave:", e));
-          }
-        } catch (e) {
-          console.warn("⚠️ Cleanup client:", e);
-        }
-        
-        clientRef.current.removeAllListeners();
-        clientRef.current = null;
-      }
-      
-      setRemoteUsers([]);
-      setLocalVideoReady(false);
-      setInternalError(null);
-      
-      console.log("✅ Cleanup OK");
-    } catch (e) {
-      console.error("❌ Cleanup error:", e);
-    }
-  }, []);
-
-  // ============================================
-  // HANGUP
-  // ============================================
-  const handleHangup = useCallback(async () => {
-    await cleanup();
-    if (onHangup) onHangup();
-  }, [cleanup, onHangup]);
-
-  // ============================================
-  // INIT AGORA
-  // ============================================
-  const initAgora = useCallback(async () => {
-    if (isInitializingRef.current || isInitializedRef.current) {
-      console.log("⏭️ Init déjà en cours/terminée");
-      return;
-    }
-
-    if (!channelName || !token || !APP_ID) {
-      console.warn("⚠️ Paramètres manquants");
-      return;
-    }
-
-    try {
-      isInitializingRef.current = true;
-      console.log("\n🎥 === INIT AGORA ===");
-      console.log("Channel:", channelName);
-      console.log("UID:", uid);
-      console.log("Type:", callType);
-
-      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-      AgoraRTC.setLogLevel(1);
-
-      if (!clientRef.current) {
-        clientRef.current = AgoraRTC.createClient({ 
-          mode: "rtc", 
-          codec: "vp8"
-        });
-        console.log("✅ Client créé");
-      }
-
-      const client = clientRef.current;
-      client.removeAllListeners();
-
-      // ============================================
-      // LISTENERS
-      // ============================================
-      client.on("connection-state-change", (curState, prevState, reason) => {
-        console.log(`📡 ${prevState} → ${curState} (${reason})`);
-        
-        if (curState === "RECONNECTING") {
-          setIsReconnecting(true);
-        } else if (curState === "CONNECTED") {
-          setIsReconnecting(false);
-        } else if (curState === "DISCONNECTED" && reason !== "LEAVE") {
-          console.error("⚠️ Déconnexion inattendue");
-          setInternalError("Connexion perdue");
-        }
-      });
-
-      client.on("network-quality", (stats) => {
-        const q = Math.round((stats.uplinkNetworkQuality + stats.downlinkNetworkQuality) / 2);
-        setNetworkQuality(
-          q <= 1 ? "excellent" : 
-          q <= 2 ? "good" : 
-          q <= 4 ? "medium" : "poor"
-        );
-      });
-
-      client.on("exception", (event) => {
-        console.error("⚠️ Exception:", event);
-      });
-
-      // USER PUBLISHED
-      client.on("user-published", async (user, mediaType) => {
-        console.log(`📥 ${user.uid} published ${mediaType}`);
-        
-        try {
-          await client.subscribe(user, mediaType);
-          console.log(`✅ Subscribed ${user.uid} ${mediaType}`);
-          
-          setRemoteUsers((prev) => {
-            const exists = prev.find((u) => u.uid === user.uid);
-            if (exists) {
-              return prev.map((u) => 
-                u.uid === user.uid 
-                  ? { ...u, [mediaType + "Track"]: user[mediaType + "Track"] } 
-                  : u
-              );
-            }
-            return [...prev, { 
-              uid: user.uid, 
-              videoTrack: mediaType === "video" ? user.videoTrack : null, 
-              audioTrack: mediaType === "audio" ? user.audioTrack : null 
-            }];
-          });
-
-          // 🔥 IMPORTANT : Play audio APRÈS mise à jour du state
-          if (mediaType === "audio" && user.audioTrack) {
-            setTimeout(async () => {
-              try {
-                await user.audioTrack.play();
-                console.log(`🔊 Audio ${user.uid} playing`);
-              } catch (err) {
-                console.warn(`⚠️ Audio play ${user.uid}:`, err);
-              }
-            }, 100);
-          }
-        } catch (err) {
-          console.error("❌ Subscribe error:", err);
-        }
-      });
-
-      client.on("user-unpublished", (user, mediaType) => {
-        console.log(`📤 ${user.uid} unpublished ${mediaType}`);
-        setRemoteUsers((prev) => 
-          prev.map((u) => 
-            u.uid === user.uid 
-              ? { ...u, [mediaType + "Track"]: null } 
-              : u
-          )
-        );
-      });
-
-      client.on("user-left", (user) => {
-        console.log(`👋 ${user.uid} left`);
-        setRemoteUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-      });
-
-      // ============================================
-      // JOIN
-      // ============================================
-      if (client.connectionState === "DISCONNECTED") {
-        console.log("🔌 Joining...");
-        await client.join(APP_ID, channelName, token, uid);
-        console.log("✅ Joined");
-      }
-
-      if (!mountedRef.current) {
-        await cleanup();
-        return;
-      }
-
-      // ============================================
-      // CREATE TRACKS
-      // ============================================
-      console.log("🎤 Creating tracks...");
-      
-      try {
-        // 🔥 Créer audio EN PREMIER
-        const audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-          encoderConfig: "speech_standard",
-        });
-        console.log("✅ Audio track OK");
-        
-        let videoTrack = null;
-        
-        // 🔥 Vidéo seulement si nécessaire
-        if (callType === "video") {
-          try {
-            videoTrack = await AgoraRTC.createCameraVideoTrack({
-              encoderConfig: "480p_1",
-            });
-            console.log("✅ Video track OK");
-          } catch (videoError) {
-            console.error("❌ Video track error:", videoError);
-            
-            if (videoError.code === "NOT_READABLE") {
-              setInternalError("Caméra occupée par une autre application");
-            } else if (videoError.code === "PERMISSION_DENIED") {
-              setInternalError("Accès caméra refusé");
-            } else {
-              setInternalError("Erreur caméra");
-            }
-            
-            // Continuer avec audio seulement
-            videoTrack = null;
-          }
-        }
-
-        if (!mountedRef.current) {
-          audioTrack?.close();
-          videoTrack?.close();
-          return;
-        }
-
-        localTracksRef.current = { audio: audioTrack, video: videoTrack };
-        
-        if (videoTrack) {
-          setLocalVideoReady(true);
-        }
-
-        // ============================================
-        // PUBLISH
-        // ============================================
-        if (client.connectionState === "CONNECTED") {
-          const tracks = videoTrack ? [audioTrack, videoTrack] : [audioTrack];
-          await client.publish(tracks);
-          console.log("✅ Published:", tracks.map(t => t.trackMediaType).join(", "));
-        }
-
-        isInitializedRef.current = true;
-        console.log("✅ Init complete");
-        
-      } catch (trackError) {
-        console.error("❌ Track creation error:", trackError);
-        
-        if (trackError.code === "PERMISSION_DENIED" || trackError.name === "NotAllowedError") {
-          setInternalError("Accès micro/caméra refusé");
-        } else if (trackError.code === "NOT_READABLE" || trackError.name === "NotReadableError") {
-          setInternalError("Micro/caméra déjà utilisé");
-        } else {
-          setInternalError("Erreur d'accès aux médias");
-        }
-        
-        setTimeout(handleHangup, 3000);
-      }
-
-    } catch (error) {
-      console.error("❌ Init error:", error);
-      
-      if (error.code === "INVALID_OPERATION") {
-        console.log("🔄 Cleanup...");
-        await cleanup();
-      }
-      
-      setInternalError("Échec de connexion");
-      setTimeout(handleHangup, 3000);
-      
-    } finally {
-      isInitializingRef.current = false;
-    }
-  }, [channelName, token, uid, callType, cleanup, handleHangup]);
-
-  // ============================================
-  // PLAY LOCAL VIDEO
-  // ============================================
-  useEffect(() => {
-    if (localVideoReady && localTracksRef.current.video && localVideoRef.current && camOn) {
-      try {
-        localTracksRef.current.video.play(localVideoRef.current);
-      } catch (e) {
-        console.warn("⚠️ Local video play:", e);
-      }
-    }
-  }, [localVideoReady, camOn]);
-
-  // ============================================
-  // REMOTE VIDEO PLAYER
-  // ============================================
-  const RemoteVideoPlayer = ({ user }) => {
-    const videoRef = useRef(null);
-    const playedRef = useRef(false);
-    
-    const info = usersInfo[user.uid];
-    const name = info?.name || `User ${user.uid}`;
-    const pic = info?.profilePicture;
-
-    useEffect(() => {
-      if (!user.videoTrack || !videoRef.current || playedRef.current) {
-        return;
-      }
-
-      console.log(`🎬 Playing video ${user.uid} (${name})`);
-      
-      const playVideo = async () => {
-        try {
-          await user.videoTrack.play(videoRef.current);
-          playedRef.current = true;
-          console.log(`✅ Video ${user.uid} OK`);
-        } catch (err) {
-          console.error(`❌ Video play ${user.uid}:`, err);
-        }
-      };
-
-      const timer = setTimeout(playVideo, 150);
-      
-      return () => {
-        clearTimeout(timer);
-        playedRef.current = false;
-      };
-    }, [user.videoTrack, user.uid, name]);
-
-    return (
-      <div className="relative w-full h-full bg-slate-900 rounded-2xl overflow-hidden">
-        {user.videoTrack ? (
-          <div 
-            ref={videoRef}
-            className="w-full h-full bg-black"
-            style={{ minHeight: "200px" }}
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-            {pic ? (
-              <img src={pic} alt={name} className="w-24 h-24 rounded-full object-cover border-4 border-white/10" />
-            ) : (
-              <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center">
-                <span className="text-3xl text-white font-bold">{name.charAt(0).toUpperCase()}</span>
-              </div>
-            )}
-            <p className="mt-4 text-white font-medium">{name}</p>
-          </div>
-        )}
-        <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/50 backdrop-blur rounded-full text-white text-sm">
-          {name}
-        </div>
-      </div>
-    );
   };
 
-  // ============================================
-  // INIT & CLEANUP
-  // ============================================
+  // ✅ DÉTECTION AUTOMATIQUE DU PARTAGE D'ÉCRAN DISTANT
+  // Agora ne dit pas explicitement "c'est un écran", mais souvent le profil vidéo est différent.
+  // Ici, on va simplifier : Si un utilisateur active sa vidéo alors qu'il n'en avait pas, on le met en spotlight.
   useEffect(() => {
-    mountedRef.current = true;
-    
-    const timer = setTimeout(() => {
-      if (mountedRef.current) {
-        initAgora();
+    remoteUsers.forEach((user) => {
+      // Si on détecte une nouvelle vidéo active, on peut supposer que c'est important
+      if (user.videoTrack && layoutMode === "grid" && !spotlightUser) {
+        // Optionnel : Activer auto-spotlight ici si vous voulez
       }
-    }, 300);
-    
+    });
+  }, [remoteUsers]);
+
+  // --- INITIALISATION AGORA ---
+  useEffect(() => {
+    if (!token || !channelName) return;
+    mountedRef.current = true;
+
+    const initAgora = async () => {
+      if (joiningRef.current) return;
+      joiningRef.current = true;
+
+      try {
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+        AgoraRTC.setLogLevel(3);
+
+        if (!clientRef.current) {
+          clientRef.current = AgoraRTC.createClient({
+            mode: "rtc",
+            codec: "vp8",
+          });
+        }
+        const client = clientRef.current;
+        client.removeAllListeners();
+
+        client.on("user-published", async (user, mediaType) => {
+          await client.subscribe(user, mediaType);
+          updateRemoteUsers("update", {
+            uid: user.uid,
+            [mediaType + "Track"]: user[mediaType + "Track"],
+          });
+          if (mediaType === "audio" && speakerOn) user.audioTrack?.play();
+
+          // ✅ AUTO-SPOTLIGHT : Si quelqu'un partage une vidéo, on le met en grand
+          if (mediaType === "video") {
+            setSpotlightUser({ uid: user.uid });
+            setLayoutMode("spotlight");
+          }
+        });
+
+        client.on("user-unpublished", (user, mediaType) => {
+          updateRemoteUsers("update", {
+            uid: user.uid,
+            [mediaType + "Track"]: null,
+          });
+        });
+
+        client.on("user-left", (user) => {
+          updateRemoteUsers("remove", user);
+          // Si le spotlight part, retour grille
+          if (spotlightUser?.uid === user.uid) {
+            setSpotlightUser(null);
+            setLayoutMode("grid");
+          }
+        });
+
+        const joinChannel = async (retryCount = 0) => {
+          if (!mountedRef.current) return;
+          try {
+            if (client.connectionState === "CONNECTED") return;
+            await client.join(APP_ID, channelName, token, uid);
+
+            if (
+              !localTracksRef.current.audio &&
+              !localTracksRef.current.video
+            ) {
+              const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+              let videoTrack;
+              if (callType === "video")
+                videoTrack = await AgoraRTC.createCameraVideoTrack();
+
+              localTracksRef.current = { audio: audioTrack, video: videoTrack };
+              const tracks = [audioTrack];
+              if (videoTrack) tracks.push(videoTrack);
+
+              if (client.connectionState === "CONNECTED")
+                await client.publish(tracks);
+              if (mountedRef.current) setLocalVideoReady(true);
+            }
+          } catch (error) {
+            if (
+              (error.code === "UID_CONFLICT" ||
+                error.message?.includes("UID_CONFLICT")) &&
+              retryCount < 3
+            ) {
+              await client.leave();
+              setTimeout(() => joinChannel(retryCount + 1), 1000);
+            }
+          }
+        };
+        await joinChannel();
+      } catch (err) {
+        console.error("❌ Init Error:", err);
+      } finally {
+        joiningRef.current = false;
+      }
+    };
+    initAgora();
+
     return () => {
       mountedRef.current = false;
-      clearTimeout(timer);
-      cleanup();
+      const leave = async () => {
+        if (screenTrackRef.current) {
+          const tracks = Array.isArray(screenTrackRef.current)
+            ? screenTrackRef.current
+            : [screenTrackRef.current];
+          tracks.forEach((t) => {
+            t.stop();
+            t.close();
+          });
+        }
+        localTracksRef.current.audio?.close();
+        localTracksRef.current.video?.close();
+        localTracksRef.current = {
+          audio: null,
+          video: null,
+          screenVideo: null,
+        };
+        if (clientRef.current) {
+          await clientRef.current.leave();
+          clientRef.current = null;
+        }
+      };
+      leave();
     };
-  }, []);
+  }, [channelName, token, uid, callType]);
 
-  // ============================================
-  // TOKEN RENEWAL
-  // ============================================
+  // --- LECTURE LOCALE ---
   useEffect(() => {
-    if (!clientRef.current || !channelName || !uid) return;
-
-    const client = clientRef.current;
-
-    const handleTokenWillExpire = async () => {
-      console.log("⚠️ Token expiring...");
-      try {
-        const { data: tokenData } = await api.post("/agora/token", {
-          channelName,
-          uid,
-        });
-        await client.renewToken(tokenData.token);
-        console.log("✅ Token renewed");
-      } catch (error) {
-        console.error("❌ Token renewal:", error);
+    if (!localVideoReady || !localVideoRef.current) return;
+    try {
+      if (isScreenSharing && localTracksRef.current.screenVideo) {
+        localTracksRef.current.screenVideo.play(localVideoRef.current);
+      } else if (camOn && localTracksRef.current.video) {
+        localTracksRef.current.video.play(localVideoRef.current);
       }
-    };
+    } catch (e) {}
+  }, [localVideoReady, camOn, isScreenSharing]);
 
-    const handleTokenExpired = async () => {
-      console.log("❌ Token expired!");
-      setInternalError("Session expirée");
-      setTimeout(handleHangup, 3000);
-    };
-
-    client.on("token-privilege-will-expire", handleTokenWillExpire);
-    client.on("token-privilege-did-expire", handleTokenExpired);
-
-    return () => {
-      client.off("token-privilege-will-expire", handleTokenWillExpire);
-      client.off("token-privilege-did-expire", handleTokenExpired);
-    };
-  }, [channelName, uid, handleHangup]);
-
-  // ============================================
-  // CONTROLS
-  // ============================================
+  // --- ACTIONS ---
   const toggleMic = async () => {
     if (localTracksRef.current.audio) {
-      await localTracksRef.current.audio.setEnabled(!micOn);
-      setMicOn(!micOn);
+      const newState = !micOn;
+      await localTracksRef.current.audio.setEnabled(newState);
+      setMicOn(newState);
     }
   };
 
   const toggleCam = async () => {
-    if (localTracksRef.current.video) {
-      await localTracksRef.current.video.setEnabled(!camOn);
-      setCamOn(!camOn);
+    if (!localTracksRef.current.video) {
+      const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+      try {
+        const videoTrack = await AgoraRTC.createCameraVideoTrack();
+        localTracksRef.current.video = videoTrack;
+        if (
+          clientRef.current &&
+          clientRef.current.connectionState === "CONNECTED"
+        ) {
+          await clientRef.current.publish(videoTrack);
+        }
+        setLocalVideoReady(true);
+        setCamOn(true);
+      } catch (e) {}
+      return;
     }
+    const newState = !camOn;
+    await localTracksRef.current.video.setEnabled(newState);
+    setCamOn(newState);
   };
 
   const toggleSpeaker = () => {
     setSpeakerOn(!speakerOn);
-    remoteUsers.forEach((u) => {
-      if (u.audioTrack) {
-        speakerOn ? u.audioTrack.stop() : u.audioTrack.play();
-      }
-    });
+    remoteUsers.forEach((u) => u.audioTrack?.[!speakerOn ? "play" : "stop"]());
   };
 
-  const totalUsers = remoteUsers.length + 1;
-  const gridClass = totalUsers === 2 ? "grid-cols-2" : totalUsers >= 3 ? "grid-cols-2" : "grid-cols-1";
+  const toggleScreenShare = async () => {
+    try {
+      if (isScreenSharing) {
+        await stopScreenShare();
+      } else {
+        const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
+        const screenTrack = await AgoraRTC.createScreenVideoTrack(
+          { encoderConfig: "1080p_1" },
+          "auto"
+        );
 
-  return (
-    <div className={isMinimized ? "fixed bottom-4 right-4 w-80 z-[9999] rounded-2xl" : "fixed inset-0 z-[9999] bg-black/95"}>
-      <div className={`relative flex flex-col ${isMinimized ? "w-full h-auto" : "w-full h-full"} bg-slate-950`}>
-        
-        {/* HEADER */}
-        <div className="absolute top-0 left-0 right-0 z-20 px-4 py-3 flex justify-between bg-gradient-to-b from-black/80 to-transparent">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full">
-              <Users size={14} className="text-purple-400" />
-              <span className="text-white text-sm">{callData?.name || "Appel"}</span>
-              {remoteUsers.length > 0 && <span className="text-white/60 text-xs">({remoteUsers.length + 1})</span>}
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full">
-              <NetworkIndicator quality={networkQuality} />
-              <span className="text-white text-sm font-mono">{formatTime(callDuration)}</span>
-            </div>
-          </div>
-          <button onClick={() => setIsMinimized(!isMinimized)} className="p-2 bg-black/40 rounded-full hover:bg-black/60 transition">
-            {isMinimized ? <Maximize2 size={16} className="text-white" /> : <Minimize2 size={16} className="text-white" />}
+        if (Array.isArray(screenTrack)) {
+          screenTrack[0].on("track-ended", () => stopScreenShare());
+          screenTrackRef.current = screenTrack;
+        } else {
+          screenTrack.on("track-ended", () => stopScreenShare());
+          screenTrackRef.current = screenTrack;
+        }
+
+        if (clientRef.current) {
+          if (localTracksRef.current.video)
+            await clientRef.current.unpublish(localTracksRef.current.video);
+          const tracksToPublish = Array.isArray(screenTrack)
+            ? screenTrack
+            : [screenTrack];
+          await clientRef.current.publish(tracksToPublish);
+          localTracksRef.current.screenVideo = Array.isArray(screenTrack)
+            ? screenTrack[0]
+            : screenTrack;
+
+          setLocalVideoReady(false);
+          setTimeout(() => setLocalVideoReady(true), 100);
+        }
+        setIsScreenSharing(true);
+        // ✅ Quand JE partage mon écran, je passe en mode Spotlight sur moi-même pour voir ce que je diffuse (optionnel)
+        setSpotlightUser({ uid: "local", isLocal: true });
+        setLayoutMode("spotlight");
+      }
+    } catch (error) {
+      console.error("Erreur partage:", error);
+    }
+  };
+
+  const stopScreenShare = async () => {
+    if (screenTrackRef.current) {
+      const tracks = Array.isArray(screenTrackRef.current)
+        ? screenTrackRef.current
+        : [screenTrackRef.current];
+      tracks.forEach((t) => {
+        t.stop();
+        t.close();
+      });
+      if (clientRef.current) await clientRef.current.unpublish(tracks);
+      screenTrackRef.current = null;
+    }
+    if (localTracksRef.current.video && clientRef.current && camOn) {
+      await clientRef.current.publish(localTracksRef.current.video);
+    }
+    localTracksRef.current.screenVideo = null;
+    setIsScreenSharing(false);
+    setLocalVideoReady(false);
+    setTimeout(() => setLocalVideoReady(true), 100);
+
+    // Retour mode grille si on arrête le partage
+    if (spotlightUser?.isLocal) {
+      setSpotlightUser(null);
+      setLayoutMode("grid");
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    isDragging.current = true;
+    dragOffset.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    };
+  };
+  const handleMouseMove = useCallback((e) => {
+    if (isDragging.current) {
+      setPosition({
+        x: e.clientX - dragOffset.current.x,
+        y: e.clientY - dragOffset.current.y,
+      });
+    }
+  }, []);
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  useEffect(() => {
+    if (isMinimized) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isMinimized, handleMouseMove]);
+
+  // --- RENDU MINIMISÉ ---
+  if (isMinimized) {
+    // Priorité: Spotlight > Remote > Local
+    let miniUser = null;
+    if (spotlightUser && !spotlightUser.isLocal) {
+      miniUser = remoteUsers.find((u) => u.uid === spotlightUser.uid);
+    }
+    if (!miniUser && remoteUsers.length > 0) miniUser = remoteUsers[0];
+
+    return (
+      <div
+        className="fixed w-48 h-72 bg-gray-900 rounded-xl shadow-2xl overflow-hidden border-2 border-blue-500 z-[9999] cursor-move flex flex-col"
+        style={{ left: position.x, top: position.y }}
+        onMouseDown={handleMouseDown}
+      >
+        <div className="absolute top-0 right-0 p-1 z-20">
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setIsMinimized(false)}
+            className="p-1 bg-black/50 rounded-full hover:bg-blue-600 text-white"
+          >
+            <Maximize2 size={12} />
           </button>
         </div>
-
-        {/* VIDEOS */}
-        <div className={`flex-1 p-4 ${isMinimized ? "h-52" : "pt-16 pb-24"}`}>
-          <div className={`grid gap-4 h-full ${gridClass}`}>
-            
-            {/* REMOTE VIDEOS */}
-            {remoteUsers.map((user) => (
-              <RemoteVideoPlayer key={user.uid} user={user} />
-            ))}
-
-            {/* LOCAL VIDEO */}
-            <div className="relative rounded-2xl overflow-hidden bg-slate-800">
-              {callType === "video" && camOn && localVideoReady ? (
+        <div className="relative w-full h-full">
+          {miniUser ? (
+            <RemoteVideoPlayer
+              user={miniUser}
+              getUserInfo={getUserInfo}
+              isMini={true}
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-800 flex items-center justify-center text-white text-xs">
+              {camOn || isScreenSharing ? (
                 <div
                   ref={localVideoRef}
-                  className="w-full h-full"
-                  style={{ transform: "rotateY(180deg)" }}
+                  className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-700">
-                  <VideoOff className="w-10 h-10 text-white" />
-                </div>
+                "Moi"
               )}
-              <div className="absolute bottom-3 left-3 px-3 py-1 bg-blue-600 rounded-full text-white text-sm">
-                Moi
-              </div>
             </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
+  // --- RENDU MODE SPOTLIGHT (1 Gros + Liste latérale) ---
+  if (layoutMode === "spotlight" && spotlightUser) {
+    const isLocalSpotlight = spotlightUser.isLocal;
+    const remoteSpotlightUser = !isLocalSpotlight
+      ? remoteUsers.find((u) => u.uid === spotlightUser.uid)
+      : null;
+
+    // Liste des autres (à afficher en petit)
+    const others = remoteUsers.filter((u) => u.uid !== spotlightUser.uid);
+    if (!isLocalSpotlight) {
+      // Si le spotlight est distant, je suis dans la liste "others"
+      // (ajouté manuellement dans le rendu)
+    }
+
+    return (
+      <div className="fixed inset-0 bg-gray-950 z-[9999] flex flex-col animate-fade-in">
+        {/* HEADER */}
+        <div className="absolute top-0 w-full p-4 flex justify-between z-20 bg-gradient-to-b from-black/80 to-transparent">
+          <div className="text-white font-mono bg-black/40 px-3 py-1 rounded-full">
+            {formatTime(callDuration)}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setLayoutMode("grid")}
+              className="p-2 bg-black/40 rounded hover:bg-white/20 text-white"
+              title="Mode Grille"
+            >
+              <LayoutGrid size={20} />
+            </button>
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="p-2 bg-black/40 rounded hover:bg-white/20 text-white"
+            >
+              <Minimize2 size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 flex overflow-hidden">
+          {/* ZONE PRINCIPALE (SPOTLIGHT) */}
+          <div className="flex-1 bg-black relative flex items-center justify-center p-2">
+            {isLocalSpotlight ? (
+              <div className="w-full h-full rounded-xl overflow-hidden relative">
+                {(camOn || isScreenSharing) && localVideoReady ? (
+                  <div
+                    ref={localVideoRef}
+                    className={`w-full h-full object-contain ${
+                      !isScreenSharing ? "transform scale-x-[-1]" : ""
+                    }`}
+                  />
+                ) : (
+                  <div className="text-white">Caméra coupée</div>
+                )}
+                <div className="absolute bottom-4 left-4 bg-blue-600 px-3 py-1 rounded text-white text-sm">
+                  Mon écran (Spotlight)
+                </div>
+              </div>
+            ) : remoteSpotlightUser ? (
+              <RemoteVideoPlayer
+                user={remoteSpotlightUser}
+                getUserInfo={getUserInfo}
+              />
+            ) : (
+              <div className="text-white">Utilisateur parti</div>
+            )}
+          </div>
+
+          {/* BARRE LATÉRALE (AUTRES) */}
+          <div className="w-64 bg-gray-900 border-l border-gray-800 p-2 flex flex-col gap-2 overflow-y-auto">
+            {/* MOI (si je ne suis pas le spotlight) */}
+            {!isLocalSpotlight && (
+              <div
+                onClick={() => {
+                  setSpotlightUser({ isLocal: true });
+                  setLayoutMode("spotlight");
+                }}
+                className="relative h-36 bg-gray-800 rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:border-blue-500"
+              >
+                {(camOn || isScreenSharing) && localVideoReady ? (
+                  <div
+                    ref={localVideoRef}
+                    className={`w-full h-full object-cover ${
+                      !isScreenSharing ? "transform scale-x-[-1]" : ""
+                    }`}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white text-xs">
+                    Moi
+                  </div>
+                )}
+                <div className="absolute bottom-1 left-1 bg-black/50 px-2 rounded text-white text-[10px]">
+                  Moi
+                </div>
+              </div>
+            )}
+
+            {/* LES AUTRES */}
+            {others.map((user) => (
+              <div
+                key={user.uid}
+                onClick={() => setSpotlightUser({ uid: user.uid })}
+                className="h-36 cursor-pointer hover:border-blue-500 border border-transparent rounded-lg"
+              >
+                <RemoteVideoPlayer
+                  user={user}
+                  getUserInfo={getUserInfo}
+                  isMini={true}
+                />
+              </div>
+            ))}
           </div>
         </div>
 
         {/* CONTROLS */}
-        <div className={`absolute bottom-0 left-0 right-0 z-20 flex justify-center gap-5 pb-6 pt-10 bg-gradient-to-t from-black/90 ${isMinimized ? "hidden" : ""}`}>
-          <button onClick={toggleSpeaker} className={`p-4 rounded-full transition-all ${speakerOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
-            {speakerOn ? <Volume2 size={20} /> : <VolumeX size={20} />}
+        <div className="h-20 bg-gray-900 border-t border-gray-800 flex justify-center items-center gap-4">
+          <button
+            onClick={toggleMic}
+            className={`p-3 rounded-full ${
+              micOn ? "bg-gray-700" : "bg-red-500 text-white"
+            }`}
+          >
+            {micOn ? <Mic /> : <MicOff />}
           </button>
-          <button onClick={toggleMic} className={`p-4 rounded-full transition-all ${micOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
-            {micOn ? <Mic size={20} /> : <MicOff size={20} />}
+          <button
+            onClick={onHangup}
+            className="p-4 bg-red-600 rounded-full text-white"
+          >
+            <PhoneOff />
           </button>
-          <button onClick={handleHangup} className="p-5 bg-red-600 hover:bg-red-700 rounded-full text-white transition-all">
-            <PhoneOff size={28} />
+          <button
+            onClick={toggleCam}
+            className={`p-3 rounded-full ${
+              camOn ? "bg-gray-700" : "bg-red-500 text-white"
+            }`}
+          >
+            {camOn ? <Video /> : <VideoOff />}
           </button>
-          {callType === "video" && (
-            <button onClick={toggleCam} className={`p-4 rounded-full transition-all ${camOn ? "bg-white/10 hover:bg-white/20 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
-              {camOn ? <VideoIcon size={20} /> : <VideoOff size={20} />}
-            </button>
-          )}
+          <button
+            onClick={toggleScreenShare}
+            className={`p-3 rounded-full ${
+              isScreenSharing ? "bg-green-500 text-white" : "bg-gray-700"
+            }`}
+          >
+            {isScreenSharing ? <XSquare /> : <MonitorUp />}
+          </button>
         </div>
+      </div>
+    );
+  }
 
-        {/* ERRORS */}
-        {displayError && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-lg z-30 flex items-center gap-2 shadow-lg">
-            <AlertCircle size={18} />
-            <span>{displayError}</span>
+  // ==========================================
+  // RENDU : MODE GRILLE (Classique)
+  // ==========================================
+  const totalUsers = remoteUsers.length + 1;
+  const gridClass =
+    totalUsers <= 2
+      ? "grid-cols-1 md:grid-cols-2"
+      : "grid-cols-2 md:grid-cols-3";
+
+  return (
+    <div className="fixed inset-0 bg-gray-950 z-[9999] flex flex-col animate-fade-in">
+      {/* HEADER */}
+      <div className="absolute top-0 w-full p-4 flex justify-between z-20 bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex gap-2">
+          <div className="text-white bg-black/40 px-3 py-1 rounded-full text-sm">
+            {callData?.name}
           </div>
-        )}
-        
-        {isReconnecting && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg z-30 shadow-lg">
-            Reconnexion...
+          <div className="text-green-400 bg-black/40 px-3 py-1 rounded-full text-sm font-mono">
+            {formatTime(callDuration)}
           </div>
-        )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLayoutMode("spotlight")}
+            className="p-2 bg-black/40 rounded hover:bg-white/20 text-white"
+            title="Mode Spotlight"
+          >
+            <Layout size={20} />
+          </button>
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="p-2 bg-black/40 rounded hover:bg-white/20 text-white"
+          >
+            <Minimize2 size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* ERROR */}
+      {callError && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded-full z-50">
+          {callError}
+        </div>
+      )}
+
+      {/* GRID */}
+      <div className="flex-1 p-4 pt-20 pb-28 flex items-center justify-center">
+        <div className={`grid gap-4 w-full h-full ${gridClass} max-w-6xl`}>
+          {/* MOI */}
+          <div
+            onClick={() => {
+              setSpotlightUser({ isLocal: true });
+              setLayoutMode("spotlight");
+            }}
+            className="relative w-full h-full bg-gray-900 rounded-2xl overflow-hidden border border-gray-700 cursor-pointer hover:border-blue-500 transition-all"
+          >
+            {(camOn || isScreenSharing) && localVideoReady ? (
+              <div
+                ref={localVideoRef}
+                className={`w-full h-full object-cover ${
+                  !isScreenSharing ? "transform scale-x-[-1]" : ""
+                }`}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-white">
+                <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-2">
+                  <Users size={32} />
+                </div>
+                <p>Caméra désactivée</p>
+              </div>
+            )}
+            <div className="absolute bottom-3 left-3 bg-blue-600/90 px-3 py-1 rounded-lg text-white text-xs backdrop-blur-sm">
+              Moi {micOn ? "" : "(Micro off)"}
+            </div>
+          </div>
+
+          {/* AUTRES */}
+          {remoteUsers.map((user) => (
+            <RemoteVideoPlayer
+              key={user.uid}
+              user={user}
+              getUserInfo={getUserInfo}
+              onClick={() => {
+                setSpotlightUser({ uid: user.uid });
+                setLayoutMode("spotlight");
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* BARRE DE CONTRÔLE (Toujours visible) */}
+      <div className="absolute bottom-0 w-full p-6 flex justify-center items-center gap-4 bg-gradient-to-t from-black/95 to-transparent">
+        <button
+          onClick={toggleSpeaker}
+          className={`p-4 rounded-full transition-all ${
+            speakerOn ? "bg-gray-700 text-white" : "bg-white text-black"
+          }`}
+          title="Speaker"
+        >
+          {speakerOn ? <Volume2 /> : <VolumeX />}
+        </button>
+        <button
+          onClick={toggleMic}
+          className={`p-4 rounded-full transition-all ${
+            micOn ? "bg-gray-700 text-white" : "bg-red-500 text-white"
+          }`}
+          title="Micro"
+        >
+          {micOn ? <Mic /> : <MicOff />}
+        </button>
+        <button
+          onClick={onHangup}
+          className="p-5 bg-red-600 rounded-full text-white hover:bg-red-700 shadow-xl hover:scale-110 transition-all mx-4"
+          title="Raccrocher"
+        >
+          <PhoneOff size={32} fill="currentColor" />
+        </button>
+        <button
+          onClick={toggleCam}
+          className={`p-4 rounded-full transition-all ${
+            camOn ? "bg-gray-700 text-white" : "bg-red-500 text-white"
+          }`}
+          title="Caméra"
+        >
+          {camOn ? <Video /> : <VideoOff />}
+        </button>
+        <button
+          onClick={toggleScreenShare}
+          className={`p-4 rounded-full transition-all hidden md:block ${
+            isScreenSharing
+              ? "bg-green-500 text-white"
+              : "bg-gray-700 text-white"
+          }`}
+          title="Partager écran"
+        >
+          {isScreenSharing ? <XSquare /> : <MonitorUp />}
+        </button>
       </div>
     </div>
   );
