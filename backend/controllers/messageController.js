@@ -11,7 +11,6 @@ exports.getMessages = async (req, res) => {
 
     console.log('📥 getMessages appelé:', { conversationId, userId });
 
-    // ✅ Vérifier la conversation
     const conversation = await Conversation.findById(conversationId);
     
     if (!conversation) {
@@ -22,7 +21,6 @@ exports.getMessages = async (req, res) => {
       });
     }
 
-    // 🔥 VÉRIFIER SI L'UTILISATEUR A SUPPRIMÉ LA CONVERSATION
     const deletedByUser = conversation.deletedBy?.find(
       item => item.userId?.toString() === userId.toString()
     );
@@ -30,34 +28,39 @@ exports.getMessages = async (req, res) => {
     let messages;
 
     if (deletedByUser) {
-      // 🔥 SI SUPPRIMÉE : Charger UNIQUEMENT les messages APRÈS la suppression
       const deletionDate = deletedByUser.deletedAt;
       
       messages = await Message.find({ 
         conversationId,
-        deletedBy: { $ne: userId },
-        createdAt: { $gt: deletionDate } // ✅ SEULEMENT APRÈS LA SUPPRESSION
+        deletedFor: { $ne: userId },
+        createdAt: { $gt: deletionDate },
+        // ✅ FILTRER LES MESSAGES PROGRAMMÉS NON ENVOYÉS
+        $or: [
+          { isSent: true },                              // Messages déjà envoyés
+          { sender: userId, isScheduled: true }          // Mes messages programmés (seulement pour moi)
+        ]
       })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
         .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
-      
-      console.log(`🗑️ Conversation supprimée le ${deletionDate}`);
-      console.log(`📊 ${messages.length} messages APRÈS suppression pour ${userId}`);
     } else {
-      // 🔥 SI PAS SUPPRIMÉE : Charger TOUS les messages
       messages = await Message.find({ 
         conversationId,
-        deletedBy: { $ne: userId }
+        deletedFor: { $ne: userId },
+        // ✅ FILTRER LES MESSAGES PROGRAMMÉS NON ENVOYÉS
+        $or: [
+          { isSent: true },                              // Messages déjà envoyés
+          { sender: userId, isScheduled: true }          // Mes messages programmés (seulement pour moi)
+        ]
       })
         .populate('sender', 'name profilePicture')
         .populate('reactions.userId', 'name profilePicture')
         .populate('replyToSender', 'name profilePicture')
         .sort({ createdAt: 1 });
-      
-      console.log(`📊 ${messages.length} messages visibles pour ${userId}`);
     }
+
+    console.log(`📊 ${messages.length} messages visibles pour ${userId}`);
 
     res.json({ success: true, messages });
     
@@ -131,8 +134,8 @@ exports.sendMessage = async (req, res) => {
       replyTo: replyTo || null,
       replyToContent: replyToContent || null,
       replyToSender: replyToSender || null,
-      // 🔥 IMPORTANT : Le nouveau message n'a AUCUN deletedBy
-      deletedBy: []
+      // 🔥 IMPORTANT : Le nouveau message n'a AUCUN deletedFor
+      deletedFor: []
     };
 
     if (type === 'video') {
@@ -165,24 +168,17 @@ exports.sendMessage = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      // 🔥 IMPORTANT : Émettre le message à TOUS les participants (même ceux qui ont supprimé)
-      // Utiliser leur userId personnel au lieu de la room conversation
+      // 🔥 IMPORTANT : Émettre le message à TOUS les participants
       conversation.participants.forEach(participant => {
         const participantId = participant._id.toString();
         
-        // Envoyer le message directement à l'utilisateur
         io.to(participantId).emit('receive-message', message);
-        
-        // Mettre à jour la conversation
         io.to(participantId).emit('conversation-updated', conversation);
-        
-        // Demander le rafraîchissement
         io.to(participantId).emit('should-refresh-conversations');
         
         console.log(`📤 Message envoyé à ${participantId}`);
       });
       
-      // Aussi émettre dans la room pour ceux qui sont connectés
       io.to(conversationId).emit('receive-message', message);
     }
 
@@ -193,6 +189,7 @@ exports.sendMessage = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 exports.markAsDelivered = async (req, res) => {
   try {
     const { messageIds } = req.body;
@@ -269,7 +266,6 @@ exports.markAsRead = async (req, res) => {
       return res.json({ success: true, modifiedCount: 0 });
     }
 
-    // Vérifier si l'utilisateur est réellement dans la conversation
     const io = req.app.get('io');
     const sockets = await io.in(conversationId).fetchSockets();
     const userIsInConversation = sockets.some(s => s.userId === userId.toString());
@@ -303,7 +299,6 @@ exports.markAsRead = async (req, res) => {
         status: 'read'
       });
 
-      // 🆕 ÉVÉNEMENT CRITIQUE : Notifier immédiatement TOUS les participants
       const conversation = await Conversation.findById(conversationId)
         .select('participants')
         .lean();
@@ -356,7 +351,7 @@ exports.getUnreadCount = async (req, res) => {
 };
 
 // ========================================
-// 🆕 SUPPRIMER UN MESSAGE
+// 🆕 SUPPRIMER UN MESSAGE POUR TOUS
 // ========================================
 exports.deleteMessage = async (req, res) => {
   console.log('🔍 ========== DELETE MESSAGE APPELÉ ==========');
@@ -369,7 +364,6 @@ exports.deleteMessage = async (req, res) => {
 
     console.log('🗑️ Tentative suppression message:', messageId, 'par user:', userId);
 
-    // ✅ Trouver le message
     const message = await Message.findById(messageId);
     
     if (!message) {
@@ -386,30 +380,25 @@ exports.deleteMessage = async (req, res) => {
       content: message.content?.substring(0, 50)
     });
 
-    // ✅ Vérifier que c'est bien l'expéditeur
     const messageSenderId = message.sender._id || message.sender;
     const currentUserId = userId._id || userId;
     
     if (messageSenderId.toString() !== currentUserId.toString()) {
       console.log('❌ Non autorisé - sender:', messageSenderId, 'user:', currentUserId);
-      return res.status(403).json({ 
-        success: false,
+      return res.status(403).json({success: false,
         error: 'Non autorisé à supprimer ce message' 
       });
     }
 
     const conversationId = message.conversationId.toString();
 
-    // ✅ Supprimer le message de la base de données
     await Message.findByIdAndDelete(messageId);
     console.log('✅ Message supprimé de la BDD');
 
-    // ✅ Émettre l'événement Socket.io
     const io = req.app.get('io');
     if (io) {
       console.log(`📡 Émission message-deleted pour conversation ${conversationId}`);
       
-      // Émettre dans la room de la conversation
       io.to(conversationId).emit('message-deleted', {
         messageId,
         conversationId
@@ -434,6 +423,43 @@ exports.deleteMessage = async (req, res) => {
       success: false,
       error: error.message 
     });
+  }
+};
+
+// ========================================
+// 🆕 SUPPRIMER POUR MOI UNIQUEMENT
+// ========================================
+exports.deleteMessageForMe = async (req, res) => {
+  console.log('🔍 ========== DELETE FOR ME APPELÉ ==========');
+  
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    console.log('🗑️ Suppression pour moi:', messageId, 'user:', userId);
+
+    const message = await Message.findById(messageId);
+    
+    if (!message) {
+      return res.status(404).json({ error: 'Message non trouvé' });
+    }
+
+    // Ajouter l'utilisateur à la liste deletedFor
+    if (!message.deletedFor.includes(userId)) {
+      message.deletedFor.push(userId);
+      await message.save();
+    }
+
+    console.log('✅ Message masqué pour:', userId);
+
+    res.json({ 
+      success: true, 
+      messageId,
+      deletedForMe: true
+    });
+  } catch (error) {
+    console.error('❌ Erreur deleteMessageForMe:', error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -685,7 +711,6 @@ exports.getReactions = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // ========================================
 // 🆕 PROGRAMMER UN MESSAGE
 // ========================================
@@ -699,7 +724,6 @@ exports.scheduleMessage = async (req, res) => {
 
     console.log('⏰ Programmation pour:', scheduledFor);
 
-    // Validation
     if (!scheduledFor) {
       return res.status(400).json({ error: 'Date de programmation requise' });
     }
@@ -707,11 +731,15 @@ exports.scheduleMessage = async (req, res) => {
     const scheduledDate = new Date(scheduledFor);
     const now = new Date();
 
+    console.log('🕐 Date programmée:', scheduledDate);
+    console.log('🕐 Date actuelle:', now);
+    console.log('🕐 Différence (ms):', scheduledDate - now);
+
     if (scheduledDate <= now) {
       return res.status(400).json({ error: 'La date doit être dans le futur' });
     }
 
-    // Créer le message programmé
+    // ✅ CRÉER LE MESSAGE PROGRAMMÉ (INVISIBLE POUR LES AUTRES)
     const message = new Message({
       conversationId,
       sender: userId,
@@ -723,14 +751,17 @@ exports.scheduleMessage = async (req, res) => {
       isScheduled: true,
       scheduledFor: scheduledDate,
       scheduledBy: userId,
-      isSent: false, // Pas encore envoyé
+      isSent: false,          // ❌ PAS ENCORE ENVOYÉ
       status: 'scheduled'
     });
 
     await message.save();
     await message.populate('sender', 'name profilePicture');
 
-    console.log('✅ Message programmé créé:', message._id);
+    console.log('✅ Message programmé créé:', message._id, 'pour', scheduledDate);
+
+    // ⚠️ NE PAS ÉMETTRE VIA SOCKET.IO ICI
+    // Le message sera émis par checkScheduledMessages quand ce sera l'heure
 
     res.status(201).json({ 
       success: true, 
@@ -742,7 +773,6 @@ exports.scheduleMessage = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // ========================================
 // 🆕 OBTENIR LES MESSAGES PROGRAMMÉS
 // ========================================
@@ -861,7 +891,6 @@ const checkScheduledMessages = async (io) => {
   try {
     const now = new Date();
     
-    // Trouver tous les messages programmés dont l'heure est passée
     const messagesToSend = await Message.find({
       isScheduled: true,
       isSent: false,
@@ -870,17 +899,20 @@ const checkScheduledMessages = async (io) => {
     .populate('sender', 'name profilePicture')
     .populate('conversationId');
 
-    if (messagesToSend.length === 0) return;
+    if (messagesToSend.length === 0) {
+      return; // Pas de messages à envoyer
+    }
 
     console.log(`⏰ ${messagesToSend.length} messages programmés à envoyer`);
 
     for (const message of messagesToSend) {
-      // Marquer comme envoyé
+      // ✅ MARQUER COMME ENVOYÉ
       message.isSent = true;
+      message.isScheduled = false;
       message.status = 'sent';
       await message.save();
 
-      // Mettre à jour la conversation
+      // ✅ METTRE À JOUR LA CONVERSATION
       await Conversation.findByIdAndUpdate(
         message.conversationId._id,
         {
@@ -889,10 +921,11 @@ const checkScheduledMessages = async (io) => {
         }
       );
 
-      // Émettre via Socket.IO
+      // ✅ ÉMETTRE LE MESSAGE VIA SOCKET.IO
       if (io) {
         io.to(message.conversationId._id.toString()).emit('receive-message', message);
         
+        // ✅ NOTIFIER TOUS LES PARTICIPANTS
         message.conversationId.participants.forEach(participant => {
           const participantId = participant._id ? participant._id.toString() : participant.toString();
           io.to(participantId).emit('should-refresh-conversations');
@@ -906,16 +939,14 @@ const checkScheduledMessages = async (io) => {
   }
 };
 
-// Exporter la fonction pour l'utiliser dans server.js
 module.exports.checkScheduledMessages = checkScheduledMessages;
+
+
 
 // ========================================
 // 🔍 RECHERCHE DE MESSAGES
 // ========================================
 
-/**
- * Rechercher des messages dans une conversation
- */
 exports.searchMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -931,7 +962,6 @@ exports.searchMessages = async (req, res) => {
       });
     }
 
-    // Vérifier que l'utilisateur fait partie de la conversation
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
       console.log('❌ Conversation introuvable');
@@ -953,26 +983,22 @@ exports.searchMessages = async (req, res) => {
       });
     }
 
-    // 🔥 CORRECTION : Recherche insensible à la casse et aux accents
     const searchRegex = new RegExp(query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
-    // 🔥 Vérifier si l'utilisateur a supprimé la conversation
     const deletedByUser = conversation.deletedBy?.find(
       item => item.userId?.toString() === userId.toString()
     );
 
     let dateFilter = {};
     if (deletedByUser) {
-      // Ne chercher que dans les messages APRÈS la suppression
       dateFilter = { createdAt: { $gt: deletedByUser.deletedAt } };
       console.log('🗑️ Recherche limitée aux messages après:', deletedByUser.deletedAt);
     }
 
-    // Rechercher les messages
     const messages = await Message.find({
       conversationId,
       content: searchRegex,
-      deletedBy: { $ne: userId },
+      deletedFor: { $ne: userId }, // ✅ Filtrer deletedFor
       ...dateFilter
     })
       .populate('sender', 'name profilePicture')
@@ -999,9 +1025,6 @@ exports.searchMessages = async (req, res) => {
   }
 };
 
-/**
- * Obtenir le contexte d'un message (messages avant/après)
- */
 exports.getMessageContext = async (req, res) => {
   try {
     const { messageId } = req.params;
@@ -1019,7 +1042,6 @@ exports.getMessageContext = async (req, res) => {
       });
     }
 
-    // Vérifier que l'utilisateur fait partie de la conversation
     const conversation = await Conversation.findById(targetMessage.conversationId);
     const isParticipant = conversation.participants.some(
       p => p._id.toString() === userId.toString()
@@ -1032,21 +1054,19 @@ exports.getMessageContext = async (req, res) => {
       });
     }
 
-    // Récupérer les messages avant
     const messagesBefore = await Message.find({
       conversationId: targetMessage.conversationId,
       createdAt: { $lt: targetMessage.createdAt },
-      deletedBy: { $ne: userId }
+      deletedFor: { $ne: userId } // ✅ Filtrer deletedFor
     })
       .populate('sender', 'name profilePicture')
       .sort({ createdAt: -1 })
       .limit(parseInt(contextSize));
 
-    // Récupérer les messages après
     const messagesAfter = await Message.find({
       conversationId: targetMessage.conversationId,
       createdAt: { $gt: targetMessage.createdAt },
-      deletedBy: { $ne: userId }
+      deletedFor: { $ne: userId } // ✅ Filtrer deletedFor
     })
       .populate('sender', 'name profilePicture')
       .sort({ createdAt: 1 })
@@ -1076,9 +1096,6 @@ exports.getMessageContext = async (req, res) => {
   }
 };
 
-/**
- * Recherche globale dans toutes les conversations
- */
 exports.searchAllMessages = async (req, res) => {
   try {
     const { query } = req.query;
@@ -1093,7 +1110,6 @@ exports.searchAllMessages = async (req, res) => {
       });
     }
 
-    // Trouver toutes les conversations de l'utilisateur
     const userConversations = await Conversation.find({
       participants: userId,
       deletedBy: { $ne: userId }
@@ -1105,14 +1121,13 @@ exports.searchAllMessages = async (req, res) => {
     const messages = await Message.find({
       conversationId: { $in: conversationIds },
       content: searchRegex,
-      deletedBy: { $ne: userId }
+      deletedFor: { $ne: userId } // ✅ Filtrer deletedFor
     })
       .populate('sender', 'name profilePicture')
       .populate('conversationId', 'isGroup groupName participants')
       .sort({ createdAt: -1 })
       .limit(100);
 
-    // Grouper par conversation
     const groupedByConversation = messages.reduce((acc, message) => {
       const convId = message.conversationId._id.toString();
       if (!acc[convId]) {

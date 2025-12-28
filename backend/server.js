@@ -5,6 +5,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const path = require("path");
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,7 +31,6 @@ app.use((req, res, next) => {
   console.log("====================");
   next();
 });
-//app.use(express.json());
 
 // ✅ Socket.IO Configuration
 const io = new Server(server, {
@@ -147,6 +147,27 @@ process.on("uncaughtException", (error) => {
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("🚨 Rejet non géré:", reason);
+});
+
+// ============================================
+// ⏰ CRON JOB POUR MESSAGES PROGRAMMÉS
+// ============================================
+const { checkScheduledMessages } = require('./controllers/messageController');
+
+// Attendre que MongoDB soit connecté avant de lancer le CRON
+mongoose.connection.once('open', () => {
+  console.log('✅ MongoDB connecté, démarrage du CRON pour messages programmés...');
+  
+  // Vérifier toutes les 30 secondes
+  setInterval(() => {
+    if (mongoose.connection.readyState === 1) {
+      checkScheduledMessages(io);
+    } else {
+      console.log('⚠️ MongoDB non connecté, skip CRON');
+    }
+  }, 30000); // 30 secondes
+
+  console.log('⏰ CRON job activé : vérification toutes les 30 secondes');
 });
 
 // Démarrage du serveur
