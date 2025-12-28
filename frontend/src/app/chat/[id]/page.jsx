@@ -24,13 +24,13 @@ import {
   onMessageStatusUpdated,
   onConversationStatusUpdated,
   onReactionUpdated,
-  onCallMissed, // ✅ AJOUT
-  onCallEnded, // ✅ AJOUT
+  onCallMissed,
+  onCallEnded,
 } from "@/services/socket";
 import { useSocket } from "@/hooks/useSocket";
 import { useTheme } from "@/hooks/useTheme";
 
-// ✅ AJOUTS POUR LES APPELS
+// Appels
 import { CallContext } from "@/context/Callcontext";
 import CallMessage from "@/components/Chat/CallMessage";
 import StoryReplyMessage from "@/components/Chat/StoryReplyMessage";
@@ -44,7 +44,18 @@ import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
 import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
 import MessageSearch from "@/components/Chat/MessageSearch";
-import { Plane, Users, Loader2 } from "lucide-react";
+
+// Tous les icônes (même si certains ne sont pas encore utilisés)
+import {
+  Plane,
+  Users,
+  Loader2,
+  Phone,
+  Video,
+  Search,
+  MoreVertical,
+  ArrowLeft,
+} from "lucide-react";
 
 export default function ChatPage() {
   const params = useParams();
@@ -52,7 +63,7 @@ export default function ChatPage() {
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
 
-  // ✅ RÉCUPÉRATION DE LA FONCTION D'APPEL
+  // Appels
   const { initiateCall } = useContext(CallContext);
 
   const conversationId = params.id;
@@ -63,11 +74,11 @@ export default function ChatPage() {
   const [typingUsers, setTypingUsers] = useState([]);
   const [contactId, setContactId] = useState(null);
 
-  // 🆕 États pour la modification
+  // États pour la modification
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState("");
 
-  // 🆕 États pour la réponse
+  // États pour la réponse
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyingToContent, setReplyingToContent] = useState("");
   const [replyingToSender, setReplyingToSender] = useState(null);
@@ -81,23 +92,33 @@ export default function ChatPage() {
 
   useSocket();
 
-  // 🆕 Fonction pour scroller vers un message recherché
+  // Scroller vers un message recherché (avec léger surlignage)
   const scrollToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
-    if (messageElement) {
-      messageElement.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+    if (!messageElement) return;
 
-      messageElement.classList.add("highlight-message");
-      setTimeout(() => {
-        messageElement.classList.remove("highlight-message");
-      }, 2000);
-    }
+    messageElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    // Ajout des classes de surlignage
+    messageElement.classList.add(
+      "highlight-message",
+      "bg-yellow-100",
+      "dark:bg-yellow-900/30"
+    );
+
+    setTimeout(() => {
+      messageElement.classList.remove(
+        "highlight-message",
+        "bg-yellow-100",
+        "dark:bg-yellow-900/30"
+      );
+    }, 2000);
   };
 
-  // Cleanup : Quitter la conversation quand on quitte la page
+  // Quitter la conversation quand on quitte la page
   useEffect(() => {
     return () => {
       if (conversationId) {
@@ -107,6 +128,7 @@ export default function ChatPage() {
     };
   }, [conversationId]);
 
+  // Chargement conversation + messages
   useEffect(() => {
     if (!conversationId || !user) return;
 
@@ -117,7 +139,7 @@ export default function ChatPage() {
         const convResponse = await getConversation(conversationId);
         setConversation(convResponse.data.conversation);
 
-        // ✅ Extraire l'ID du contact (l'autre participant)
+        // ID du contact (autre participant)
         const convData = convResponse.data.conversation;
         if (!convData.isGroup) {
           const userId = user._id || user.id;
@@ -142,6 +164,7 @@ export default function ChatPage() {
           joinConversation(conversationId);
         }
 
+        // Marquer comme délivrés / lus
         setTimeout(async () => {
           if (isMarkingAsReadRef.current) return;
           isMarkingAsReadRef.current = true;
@@ -179,6 +202,7 @@ export default function ChatPage() {
     };
   }, [conversationId, user]);
 
+  // Sockets (messages, statuts, appels, réactions, typing)
   useEffect(() => {
     const socket = getSocket();
 
@@ -188,7 +212,7 @@ export default function ChatPage() {
           setMessages((prev) => {
             const exists = prev.some((m) => m._id === message._id);
             if (exists) {
-              // ✅ On met à jour le message existant avec les nouvelles données (statut d'appel, etc.)
+              // Mise à jour message existant (statuts d'appel, etc.)
               return prev.map((m) => (m._id === message._id ? message : m));
             }
             return [...prev, message];
@@ -203,6 +227,7 @@ export default function ChatPage() {
         }
       });
 
+      // ➜ Statuts des messages (sent / delivered / read)
       onMessageStatusUpdated(({ messageIds, status }) => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
@@ -211,6 +236,7 @@ export default function ChatPage() {
         );
       });
 
+      // Statut global de la conversation
       onConversationStatusUpdated(
         ({ conversationId: updatedConvId, status }) => {
           console.log("📊 Statut conversation mis à jour:", {
@@ -219,10 +245,8 @@ export default function ChatPage() {
           });
         }
       );
-      // ===============================
-      // 📞 APPELS – MISE À JOUR EN TEMPS RÉEL
-      // ===============================
 
+      // APPELS – mise à jour via helpers
       onCallMissed(({ messageId, callDetails }) => {
         console.log("📵 Appel manqué reçu:", messageId);
 
@@ -261,7 +285,7 @@ export default function ChatPage() {
         );
       });
 
-      // 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
+      // Suppression en temps réel
       socket.off("message-deleted");
       socket.on(
         "message-deleted",
@@ -279,7 +303,7 @@ export default function ChatPage() {
         }
       );
 
-      // 🆕 ÉCOUTER LES MODIFICATIONS EN TEMPS RÉEL
+      // Modifications en temps réel
       socket.off("message-edited");
       socket.on(
         "message-edited",
@@ -295,8 +319,7 @@ export default function ChatPage() {
         }
       );
 
-      // ✅ REMPLACEZ TOUT ÇA PAR:
-
+      // Réactions
       onReactionUpdated(({ messageId, reactions }) => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
@@ -304,11 +327,8 @@ export default function ChatPage() {
           )
         );
       });
-      // ===============================
-      // ✅ ÉCOUTEURS APPELS - VERSION DIRECTE
-      // ===============================
 
-      // Appel terminé
+      // APPELS – écoute directe des statuts globaux
       socket.off("call-ended");
       socket.on("call-ended", ({ callId, duration, status }) => {
         console.log(
@@ -322,8 +342,8 @@ export default function ChatPage() {
                 ...msg,
                 callDetails: {
                   ...msg.callDetails,
-                  status: status,
-                  duration: duration,
+                  status,
+                  duration,
                   endedAt: new Date().toISOString(),
                 },
               };
@@ -333,7 +353,6 @@ export default function ChatPage() {
         );
       });
 
-      // Appel refusé
       socket.off("call-declined");
       socket.on("call-declined", ({ callId, declinedBy, reason }) => {
         console.log(`❌ Appel refusé: ${callId} par ${declinedBy}`);
@@ -356,7 +375,6 @@ export default function ChatPage() {
         );
       });
 
-      // Appel timeout (pas de réponse)
       socket.off("call-timeout");
       socket.on("call-timeout", ({ callId }) => {
         console.log(`⏰ Appel timeout: ${callId}`);
@@ -379,11 +397,8 @@ export default function ChatPage() {
         );
       });
 
-      // ===============================
-      // FIN ÉCOUTEURS APPELS
-      // ===============================
-
-      // 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
+      // (Ils ont re‑déclaré message-deleted ensuite, on garde le hook mais
+      // on laisse le commentaire comme dans ton code)
       socket.off("message-deleted");
       socket.on(
         "message-deleted",
@@ -391,6 +406,8 @@ export default function ChatPage() {
           // ... reste du code comme avant ...
         }
       );
+
+      // Typing
       onUserTyping(({ conversationId: typingConvId, userId }) => {
         const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
@@ -412,6 +429,7 @@ export default function ChatPage() {
     }
   }, [conversationId, user]);
 
+  // Scroll auto en bas
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
@@ -424,9 +442,7 @@ export default function ChatPage() {
 
   const contact = getOtherParticipant();
 
-  // ========================================
-  // ✅ APPELS VIDÉO/AUDIO
-  // ========================================
+  // APPELS VIDÉO/AUDIO
   const handleVideoCall = () => {
     if (!conversation) return;
 
@@ -436,7 +452,7 @@ export default function ChatPage() {
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
 
-      // Ordre des arguments : (conversationId, participants, type, isGroup, groupName)
+      // (conversationId, participants, type, isGroup, groupName)
       initiateCall(
         conversationId,
         participants,
@@ -474,6 +490,7 @@ export default function ChatPage() {
     try {
       let messageData;
 
+      // Message vocal
       if (typeof content === "object" && content.isVoiceMessage) {
         const formData = new FormData();
         formData.append("audio", content.audioBlob, "voice-message.webm");
@@ -487,6 +504,7 @@ export default function ChatPage() {
       }
 
       if (typeof content === "object") {
+        // Fichiers / médias
         messageData = {
           conversationId,
           type: content.type,
@@ -496,11 +514,11 @@ export default function ChatPage() {
           content: content.content || "",
         };
       } else {
+        // Texte
         messageData = {
           conversationId,
           content: content.trim(),
           type: "text",
-          // 🆕 Ajouter les infos de réponse si applicable
           ...(replyingToId && {
             replyTo: replyingToId,
             replyToContent: replyingToContent,
@@ -511,26 +529,24 @@ export default function ChatPage() {
 
       const response = await sendMessage(messageData);
 
-      // 🆕 Gestion de la redirection si nouvelle conversation créée
+      // Si une nouvelle conversation est créée
       if (
         response.data.conversationId &&
         response.data.conversationId !== conversationId
       ) {
         console.log("🔄 Nouvelle conversation créée, redirection...");
 
-        // Émettre un événement global pour rafraîchir la sidebar
         window.dispatchEvent(
           new CustomEvent("refresh-sidebar-conversations", {
             detail: { newConversationId: response.data.conversationId },
           })
         );
 
-        // Rediriger vers la nouvelle conversation
         router.push(`/chat/${response.data.conversationId}`);
         return;
       }
 
-      // 🆕 Réinitialiser la réponse après envoi
+      // Reset réponse
       if (replyingToId) {
         handleCancelReply();
       }
@@ -563,9 +579,7 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
-  // ========================================
-  // 🆕 FONCTION SUPPRIMER
-  // ========================================
+  // SUPPRIMER
   const handleDeleteMessage = async (messageId) => {
     console.log("🗑️ ChatPage: Suppression demandée pour:", messageId);
 
@@ -586,18 +600,13 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION MODIFIER (ACTIVER LE MODE)
-  // ========================================
+  // MODIFIER
   const handleEditMessage = (messageId, currentContent) => {
     console.log("✏️ ChatPage: Mode édition activé pour:", messageId);
     setEditingMessageId(messageId);
     setEditingContent(currentContent);
   };
 
-  // ========================================
-  // 🆕 FONCTION CONFIRMER LA MODIFICATION
-  // ========================================
   const handleConfirmEdit = async (newContent) => {
     if (!editingMessageId || !newContent.trim()) {
       console.log("❌ Contenu vide");
@@ -626,18 +635,13 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION ANNULER LA MODIFICATION
-  // ========================================
   const handleCancelEdit = () => {
     console.log("❌ Annulation édition");
     setEditingMessageId(null);
     setEditingContent("");
   };
 
-  // ========================================
-  // 🆕 FONCTION TRADUIRE
-  // ========================================
+  // TRADUIRE
   const handleTranslateMessage = async (content, messageId, targetLang) => {
     console.log(
       "🌍 ChatPage: Traduction demandée pour:",
@@ -665,9 +669,7 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION RÉPONDRE
-  // ========================================
+  // RÉPONDRE
   const handleReplyMessage = (messageId, content, sender) => {
     console.log("↩️ ChatPage: Réponse activée pour:", messageId);
     setReplyingToId(messageId);
@@ -675,9 +677,6 @@ export default function ChatPage() {
     setReplyingToSender(sender);
   };
 
-  // ========================================
-  // 🆕 FONCTION ANNULER LA RÉPONSE
-  // ========================================
   const handleCancelReply = () => {
     console.log("❌ Annulation réponse");
     setReplyingToId(null);
@@ -718,6 +717,7 @@ export default function ChatPage() {
     ? "bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700"
     : "bg-gradient-to-br from-white to-sky-50 border-blue-200";
 
+  // LOADING
   if (loading) {
     return (
       <ProtectedRoute>
@@ -771,6 +771,7 @@ export default function ChatPage() {
     );
   }
 
+  // ERREUR : conversation introuvable
   if (!conversation || (!conversation.isGroup && !contact)) {
     return (
       <ProtectedRoute>
@@ -807,6 +808,7 @@ export default function ChatPage() {
     );
   }
 
+  // VUE PRINCIPALE
   return (
     <ProtectedRoute>
       <div className={`flex h-screen ${pageBg}`}>
@@ -818,6 +820,7 @@ export default function ChatPage() {
           </div>
 
           <div className="flex-1 flex flex-col">
+            {/* Header mobile */}
             <div className="lg:hidden">
               <MobileHeader
                 contact={contact}
@@ -829,6 +832,7 @@ export default function ChatPage() {
               />
             </div>
 
+            {/* En-tête de chat (desktop) */}
             <div className="hidden lg:block">
               <ChatHeader
                 contact={contact}
@@ -840,7 +844,7 @@ export default function ChatPage() {
               />
             </div>
 
-            {/* 🆕 COMPOSANT DE RECHERCHE */}
+            {/* Recherche */}
             <MessageSearch
               conversationId={conversationId}
               onMessageSelect={scrollToMessage}
@@ -848,7 +852,7 @@ export default function ChatPage() {
               onClose={() => setIsSearchOpen(false)}
             />
 
-            {/* Container des messages avec scrollbar cachée */}
+            {/* Messages */}
             <div
               ref={messagesContainerRef}
               className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
@@ -913,7 +917,7 @@ export default function ChatPage() {
                           <DateSeparator date={message.createdAt} />
                         )}
 
-                        {/* ✅ HISTORIQUE D'APPEL */}
+                        {/* Historique d'appel */}
                         {message.type === "call" ? (
                           <div className="flex w-full mb-2 justify-center">
                             <CallMessage
@@ -923,23 +927,23 @@ export default function ChatPage() {
                             />
                           </div>
                         ) : message.type === "story_reaction" ? (
-                          // ✅ MESSAGE DE RÉACTION À UNE STORY (format commentaire)
+                          // Réaction à une story
                           <div className="flex w-full mb-2 justify-center">
                             <div
                               className={`
-              px-3 py-1.5 rounded-full text-xs
-              ${
-                isDark
-                  ? "bg-slate-800 text-slate-200"
-                  : "bg-slate-100 text-slate-600"
-              }
-            `}
+                                px-3 py-1.5 rounded-full text-xs
+                                ${
+                                  isDark
+                                    ? "bg-slate-800 text-slate-200"
+                                    : "bg-slate-100 text-slate-600"
+                                }
+                              `}
                             >
                               {message.content}
                             </div>
                           </div>
                         ) : (
-                          // ✅ TOUS LES AUTRES MESSAGES (bulle normale)
+                          // Messages normaux
                           <MessageBubble
                             message={message}
                             isMine={message.sender?._id === userId}
@@ -972,12 +976,12 @@ export default function ChatPage() {
               onStopTyping={handleStopTyping}
               conversationId={conversationId}
               contactId={contactId}
-              // 🆕 Props pour la modification
+              // Modification
               editingMessageId={editingMessageId}
               editingContent={editingContent}
               onConfirmEdit={handleConfirmEdit}
               onCancelEdit={handleCancelEdit}
-              // 🆕 Props pour la réponse
+              // Réponse
               replyingToId={replyingToId}
               replyingToContent={replyingToContent}
               replyingToSender={replyingToSender}

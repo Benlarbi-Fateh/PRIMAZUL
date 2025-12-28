@@ -169,34 +169,71 @@ export default function StatusPage() {
   }, [user, fetchStatuses]);
 
   useEffect(() => {
-    const statusId = searchParams?.get("statusId");
-    if (!statusId) return;
-    if (!user) return;
-    if (loading) return;
+  const openUserId = searchParams?.get("open");
+  const statusId = searchParams?.get("statusId");
+  
+  if (!user) return;
+  if (loading) return;
 
-    // 1️⃣ Chercher dans MES statuts
+  console.log("🔍 Paramètres URL:", { openUserId, statusId });
+
+  // 1️⃣ Si on a cliqué sur un avatar depuis chat/sidebar
+  if (openUserId) {
+    console.log("👤 Ouverture statut pour userId:", openUserId);
+    
+    // A. Si c'est MON propre ID
+    if (openUserId === (user._id || user.id)) {
+      if (myStatuses.length > 0) {
+        console.log("✅ Ouverture de MES statuts");
+        openViewer({ user, statuses: myStatuses });
+        setShowMobileSidebar(false);
+        return;
+      } else {
+        console.log("ℹ️ Je n'ai pas de statut");
+        // Vous pourriez ouvrir le créateur ici
+        // openCreator();
+      }
+    }
+    
+    // B. Chercher dans les statuts des amis
+    const friendGroup = friendsStatuses.find(g => g.user._id === openUserId);
+    if (friendGroup) {
+      console.log("✅ Statut d'ami trouvé, ouverture viewer");
+      openViewer(friendGroup);
+      setShowMobileSidebar(false);
+      return;
+    }
+    
+    console.log("❌ Aucun statut trouvé pour cet utilisateur");
+  }
+
+  // 2️⃣ Logique existante pour statusId (pour les liens directs)
+  if (statusId) {
+    console.log("🔗 Ouverture statut spécifique:", statusId);
+    
+    // Chercher dans MES statuts
     const myIndex = myStatuses.findIndex((s) => s._id === statusId);
     if (myIndex !== -1) {
-      // Ouvrir le viewer sur mon statut
       openViewer({ user, statuses: myStatuses });
       setCurrentIndex(myIndex);
       setShowMobileSidebar(false);
       return;
     }
 
-    // 2️⃣ Chercher dans les statuts des amis
+    // Chercher dans les statuts des amis
     for (const group of friendsStatuses) {
       const idx = group.statuses.findIndex((s) => s._id === statusId);
       if (idx !== -1) {
-        openViewer(group);        // ouvre le viewer pour cette personne
-        setCurrentIndex(idx);     // se positionne sur la bonne story
+        openViewer(group);
+        setCurrentIndex(idx);
         setShowMobileSidebar(false);
         return;
       }
     }
 
-    // 3️⃣ Si pas trouvé (story expirée, par ex.), on ne fait rien de spécial
-  }, [searchParams, user, loading, myStatuses, friendsStatuses]);
+    console.log("❌ Statut spécifique non trouvé");
+  }
+}, [searchParams, user, loading, myStatuses, friendsStatuses]);
 
   // ============================================
   // GESTION DU VIEWER
@@ -293,6 +330,14 @@ export default function StatusPage() {
   };
 
   const closeViewer = () => {
+  // Vérifier si on est arrivé depuis un clic sur avatar
+  const openUserId = searchParams?.get("open");
+  
+  if (openUserId) {
+    // Si oui, retourner en arrière (vers le chat)
+    router.back();
+  } else {
+    // Sinon, fermer normalement le viewer
     setViewingGroup(null);
     setCurrentIndex(0);
     setProgress(0);
@@ -301,7 +346,8 @@ export default function StatusPage() {
     setReplyText("");
     setShowMobileSidebar(true);
     fetchStatuses();
-  };
+  }
+};
 
   const openViewer = (group) => {
     setViewingGroup(group);

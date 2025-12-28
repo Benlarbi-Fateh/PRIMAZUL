@@ -87,7 +87,7 @@ export default function Sidebar({ activeConversationId }) {
     return searchResults;
   }, [activeTab, searchTerm, searchResults]);
 
-  // Styles basés sur le thème avec identité bleue
+  // Styles basés sur le thème
   const sidebarBg = isDark
     ? "bg-gradient-to-b from-blue-950/95 via-blue-950/90 to-blue-950/95 backdrop-blur-xl border-r border-blue-800/30"
     : "bg-white/95 backdrop-blur-xl border-r border-blue-100";
@@ -155,26 +155,23 @@ export default function Sidebar({ activeConversationId }) {
     }
   };
 
-  // REMPLACEZ LA FONCTION fetchConversations PAR CELLE-CI :
-const fetchConversations = useCallback(async () => {
-  try {
-    const response = await getConversations();
-    setConversations(response.data.conversations || []);
-    setLoading(false);
-  } catch (error) {
-    console.error('Erreur lors du chargement des conversations:', error);
-    setLoading(false);
-  }
-}, []);
+  const fetchConversations = useCallback(async () => {
+    try {
+      const response = await getConversations();
+      setConversations(response.data.conversations || []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Erreur lors du chargement des conversations:', error);
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
       fetchConversations();
       fetchInvitations();
       
-      // Rafraîchir périodiquement SAUF les conversations (évite de recharger les supprimées)
       const interval = setInterval(() => {
-        // Ne rafraîchir QUE les invitations
         fetchInvitations();
       }, 60000);
       
@@ -315,50 +312,43 @@ const fetchConversations = useCallback(async () => {
     return () => clearTimeout(searchTimeoutRef.current);
   }, [searchTerm, activeTab]);
 
-useEffect(() => {
-  const handleRefreshConversations = (event) => {
-    console.log('🔄 Rafraîchissement explicite des conversations');
-    // ✅ Quand on demande un refresh (par ex. depuis "Restaurer"), on vide les caches locaux
-    setHiddenConversationIds(new Set());
-    fetchConversations();
-  };
-  
-  window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-  
-  return () => {
-    window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-  };
-}, [fetchConversations]);
-
-  // ✅ AJOUTER CE NOUVEAU BLOC (vers ligne 220)
-useEffect(() => {
-  const handleConversationCleared = (event) => {
-    const { conversationId } = event.detail || {};
-    
-    if (conversationId) {
-      console.log('🔄 Sidebar: Conversation vidée:', conversationId);
-      
-      // 🔥 Ne PAS supprimer, juste rafraîchir les conversations
+  useEffect(() => {
+    const handleRefreshConversations = (event) => {
+      console.log('🔄 Rafraîchissement explicite des conversations');
+      setHiddenConversationIds(new Set());
       fetchConversations();
-    }
-  };
+    };
+    
+    window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+    
+    return () => {
+      window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
+    };
+  }, [fetchConversations]);
 
-  window.addEventListener('conversation-cleared', handleConversationCleared);
+  useEffect(() => {
+    const handleConversationCleared = (event) => {
+      const { conversationId } = event.detail || {};
+      
+      if (conversationId) {
+        console.log('🔄 Sidebar: Conversation vidée:', conversationId);
+        fetchConversations();
+      }
+    };
 
-  return () => {
-    window.removeEventListener('conversation-cleared', handleConversationCleared);
-  };
-}, [fetchConversations]);
+    window.addEventListener('conversation-cleared', handleConversationCleared);
 
-  // 🔥 NOUVEAU : Écouter les événements de blocage/déblocage
+    return () => {
+      window.removeEventListener('conversation-cleared', handleConversationCleared);
+    };
+  }, [fetchConversations]);
+
   useEffect(() => {
     const handleBlockStatusChanged = async () => {
       console.log('🔄 Événement block-status-changed détecté, rafraîchissement...');
       
-      // Rafraîchir la liste des conversations
       await fetchConversations();
       
-      // Si on est dans l'onglet contacts, rafraîchir aussi la recherche
       if (activeTab === 'contacts' && searchTerm.trim()) {
         try {
           const response = await searchUsers(searchTerm);
@@ -369,7 +359,6 @@ useEffect(() => {
       }
     };
 
-    // Écouter l'événement global
     window.addEventListener('block-status-changed', handleBlockStatusChanged);
     
     return () => {
@@ -377,63 +366,13 @@ useEffect(() => {
     };
   }, [activeTab, searchTerm, fetchConversations]);
 
-   // 🔥 NOUVEAU : Rafraîchir automatiquement quand on change d'onglet
   useEffect(() => {
     if (activeTab === 'chats') {
-      // Rafraîchir les conversations quand on revient sur l'onglet Chats
       fetchConversations();
     }
   }, [activeTab, fetchConversations]);
 
-
-
-
-// 🆕 ÉCOUTER LES RÉGÉNÉRATIONS DE CONVERSATIONS
-useEffect(() => {
-  const socket = getSocket();
-
-  if (socket && user) {
-    // ❌ IMPORTANT : ne plus écouter conversation-updated pour modifier la liste
-    // Ça évite qu'une conversation archivée réapparaisse même une fraction de seconde
-
-    socket.on("group-created", (group) => {
-      setConversations((prevConversations) => {
-        const exists = prevConversations.some(
-          (conv) => conv._id === group._id
-        );
-        if (!exists) {
-          return [group, ...prevConversations];
-        }
-        return prevConversations;
-      });
-    });
-
-    socket.on("conversation-read", ({ conversationId }) => {
-      setConversations((prevConversations) =>
-        prevConversations.map((conv) =>
-          conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
-        )
-      );
-    });
-
-    onShouldRefreshConversations(() => {
-      clearTimeout(refreshTimeoutRef.current);
-      refreshTimeoutRef.current = setTimeout(() => {
-        fetchConversations();
-      }, 300);
-    });
-
-    return () => {
-      // ❌ ne plus faire off("conversation-updated") puisqu'on ne l'écoute plus
-      socket.off("group-created");
-      socket.off("conversation-read");
-      socket.off("should-refresh-conversations");
-      clearTimeout(refreshTimeoutRef.current);
-    };
-  }
-}, [user, fetchConversations]);
-
- useEffect(() => {
+  useEffect(() => {
     if (!user) return;
     
     const socket = getSocket();
@@ -457,7 +396,6 @@ useEffect(() => {
         setSearchTerm("");
         setSearchResults([]);
       } else {
-        // Rafraîchir les conversations quand on va dans l'onglet contacts
         fetchConversations();
       }
     }
@@ -509,12 +447,10 @@ useEffect(() => {
       throw new Error('Invitation non valide');
     }
 
-    // 1. Supprimer l'invitation des listes frontend
     setReceivedInvitations((prev) =>
       prev.filter((inv) => inv._id !== invitationId)
     );
 
-    // 2. Ajouter la conversation à la liste SI elle n'existe pas déjà
     if (conversation) {
       setConversations((prev) => {
         const exists = prev.some((conv) => conv._id === conversation._id);
@@ -525,7 +461,6 @@ useEffect(() => {
       });
     }
 
-    // 3. Émettre l'événement socket
     if (invitation && conversation) {
       emitInvitationAccepted({
         senderId: invitation.sender._id,
@@ -534,42 +469,33 @@ useEffect(() => {
       });
     }
 
-    // 4. Rafraîchir la liste des conversations (important)
     setTimeout(() => {
       fetchConversations();
     }, 500);
 
-    // 5. Naviguer vers la conversation
     setActiveTab("chats");
     if (conversation?._id) {
       router.push(`/chat/${conversation._id}`);
     }
 
-    // 6. Afficher un message de succès
     alert("✅ Invitation acceptée avec succès !");
     
   } catch (error) {
     console.error("Erreur acceptation invitation:", error);
     
-    // Gestion spécifique des erreurs
     if (error.response?.status === 409) {
-      // Invitation déjà traitée
       alert("Cette invitation a déjà été acceptée ou n'est plus valable.");
       
-      // Rafraîchir les données
       await fetchInvitations();
       await fetchConversations();
       
     } else if (error.response?.data?.error?.includes("déjà ce contact")) {
-      // Contact déjà existant (normal, car le backend l'a créé)
       alert("✅ Contact ajouté avec succès !");
       
-      // Rafraîchir quand même
       await fetchInvitations();
       await fetchConversations();
       
     } else {
-      // Erreur générale
       alert(
         error.response?.data?.error ||
         error.message ||
@@ -656,6 +582,7 @@ useEffect(() => {
     const participant = conv.participants?.find(
       (p) => (p._id || p.id) !== userId
     );
+    
     return participant;
   };
 
@@ -666,42 +593,41 @@ useEffect(() => {
   };
 
   const getLastMessagePreview = (conv) => {
-  const userId = user?._id || user?.id;
+    const userId = user?._id || user?.id;
 
-  // Est-ce que MOI j'ai vidé cette discussion ?
-  const myDeletion = conv.deletedBy?.find(
-    (item) => item.userId?.toString() === userId?.toString()
-  );
+    // Est-ce que MOI j'ai vidé cette discussion ?
+    const myDeletion = conv.deletedBy?.find(
+      (item) => item.userId?.toString() === userId?.toString()
+    );
 
-  // S'il n'y a aucun lastMessage pour cette conversation
-  if (!conv.lastMessage) {
-    return "Démarrer la conversation";
-  }
-
-  // Si j'ai vidé la discussion, on regarde si le lastMessage est AVANT ou APRÈS la suppression
-  if (myDeletion && myDeletion.deletedAt && conv.lastMessage.createdAt) {
-    const deletedAt = new Date(myDeletion.deletedAt);
-    const lastMsgDate = new Date(conv.lastMessage.createdAt);
-
-    // 👉 Le lastMessage est plus ancien que la suppression → on ne l'affiche pas
-    if (lastMsgDate <= deletedAt) {
+    // S'il n'y a aucun lastMessage pour cette conversation
+    if (!conv.lastMessage) {
       return "Démarrer la conversation";
     }
-    // Sinon, c'est un nouveau message après la suppression → on l'affiche normalement
-  }
 
-  const lastMsg = conv.lastMessage;
+    // Si j'ai vidé la discussion, on regarde si le lastMessage est AVANT ou APRÈS la suppression
+    if (myDeletion && myDeletion.deletedAt && conv.lastMessage.createdAt) {
+      const deletedAt = new Date(myDeletion.deletedAt);
+      const lastMsgDate = new Date(conv.lastMessage.createdAt);
 
-  // Types spéciaux
-  if (lastMsg.type === "image") return "🖼️ Image";
-  if (lastMsg.type === "video") return "🎬 Vidéo";
-  if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
-  if (lastMsg.type === "voice") return "🎤 Message vocal";
+      // 👉 Le lastMessage est plus ancien que la suppression → on ne l'affiche pas
+      if (lastMsgDate <= deletedAt) {
+        return "Démarrer la conversation";
+      }
+    }
 
-  // Texte
-  const preview = lastMsg.content || "";
-  return preview.length > 40 ? preview.substring(0, 40) + "..." : preview;
-};
+    const lastMsg = conv.lastMessage;
+
+    // Types spéciaux
+    if (lastMsg.type === "image") return "🖼️ Image";
+    if (lastMsg.type === "video") return "🎬 Vidéo";
+    if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
+    if (lastMsg.type === "voice") return "🎤 Message vocal";
+
+    // Texte
+    const preview = lastMsg.content || "";
+    return preview.length > 40 ? preview.substring(0, 40) + "..." : preview;
+  };
 
   const formatMessageTime = (date) => {
     if (!date) return "";
@@ -732,6 +658,54 @@ useEffect(() => {
     return null;
   };
 
+  // 🆕 Charger les statuts des contacts
+  const [statusCache, setStatusCache] = useState(new Map());
+
+  // 🆕 Fonction pour charger les statuts une fois
+  const loadAllStatuses = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const statusMap = new Map();
+        
+        // Remplir le Map avec les statuts
+        if (Array.isArray(data)) {
+          data.forEach(status => {
+            if (status.user?._id) {
+              statusMap.set(status.user._id, true);
+            }
+          });
+        } else if (data?.friendsStatuses) {
+          const allStatuses = [...(data.myStatuses || []), ...(data.friendsStatuses || [])];
+          allStatuses.forEach(status => {
+            if (status.user?._id) {
+              statusMap.set(status.user._id, true);
+            }
+          });
+        }
+        
+        setStatusCache(statusMap);
+        console.log(`✅ Statuts chargés pour ${statusMap.size} utilisateurs`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement global statuts:', error);
+    }
+  }, []);
+
+  // 🆕 Charger les statuts au montage
+  useEffect(() => {
+    loadAllStatuses();
+  }, [loadAllStatuses]);
+
+  // 🆕 Vérifier si un contact a un statut
+  const checkContactHasStatus = (contactId) => {
+    return statusCache.has(contactId);
+  };
 
   const totalInvitations = receivedInvitations.length;
 
@@ -1157,7 +1131,14 @@ useEffect(() => {
         ) : (
           <div className="flex flex-col h-full">
             <div className="flex-1">
-              {conversations.length === 0 ? (
+              {conversations.filter(conv => {
+                if (hiddenConversationIds.has(conv._id)) return false;
+                const isArchivedByMe = conv.archivedBy?.some(
+                  item => item.userId?.toString() === currentUserId?.toString()
+                );
+                if (isArchivedByMe) return false;
+                return true;
+              }).length === 0 ? (
                 <div className="p-12 text-center animate-fade-in">
                   <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg ${emptyStateBg}`}>
                     <MessageCircle className={`w-12 h-12 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
@@ -1179,17 +1160,13 @@ useEffect(() => {
                 <div className="p-3 space-y-2">
                   {conversations
                   .filter(conv => {
-    // 1) Ne pas afficher celles qu'on a cachées localement (quand on clique Archiver)
-    if (hiddenConversationIds.has(conv._id)) return false;
-
-    // 2) Ne pas afficher celles qui sont archivées pour moi en base
-    const isArchivedByMe = conv.archivedBy?.some(
-      item => item.userId?.toString() === currentUserId?.toString()
-    );
-    if (isArchivedByMe) return false;
-
-    return true;
-  })
+                    if (hiddenConversationIds.has(conv._id)) return false;
+                    const isArchivedByMe = conv.archivedBy?.some(
+                      item => item.userId?.toString() === currentUserId?.toString()
+                    );
+                    if (isArchivedByMe) return false;
+                    return true;
+                  })
                   .map((conv) => {
                     const isActive = conv._id === activeConversationId;
                     const messageStatus = getMessageStatus(conv);
@@ -1199,43 +1176,60 @@ useEffect(() => {
                     const displayName = getDisplayName(conv);
                     const displayImage = getDisplayImage(conv);
                     const contact = getOtherParticipant(conv);
+                    const contactHasStatus = contact ? checkContactHasStatus(contact._id) : false;
 
                     return (
-                      
                       <div
                         key={conv._id}
                         className="relative group animate-slide-in-left"
                         onMouseLeave={() => setMenuOpen(null)}
                       >
                         <button
-                          onClick={() => router.push(`/chat/${conv._id}`)}
-                          className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${conversationCard(isActive, unreadCount > 0)}`}
-                        >
-                          <div className="relative shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={displayImage}
-                              alt={displayName}
-                              className={`w-14 h-14 rounded-2xl object-cover ring-2 ${
-                                isDark ? 'ring-blue-800' : 'ring-blue-100'
-                              }`}
-                              onError={(e) => {
-                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                  displayName
-                                )}&background=0ea5e9&color=fff&bold=true`;
-                              }}
-                            />
-                            {!conv.isGroup &&
-                              contact &&
-                              isUserOnline(contact._id) && (
-                                <span className="absolute bottom-0 right-0 w-4 h-4 bg-cyan-500 border-2 border-blue-900 rounded-full shadow-md"></span>
-                              )}
-                            {conv.isGroup && (
-                              <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-blue-900 rounded-full flex items-center justify-center shadow-md">
-                                <Users className="w-3 h-3 text-white" />
-                              </span>
-                            )}
-                          </div>
+  onClick={() => router.push(`/chat/${conv._id}`)}
+  className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${conversationCard(isActive, unreadCount > 0)}`}
+>
+  <div className="relative shrink-0">
+    {/* Cercle de statut pour les conversations individuelles */}
+    {!conv.isGroup && contact && contactHasStatus && (
+      <div  className="absolute -inset-1 rounded-full border-3 border-blue-500"></div>
+    )}
+    
+    {/* Avatar - CLICK POUR STATUT SI LE CONTACT EN A UN */}
+    <div 
+      className={`relative w-16 h-16 rounded-full overflow-hidden cursor-pointer ${
+        !conv.isGroup && contact && contactHasStatus ? "ring-2 ring-white dark:ring-slate-900" : ""
+      }`}
+      onClick={(e) => {
+        e.stopPropagation(); // 🔥 IMPORTANT : empêche l'ouverture de la conversation
+        if (!conv.isGroup && contact && contactHasStatus) {
+          router.push(`/status?open=${contact._id}`)
+        }
+      }}
+    >
+      <img
+        src={displayImage}
+        alt={displayName}
+        className="w-full h-full object-cover"
+        onError={(e) => {
+          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            displayName
+          )}&background=0ea5e9&color=fff&bold=true`;
+        }}
+      />
+    </div>
+    
+    {/* Point vert si en ligne (et pas de story) */}
+    {!conv.isGroup && contact && !contactHasStatus && isUserOnline(contact._id) && (
+      <span className="absolute bottom-0 right-0 w-4 h-4 bg-cyan-500 border-2 border-blue-900 rounded-full shadow-md"></span>
+    )}
+    
+    {/* Pour les groupes */}
+    {conv.isGroup && (
+      <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-blue-900 rounded-full flex items-center justify-center shadow-md">
+        <Users className="w-3 h-3 text-white" />
+      </span>
+    )}
+  </div>
 
                           <div className="flex-1 text-left min-w-0">
                             <div className="flex items-center justify-between mb-1">
@@ -1317,95 +1311,73 @@ useEffect(() => {
                               : 'bg-white border-blue-100'
                           }`}>
                             <button
-  onClick={async (e) => {
-    e.stopPropagation();
+                              onClick={async (e) => {
+                                e.stopPropagation();
 
-    if (!confirm(
-      `Archiver cette discussion ?\n\n` +
-      `💡 Effets :\n` +
-      `- Elle disparaîtra de la liste principale des chats\n` +
-      `- Elle sera visible dans Paramètres > Archives\n` +
-      `- Vous pourrez la restaurer plus tard`
-    )) {
-      return;
-    }
+                                if (!confirm(
+                                  `Archiver cette discussion ?\n\n` +
+                                  `💡 Effets :\n` +
+                                  `- Elle disparaîtra de la liste principale des chats\n` +
+                                  `- Elle sera visible dans Paramètres > Archives\n` +
+                                  `- Vous pourrez la restaurer plus tard`
+                                )) {
+                                  return;
+                                }
 
-    // ✅ 1. Cacher IMMÉDIATEMENT la conversation localement
-    setHiddenConversationIds(prev => {
-      const next = new Set(prev);
-      next.add(conv._id);
-      return next;
-    });
-    setMenuOpen(null);
+                                setHiddenConversationIds(prev => {
+                                  const next = new Set(prev);
+                                  next.add(conv._id);
+                                  return next;
+                                });
+                                setMenuOpen(null);
 
-    try {
-      // ✅ 2. Appel API pour archiver en base
-      const resp = await archiveConversation(conv._id);
-
-      if (!resp.data.success) {
-        alert(resp.data.message || "Erreur lors de l'archivage (serveur)");
-        // Optionnel : rollback si tu veux vraiment gérer le cas d'erreur serveur
-        // setHiddenConversationIds(prev => {
-        //   const next = new Set(prev);
-        //   next.delete(conv._id);
-        //   return next;
-        // });
-      }
-    } catch (error) {
-      console.error('❌ Erreur archivage:', error);
-      alert("Erreur lors de l'archivage");
-
-      // Optionnel : rollback en cas d'erreur réseau
-      // setHiddenConversationIds(prev => {
-      //   const next = new Set(prev);
-      //   next.delete(conv._id);
-      //   return next;
-      // });
-    }
-  }}
-  className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-    isDark 
-      ? 'hover:bg-blue-800/50 text-blue-200' 
-      : 'hover:bg-blue-50 text-slate-700'
-  }`}
->
-  <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
-  Archiver
-</button>
-                            {/* 🆕 NOUVEAU BOUTON SUPPRIMER */}
-    <button 
-  onClick={async (e) => {
-    e.stopPropagation();
-    
-    if (!confirm(`Vider cette discussion ?\n\n⚠️ Actions :\n- Tous vos messages seront supprimés\n- La discussion restera dans votre liste (vierge)\n- L'autre personne conservera son historique\n- Les nouveaux messages apparaîtront normalement`)) {
-      return;
-    }
-    
-    try {
-      const response = await deleteConversationForUser(conv._id); // ✅ UTILISATION DE LA FONCTION
-      
-      if (response.data.success) {
-        setMenuOpen(null); // Fermer le menu
-        
-        // Rafraîchir les conversations
-        await fetchConversations();
-        
-        alert('✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.');
-      }
-    } catch (error) {
-      console.error('❌ Erreur suppression:', error);
-      alert('❌ Erreur lors du vidage: ' + (error.response?.data?.message || error.message));
-    }
-  }}
-  className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-    isDark 
-      ? 'hover:bg-red-900/50 text-red-300 hover:text-red-200' 
-      : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-  }`}
->
-  <Trash2 className="w-5 h-5" />
-  Vider la discussion
-</button>
+                                try {
+                                  await archiveConversation(conv._id);
+                                } catch (error) {
+                                  console.error('❌ Erreur archivage:', error);
+                                  alert("Erreur lors de l'archivage");
+                                }
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
+                                isDark 
+                                  ? 'hover:bg-blue-800/50 text-blue-200' 
+                                  : 'hover:bg-blue-50 text-slate-700'
+                              }`}
+                            >
+                              <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
+                              Archiver
+                            </button>
+                            
+                            <button 
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                
+                                if (!confirm(`Vider cette discussion ?\n\n⚠️ Actions :\n- Tous vos messages seront supprimés\n- La discussion restera dans votre liste (vierge)\n- L'autre personne conservera son historique\n- Les nouveaux messages apparaîtront normalement`)) {
+                                  return;
+                                }
+                                
+                                try {
+                                  const response = await deleteConversationForUser(conv._id);
+                                  
+                                  if (response.data.success) {
+                                    setMenuOpen(null);
+                                    await fetchConversations();
+                                    alert('✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.');
+                                  }
+                                } catch (error) {
+                                  console.error('❌ Erreur suppression:', error);
+                                  alert('❌ Erreur lors du vidage: ' + (error.response?.data?.message || error.message));
+                                }
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
+                                isDark 
+                                  ? 'hover:bg-red-900/50 text-red-300 hover:text-red-200' 
+                                  : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+                              }`}
+                            >
+                              <Trash2 className="w-5 h-5" />
+                              Vider la discussion
+                            </button>
                           </div>
                         )}
                       </div>
