@@ -937,6 +937,9 @@ exports.updateScheduledMessage = async (req, res) => {
 // ========================================
 // 🤖 TÂCHE CRON : ENVOYER LES MESSAGES PROGRAMMÉS
 // ========================================
+
+// 🔚 Dans messageController.js
+
 const checkScheduledMessages = async (io) => {
   try {
     const now = new Date();
@@ -946,38 +949,55 @@ const checkScheduledMessages = async (io) => {
       isSent: false,
       scheduledFor: { $lte: now }
     })
-    .populate('sender', 'name profilePicture')
-    .populate('conversationId');
+      .populate('sender', 'name profilePicture')
+      .populate('conversationId');
 
     if (messagesToSend.length === 0) {
-      return; // Pas de messages à envoyer
+      return;
     }
 
     console.log(`⏰ ${messagesToSend.length} messages programmés à envoyer`);
 
     for (const message of messagesToSend) {
-      // ✅ MARQUER COMME ENVOYÉ
+      // 🕒 Date "réelle" d'envoi : la date programmée
+      const sendDate = message.scheduledFor || new Date();
+
+      // ✅ Marquer comme envoyé
       message.isSent = true;
       message.isScheduled = false;
       message.status = 'sent';
+
+      // ⚠️ IMPORTANT : faire comme si le message avait été créé
+      // à l'heure d'envoi
+      message.createdAt = sendDate;
+      message.updatedAt = sendDate;
+
       await message.save();
 
-      // ✅ METTRE À JOUR LA CONVERSATION
+      // ✅ Mettre à jour la conversation avec cette date
       await Conversation.findByIdAndUpdate(
         message.conversationId._id,
         {
           lastMessage: message._id,
-          updatedAt: Date.now()
+          updatedAt: sendDate
         }
       );
 
-      // ✅ ÉMETTRE LE MESSAGE VIA SOCKET.IO
+      // ✅ Émettre le message via socket.io
       if (io) {
-        io.to(message.conversationId._id.toString()).emit('receive-message', message);
-        
-        // ✅ NOTIFIER TOUS LES PARTICIPANTS
-        message.conversationId.participants.forEach(participant => {
-          const participantId = participant._id ? participant._id.toString() : participant.toString();
+        // On s'assure que les champs modifiés sont bien présents
+        const plainMessage = message.toObject();
+
+        io.to(message.conversationId._id.toString()).emit(
+          'receive-message',
+          plainMessage
+        );
+
+        // Notifier tous les participants pour la sidebar
+        message.conversationId.participants.forEach((participant) => {
+          const participantId = participant._id
+            ? participant._id.toString()
+            : participant.toString();
           io.to(participantId).emit('should-refresh-conversations');
         });
       }

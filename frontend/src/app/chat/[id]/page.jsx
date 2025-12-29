@@ -193,24 +193,44 @@ export default function ChatPage() {
 
     if (socket && conversationId && user) {
       onReceiveMessage((message) => {
-        if (message.conversationId === conversationId) {
-          setMessages((prev) => {
-            const exists = prev.some((m) => m._id === message._id);
-            if (exists) {
-              // ✅ On met à jour le message existant avec les nouvelles données (statut d'appel, etc.)
-              return prev.map((m) => (m._id === message._id ? message : m));
-            }
-            return [...prev, message];
-          });
+  // message.conversationId peut être un objet ou une string
+  const msgConvId =
+    typeof message.conversationId === "object"
+      ? message.conversationId._id?.toString()
+      : message.conversationId?.toString();
 
-          const userId = user._id || user.id;
-          if (message.sender._id !== userId) {
-            markMessagesAsDelivered([message._id])
-              .then(() => markConversationAsRead(conversationId))
-              .catch((err) => console.error("❌ Erreur marquage:", err));
-          }
-        }
+  if (msgConvId === conversationId) {
+    setMessages((prev) => {
+      const index = prev.findIndex((m) => m._id === message._id);
+      let next;
+
+      if (index !== -1) {
+        // 🔁 On met à jour le message existant (cas message programmé)
+        next = [...prev];
+        next[index] = message;
+      } else {
+        // ➕ Nouveau message
+        next = [...prev, message];
+      }
+
+      // 🧹 Toujours garder les messages triés par date d'envoi
+      next.sort((a, b) => {
+        const da = new Date(a.createdAt || a.scheduledFor);
+        const db = new Date(b.createdAt || b.scheduledFor);
+        return da - db;
       });
+
+      return next;
+    });
+
+    const userId = user._id || user.id;
+    if (message.sender._id !== userId) {
+      markMessagesAsDelivered([message._id])
+        .then(() => markConversationAsRead(conversationId))
+        .catch((err) => console.error("❌ Erreur marquage:", err));
+    }
+  }
+});
 
       onMessageStatusUpdated(({ messageIds, status }) => {
         setMessages((prevMessages) =>

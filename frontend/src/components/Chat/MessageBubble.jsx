@@ -614,7 +614,11 @@ export default function MessageBubble({
                     ⏰ Programmé
                   </span>
                 )}
-                {formatTime(message.createdAt)}
+                {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                 {renderStatus()}
               </span>
             </div>
@@ -758,7 +762,11 @@ export default function MessageBubble({
                     ⏰ Programmé
                   </span>
                 )}
-                {formatTime(message.createdAt)}
+                {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                 {renderStatus()}
               </span>
             </div>
@@ -928,7 +936,11 @@ export default function MessageBubble({
                     ⏰ Programmé
                   </span>
                 )}
-                {formatTime(message.createdAt)}
+                {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                 {renderStatus()}
               </span>
             </div>
@@ -1113,7 +1125,11 @@ export default function MessageBubble({
                     ⏰ Programmé
                   </span>
                 )}
-                {formatTime(message.createdAt)}
+                {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                 {renderStatus()}
               </span>
             </div>
@@ -1299,7 +1315,11 @@ export default function MessageBubble({
                     ⏰ Programmé
                   </span>
                 )}
-                {formatTime(message.createdAt)}
+                {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                 {renderStatus()}
               </span>
             </div>
@@ -1598,7 +1618,11 @@ export default function MessageBubble({
                         ⏰ Programmé
                       </span>
                     )}
-                    {formatTime(message.isScheduled ? message.scheduledFor : message.createdAt)}
+                    {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                     {renderStatus()}
                   </span>
   
@@ -1835,7 +1859,11 @@ export default function MessageBubble({
                     ⏰ Programmé
                   </span>
                 )}
-                {formatTime(message.createdAt)}
+                {formatTime(
+  message.isScheduled && message.scheduledFor
+    ? message.scheduledFor
+    : message.createdAt
+)}
                 {renderStatus()}
               </span>
             </div>
