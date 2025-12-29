@@ -18,9 +18,11 @@ export default function TasksPage() {
 
   const [currentProjectId, setCurrentProjectId] = useState("all");
   const [newProjectName, setNewProjectName] = useState("");
+  const [showProjectModal, setShowProjectModal] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newPriority, setNewPriority]=useState("");
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -94,29 +96,38 @@ export default function TasksPage() {
 
   /* ================= ADD TASK ================= */
   const addTask = async () => {
-    if (!newTitle.trim() || adding) return;
-    setAdding(true);
-    try {
-      const payload = {
-        title: newTitle.trim(),
-        projectId: currentProjectId !== "all" ? currentProjectId : undefined,
-        status: "todo",
+  if (!newTitle.trim() || adding) return;
+  setAdding(true);
+
+  try {
+    const payload = {
+      title: newTitle.trim(),
+      description: "", 
+      priority: "normal",
+      status: "todo",
+      projectId: currentProjectId !== "all" ? currentProjectId : undefined,
+    };
+    if (newDueDate) payload.dueDate = newDueDate;
+
+    const res = await api.post(`/conversations/${conversationId}/tasks`, payload);
+
+    if (res.data?.task) {
+      const createdTask = {
+        ...res.data.task,
+        isNew: true,
       };
-      if (newDueDate) payload.dueDate = newDueDate;
 
-      const res = await api.post(`/conversations/${conversationId}/tasks`, payload);
-
-      if (res.data?.task) {
-        setTasks((prev) => [...prev, res.data.task]);
-        setNewTitle("");
-        setNewDueDate("");
-      }
-    } catch (err) {
-      console.error("ADD TASK ERROR:", err);
-    } finally {
-      setAdding(false);
+      setTasks((prev) => [...prev, createdTask]);
+      setSelectedTask(createdTask); // ouvre le popup directement pour compléter la description
+      setNewTitle("");
+      setNewDueDate("");
     }
-  };
+  } catch (err) {
+    console.error("ADD TASK ERROR:", err);
+  } finally {
+    setAdding(false);
+  }
+};
 
   /* ================= UPDATE TASK ================= */
   const updateTaskStatus = async (taskId, newStatus) => {
@@ -156,47 +167,78 @@ export default function TasksPage() {
   };
 
   const updateTaskDetails = async () => {
-    if (!selectedTask) return;
-    try {
-      const res = await api.patch(`/tasks/${selectedTask._id}`, {
+  if (!selectedTask) return;
+
+  if (!selectedTask.title?.trim() || !selectedTask.priority || !selectedTask.dueDate ) {
+    alert("Le titre, la priorité et la date limite sont obligatoires.");
+    return;
+  }
+
+  try {
+    let res;
+
+    if (selectedTask.isNew) {
+      res = await api.post(`/conversations/${conversationId}/tasks`, {
+        title: selectedTask.title,
+        description: selectedTask.description,
+        priority: selectedTask.priority,
+        dueDate: selectedTask.dueDate,
+        status: selectedTask.status,
+        projectId: selectedTask.projectId,
+      });
+
+      if (res.data?.task) {
+        setTasks((prev) => [...prev, res.data.task]);
+      }
+    } else {
+      res = await api.patch(`/tasks/${selectedTask._id}`, {
         title: selectedTask.title,
         description: selectedTask.description,
         priority: selectedTask.priority,
         dueDate: selectedTask.dueDate,
       });
+
       if (res.data?.task) {
         setTasks((prev) =>
           prev.map((t) => (t._id === selectedTask._id ? res.data.task : t))
         );
       }
-      setSelectedTask(null);
-    } catch (err) {
-      console.error("UPDATE TASK DETAILS ERROR:", err);
     }
-  };
 
-  const addComment = async () => {
-    if (!commentText.trim() || !selectedTask) return;
-    try {
-      const res = await api.post(`/tasks/${selectedTask._id}/comments`, { text: commentText });
-      if (res.data?.comment) {
-        setSelectedTask({
-          ...selectedTask,
-          comments: [...(selectedTask.comments || []), res.data.comment],
-        });
-        setTasks((prev) =>
-          prev.map((t) =>
-            t._id === selectedTask._id
-              ? { ...t, comments: [...(t.comments || []), res.data.comment] }
-              : t
-          )
-        );
-        setCommentText("");
-      }
-    } catch (err) {
-      console.error("ADD COMMENT ERROR:", err);
+    setSelectedTask(null);
+  } catch (err) {
+    console.error("SAVE TASK ERROR:", err);
+  }
+};
+
+ const addComment = async () => {
+  if (!commentText.trim() || !selectedTask) return;
+  try {
+    const res = await api.post(`/tasks/${selectedTask._id}/comments`, {
+      text: commentText.trim(),
+    });
+
+    if (res.data?.comment) {
+      // met à jour la tâche sélectionnée
+      const updatedTask = {
+        ...selectedTask,
+        comments: [...(selectedTask.comments || []), res.data.comment],
+      };
+      setSelectedTask(updatedTask);
+
+      // met à jour la liste globale des tâches
+      setTasks((prev) =>
+        prev.map((t) =>
+          t._id === updatedTask._id ? updatedTask : t
+        )
+      );
+
+      setCommentText("");
     }
-  };
+  } catch (err) {
+    console.error("ADD COMMENT ERROR:", err);
+  }
+};
 
   /* ================= FILTER & SORT ================= */
   const filteredTasks = useMemo(() => {
@@ -276,51 +318,131 @@ export default function TasksPage() {
   return (
     <div className="min-h-screen flex bg-blue-50">
       {/* SIDEBAR */}
-      <aside className=" fixed left-0 top-0 h-screen w-64
-             border-r p-4 hidden md:flex flex-col gap-3
-             bg-blue-800 text-white shadow-lg z-40">
-        <h2 className="font-semibold text-lg border-b border-blue-700 pb-2 mb-3">Projets</h2>
+      <aside
+  className="fixed left-0 top-0 h-screen w-64
+             hidden md:flex flex-col
+             bg-blue-800 text-white
+             border-r border-blue-700
+             shadow-xl z-40"
+>
+  {/* ===== SIDEBAR HEADER ===== */}
+  <div className="flex items-center justify-between px-4 py-4 border-b border-blue-700">
+    <h2 className="font-semibold text-lg tracking-wide">
+      Projets
+    </h2>
+
+    {/* Bouton ajouter projet */}
+    <button
+      onClick={() => setShowProjectModal(true)}
+      title="Ajouter un nouveau projet"
+      className="
+        w-10 h-10 flex items-center justify-center
+        rounded-full
+        bg-blue-600 hover:bg-blue-500
+        text-white text-xl font-bold
+        shadow-md hover:shadow-lg
+        transition-all duration-200
+      "
+    >
+      +
+    </button>
+  </div>
+
+  {/* ===== CONTENU SCROLLABLE ===== */}
+  <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
+    {/* Tous les projets */}
+    <button
+      onClick={() => setCurrentProjectId('all')}
+      className={`w-full px-3 py-2 rounded-md text-left transition
+        ${
+          currentProjectId === 'all'
+            ? 'bg-blue-600'
+            : 'hover:bg-blue-700'
+        }`}
+    >
+      📁 Tous les projets
+    </button>
+
+    {/* Liste des projets */}
+    {projects.map((p) => (
+      <div
+        key={p._id}
+        className="flex items-center gap-2 group"
+      >
         <button
-          onClick={() => setCurrentProjectId("all")}
-          className={`p-2 rounded text-left w-full transition-colors duration-200 ${
-            currentProjectId === "all" ? "bg-blue-600" : "hover:bg-blue-700"
-          }`}
+          onClick={() => setCurrentProjectId(p._id)}
+          className={`flex-1 px-3 py-2 rounded-md text-left transition
+            ${
+              currentProjectId === p._id
+                ? 'bg-blue-600'
+                : 'hover:bg-blue-700'
+            }`}
         >
-          Tous les projets
+          {p.name}
         </button>
-        {projects.map((p) => (
-          <div key={p._id} className="flex justify-between items-center gap-2">
-            <button
-              onClick={() => setCurrentProjectId(p._id)}
-              className={`p-2 rounded text-left flex-1 transition-colors duration-200 ${
-                currentProjectId === p._id ? "bg-blue-600" : "hover:bg-blue-700"
-              }`}
-            >
-              {p.name}
-            </button>
-            <button
-              onClick={() => deleteProject(p._id)}
-              className="p-2 hover:bg-red-600 rounded"
-            >
-              <Trash2 size={16} className="text-red-300" />
-            </button>
-          </div>
-        ))}
-        <div className="mt-auto space-y-2">
-          <input
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            placeholder="Nouveau projet"
-            className="border border-blue-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-400 text-black"
-          />
-          <button
-            onClick={addProject}
-            className="w-full bg-blue-900 hover:bg-blue-700 text-white p-2 rounded transition-colors duration-200"
-          >
-            + Ajouter projet
-          </button>
-        </div>
-      </aside>
+
+        <button
+          onClick={() => deleteProject(p._id)}
+          className="
+            p-2 rounded-md
+            opacity-0 group-hover:opacity-100
+            hover:bg-red-600
+            transition
+          "
+          title="Supprimer le projet"
+        >
+          <Trash2 size={16} className="text-red-300" />
+        </button>
+      </div>
+    ))}
+  </div>
+</aside>
+
+          {showProjectModal && (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div className="bg-white rounded-lg w-full max-w-md p-6 space-y-4 shadow-lg">
+      
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-bold text-blue-900">
+          ➕ Nouveau projet
+        </h2>
+        <button
+          onClick={() => setShowProjectModal(false)}
+          className="text-gray-500 hover:text-black"
+        >
+          ✖
+        </button>
+      </div>
+
+      <input
+        value={newProjectName}
+        onChange={(e) => setNewProjectName(e.target.value)}
+        placeholder="Nom du projet"
+        className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-400"
+      />
+
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowProjectModal(false)}
+          className="px-4 py-2 rounded border"
+        >
+          Annuler
+        </button>
+        <button
+          onClick={async () => {
+            await addProject();
+            setShowProjectModal(false);
+          }}
+          disabled={!newProjectName.trim()}
+          className="px-4 py-2 rounded bg-blue-900 hover:bg-blue-700 text-white disabled:opacity-50"
+        >
+          Ajouter
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
 
       {/* MAIN */}
       <main className="flex-1 p-6 bg-blue-50 md:ml-64">
@@ -413,24 +535,27 @@ export default function TasksPage() {
             deleteTask={deleteTask}
             onDragEnd={onDragEnd}
             setSelectedTask={setSelectedTask}
+            currentProjectId={currentProjectId}
           />
         )}
 
         {/* TASK DETAIL POPUP */}
-        {selectedTask && (
-          <TaskDetailPopup
-            task={selectedTask}
-            setTask={setSelectedTask}
-            updateTaskDetails={updateTaskDetails}
-            commentText={commentText}
-            setCommentText={setCommentText}
-            addComment={addComment}
-          />
-        )}
+        <TaskDetailPopup
+  task={selectedTask}
+  setTask={setSelectedTask}
+  updateTaskDetails={updateTaskDetails}
+  addComment={addComment}
+  commentText={commentText}
+  setCommentText={setCommentText}
+  onCancelNewTask={async (taskId) => {
+    await api.delete(`/tasks/${taskId}`);
+    setTasks((prev) => prev.filter((t) => t._id !== taskId));
+  }}
+/>
       </main>
     </div>
   );
-}
+};
 
 /* ================= TASKS BOARD ================= */
 function TasksBoard({
@@ -439,7 +564,6 @@ function TasksBoard({
   setNewTitle,
   newDueDate,
   setNewDueDate,
-  addTask,
   search,
   setSearch,
   statusFilter,
@@ -451,6 +575,7 @@ function TasksBoard({
   deleteTask,
   onDragEnd,
   setSelectedTask,
+  currentProjectId,
 }) {
   return (
     <>
@@ -485,38 +610,62 @@ function TasksBoard({
           <option value="none">Trier</option>
           <option value="date_recent">📅 Récentes</option>
           <option value="date_oldest">📅 Anciennes</option>
-          <option value="important">⭐ Importantes</option>
           <option value="due_today">⏰ Aujourd’hui</option>
           <option value="due_overdue">⚠️ En retard</option>
           <option value="due_upcoming">➡️ À venir</option>
         </select>
       </div>
 
-      {/* ADD TASK */}
-      <div className="flex gap-2 max-w-7xl mx-auto mb-4">
-        <input
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="Nouvelle tâche…"
-          className="border p-2 rounded flex-1"
-        />
-        <div className="flex items-center gap-2">
-          <Calendar size={16} />
-          <input
-            type="date"
-            value={newDueDate}
-            onChange={(e) => setNewDueDate(e.target.value)}
-            className="border p-2 rounded"
-          />
-          <button
-            onClick={addTask}
-            disabled={!newTitle.trim()}
-            className="bg-blue-900 hover:bg-blue-700 text-white p-2 rounded"
-          >
-            <Plus />
-          </button>
-        </div>
-      </div>
+     {/* ADD TASK */}
+<div className="flex gap-2 max-w-7xl mx-auto mb-4">
+  {/* Titre optionnel (pré-remplissage) */}
+  <input
+    value={newTitle}
+    onChange={(e) => setNewTitle(e.target.value)}
+    placeholder="Titre de la tâche (optionnel)"
+    className="border p-2 rounded flex-1"
+    
+  />
+
+  <div className="flex items-center gap-2">
+    {/* Date limite (info claire) */}
+    <div className="flex items-center gap-1 text-gray-500 text-sm">
+      <Calendar size={16} />
+      <span>Date limite</span>
+    </div>
+
+    <input
+      type="date"
+      value={newDueDate}
+      onChange={(e) => setNewDueDate(e.target.value)}
+      className="border p-2 rounded"
+    />
+
+    {/* Bouton + : OUVRE LE POPUP, TOUJOURS */}
+    <button
+  onClick={() => {
+    setSelectedTask({
+      title: newTitle || "",
+      description: "", 
+      priority: "normal",
+      dueDate: newDueDate || "",
+      status: "todo",
+      projectId:
+        currentProjectId !== "all" ? currentProjectId : null,
+      isNew: true,
+    });
+
+    // reset champs rapides
+    setNewTitle("");
+    setNewDueDate("");
+  }}
+  className="bg-blue-900 hover:bg-blue-700 text-white p-2 rounded"
+  title="Créer une nouvelle tâche"
+>
+  <Plus />
+</button>
+  </div>
+</div>
 
       {/* TASKS COLUMNS */}
       <DragDropContext onDragEnd={onDragEnd}>
@@ -598,7 +747,7 @@ function TaskItem({ task, deleteTask, updateDueDate, updateTaskStatus, onOpen })
       <span className={`flex-1 ${textStyle} text-blue-900`}>{task.title}</span>
       {task.priority && (
         <span className={`px-2 py-0.5 rounded text-xs`}>
-          {task.priority === "low" ? "" : task.priority === "normal" ? "" : "🔴"}
+          {task.priority === "urgent" && <span>🔴</span>}
         </span>
       )}
       <span className={`text-xs ${isOverdue ? "text-red-600 font-bold" : "text-gray-500"}`}>
@@ -618,52 +767,79 @@ function TaskItem({ task, deleteTask, updateDueDate, updateTaskStatus, onOpen })
 }
 
 /* ================= TASK DETAIL POPUP ================= */
-function TaskDetailPopup({ task, setTask, updateTaskDetails, commentText, setCommentText, addComment }) {
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "done";
+function TaskDetailPopup({
+  task,
+  setTask,
+  updateTaskDetails,
+  commentText,
+  setCommentText,
+  addComment,
+  onCancelNewTask,
+}) {
+  if (!task) return null;
+
+  const isCreationMode = task.isNew === true;
+  const isOverdue =
+    task.dueDate &&
+    new Date(task.dueDate) < new Date() &&
+    task.status !== "done";
 
   const priorityColors = {
     low: "bg-green-100 text-green-800",
     normal: "bg-yellow-100 text-yellow-800",
     urgent: "bg-red-100 text-red-800",
   };
+  const isValid =
+  task.title?.trim() &&
+  task.priority &&
+  task.dueDate;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white w-full max-w-lg rounded-lg p-6 space-y-4 shadow-lg">
+
+        {/* HEADER */}
         <div className="flex justify-between items-center">
-          <h2 className="font-bold text-lg text-blue-900">Détails de la tâche</h2>
-          <button onClick={() => setTask(null)}>✖</button>
+          <h2 className="font-bold text-lg text-blue-900">
+            {isCreationMode ? "✨ Nouvelle tâche" : "✏️ Modifier la tâche"}
+          </h2>
+
+          <button
+            onClick={async () => {
+              setTask(null);
+            }}
+            className="text-gray-500 hover:text-black"
+          >
+            ✖
+          </button>
         </div>
 
+        {/* PRIORITY */}
         <div className={`px-2 py-1 w-max rounded ${priorityColors[task.priority] || ""}`}>
-          Priorité: {task.priority || "Normal"}
+          Priorité : {task.priority || "normal"}
         </div>
 
+        {/* TITLE */}
         <label className="font-semibold">Titre</label>
         <input
           value={task.title}
-          onChange={(e) =>
-            setTask({ ...task, title: e.target.value })
-          }
+          onChange={(e) => setTask({ ...task, title: e.target.value })}
           className="border p-2 w-full rounded"
         />
 
+        {/* DESCRIPTION */}
         <label className="font-semibold">Description</label>
-        <textarea
-          value={task.description}
-          onChange={(e) =>
-            setTask({ ...task, description: e.target.value })
-          }
-          placeholder="Description..."
-          className="border p-2 w-full rounded"
-        />
-
+<textarea
+  value={task.description || ""}
+  onChange={(e) => setTask({ ...task, description: e.target.value })}
+  placeholder="Ajouter une description..."
+  className="border p-2 w-full rounded"
+/>
+        {/* PRIORITY SELECT */}
         <label className="font-semibold">Priorité</label>
         <select
-          value={task.priority}
-          onChange={(e) =>
-            setTask({ ...task, priority: e.target.value })
-          }
+          value={task.priority || "normal"}
+          onChange={(e) => setTask({ ...task, priority: e.target.value })}
           className="border p-2 rounded w-full"
         >
           <option value="low">🟢 Faible</option>
@@ -671,27 +847,25 @@ function TaskDetailPopup({ task, setTask, updateTaskDetails, commentText, setCom
           <option value="urgent">🔴 Urgent</option>
         </select>
 
+        {/* DUE DATE */}
         <label className="font-semibold">Date limite</label>
-        <div
-          className={`flex items-center gap-2 ${
-            isOverdue ? "text-red-600 font-bold" : ""
-          }`}
-        >
+        <div className={`flex items-center gap-2 ${isOverdue ? "text-red-600 font-bold" : ""}`}>
           ⏰
           <input
             type="date"
             value={task.dueDate?.split("T")[0] || ""}
-            onChange={(e) =>
-              setTask({ ...task, dueDate: e.target.value })
-            }
+            onChange={(e) => setTask({ ...task, dueDate: e.target.value })}
             className="border p-2 rounded"
           />
         </div>
 
+        {/* COMMENTS */}
         <label className="font-semibold">Commentaires</label>
         <div>
-          {task.comments?.map((c) => (
-            <div key={c._id} className="text-sm border-b py-1">{c.text}</div>
+          {(task.comments || []).map((c) => (
+            <div key={c._id} className="text-sm border-b py-1">
+              {c.text}
+            </div>
           ))}
 
           <div className="flex gap-2 mt-2">
@@ -710,12 +884,18 @@ function TaskDetailPopup({ task, setTask, updateTaskDetails, commentText, setCom
           </div>
         </div>
 
+        {/* SAVE */}
         <button
-          className="bg-blue-900 hover:bg-blue-700 text-white px-4 py-2 rounded w-full"
-          onClick={updateTaskDetails}
-        >
-          Fermer & Sauvegarder
-        </button>
+  disabled={!isValid}
+  onClick={updateTaskDetails}
+  className={`px-4 py-2 rounded w-full text-white transition ${
+    isValid
+      ? "bg-blue-900 hover:bg-blue-700"
+      : "bg-gray-400 cursor-not-allowed"
+  }`}
+>
+  {isCreationMode ? "Créer & enregistrer" : "Enregistrer les modifications"}
+</button>
       </div>
     </div>
   );
