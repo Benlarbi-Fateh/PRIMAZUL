@@ -63,7 +63,9 @@ const invitationRoutes = require("./routes/invitationRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const agoraRoutes = require("./routes/agoraRoutes");
 const statusRoutes = require("./routes/statusRoutes");
-
+// Routes tâches
+const TacheListRoutes = require("./routes/tacheListRoutes");
+const tacheRoutes = require("./routes/tacheRoutes");
 // 🆕 NOUVELLE ROUTE PROFILE
 const profileRoutes = require("./routes/profileRoutes");
 const messageSettingsRoutes = require("./routes/messageSettingsRoutes");
@@ -80,6 +82,9 @@ app.use("/api/message-settings", messageSettingsRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/agora", agoraRoutes);
 app.use("/api/status", statusRoutes);
+// Routes tâches
+app.use("/api/tache-list", TacheListRoutes);
+app.use("/api/tache", tacheRoutes);
 
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use("/api/profile", profileRoutes);

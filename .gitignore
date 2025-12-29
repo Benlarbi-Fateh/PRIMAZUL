@@ -9,6 +9,7 @@
 /frontend/out
 npm-debug.log
 npm-debug.log.*
+package-lock.json
 
 # Fichiers sensibles (Secrets)
 .env

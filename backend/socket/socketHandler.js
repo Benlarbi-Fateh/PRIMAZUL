@@ -3,9 +3,9 @@ const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { checkBlockStatusSocket } = require("./blockCheck");
 
-// Stocker les appels actifs
+// Stockage mémoire des appels actifs
 const activeCallsMap = new Map();
-const callTimeouts = new Map(); // Pour gérer les timeouts d'appel
+const callTimeouts = new Map();
 
 const initSocket = (io) => {
   const onlineUsers = new Map();
@@ -14,26 +14,27 @@ const initSocket = (io) => {
     console.log("✅ Socket connecté:", socket.id);
 
     // ============================================
-    // USER ONLINE/OFFLINE
+    // 👤 GESTION UTILISATEURS & ROOMS
     // ============================================
     socket.on("user-online", (userId) => {
-      onlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
-      socket.userId = userId;
-      socket.join(userId);
+      if (!userId) return;
+      const uidStr = userId.toString();
+      onlineUsers.set(uidStr, { socketId: socket.id, lastSeen: Date.now() });
+      socket.userId = uidStr;
 
-      console.log(`👤 User ${userId} en ligne (${onlineUsers.size} total)`);
+      // ✅ CRUCIAL : Rejoindre sa room personnelle pour les appels
+      socket.join(uidStr);
 
-      const onlineUserIds = Array.from(onlineUsers.keys());
-      io.emit("online-users-update", onlineUserIds);
+      console.log(`👤 User ${uidStr} en ligne (${onlineUsers.size} total)`);
+      io.emit("online-users-update", Array.from(onlineUsers.keys()));
     });
 
     socket.on("request-online-users", () => {
-      const onlineUserIds = Array.from(onlineUsers.keys());
-      socket.emit("online-users-update", onlineUserIds);
+      socket.emit("online-users-update", Array.from(onlineUsers.keys()));
     });
 
     // ============================================
-    // CONVERSATIONS
+    // 💬 CONVERSATIONS & MESSAGES
     // ============================================
     socket.on("join-conversation", (conversationId) => {
       socket.join(conversationId);
@@ -46,31 +47,17 @@ const initSocket = (io) => {
       socket.currentConversation = null;
     });
 
-    // ============================================
-    // MESSAGES
-    // ============================================
     socket.on("send-message", async (data) => {
       try {
-        const {
-          conversationId,
-          sender,
-          content,
-          type,
-          fileUrl,
-          fileName,
-          fileSize,
-        } = data;
-
+        const { conversationId, sender } = data;
         if (conversationId) {
           const conversation = await Conversation.findById(conversationId)
             .select("participants isGroup")
             .lean();
-
           if (conversation && !conversation.isGroup) {
             const recipientId = conversation.participants.find(
               (p) => p.toString() !== sender.toString()
             );
-
             if (recipientId) {
               const isBlocked = await checkBlockStatusSocket(
                 sender,
@@ -87,16 +74,7 @@ const initSocket = (io) => {
           }
         }
 
-        const message = new Message({
-          conversationId,
-          sender,
-          content: content || "",
-          type: type || "text",
-          fileUrl: fileUrl || "",
-          fileName: fileName || "",
-          fileSize: fileSize || 0,
-        });
-
+        const message = new Message({ ...data });
         await message.save();
         await message.populate("sender", "name profilePicture");
 
@@ -124,12 +102,11 @@ const initSocket = (io) => {
           updatedConversation.participants.forEach((participant) => {
             const participantId = participant._id.toString();
             const userData = onlineUsers.get(participantId);
-            if (userData) {
+            if (userData)
               io.to(userData.socketId).emit(
                 "conversation-updated",
                 updatedConversation
               );
-            }
           });
         }
       } catch (error) {
@@ -138,7 +115,6 @@ const initSocket = (io) => {
       }
     });
 
-    // Typing
     socket.on("typing", ({ conversationId, userId }) => {
       socket.to(conversationId).emit("user-typing", { conversationId, userId });
     });
@@ -150,10 +126,9 @@ const initSocket = (io) => {
     });
 
     // ============================================
-    // 📞 APPELS OPTIMISÉS
+    // 📞 APPELS FUSIONNÉS (STABILITÉ + HISTORIQUE PARFAIT)
     // ============================================
 
-    // Initier un appel
     socket.on("call-initiate", async (data) => {
       const {
         callId,
@@ -161,21 +136,38 @@ const initSocket = (io) => {
         callType,
         isGroup,
         groupName,
-        targetUserIds, // C'est un tableau d'IDs
+        targetUserIds,
         channelName,
         callerName,
         callerImage,
       } = data;
-
       const callerId = socket.userId;
-      if (!callerId) return;
+      if (!callerId || !Array.isArray(targetUserIds)) return;
 
-      console.log(
-        `📞 Appel de groupe initié par ${callerId} vers:`,
-        targetUserIds
-      );
+      console.log(`📞 Appel ${callId} initié par ${callerId}`);
 
-      // Stocker l'appel actif
+      // 1. Récupération des données participants (Version 2)
+      let allParticipants = [];
+      try {
+        const User = require("../models/User");
+        if (isGroup && conversationId) {
+          const conv = await Conversation.findById(conversationId)
+            .populate("participants", "_id name profilePicture email")
+            .lean();
+          if (conv) allParticipants = conv.participants;
+        } else {
+          const users = await User.find({
+            _id: { $in: [callerId, ...targetUserIds] },
+          })
+            .select("_id name profilePicture email")
+            .lean();
+          allParticipants = users;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // 2. Stocker en RAM ( Signaling rapide )
       activeCallsMap.set(callId, {
         callId,
         conversationId,
@@ -185,90 +177,82 @@ const initSocket = (io) => {
         groupName,
         initiator: callerId,
         initiatedAt: Date.now(),
-        participants: new Map([
-          [callerId, { joinedAt: Date.now(), status: "connected" }],
-        ]),
+        participants: new Set([callerId]),
         status: "ringing",
       });
 
-      // Timeout si personne ne répond
+      // 3. Timeout 45s avec mise à jour Historique (Version 1)
       const timeout = setTimeout(async () => {
         const call = activeCallsMap.get(callId);
         if (call && call.status === "ringing") {
-          console.log(`⏰ Timeout appel ${callId}`);
+          const updatedMessage = await Message.findOneAndUpdate(
+            { "callDetails.callId": callId },
+            {
+              "callDetails.status": "missed",
+              "callDetails.endedAt": new Date(),
+              "callDetails.duration": 0,
+            },
+            { new: true }
+          ).populate("sender", "name profilePicture");
+
+          if (updatedMessage)
+            io.to(conversationId).emit("receive-message", updatedMessage);
           io.to(callerId).emit("call-timeout", { callId });
-
-          // Notifier tous les cibles
-          targetUserIds.forEach((targetId) => {
-            const userIdStr = targetId.toString();
-            io.to(userIdStr).emit("call-missed", { callId, callerId });
-          });
-
+          targetUserIds.forEach((id) =>
+            io.to(id.toString()).emit("call-missed", { callId, callerId })
+          );
           activeCallsMap.delete(callId);
         }
       }, 45000);
-
       callTimeouts.set(callId, timeout);
 
-      // ✅ CORRECTION MAJEURE ICI : Boucle robuste pour envoyer à TOUS
-      if (Array.isArray(targetUserIds)) {
-        targetUserIds.forEach((rawId) => {
-          const userId = rawId.toString(); // Force string pour correspondre aux clés de la Map/Room
+      // 4. Envoi vers les ROOMS des destinataires (Version 2)
+      targetUserIds.forEach((targetId) => {
+        const targetIdStr = targetId.toString();
+        if (targetIdStr === callerId) return;
 
-          // 1. Vérifier si user est dans la map Online (Optionnel, car socket.join(userId) gère ça)
-          if (onlineUsers.has(userId)) {
-            console.log(`📡 Envoi signal d'appel à ${userId}`);
-
-            // 2. Envoyer à la "Room" de l'utilisateur (plus fiable que le socketId direct)
-            io.to(userId).emit("call-incoming", {
-              callId,
-              channelName,
-              callType,
-              isGroup,
-              groupName,
-              from: {
-                userId: callerId,
-                name: callerName,
-                profilePicture: callerImage,
-              },
-              conversationId,
-            });
-          } else {
-            console.log(
-              `⚠️ Utilisateur ${userId} semble hors ligne ou non connecté au socket`
-            );
-          }
+        io.to(targetIdStr).emit("call-incoming", {
+          ...data,
+          from: {
+            userId: callerId,
+            name: callerName,
+            profilePicture: callerImage,
+          },
+          participants: allParticipants, // UI enrichie
         });
-      }
+      });
     });
 
-    // Répondre à un appel
-    socket.on("call-answer", async (data) => {
-      const { callId, channelName } = data;
-      const userId = socket.userId;
-
+    socket.on("call-answer", async ({ callId, channelName }) => {
       const call = activeCallsMap.get(callId);
-      if (!call) {
-        socket.emit("call-error", { error: "Appel introuvable ou terminé" });
-        return;
-      }
+      if (!call) return;
 
-      // Annuler le timeout
-      const timeout = callTimeouts.get(callId);
-      if (timeout) {
-        clearTimeout(timeout);
+      const userId = socket.userId;
+      call.participants.add(userId);
+      call.status = "ongoing";
+
+      if (callTimeouts.has(callId)) {
+        clearTimeout(callTimeouts.get(callId));
         callTimeouts.delete(callId);
       }
 
-      // Mettre à jour le statut
-      call.status = "ongoing";
-      call.answeredAt = Date.now();
-      call.participants.set(userId, {
-        joinedAt: Date.now(),
-        status: "connected",
+      // Notifier les autres du nouveau participant
+      const User = require("../models/User");
+      const newParticipant = await User.findById(userId)
+        .select("_id name profilePicture email")
+        .lean();
+
+      call.participants.forEach((pid) => {
+        if (pid !== userId) {
+          io.to(pid).emit("call-answered", {
+            callId,
+            newParticipant,
+            answeredBy: userId,
+          });
+        }
       });
 
-      // Mettre à jour le message en base
+      // Update DB
       await Message.findOneAndUpdate(
         { "callDetails.callId": callId },
         {
@@ -278,189 +262,141 @@ const initSocket = (io) => {
         }
       );
 
-      // Notifier l'initiateur
       io.to(call.initiator).emit("call-answered", {
         callId,
         channelName,
         answeredBy: userId,
       });
-
-      console.log(`✅ Appel ${callId} répondu par ${userId}`);
     });
 
-    // Refuser un appel
-    socket.on("call-decline", async (data) => {
-      const { callId, reason } = data;
-      const userId = socket.userId;
-
+    socket.on("call-decline", async ({ callId, reason }) => {
       const call = activeCallsMap.get(callId);
       if (!call) return;
 
-      await Message.findOneAndUpdate(
-        { "callDetails.callId": callId },
-        { $addToSet: { "callDetails.declinedBy": userId } }
-      );
-
-      // Notifier l'initiateur
       io.to(call.initiator).emit("call-declined", {
         callId,
-        declinedBy: userId,
-        reason: reason || "declined",
+        declinedBy: socket.userId,
+        reason,
       });
 
-      // Si c'est un appel P2P et que le seul destinataire refuse
       if (!call.isGroup) {
-        call.status = "declined";
-
-        await Message.findOneAndUpdate(
+        const updatedMessage = await Message.findOneAndUpdate(
           { "callDetails.callId": callId },
           {
-            "callDetails.status": "declined",
+            "callDetails.status": "missed",
             "callDetails.endedAt": new Date(),
-          }
-        );
+            "callDetails.duration": 0,
+          },
+          { new: true }
+        ).populate("sender", "name profilePicture");
 
-        const timeout = callTimeouts.get(callId);
-        if (timeout) {
-          clearTimeout(timeout);
-          callTimeouts.delete(callId);
-        }
-
+        if (updatedMessage)
+          io.to(call.conversationId).emit("receive-message", updatedMessage);
         activeCallsMap.delete(callId);
       }
-
-      console.log(`❌ Appel ${callId} refusé par ${userId}`);
     });
 
-    // Terminer un appel
-    socket.on("call-end", async (data) => {
-      const { callId } = data;
-      const userId = socket.userId;
-
+    socket.on("call-end", async ({ callId }) => {
       const call = activeCallsMap.get(callId);
       if (!call) return;
 
-      const endedAt = Date.now();
-      const duration = call.answeredAt
-        ? Math.round((endedAt - call.answeredAt) / 1000)
-        : 0;
+      const duration = Math.round(
+        (Date.now() - (call.initiatedAt || Date.now())) / 1000
+      );
+      const finalStatus = call.status === "ongoing" ? "ended" : "missed";
 
-      const finalStatus = call.answeredAt ? "ended" : "missed";
-
-      // Mettre à jour le message
-      await Message.findOneAndUpdate(
+      const updatedMessage = await Message.findOneAndUpdate(
         { "callDetails.callId": callId },
         {
           "callDetails.status": finalStatus,
           "callDetails.endedAt": new Date(),
           "callDetails.duration": duration,
-        }
+        },
+        { new: true }
+      ).populate("sender", "name profilePicture");
+
+      if (updatedMessage)
+        io.to(call.conversationId).emit("receive-message", updatedMessage);
+
+      call.participants.forEach((pid) =>
+        io.to(pid).emit("call-ended", { callId, status: finalStatus })
       );
-
-      // Notifier tous les participants
-      call.participants.forEach((_, participantId) => {
-        io.to(participantId).emit("call-ended", {
-          callId,
-          duration,
-          status: finalStatus,
-          endedBy: userId,
-        });
-      });
-
-      // Nettoyer
-      const timeout = callTimeouts.get(callId);
-      if (timeout) {
-        clearTimeout(timeout);
-        callTimeouts.delete(callId);
-      }
       activeCallsMap.delete(callId);
-
-      console.log(`🛑 Appel ${callId} terminé - Durée: ${duration}s`);
     });
 
-    // Participant quitte l'appel
-    socket.on("call-leave", async (data) => {
-      const { callId } = data;
-      const userId = socket.userId;
-
+    socket.on("call-leave", async ({ callId }) => {
       const call = activeCallsMap.get(callId);
       if (!call) return;
 
-      const participant = call.participants.get(userId);
-      if (participant) {
-        participant.leftAt = Date.now();
-        participant.status = "left";
-      }
-
-      // Notifier les autres
-      call.participants.forEach((_, participantId) => {
-        if (participantId !== userId) {
-          io.to(participantId).emit("call-participant-left", {
-            callId,
-            userId,
-          });
-        }
-      });
-
-      // Si plus qu'un participant, terminer l'appel
-      const activeParticipants = Array.from(call.participants.values()).filter(
-        (p) => p.status === "connected"
+      const userId = socket.userId;
+      call.participants.delete(userId);
+      call.participants.forEach((pid) =>
+        io.to(pid).emit("call-participant-left", { callId, userId })
       );
 
-      if (activeParticipants.length <= 1) {
-        // Terminer automatiquement
+      if (call.participants.size <= 1) {
         socket.emit("call-end", { callId });
       }
     });
 
-    // Signaling ICE (pour améliorer la connexion)
-    socket.on("ice-candidate", (data) => {
-      const { callId, candidate, targetUserId } = data;
-      io.to(targetUserId).emit("ice-candidate", {
-        callId,
-        candidate,
-        fromUserId: socket.userId,
-      });
-    });
-
     // ============================================
-    // RÉACTIONS
+    // 😊 RÉACTIONS & 📨 INVITATIONS & 🗑️ ACTIONS
     // ============================================
     socket.on("toggle-reaction", async (data) => {
       try {
         const { messageId, emoji, userId, conversationId } = data;
         const message = await Message.findById(messageId);
         if (!message) return;
-
         const existingIndex = message.reactions.findIndex(
           (r) => r.userId.toString() === userId
         );
-
         if (existingIndex > -1) {
-          if (message.reactions[existingIndex].emoji === emoji) {
+          if (message.reactions[existingIndex].emoji === emoji)
             message.reactions.splice(existingIndex, 1);
-          } else {
-            message.reactions[existingIndex].emoji = emoji;
-          }
+          else message.reactions[existingIndex].emoji = emoji;
         } else {
           message.reactions.push({ userId, emoji });
         }
-
         await message.save();
         await message.populate("reactions.userId", "name profilePicture");
-
         io.to(conversationId).emit("reaction-updated", {
           messageId: message._id,
           reactions: message.reactions,
         });
-      } catch (error) {
-        console.error("❌ Erreur reaction:", error);
+      } catch (e) {
+        console.error(e);
       }
     });
 
-    // ============================================
-    // SUPPRESSION / MODIFICATION
-    // ============================================
+    socket.on("invitation-sent", (data) => {
+      const userData = onlineUsers.get(data.receiverId);
+      if (userData)
+        io.to(userData.socketId).emit("invitation-received", data.invitation);
+    });
+
+    socket.on("invitation-accepted", async (data) => {
+      const { senderId, invitation, conversation } = data;
+      const populatedConversation = await Conversation.findById(
+        conversation._id
+      )
+        .populate("participants", "name email profilePicture isOnline lastSeen")
+        .populate({
+          path: "lastMessage",
+          populate: { path: "sender", select: "name profilePicture" },
+        });
+      const userData = onlineUsers.get(senderId);
+      if (userData) {
+        io.to(userData.socketId).emit("invitation-accepted-notification", {
+          invitation,
+          conversation: populatedConversation || conversation,
+        });
+        io.to(userData.socketId).emit(
+          "conversation-updated",
+          populatedConversation || conversation
+        );
+      }
+    });
+
     socket.on("message-deleted", ({ messageId, conversationId }) => {
       io.to(conversationId).emit("message-deleted", {
         messageId,
@@ -477,77 +413,26 @@ const initSocket = (io) => {
       });
     });
 
-    // ============================================
-    // INVITATIONS
-    // ============================================
-    socket.on("invitation-sent", (data) => {
-      const { receiverId, invitation } = data;
-      const userData = onlineUsers.get(receiverId);
-      if (userData) {
-        io.to(userData.socketId).emit("invitation-received", invitation);
-      }
-    });
-
-    socket.on("invitation-accepted", async (data) => {
-      const { senderId, invitation, conversation } = data;
-
-      const populatedConversation = await Conversation.findById(
-        conversation._id
-      )
-        .populate("participants", "name email profilePicture isOnline lastSeen")
-        .populate({
-          path: "lastMessage",
-          populate: { path: "sender", select: "name profilePicture" },
-        });
-
-      const userData = onlineUsers.get(senderId);
-      if (userData) {
-        io.to(userData.socketId).emit("invitation-accepted-notification", {
-          invitation,
-          conversation: populatedConversation || conversation,
-        });
-      }
-    });
-
-    socket.on("invitation-rejected", (data) => {
-      const { senderId, invitation } = data;
-      const userData = onlineUsers.get(senderId);
-      if (userData) {
-        io.to(userData.socketId).emit(
-          "invitation-rejected-notification",
-          invitation
-        );
-      }
-    });
-
-    // ============================================
-    // DÉCONNEXION
-    // ============================================
     socket.on("disconnect", () => {
       if (socket.userId) {
-        // Quitter tous les appels actifs
         activeCallsMap.forEach((call, callId) => {
           if (call.participants.has(socket.userId)) {
-            socket.emit("call-leave", { callId });
+            io.to(call.initiator).emit("call-participant-left", {
+              callId,
+              userId: socket.userId,
+            });
           }
         });
-
         onlineUsers.delete(socket.userId);
-        console.log(`❌ User ${socket.userId} déconnecté`);
-
-        const onlineUserIds = Array.from(onlineUsers.keys());
-        io.emit("online-users-update", onlineUserIds);
+        io.emit("online-users-update", Array.from(onlineUsers.keys()));
       }
     });
   });
 
-  // Heartbeat
   setInterval(() => {
     const now = Date.now();
-    const TIMEOUT = 60000;
-
     onlineUsers.forEach((data, userId) => {
-      if (now - data.lastSeen > TIMEOUT) {
+      if (now - data.lastSeen > 60000) {
         onlineUsers.delete(userId);
         io.emit("online-users-update", Array.from(onlineUsers.keys()));
       }

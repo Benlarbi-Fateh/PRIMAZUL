@@ -1,27 +1,32 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    turbo: false, // <--- désactive Turbopack (corrige ton bug)
-  },
-  reactCompiler: true,
+  // ✅ Désactivation propre de la configuration expérimentale Turbo
+  experimental: {},
+
+  // ✅ Désactiver le Strict Mode aide à stabiliser Agora en développement
+  reactStrictMode: false,
+
   images: {
+    // ✅ Autoriser les fichiers SVG (nécessaire pour ui-avatars)
+    dangerouslyAllowSVG: true,
+    contentDispositionType: "attachment",
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+
+    // ✅ Indispensable pour éviter les erreurs 404 sur les vieux liens d'images
+    unoptimized: true,
+
+    // ✅ Liste des domaines autorisés
     remotePatterns: [
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
-        pathname: "/**",
       },
       {
         protocol: "https",
         hostname: "ui-avatars.com",
-        pathname: "/**",
       },
     ],
   },
-  // OU utiliser domains (déprécié mais plus simple)
-  domains: ["localhost", "ui-avatars.com", "192.168.1.7"],
-  unoptimized: true,
-  // Supprimez complètement la ligne 'domains'
 };
 
 export default nextConfig;

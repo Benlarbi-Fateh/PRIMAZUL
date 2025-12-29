@@ -23,15 +23,52 @@ const VideoCall = dynamic(() => import("@/components/Chat/VideCall"), {
 export const CallContext = createContext();
 
 // Générer un UID numérique pour Agora (car Agora n'accepte pas les strings MongoDB)
-const generateNumericUid = (str) => {
-  if (!str) return Math.floor(Math.random() * 100000);
+// ✅ NOUVELLE VERSION (génère toujours le MÊME UID pour le même ID)
+const generateNumericUid = (mongoId) => {
+  if (!mongoId) {
+    console.error("❌ generateNumericUid: mongoId manquant");
+    return Math.floor(Math.random() * 100000);
+  }
+
+  const str = mongoId.toString();
+
+  // Utiliser une fonction de hash stable
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash |= 0;
+    hash = hash & hash; // Convertir en entier 32-bit
   }
-  return Math.abs(hash);
+
+  // S'assurer que c'est toujours positif et dans la limite d'Agora (2^32)
+  const uid = Math.abs(hash) >>> 0;
+
+  console.log(`🔢 UID généré: ${str.substring(0, 8)}... → ${uid}`);
+
+  return uid;
+};
+
+// ============================================
+// ALTERNATIVE SI ÇA NE MARCHE PAS :
+// Utiliser directement les 8 derniers chiffres de l'ID MongoDB
+// ============================================
+
+const generateNumericUidAlternative = (mongoId) => {
+  if (!mongoId) {
+    return Math.floor(Math.random() * 100000);
+  }
+
+  const str = mongoId.toString();
+
+  // Prendre les 8 derniers caractères et les convertir en nombre
+  const lastChars = str.slice(-8);
+
+  // Convertir en nombre hexadécimal puis en décimal
+  const uid = parseInt(lastChars, 16) % 2147483647; // Max safe integer pour Agora
+
+  console.log(`🔢 UID MongoDB: ${str} → ${uid}`);
+
+  return uid;
 };
 
 // Générer un ID d'appel unique temporaire (le vrai viendra du backend)
@@ -55,7 +92,7 @@ export const CallProvider = ({ children }) => {
   const [currentCallId, setCurrentCallId] = useState(null);
   const [callDuration, setCallDuration] = useState(0);
   const [callError, setCallError] = useState(null);
-
+  const [agoraUid, setAgoraUid] = useState(null);
   // Refs pour gestion audio et timers
   const callStartTimeRef = useRef(null);
   const ringtoneRef = useRef(null);
@@ -135,6 +172,7 @@ export const CallProvider = ({ children }) => {
         const tempCallId = generateCallId();
         const channel = `channel_${tempCallId}`;
         const myUid = generateNumericUid(user._id || user.id);
+        setAgoraUid(myUid);
 
         // 1. Obtenir le token Agora
         const { data: tokenData } = await api.post("/agora/token", {
@@ -230,9 +268,13 @@ export const CallProvider = ({ children }) => {
         groupName,
         from,
         conversationId,
+        participants, // 🆕 Récupérer participants
+        members, // 🆕 Récupérer members
       } = incomingCall;
+      console.log("✅ Acceptation avec participants:", participants || members);
 
       const myUid = generateNumericUid(user._id || user.id);
+      setAgoraUid(myUid);
 
       // 1. Obtenir le token Agora
       const { data: tokenData } = await api.post("/agora/token", {
@@ -244,6 +286,38 @@ export const CallProvider = ({ children }) => {
       // ✅ CORRECTION : Utilisation de /agora/calls/...
       await api.post(`/agora/calls/${callId}/answer`);
 
+      // 🔥 CORRECTION : Construire la liste complète des participants
+      let fullParticipantsList = [];
+
+      if (participants && Array.isArray(participants)) {
+        fullParticipantsList = [...participants];
+      } else if (members && Array.isArray(members)) {
+        fullParticipantsList = [...members];
+      } else {
+        // Fallback : au minimum l'initiateur
+        fullParticipantsList = [from];
+      }
+
+      // AJOUT CRITIQUE : Ajouter VOUS-MÊME à la liste
+      const meExists = fullParticipantsList.some(
+        (p) => (p._id || p.id || p.userId) === (user._id || user.id)
+      );
+
+      if (!meExists) {
+        fullParticipantsList.push({
+          _id: user._id || user.id,
+          id: user._id || user.id,
+          name: user.name,
+          profilePicture: user.profilePicture,
+          email: user.email,
+        });
+        console.log("✅ Vous-même ajouté à la liste des participants");
+      }
+
+      console.log(
+        `📊 Liste finale: ${fullParticipantsList.length} participants`
+      );
+
       // 3. Mise à jour état local
       setCurrentCallId(callId);
       setChannelName(channel);
@@ -253,7 +327,8 @@ export const CallProvider = ({ children }) => {
         isGroup,
         name: isGroup ? groupName : from.name,
         profilePicture: from.profilePicture,
-        participants: [from],
+        participants: fullParticipantsList, //  Liste complète
+        members: fullParticipantsList, //  Liste complète
         conversationId,
       });
 
@@ -266,14 +341,24 @@ export const CallProvider = ({ children }) => {
 
       startDurationTimer();
 
-      console.log(`✅ Appel ${callId} accepté`);
+      console.log(
+        `✅ Appel ${callId} accepté avec ${
+          (participants || members || []).length
+        } participants`
+      );
     } catch (error) {
       console.error("❌ Erreur acceptation:", error);
       setCallError("Impossible de rejoindre l'appel");
       setCallState("idle");
       setIncomingCall(null);
     }
-  }, [incomingCall, user, stopRingtone, startDurationTimer]);
+  }, [
+    incomingCall,
+    user,
+    stopRingtone,
+    startDurationTimer,
+    generateNumericUid,
+  ]);
 
   // ============================================
   // 3. REFUSER UN APPEL
@@ -304,7 +389,6 @@ export const CallProvider = ({ children }) => {
 
     console.log(`❌ Appel refusé`);
   }, [incomingCall, stopRingtone]);
-  
 
   // ============================================
   // 4. TERMINER UN APPEL
@@ -348,6 +432,7 @@ export const CallProvider = ({ children }) => {
     setCurrentCallId(null);
     setIncomingCall(null);
     setCallError(null);
+    setAgoraUid(null);
 
     console.log(`🛑 Appel terminé localement`);
   }, [currentCallId, callState, stopRingtone, stopDurationTimer, callData]);
@@ -368,7 +453,24 @@ export const CallProvider = ({ children }) => {
       }
 
       console.log("📱 Appel entrant:", data);
-      setIncomingCall(data);
+      // 🆕 CORRECTION : Logs détaillés
+      console.log("  - CallId:", data.callId);
+      console.log(
+        "  - Type:",
+        data.callType,
+        data.isGroup ? "(groupe)" : "(1-1)"
+      );
+      console.log("  - Participants reçus:", data.participants);
+      console.log("  - Members reçus:", data.members);
+      console.log("  - From:", data.from);
+
+      setIncomingCall({
+        ...data,
+        // S'assurer que participants est toujours un tableau
+        participants: data.participants || data.members || [data.from],
+        members: data.members || data.participants || [data.from],
+      });
+
       setCallState("ringing");
       playRingtone();
     };
@@ -378,6 +480,36 @@ export const CallProvider = ({ children }) => {
       console.log("✅ Appel répondu:", data);
       setCallState("ongoing");
       startDurationTimer();
+
+      // Cas 2 : un NOUVEAU participant rejoint un appel de groupe
+      const { newParticipant } = data;
+      if (newParticipant) {
+        console.log("👥 Nouveau participant détecté:", newParticipant);
+
+        setCallData((prev) => {
+          if (!prev) return prev;
+
+          const alreadyExists = (prev.participants || []).some(
+            (p) => (p._id || p.id) === (newParticipant._id || newParticipant.id)
+          );
+
+          if (alreadyExists) {
+            console.log("ℹ️ Participant déjà présent, ignoré");
+            return prev;
+          }
+
+          const updatedParticipants = [
+            ...(prev.participants || []),
+            newParticipant,
+          ];
+
+          return {
+            ...prev,
+            participants: updatedParticipants,
+            members: updatedParticipants,
+          };
+        });
+      }
     };
 
     // Appel refusé
@@ -445,6 +577,78 @@ export const CallProvider = ({ children }) => {
       stopDurationTimer();
     };
   }, [stopRingtone, stopDurationTimer]);
+  // ============================================
+  // HOOK DE DEBUG - À AJOUTER DANS CallContext.js
+  // ============================================
+
+  // 1️⃣ Ce useEffect s'exécute quand le user change
+  useEffect(() => {
+    // 2️⃣ Récupérer la connexion socket
+    const socket = getSocket();
+
+    // 3️⃣ Si pas de socket ou pas d'utilisateur, arrêter
+    if (!socket || !user) return;
+
+    // ============================================
+    // PARTIE 1 : Afficher les infos de connexion
+    // ============================================
+    console.log("\n🐛 === DEBUG SOCKET CALL CONTEXT ===");
+    console.log("Socket connecté:", socket.connected); // true ou false
+    console.log("User ID:", user._id || user.id); // Votre ID utilisateur
+    console.log("Socket ID:", socket.id); // ID de la connexion
+
+    // ============================================
+    // PARTIE 2 : Espionner les ENVOIS (emit)
+    // ============================================
+    // Sauvegarder la fonction emit originale
+    const originalEmit = socket.emit.bind(socket);
+
+    // Remplacer socket.emit par une version qui LOG
+    socket.emit = function (event, ...args) {
+      // Si l'événement commence par "call-" (call-initiate, call-answer, etc.)
+      if (event.startsWith("call-")) {
+        // Afficher dans la console ce qu'on envoie
+        console.log(`📤 EMIT: ${event}`, args[0]);
+      }
+      // Appeler la vraie fonction emit
+      return originalEmit(event, ...args);
+    };
+
+    // ============================================
+    // PARTIE 3 : Espionner les RÉCEPTIONS (on)
+    // ============================================
+    // Liste de tous les événements d'appel à surveiller
+    const eventsToLog = [
+      "call-incoming", // Appel entrant
+      "call-answered", // Appel répondu
+      "call-declined", // Appel refusé
+      "call-ended", // Appel terminé
+      "call-timeout", // Appel sans réponse
+      "call-missed", // Appel manqué
+      "call-error", // Erreur d'appel
+    ];
+
+    // Pour chaque événement, créer un listener qui LOG
+    eventsToLog.forEach((event) => {
+      socket.on(event, (data) => {
+        // Afficher dans la console ce qu'on reçoit
+        console.log(`📥 RECEIVE: ${event}`, data);
+      });
+    });
+
+    console.log("==============================\n");
+
+    // ============================================
+    // PARTIE 4 : Cleanup (nettoyage)
+    // ============================================
+    return () => {
+      // Quand le composant se démonte, retirer tous les listeners
+      eventsToLog.forEach((event) => socket.off(event));
+    };
+  }, [user]); // ⬅️ Se relance quand user change
+
+  // ⚠️ IMPORTANT : Ce code est pour le DEBUG uniquement
+  // Une fois que tout fonctionne, commentez-le ou retirez-le
 
   return (
     <CallContext.Provider
@@ -538,7 +742,7 @@ export const CallProvider = ({ children }) => {
         <VideoCall
           channelName={channelName}
           token={agoraToken}
-          uid={generateNumericUid(user?._id || user?.id)}
+          uid={agoraUid}
           callType={callType}
           callData={callData}
           callState={callState}
