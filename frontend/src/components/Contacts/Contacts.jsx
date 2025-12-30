@@ -768,7 +768,7 @@ export default function ContactsPage() {
             <>
               {/* Search Bar */}
               <div className="pb-2">
-                <div className="max-w-lg mx-auto">
+                <div className="relative max-w-lg mx-auto">
                   <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isDark ? "text-blue-400" : "text-blue-400"}`} />
                   <input
                     type="text"

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from "next/navigation";
 import { AuthContext } from '@/context/AuthProvider';
 import { useTheme } from '@/hooks/useTheme';
+import api from "@/lib/api";
 import {
   addContact,
   getConversations,
@@ -53,6 +54,7 @@ import {
   UserX,
   Sparkles,
   UsersRound,
+  Shield,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -752,6 +754,61 @@ const markStatusAsViewed = (contactId) => {
 };
   const totalInvitations = receivedInvitations.length;
 
+const handleBlockConversationContact = async (conv) => {
+  if (conv.isGroup) return;
+
+  const contact = getOtherParticipant(conv);
+  if (!contact?._id) {
+    alert('❌ Contact non défini');
+    return;
+  }
+
+  const confirmMsg = `Êtes-vous sûr de vouloir bloquer ${contact.name} ?
+
+⚠️ Conséquences :
+- ${contact.name} sera RETIRÉ de vos contacts
+- Votre conversation sera MASQUÉE (pas supprimée)
+- Vous ne recevrez plus ses messages
+- Il ne pourra plus vous contacter`;
+
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  try {
+    console.log('🔒 Blocage depuis sidebar pour:', contact._id);
+
+    const response = await api.post('/message-settings/block', {
+      targetUserId: contact._id,
+    });
+
+    if (response.data?.success) {
+      // notifier le reste de l'app (ChatHeader, etc.)
+      window.dispatchEvent(new CustomEvent('block-status-changed'));
+
+      // rafraîchir la liste des conversations (la conv sera filtrée côté backend)
+      await fetchConversations();
+
+      alert(`🚫 ${contact.name} a été bloqué et retiré de vos contacts
+
+✅ Actions effectuées :
+- Contact supprimé
+- Conversation masquée
+- Messages bloqués`);
+    } else {
+      throw new Error(response.data?.message || 'Erreur inconnue');
+    }
+  } catch (err) {
+    console.error('❌ Erreur blocage (sidebar):', err);
+    alert(
+      '❌ Erreur lors du blocage: ' +
+        (err.response?.data?.message || err.message)
+    );
+  } finally {
+    setMenuOpen(null);
+  }
+};
+
   return (
     <div className={`w-full lg:w-96 ${sidebarBg} flex flex-col h-screen shadow-xl relative`}>
       {/* Header avec gradient bleu */}
@@ -1372,37 +1429,88 @@ const markStatusAsViewed = (contactId) => {
                               <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
                               Archiver
                             </button>
-                            
+                            {/* 🔥 NOUVEAU : Bloquer le contact (seulement pour les 1–1) */}
+    {!conv.isGroup && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleBlockConversationContact(conv);
+        }}
+        className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
+          isDark
+            ? 'hover:bg-red-900/40 text-red-300 hover:text-red-200'
+            : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+        }`}
+      >
+        <Shield className="w-5 h-5" />
+        Bloquer le contact
+      </button>
+    )}
                             <button 
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                
-                                if (!confirm(`Vider cette discussion ?\n\n⚠️ Actions :\n- Tous vos messages seront supprimés\n- La discussion restera dans votre liste (vierge)\n- L'autre personne conservera son historique\n- Les nouveaux messages apparaîtront normalement`)) {
-                                  return;
-                                }
-                                
-                                try {
-                                  const response = await deleteConversationForUser(conv._id);
-                                  
-                                  if (response.data.success) {
-                                    setMenuOpen(null);
-                                    await fetchConversations();
-                                    alert('✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.');
-                                  }
-                                } catch (error) {
-                                  console.error('❌ Erreur suppression:', error);
-                                  alert('❌ Erreur lors du vidage: ' + (error.response?.data?.message || error.message));
-                                }
-                              }}
-                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-                                isDark 
-                                  ? 'hover:bg-red-900/50 text-red-300 hover:text-red-200' 
-                                  : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-                              }`}
-                            >
-                              <Trash2 className="w-5 h-5" />
-                              Vider la discussion
-                            </button>
+  onClick={async (e) => {
+    e.stopPropagation();
+
+    // 🔥 même message que dans ChatHeader
+    const confirmMessage = `Vider cette discussion ?
+
+⚠️ Actions :
+- Tous vos messages seront supprimés
+- La discussion restera dans votre liste (vierge)
+- L'autre personne conservera son historique
+- Les nouveaux messages apparaîtront normalement`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Vidage conversation depuis sidebar:', conv._id);
+
+      // 🔥 même route que dans ChatHeader
+      const response = await api.delete(
+        `/message-settings/conversations/${conv._id}/delete`
+      );
+
+      console.log('📦 Réponse suppression (sidebar):', response.data);
+
+      if (response.data.success) {
+        // ✅ fermer le menu
+        setMenuOpen(null);
+
+        // ✅ notifier le reste de l’app (même event que dans ChatHeader)
+        window.dispatchEvent(
+          new CustomEvent('conversation-cleared', {
+            detail: { conversationId: conv._id }
+          })
+        );
+
+        // ✅ rafraîchir les conversations de la sidebar
+        await fetchConversations();
+
+        // ✅ même message que dans ChatHeader
+        alert(
+          '✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.'
+        );
+      } else {
+        throw new Error(response.data.message || 'Erreur inconnue');
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression (sidebar):', error);
+      alert(
+        '❌ Erreur lors du vidage: ' +
+          (error.response?.data?.message || error.message)
+      );
+    }
+  }}
+  className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
+    isDark 
+      ? 'hover:bg-red-900/50 text-red-300 hover:text-red-200' 
+      : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+  }`}
+>
+  <Trash2 className="w-5 h-5" />
+  Supprimer la discussion
+</button>
                           </div>
                         )}
                       </div>
