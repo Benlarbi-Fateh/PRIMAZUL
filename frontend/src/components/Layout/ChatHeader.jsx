@@ -25,6 +25,7 @@ import useBlockCheck from '../../hooks/useBlockCheck';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import {
+  sendMessage,
   removeParticipantFromGroup,
   promoteToAdmin,
   removeAdminFromGroup,
@@ -73,6 +74,20 @@ export default function ChatHeader({ contact, conversation, onBack, onSearchOpen
     error: blockError,
     refresh: refreshBlockStatus 
   } = useBlockCheck(contact?._id);
+
+  const sendGroupInfoMessage = async (text) => {
+  if (!conversation?._id) return;
+
+  try {
+    await sendMessage({
+      conversationId: conversation._id,
+      content: text,
+      type: "story_reaction", // ✅ même rendu que les réactions de story
+    });
+  } catch (err) {
+    console.error("❌ Erreur envoi message info groupe:", err);
+  }
+};
 
   const formatMessageDateLocal = (date) => {
     if (!date) return '';
@@ -427,122 +442,169 @@ if (onBack) {
   // ==========================================
 
   const handleRemoveParticipant = async (participantId) => {
-    if (!confirm('Retirer ce membre du groupe ?')) return;
+  if (!confirm('Retirer ce membre du groupe ?')) return;
 
-    try {
-      const response = await api.post('/groups/remove-participant', {
-        groupId: conversation._id,
-        participantId
-      });
+  try {
+    const response = await api.post('/groups/remove-participant', {
+      groupId: conversation._id,
+      participantId
+    });
 
-      if (response.data.success) {
-        alert('✅ Membre retiré');
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+    if (response.data.success) {
+      // trouver le nom de la personne retirée
+      const removed = conversation.participants?.find(
+        (p) => p._id?.toString() === participantId?.toString()
+      );
+      const name = removed?.name || "Un membre";
+
+      // ✅ envoyer le message système
+      await sendGroupInfoMessage(`${name} a été retiré du groupe`);
+
+      alert('✅ Membre retiré');
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
 
   const handlePromoteToAdmin = async (participantId) => {
-    if (!confirm('Promouvoir ce membre en admin ?')) return;
+  if (!confirm('Promouvoir ce membre en admin ?')) return;
 
-    try {
-      const response = await api.post('/groups/promote-admin', {
-        groupId: conversation._id,
-        participantId
-      });
+  try {
+    const response = await api.post('/groups/promote-admin', {
+      groupId: conversation._id,
+      participantId
+    });
 
-      if (response.data.success) {
-        alert('✅ Membre promu admin');
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+    if (response.data.success) {
+      const promoted = conversation.participants?.find(
+        (p) => p._id?.toString() === participantId?.toString()
+      );
+      const promotedName = promoted?.name || 'un membre';
+      const userName = user?.name || 'Un membre';
+
+      // ✅ message dans la discussion
+      await sendGroupInfoMessage(
+        `${userName} a promu ${promotedName} administrateur du groupe`
+      );
+
+      alert('✅ Membre promu admin');
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
 
   const handleRemoveAdmin = async (adminId) => {
-    if (!confirm('Rétrograder cet admin ?')) return;
+  if (!confirm('Rétrograder cet admin ?')) return;
 
-    try {
-      const response = await api.post('/groups/remove-admin', {
-        groupId: conversation._id,
-        adminId
-      });
+  try {
+    const response = await api.post('/groups/remove-admin', {
+      groupId: conversation._id,
+      adminId
+    });
 
-      if (response.data.success) {
-        alert('✅ Admin rétrogradé');
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+    if (response.data.success) {
+      const demoted = conversation.participants?.find(
+        (p) => p._id?.toString() === adminId?.toString()
+      );
+      const demotedName = demoted?.name || 'un membre';
+      const userName = user?.name || 'Un membre';
+
+      // ✅ message dans la discussion
+      await sendGroupInfoMessage(
+        `${userName} a retiré les droits d’administrateur de ${demotedName}`
+      );
+
+      alert('✅ Admin rétrogradé');
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
 
   const handleUpdateGroupName = async () => {
-    if (!newGroupName.trim()) {
-      alert('❌ Le nom ne peut pas être vide');
-      return;
-    }
+  if (!newGroupName.trim()) {
+    alert('❌ Le nom ne peut pas être vide');
+    return;
+  }
 
-    try {
-      const response = await api.put('/groups/update-name', {
-        groupId: conversation._id,
-        groupName: newGroupName.trim()
-      });
+  try {
+    const response = await api.put('/groups/update-name', {
+      groupId: conversation._id,
+      groupName: newGroupName.trim()
+    });
 
-      if (response.data.success) {
-        alert('✅ Nom modifié');
-        setEditingGroupName(false);
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+    if (response.data.success) {
+      const oldName = conversation.groupName || 'ce groupe';
+      const updatedName = newGroupName.trim();
+      const userName = user?.name || 'Un membre';
+
+      // ✅ message dans la discussion
+      await sendGroupInfoMessage(
+        `${userName} a renommé ${oldName} en “${updatedName}”`
+      );
+
+      alert('✅ Nom modifié');
+      setEditingGroupName(false);
+      window.location.reload();
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  }
+};
 
   const handleUpdateGroupImage = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      alert('❌ Veuillez sélectionner une image');
-      return;
+  if (!file.type.startsWith('image/')) {
+    alert('❌ Veuillez sélectionner une image');
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('❌ L\'image ne doit pas dépasser 5 MB');
+    return;
+  }
+
+  setUploadingImage(true);
+
+  try {
+    const formData = new FormData();
+    formData.append('groupImage', file);
+
+    const response = await api.put(
+      `/groups/${conversation._id}/update-image`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+
+    if (response.data.success) {
+      const userName = user?.name || 'Un membre';
+
+      // ✅ message dans la discussion
+      await sendGroupInfoMessage(
+        `${userName} a changé la photo du groupe`
+      );
+
+      alert('✅ Image modifiée');
+      window.location.reload();
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('❌ L\'image ne doit pas dépasser 5 MB');
-      return;
-    }
-
-    setUploadingImage(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('groupImage', file);
-
-      const response = await api.put(`/groups/${conversation._id}/update-image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      if (response.data.success) {
-        alert('✅ Image modifiée');
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setUploadingImage(false);
-    }
-  };
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
+  } finally {
+    setUploadingImage(false);
+  }
+};
 
   const isUserAdmin = () => {
     if (!conversation?.isGroup) return false;
@@ -599,14 +661,15 @@ if (onBack) {
 
   // Fonction pour recharger le groupe après ajout de membres
   const reloadGroup = async () => {
-    try {
-      console.log('🔄 Rechargement du groupe:', conversation._id);
-      window.location.reload();
-    } catch (error) {
-      console.error('❌ Erreur rechargement:', error);
-      alert('Erreur lors du rechargement du groupe');
-    }
-  };
+  try {
+    // ✅ Message générique
+    await sendGroupInfoMessage("De nouveaux membres ont été ajoutés au groupe");
+  } catch (error) {
+    console.error('❌ Erreur message ajout membres:', error);
+  } finally {
+    window.location.reload();
+  }
+};
 
   const openMediaPanel = async () => {
   setShowMediaPanel(true);
@@ -1243,15 +1306,21 @@ if (onBack) {
 
     {/* BOUTON QUITTER LE GROUPE */}
     <button
-      onClick={async () => {
-        if (!confirm('Êtes-vous sûr de vouloir quitter ce groupe ?')) return;
+       onClick={async () => {
+    if (!confirm('Êtes-vous sûr de vouloir quitter ce groupe ?')) return;
 
-        try {
-          await api.delete(`/groups/${conversation._id}/leave`);
-          alert('✅ Vous avez quitté le groupe');
-          setShowMenu(false);
-          router.push('/');
-        } catch (error) {
+    try {
+      // ✅ Envoyer le message AVANT de quitter, tant qu'on est encore dans le groupe
+      const myName = user?.name || 'Un membre';
+      await sendGroupInfoMessage(`${myName} a quitté le groupe`);
+
+      await api.delete(`/groups/${conversation._id}/leave`);
+
+      alert('✅ Vous avez quitté le groupe');
+      setShowMenu(false);
+      router.push('/');
+    } catch (error) {
+
           console.error('❌ Erreur:', error);
           alert('❌ Erreur: ' + (error.response?.data?.error || error.message));
         }
