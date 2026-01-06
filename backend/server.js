@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const path = require("path");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const app = express();
 const server = http.createServer(app);
@@ -63,6 +63,8 @@ const invitationRoutes = require("./routes/invitationRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const agoraRoutes = require("./routes/agoraRoutes");
 const statusRoutes = require("./routes/statusRoutes");
+const personalTaskListRoutes = require("./routes/personalTaskListRoutes");
+const personalTaskRoutes = require("./routes/personalTaskRoutes");
 
 // 🆕 NOUVELLE ROUTE PROFILE
 const profileRoutes = require("./routes/profileRoutes");
@@ -80,6 +82,8 @@ app.use("/api/message-settings", messageSettingsRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/agora", agoraRoutes);
 app.use("/api/status", statusRoutes);
+app.use("/api/task-lists", personalTaskListRoutes);
+app.use("/api/tasks", personalTaskRoutes);
 
 // 🆕 AJOUT DE LA ROUTE PROFILE
 app.use("/api/profile", profileRoutes);
@@ -152,22 +156,24 @@ process.on("unhandledRejection", (reason, promise) => {
 // ============================================
 // ⏰ CRON JOB POUR MESSAGES PROGRAMMÉS
 // ============================================
-const { checkScheduledMessages } = require('./controllers/messageController');
+const { checkScheduledMessages } = require("./controllers/messageController");
 
 // Attendre que MongoDB soit connecté avant de lancer le CRON
-mongoose.connection.once('open', () => {
-  console.log('✅ MongoDB connecté, démarrage du CRON pour messages programmés...');
-  
+mongoose.connection.once("open", () => {
+  console.log(
+    "✅ MongoDB connecté, démarrage du CRON pour messages programmés..."
+  );
+
   // Vérifier toutes les 30 secondes
   setInterval(() => {
     if (mongoose.connection.readyState === 1) {
       checkScheduledMessages(io);
     } else {
-      console.log('⚠️ MongoDB non connecté, skip CRON');
+      console.log("⚠️ MongoDB non connecté, skip CRON");
     }
   }, 30000); // 30 secondes
 
-  console.log('⏰ CRON job activé : vérification toutes les 30 secondes');
+  console.log("⏰ CRON job activé : vérification toutes les 30 secondes");
 });
 
 // Démarrage du serveur
