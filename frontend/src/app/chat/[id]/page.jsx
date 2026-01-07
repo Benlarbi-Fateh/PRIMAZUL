@@ -82,6 +82,8 @@ export default function ChatPage() {
   const [replyingToSender, setReplyingToSender] = useState(null);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+    // 🆕 savoir si on doit auto‑scroller ou pas
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -89,6 +91,21 @@ export default function ChatPage() {
   const isMarkingAsReadRef = useRef(false);
 
   useSocket();
+
+    // 🆕 détecter si l'utilisateur est proche du bas ou pas
+  const handleScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    // distance entre la position actuelle et le bas
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+
+    // si on est à moins de 50px du bas, on considère qu'on est en bas
+    const isNearBottom = distanceFromBottom < 50;
+
+    setShouldAutoScroll(isNearBottom);
+  };
 
   // 🆕 Fonction pour scroller vers un message recherché
   const scrollToMessage = (messageId) => {
@@ -115,6 +132,11 @@ export default function ChatPage() {
       }
     };
   }, [conversationId]);
+
+  useEffect(() => {
+  // quand on change de conversation, on recolle en bas
+  setShouldAutoScroll(true);
+}, [conversationId]);
 
   useEffect(() => {
     if (!conversationId || !user) return;
@@ -429,9 +451,12 @@ export default function ChatPage() {
     }
   }, [conversationId, user]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, typingUsers]);
+  // 🆕 auto‑scroll uniquement si l'utilisateur est déjà en bas
+useEffect(() => {
+  if (!shouldAutoScroll || !messagesEndRef.current) return;
+
+  messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+}, [messages, typingUsers, shouldAutoScroll]);
 
   const getOtherParticipant = () => {
     if (!conversation || !user) return null;
@@ -928,9 +953,10 @@ export default function ChatPage() {
 
             {/* Container des messages avec scrollbar cachée */}
             <div
-              ref={messagesContainerRef}
-              className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
-            >
+  ref={messagesContainerRef}
+  onScroll={handleScroll} // 🆕
+  className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
+>
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full animate-fade-in">
                   <div

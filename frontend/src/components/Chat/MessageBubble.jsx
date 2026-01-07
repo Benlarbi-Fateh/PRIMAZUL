@@ -364,18 +364,19 @@ export default function MessageBubble({
   );
 
   const renderReactions = () => {
-    if (!message.reactions || message.reactions.length === 0) return null;
-    return (
-      <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} mt-2 mb-1`}>
-        <MessageReactions
-          reactions={message.reactions}
-          onReactionClick={handleReaction}
-          currentUserId={currentUserId}
-          isMine={isMine}
-        />
-      </div>
-    );
-  };
+  if (!message.reactions || message.reactions.length === 0) return null;
+  return (
+    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} mt-2 mb-1`}>
+      <MessageReactions
+        reactions={message.reactions}
+        onReactionClick={handleReaction}
+        currentUserId={currentUserId}
+        isMine={isMine}
+        isDark={isDark} // 🆕 on passe le thème
+      />
+    </div>
+  );
+};
 
   // ========================================
   // 🎬 RENDU MESSAGE VIDÉO

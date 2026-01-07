@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 
-export default function MessageReactions({ reactions = [], onReactionClick, currentUserId, isMine }) {
+export default function MessageReactions({
+  reactions = [],
+  onReactionClick,
+  currentUserId,
+  isMine,
+  isDark = false, // 👈 NOUVELLE PROP AVEC VALEUR PAR DÉFAUT
+}) {
   const [showTooltip, setShowTooltip] = useState(null);
 
   if (!reactions || reactions.length === 0) return null;
@@ -26,7 +32,11 @@ export default function MessageReactions({ reactions = [], onReactionClick, curr
 
   return (
     <div className={`w-full mt-2 ${isMine ? 'text-right' : 'text-left'}`}>
-      <div className={`inline-flex items-center gap-1 flex-wrap justify-start max-w-full ${isMine ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`inline-flex items-center gap-1 flex-wrap justify-start max-w-full ${
+          isMine ? 'justify-end' : 'justify-start'
+        }`}
+      >
         {Object.entries(groupedReactions).map(([emoji, data]) => (
           <div key={emoji} className="relative">
             <button
@@ -34,22 +44,39 @@ export default function MessageReactions({ reactions = [], onReactionClick, curr
               onMouseEnter={() => setShowTooltip(emoji)}
               onMouseLeave={() => setShowTooltip(null)}
               className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all min-w-10 justify-center
-                ${data.hasReacted 
-                  ? 'bg-blue-100 border-2 border-blue-300 hover:bg-blue-200' 
-                  : 'bg-slate-100 border border-slate-200 hover:bg-slate-200'
+                ${
+                  data.hasReacted
+                    ? isDark
+                      ? 'bg-blue-900/40 border border-blue-400 hover:bg-blue-900/70'
+                      : 'bg-blue-100 border-2 border-blue-300 hover:bg-blue-200'
+                    : isDark
+                      ? 'bg-slate-800 border border-slate-600 hover:bg-slate-700'
+                      : 'bg-slate-100 border border-slate-200 hover:bg-slate-200'
                 }`}
             >
               <span className="text-sm">{emoji}</span>
               {data.count > 1 && (
-                <span className="text-slate-600 font-medium min-w-2 text-center">{data.count}</span>
+                <span
+                  className={`font-medium min-w-2 text-center ${
+                    isDark ? 'text-slate-200' : 'text-slate-600'
+                  }`}
+                >
+                  {data.count}
+                </span>
               )}
             </button>
 
             {/* Tooltip avec les noms */}
             {showTooltip === emoji && data.users.length > 0 && (
-              <div className={`absolute bottom-full mb-1 px-2 py-1 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap z-50
+              <div
+                className={`absolute bottom-full mb-1 px-2 py-1 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap z-50
                 ${isMine ? 'right-0' : 'left-0'}`}
-              >{data.users.map(u => (typeof u === 'object' ? u?.name : 'Utilisateur')).join(', ')}
+              >
+                {data.users
+                  .map((u) =>
+                    typeof u === 'object' ? u?.name : 'Utilisateur'
+                  )
+                  .join(', ')}
               </div>
             )}
           </div>

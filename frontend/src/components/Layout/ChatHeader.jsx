@@ -939,79 +939,84 @@ if (onBack) {
       ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-gray-100 text-gray-900'}
     `}
   >
-    {/* 🆕 HEADER COMPACT - Plus simple, bouton X intégré */}
-    <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6">
-      {/* Pattern de fond subtil */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='none'/%3E%3Cpath d='M0 0L60 60M60 0L0 60' stroke='%23fff' stroke-width='1' opacity='0.1'/%3E%3C/svg%3E")`
-        }}></div>
+    <div className={`relative overflow-hidden p-6 ${headerBg}`}>
+  {/* Pattern de fond subtil, plus discret en sombre */}
+  <div className={`absolute inset-0 ${isDark ? 'opacity-5' : 'opacity-10'}`}>
+    <div
+      className="absolute inset-0"
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='none'/%3E%3Cpath d='M0 0L60 60M60 0L0 60' stroke='%23ffffff' stroke-width='1' opacity='0.15'/%3E%3C/svg%3E")`,
+      }}
+    ></div>
+  </div>
+
+  {/* Contenu du header */}
+  <div className="relative flex items-center justify-between">
+    <div className="flex items-center gap-4">
+      {/* Photo de profil */}
+      <div className="relative">
+        <img
+          src={displayImage}
+          alt={displayName}
+          className="w-14 h-14 rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
+        />
+        {contactIsOnline && !isGroup && (
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg"></div>
+        )}
       </div>
 
-      {/* Contenu du header */}
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {/* Photo de profil */}
-          <div className="relative">
-            <img 
-              src={displayImage} 
-              alt={displayName} 
-              className="w-14 h-14 rounded-2xl object-cover shadow-xl ring-4 ring-white/30" 
-            />
-            {contactIsOnline && !isGroup && (
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow-lg"></div>
-            )}
-          </div>
-          
-          {/* Infos utilisateur */}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold text-white truncate drop-shadow-sm">
-              {displayName}
-            </h2>
-            
-            {/* Statut */}
-            <div className="flex items-center gap-2 text-sm mt-1">
-              {isGroup ? (
-                <div className="flex items-center gap-1.5 text-white/90">
-                  <Users className="w-3.5 h-3.5" />
-                  <span>{participantsCount} participant{participantsCount > 1 ? 's' : ''}</span>
-                </div>
-              ) : blockLoading ? (
-                <div className="flex items-center gap-1.5 text-white/70">
-                  <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse"></div>
-                  <span>Chargement...</span>
-                </div>
-              ) : (blockStatus?.blockedMe || false) ? (
-                <div className="flex items-center gap-1.5 text-red-200">
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Vous êtes bloqué</span>
-                </div>
-              ) : (blockStatus?.iBlocked || false) ? (
-                <div className="flex items-center gap-1.5 text-yellow-200">
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Bloqué</span>
-                </div>
-              ) : contactIsOnline ? (
-                <>
-                  <div className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse"></div>
-                  <span className="text-white/90">En ligne</span>
-                </>
-              ) : (
-                <span className="text-white/70">Hors ligne</span>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Infos utilisateur */}
+      <div className="flex-1 min-w-0">
+        <h2 className="text-lg font-bold text-white truncate drop-shadow-sm">
+          {displayName}
+        </h2>
 
-        {/* 🆕 BOUTON X - Maintenant dans le header */}
-        <button 
-          onClick={() => setShowMenu(false)} 
-          className="p-2.5 hover:bg-white/20 rounded-xl transition-all text-white backdrop-blur-sm active:scale-95"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Statut */}
+        <div className="flex items-center gap-2 text-sm mt-1">
+          {isGroup ? (
+            <div className="flex items-center gap-1.5 text-blue-100">
+              <Users className="w-3.5 h-3.5" />
+              <span>
+                {participantsCount} participant
+                {participantsCount > 1 ? 's' : ''}
+              </span>
+            </div>
+          ) : blockLoading ? (
+            <div className="flex items-center gap-1.5 text-blue-100/80">
+              <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+              <span>Chargement...</span>
+            </div>
+          ) : blockStatus?.blockedMe ? (
+            <div className="flex items-center gap-1.5 text-red-100">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Vous êtes bloqué</span>
+            </div>
+          ) : blockStatus?.iBlocked ? (
+            <div className="flex items-center gap-1.5 text-yellow-100">
+              <Shield className="w-3.5 h-3.5" />
+              <span>Bloqué</span>
+            </div>
+          ) : contactIsOnline ? (
+            <>
+              <div className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse"></div>
+              <span className="text-blue-50">En ligne</span>
+            </>
+          ) : (
+            <span className="text-blue-100/80">Hors ligne</span>
+          )}
+        </div>
       </div>
     </div>
+
+    {/* BOUTON X */}
+    <button
+      onClick={() => setShowMenu(false)}
+      className="p-2.5 hover:bg-white/10 rounded-xl transition-all text-blue-50/90 backdrop-blur-sm active:scale-95"
+    >
+      <X className="w-5 h-5" />
+    </button>
+  </div>
+</div>
 
 
     {/* 🆕 CONTENU - Actions sans scroll, design épuré */}
