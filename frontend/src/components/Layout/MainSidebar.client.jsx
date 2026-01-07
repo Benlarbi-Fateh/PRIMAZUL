@@ -1,18 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import {
   MessageCircle,
-  Users,
   Settings,
   LogOut,
   ChevronRight,
   ChevronLeft,
   CircleDashed,
+  UsersRound, // Contacts
+  Bell,       // Invitations
 } from "lucide-react";
+import { getConversations, getReceivedInvitations } from "@/lib/api";
 
 export default function MainSidebar() {
   const router = useRouter();
@@ -20,10 +22,9 @@ export default function MainSidebar() {
   const { isDark } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Même style que le ChatHeader
-  const headerBg = isDark
-    ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950"
-    : "bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800";
+  // 🔴 Compteurs
+  const [unreadMessages, setUnreadMessages] = useState(0);   // messages non lus
+  const [invitationCount, setInvitationCount] = useState(0); // invitations reçues
 
   const sidebarBg = isDark
     ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950 border-blue-800"
@@ -32,10 +33,6 @@ export default function MainSidebar() {
   const toggleButtonBg = isDark
     ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950"
     : "bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800";
-
-  const buttonStyle = isDark
-    ? "hover:bg-blue-800/50 text-blue-200"
-    : "hover:bg-white/20 text-white";
 
   const menuItemStyle = isDark
     ? "hover:bg-blue-800/50 text-blue-200 hover:text-blue-50"
@@ -55,20 +52,28 @@ export default function MainSidebar() {
 
   const overlayBg = isDark ? "bg-black/60" : "bg-black/50";
 
+  // ✅ Boutons du menu : on navigue vers l'accueil avec l'onglet voulu
   const menuItems = [
     {
       label: "Discussions",
       icon: MessageCircle,
-      href: "/",
+      href: "/?tab=chats",        // accueil, onglet "Discussions"
     },
     {
-      label: "Groupes",
-      icon: Users,
-      href: "/group",
+      label: "Contacts",
+      icon: UsersRound,
+      href: "/?tab=contacts",     // accueil, onglet "Contacts"
     },
-    { label: "Statuts",
-       icon: CircleDashed, 
-       href: "/status" },
+    {
+      label: "Invitations",
+      icon: Bell,
+      href: "/?tab=invitations",  // accueil, onglet "Invitations"
+    },
+    {
+      label: "Statuts",
+      icon: CircleDashed,
+      href: "/status",
+    },
     {
       label: "Paramètres",
       icon: Settings,
@@ -81,13 +86,72 @@ export default function MainSidebar() {
     router.push("/login");
   };
 
+  const handleMenuClick = (item) => {
+    if (item.href) {
+      router.push(item.href);
+    }
+
+    // Sur mobile, fermer après clic
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setIsOpen(false);
+    }
+  };
+
+  // 🔁 Rafraîchir périodiquement les compteurs (messages non lus + invitations)
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    const refreshCounts = async () => {
+      try {
+        const [convRes, invRes] = await Promise.all([
+          getConversations(),
+          getReceivedInvitations(),
+        ]);
+
+        if (cancelled) return;
+
+        const conversations = convRes.data.conversations || [];
+        const invitations = invRes.data.invitations || [];
+
+        // Total messages non lus (toutes convos)
+        const totalUnread = conversations.reduce(
+          (sum, conv) => sum + (conv.unreadCount || 0),
+          0
+        );
+
+        setUnreadMessages(totalUnread);
+        setInvitationCount(invitations.length);
+      } catch (e) {
+        console.error("Erreur refresh compteurs MainSidebar:", e);
+      }
+    };
+
+    // 1er chargement
+    refreshCounts();
+
+    // Toutes les 10 secondes (ajuste si tu veux)
+    const interval = setInterval(refreshCounts, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [user]);
+
   if (!user) return null;
 
   return (
     <>
-      {/* Bouton Toggle - Même dégradé que la sidebar */}
+      {/* Bouton Toggle (flèche) */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((prev) => !prev)}
+        onMouseEnter={() => {
+          if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+            setIsOpen(true);
+          }
+        }}
         className={`fixed top-1/2 -translate-y-1/2 z-60 ${toggleButtonBg} text-white p-2 rounded-r-md shadow-lg hover:shadow-xl transition-all duration-300 ${
           isOpen ? "left-16" : "-left-2"
         }`}
@@ -96,7 +160,7 @@ export default function MainSidebar() {
         {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
       </button>
 
-      {/* Overlay pour mobile */}
+      {/* Overlay mobile */}
       {isOpen && (
         <div
           className={`fixed inset-0 ${overlayBg} z-48 lg:hidden`}
@@ -104,41 +168,61 @@ export default function MainSidebar() {
         />
       )}
 
-      {/* Sidebar - Même dégradé que le ChatHeader */}
+      {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 h-screen w-16 ${sidebarBg} flex flex-col items-center py-4 shadow-xl z-49 transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        onMouseLeave={() => {
+          if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+            setIsOpen(false);
+          }
+        }}
       >
-        {/* Pattern background (comme dans ChatHeader) */}
+        {/* Pattern de fond */}
         <div
           className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${
             isDark ? "opacity-10" : "opacity-20"
           }`}
-        ></div>
+        />
 
-        {/* Menu Items */}
+        {/* Menu */}
         <nav className="flex-1 flex flex-col items-center gap-6 mt-4 relative z-10">
           {menuItems.map((item, index) => {
             const IconComponent = item.icon;
+            const isDiscussionsItem = item.label === "Discussions";
+            const isInvitationsItem = item.label === "Invitations";
+
             return (
               <div key={index} className="relative group">
                 <button
-                  onClick={() => {
-                    router.push(item.href);
-                    // Fermer sur mobile après clic
-                    if (window.innerWidth < 1024) {
-                      setIsOpen(false);
-                    }
-                  }}
-                  className="flex flex-col items-center transition-colors"
+                  onClick={() => handleMenuClick(item)}
+                  className="flex flex-col items-center gap-1 transition-colors"
                 >
                   <div
-                    className={`p-3 rounded-xl transition-all duration-200 backdrop-blur-sm ${menuItemStyle}`}
+                    className={`relative p-3 rounded-xl transition-all duration-200 backdrop-blur-sm ${menuItemStyle}`}
                   >
                     <IconComponent className="w-6 h-6" />
+
+                    {/* 🔴 Badge messages non lus sur Discussions */}
+                    {isDiscussionsItem && unreadMessages > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-lg">
+                        {unreadMessages > 9 ? "9+" : unreadMessages}
+                      </span>
+                    )}
+
+                    {/* 🔔 Badge invitations sur Invitations */}
+                    {isInvitationsItem && invitationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-emerald-500 to-lime-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-lg">
+                        {invitationCount > 9 ? "9+" : invitationCount}
+                      </span>
+                    )}
                   </div>
+                  <span className="text-[10px] font-medium text-white/80">
+                    {item.label}
+                  </span>
                 </button>
+
                 {/* Tooltip au survol */}
                 <span
                   className={`absolute left-20 top-1/2 -translate-y-1/2 ${tooltipBg} text-sm font-medium py-2 px-3 rounded-lg border shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50`}
@@ -150,7 +234,7 @@ export default function MainSidebar() {
           })}
         </nav>
 
-        {/* Logout Button */}
+        {/* Déconnexion */}
         <div className="relative group mt-auto mb-4 z-10">
           <button
             onClick={handleLogout}

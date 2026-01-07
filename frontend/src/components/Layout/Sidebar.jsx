@@ -2,7 +2,7 @@
 
 import { useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AuthContext } from '@/context/AuthProvider';
 import { useTheme } from '@/hooks/useTheme';
 import api from "@/lib/api";
@@ -65,6 +65,8 @@ export default function Sidebar({ activeConversationId }) {
   const { isDark } = useTheme();
   const router = useRouter();
   const currentUserId = user?._id || user?.id;
+  const searchParams = useSearchParams();
+
 
   const [conversations, setConversations] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
@@ -82,6 +84,7 @@ export default function Sidebar({ activeConversationId }) {
   const [statusCache, setStatusCache] = useState(new Map());
   const searchTimeoutRef = useRef(null);
   const refreshTimeoutRef = useRef(null);
+  const [conversationFilter, setConversationFilter] = useState("all"); 
 
   const usersToDisplay = useMemo(() => {
     if (activeTab !== "contacts" || !searchTerm.trim()) {
@@ -89,6 +92,20 @@ export default function Sidebar({ activeConversationId }) {
     }
     return searchResults;
   }, [activeTab, searchTerm, searchResults]);
+
+const broadcastInvitationCount = useCallback((count) => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("invitations-count-changed", {
+        detail: { count },
+      })
+    );
+  }
+}, []);
+
+useEffect(() => {
+  broadcastInvitationCount(receivedInvitations.length);
+}, [receivedInvitations, broadcastInvitationCount]);
 
   // Styles basés sur le thème
   const sidebarBg = isDark
@@ -181,6 +198,48 @@ export default function Sidebar({ activeConversationId }) {
       return () => clearInterval(interval);
     }
   }, [user, fetchConversations]);
+
+useEffect(() => {
+  const tab = searchParams.get("tab");
+  if (!tab) return;
+
+  if (tab === "chats" || tab === "contacts" || tab === "invitations") {
+    setActiveTab(tab);
+
+    // même logique que dans handleTabChange
+    if (tab !== "contacts") {
+      setSearchTerm("");
+      setSearchResults([]);
+    } else {
+      fetchConversations();
+    }
+  }
+}, [searchParams, fetchConversations]);
+
+// 🔔 Envoyer le nombre total de messages non lus à la MainSidebar
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  // On compte seulement les conversations visibles (pas masquées / pas archivées)
+  const totalUnread = conversations
+    .filter((conv) => {
+      if (hiddenConversationIds.has(conv._id)) return false;
+
+      const isArchivedByMe = conv.archivedBy?.some(
+        (item) => item.userId?.toString() === currentUserId?.toString()
+      );
+      if (isArchivedByMe) return false;
+
+      return true;
+    })
+    .reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+
+  window.dispatchEvent(
+    new CustomEvent("unread-messages-count-changed", {
+      detail: { count: totalUnread },
+    })
+  );
+}, [conversations, hiddenConversationIds, currentUserId]);
 
   useEffect(() => {
     if (!user) return;
@@ -403,6 +462,24 @@ export default function Sidebar({ activeConversationId }) {
       }
     }
   };
+
+  useEffect(() => {
+  const handleSidebarChangeTab = (event) => {
+    const { tab } = event.detail || {};
+    if (!tab) return;
+
+    // on réutilise la même logique que tes boutons en haut
+    if (tab === "chats" || tab === "contacts" || tab === "invitations") {
+      handleTabChange(tab);
+    }
+  };
+
+  window.addEventListener("sidebar-change-tab", handleSidebarChangeTab);
+
+  return () => {
+    window.removeEventListener("sidebar-change-tab", handleSidebarChangeTab);
+  };
+}, [handleTabChange]);
 
   const handleSearchChange = (value) => {
     setSearchTerm(value);
@@ -809,105 +886,165 @@ const handleBlockConversationContact = async (conv) => {
   }
 };
 
+const visibleConversations = useMemo(
+  () =>
+    conversations.filter((conv) => {
+      // Conversations masquées (après archivage/suppression locale)
+      if (hiddenConversationIds.has(conv._id)) return false;
+
+      // Archivées par moi
+      const isArchivedByMe = conv.archivedBy?.some(
+        (item) => item.userId?.toString() === currentUserId?.toString()
+      );
+      if (isArchivedByMe) return false;
+
+      // Filtre par type
+      if (conversationFilter === "private" && conv.isGroup) return false;
+      if (conversationFilter === "group" && !conv.isGroup) return false;
+
+      return true;
+    }),
+  [conversations, hiddenConversationIds, currentUserId, conversationFilter]
+);
+
   return (
     <div className={`w-full lg:w-96 ${sidebarBg} flex flex-col h-screen shadow-xl relative`}>
       {/* Header avec gradient bleu */}
-      <div className={`relative overflow-hidden ${headerBg}`}>
-        <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? 'opacity-10' : 'opacity-20'}`}></div>
+      {/* Header avec gradient bleu */}
+<div className={`relative overflow-hidden ${headerBg}`}>
+  <div
+    className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${
+      isDark ? "opacity-10" : "opacity-20"
+    }`}
+  ></div>
 
-        <div className="relative p-5">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {/* Photo de profil utilisateur */}
-              <div
-                className="relative shrink-0 cursor-pointer group"
-                onClick={() => router.push("/profile")}
-                title="Voir mon profil"
-              >
-                {user?.profilePicture && user.profilePicture.trim() !== "" ? (
-                  <div className={`w-15 h-15 rounded-full overflow-hidden shadow-lg ring-2 ${isDark ? 'ring-blue-700/50 group-hover:ring-blue-500/80' : 'ring-white/50 group-hover:ring-white/80'} animate-scale-in transition-all`}>
-                    <Image
-                      src={user.profilePicture}
-                      alt={user?.name || "User"}
-                      width={48}
-                      height={48}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                          user?.name || "User"
-                        )}&background=${isDark ? '0ea5e9' : 'ffffff'}&color=${isDark ? 'ffffff' : '0ea5e9'}&bold=true`;
-                      }}
-                      unoptimized
-                    />
-                  </div>
-                ) : (
-                  <div className={`w-12 h-12 rounded-full ${isDark ? 'bg-linear-to-br from-blue-800/50 to-blue-900/30 backdrop-blur-sm' : 'bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm'} flex items-center justify-center ${isDark ? 'text-cyan-100' : 'text-white'} font-bold text-lg shadow-lg ring-2 ${isDark ? 'ring-blue-700/50 group-hover:ring-blue-500/80' : 'ring-white/50 group-hover:ring-white/80'} animate-scale-in transition-all`}>
-                    {user?.name?.charAt(0).toUpperCase() || "U"}
-                  </div>
-                )}
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-blue-600 shadow-md"></div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className={`text-xl font-bold drop-shadow-lg truncate ${isDark ? 'text-cyan-50' : 'text-white'}`}>
-                  Messages
-                </h1>
-                <p className={`text-xs font-medium truncate ${isDark ? 'text-blue-200' : 'text-blue-100'}`}>
-                  {user?.name || "Utilisateur"}
-                </p>
-              </div>
+  <div className="relative p-5">
+    <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Photo de profil utilisateur */}
+        <div
+          className="relative shrink-0 cursor-pointer group"
+          onClick={() => router.push("/profile")}
+          title="Voir mon profil"
+        >
+          {user?.profilePicture && user.profilePicture.trim() !== "" ? (
+            <div
+              className={`w-15 h-15 rounded-full overflow-hidden shadow-lg ring-2 ${
+                isDark
+                  ? "ring-blue-700/50 group-hover:ring-blue-500/80"
+                  : "ring-white/50 group-hover:ring-white/80"
+              } animate-scale-in transition-all`}
+            >
+              <Image
+                src={user.profilePicture}
+                alt={user?.name || "User"}
+                width={48}
+                height={48}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                    user?.name || "User"
+                  )}&background=${isDark ? "0ea5e9" : "ffffff"}&color=${
+                    isDark ? "ffffff" : "0ea5e9"
+                  }&bold=true`;
+                }}
+                unoptimized
+              />
             </div>
-            <button
-              onClick={handleLogout}
-              className={`p-2.5 rounded-xl transition-all transform hover:scale-110 active:scale-95 backdrop-blur-sm shrink-0 ${isDark ? 'hover:bg-blue-800/30 text-cyan-100' : 'hover:bg-white/20 text-white'}`}
-              title="Déconnexion"
+          ) : (
+            <div
+              className={`w-12 h-12 rounded-full ${
+                isDark
+                  ? "bg-linear-to-br from-blue-800/50 to-blue-900/30 backdrop-blur-sm"
+                  : "bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm"
+              } flex items-center justify-center ${
+                isDark ? "text-cyan-100" : "text-white"
+              } font-bold text-lg shadow-lg ring-2 ${
+                isDark
+                  ? "ring-blue-700/50 group-hover:ring-blue-500/80"
+                  : "ring-white/50 group-hover:ring-white/80"
+              } animate-scale-in transition-all`}
             >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
+              {user?.name?.charAt(0).toUpperCase() || "U"}
+            </div>
+          )}
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-blue-600 shadow-md"></div>
+        </div>
 
-          {/* Tabs modernes bleus */}
-          <div className={`flex gap-2 ${tabBg} p-1.5 rounded-2xl`}>
-            <button
-              onClick={() => handleTabChange("chats")}
-              className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                activeTab === "chats"
-                  ? activeTabStyle
-                  : inactiveTabStyle
-              }`}
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Chats</span>
-            </button>
-            <button
-              onClick={() => handleTabChange("contacts")}
-              className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                activeTab === "contacts"
-                  ? activeTabStyle
-                  : inactiveTabStyle
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Contacts</span>
-            </button>
-            <button
-              onClick={() => handleTabChange("invitations")}
-              className={`relative flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                activeTab === "invitations"
-                  ? activeTabStyle
-                  : inactiveTabStyle
-              }`}
-            >
-              <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">Invit.</span>
-              {totalInvitations > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-linear-to-r from-cyan-500 to-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse-glow">
-                  {totalInvitations > 9 ? "9+" : totalInvitations}
-                </span>
-              )}
-            </button>
-          </div>
+        <div className="flex-1 min-w-0">
+          {/* 🔹 TITRE DYNAMIQUE SELON activeTab */}
+          <h1
+            className={`text-xl font-bold drop-shadow-lg truncate ${
+              isDark ? "text-cyan-50" : "text-white"
+            }`}
+          >
+            {activeTab === "contacts"
+              ? "Contacts"
+              : activeTab === "invitations"
+              ? "Invitations"
+              : "Messages"}
+          </h1>
+          <p
+            className={`text-xs font-medium truncate ${
+              isDark ? "text-blue-200" : "text-blue-100"
+            }`}
+          >
+            {user?.name || "Utilisateur"}
+          </p>
         </div>
       </div>
+
+      <button
+        onClick={handleLogout}
+        className={`p-2.5 rounded-xl transition-all transform hover:scale-110 active:scale-95 backdrop-blur-sm shrink-0 ${
+          isDark
+            ? "hover:bg-blue-800/30 text-cyan-100"
+            : "hover:bg-white/20 text-white"
+        }`}
+        title="Déconnexion"
+      >
+        <LogOut className="w-5 h-5" />
+      </button>
+    </div>
+
+    {/* 🔹 FILTRES TOUS / PRIVÉS / GROUPES UNIQUEMENT EN MODE CONVERSATIONS */}
+    {activeTab === "chats" && (
+      <div className={`flex gap-2 ${tabBg} p-1.5 rounded-2xl`}>
+        <button
+          onClick={() => setConversationFilter("all")}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+            conversationFilter === "all" ? activeTabStyle : inactiveTabStyle
+          }`}
+        >
+          <MessageCircle className="w-4 h-4" />
+          <span className="hidden sm:inline">Tous</span>
+        </button>
+
+        <button
+          onClick={() => setConversationFilter("private")}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+            conversationFilter === "private"
+              ? activeTabStyle
+              : inactiveTabStyle
+          }`}
+        >
+          <UsersRound className="w-4 h-4" />
+          <span className="hidden sm:inline">Privés</span>
+        </button>
+
+        <button
+          onClick={() => setConversationFilter("group")}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+            conversationFilter === "group" ? activeTabStyle : inactiveTabStyle
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="hidden sm:inline">Groupes</span>
+        </button>
+      </div>
+    )}
+  </div>
+</div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-scrollbar]:hidden">
@@ -1205,43 +1342,27 @@ const handleBlockConversationContact = async (conv) => {
         ) : (
           <div className="flex flex-col h-full">
             <div className="flex-1">
-              {conversations.filter(conv => {
-                if (hiddenConversationIds.has(conv._id)) return false;
-                const isArchivedByMe = conv.archivedBy?.some(
-                  item => item.userId?.toString() === currentUserId?.toString()
-                );
-                if (isArchivedByMe) return false;
-                return true;
-              }).length === 0 ? (
-                <div className="p-12 text-center animate-fade-in">
-                  <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg ${emptyStateBg}`}>
-                    <MessageCircle className={`w-12 h-12 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
-                  </div>
-                  <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
-                    Aucune conversation
-                  </p>
-                  <p className={`text-sm mb-6 ${textSecondary}`}>
-                    Commencez à discuter avec vos contacts
-                  </p>
-                  <button
-                    onClick={() => handleTabChange("contacts")}
-                    className={`px-8 py-3 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl ${buttonStyle}`}
-                  >
-                    Rechercher des contacts
-                  </button>
-                </div>
-              ) : (
-                <div className="p-3 space-y-2">
-                  {conversations
-                  .filter(conv => {
-                    if (hiddenConversationIds.has(conv._id)) return false;
-                    const isArchivedByMe = conv.archivedBy?.some(
-                      item => item.userId?.toString() === currentUserId?.toString()
-                    );
-                    if (isArchivedByMe) return false;
-                    return true;
-                  })
-                  .map((conv) => {
+              {visibleConversations.length === 0 ? (
+  <div className="p-12 text-center animate-fade-in">
+    <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg ${emptyStateBg}`}>
+      <MessageCircle className={`w-12 h-12 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
+    </div>
+    <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
+      Aucune conversation
+    </p>
+    <p className={`text-sm mb-6 ${textSecondary}`}>
+      Commencez à discuter avec vos contacts
+    </p>
+    <button
+      onClick={() => router.push("/contacts")}
+      className={`px-8 py-3 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl ${buttonStyle}`}
+    >
+      Rechercher des contacts
+    </button>
+  </div>
+) : (
+  <div className="p-3 space-y-2">
+    {visibleConversations.map((conv) => {
                     const isActive = conv._id === activeConversationId;
                     const messageStatus = getMessageStatus(conv);
                     const lastMessageTime = formatMessageTime(conv.updatedAt);
