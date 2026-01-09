@@ -8,5 +8,11 @@ router.get("/conversations/:id/tasks", authMiddleware, taskController.getTasksBy
 router.post("/conversations/:id/tasks", authMiddleware, taskController.createTask);
 router.patch("/tasks/:id", authMiddleware, taskController.updateTask);
 router.delete("/tasks/:id", authMiddleware, taskController.deleteTask);
+/* ================= COMMENTS ================= */
+router.post(
+  "/tasks/:id/comments",
+  authMiddleware,
+  taskController.addComment
+);
 
 module.exports = router;
