@@ -58,58 +58,60 @@ export const CallProvider = ({ children }) => {
 
   // Refs pour gestion audio et timers
   const callStartTimeRef = useRef(null);
-  const ringtoneRef = useRef(null);
   const durationIntervalRef = useRef(null);
-  const incomingRingtoneRef = useRef(null);  // Pour le destinataire
-  const outgoingRingtoneRef = useRef(null);  // Pour l'émetteur
+  const incomingRingtoneRef = useRef(null); // Pour le destinataire
+  const outgoingRingtoneRef = useRef(null); // Pour l'émetteur
 
   // ============================================
   // GESTION SONNERIE & TIMER
+  // ============================================
 
-// Sonnerie pour le DESTINATAIRE (appel entrant)
-const playIncomingRingtone = useCallback(() => {
-  try {
-    if (!incomingRingtoneRef.current) {
-      incomingRingtoneRef.current = new Audio("/sounds/appel recue '.wav");
-      incomingRingtoneRef.current.loop = true;
+  // Sonnerie pour le DESTINATAIRE (appel entrant)
+  const playIncomingRingtone = useCallback(() => {
+    try {
+      if (!incomingRingtoneRef.current) {
+        incomingRingtoneRef.current = new Audio("/sounds/appel recue '.wav");
+        incomingRingtoneRef.current.loop = true;
+      }
+      incomingRingtoneRef.current.play().catch((err) => {
+        console.warn("Autoplay bloqué:", err);
+      });
+    } catch (e) {
+      console.log("Audio non supporté");
     }
-    incomingRingtoneRef.current.play().catch((err) => {
-      console.warn("Autoplay bloqué:", err);
-    });
-  } catch (e) {
-    console.log("Audio non supporté");
-  }
-}, []);
+  }, []);
 
-const stopIncomingRingtone = useCallback(() => {
-  if (incomingRingtoneRef.current) {
-    incomingRingtoneRef.current.pause();
-    incomingRingtoneRef.current.currentTime = 0;
-  }
-}, []);
-
-// Sonnerie pour l'ÉMETTEUR (appel sortant)
-const playOutgoingRingtone = useCallback(() => {
-  try {
-    if (!outgoingRingtoneRef.current) {
-      outgoingRingtoneRef.current = new Audio("/sounds/quand tu appelles.wav");
-      outgoingRingtoneRef.current.loop = true;
-      outgoingRingtoneRef.current.volume = 0.7;
+  const stopIncomingRingtone = useCallback(() => {
+    if (incomingRingtoneRef.current) {
+      incomingRingtoneRef.current.pause();
+      incomingRingtoneRef.current.currentTime = 0;
     }
-    outgoingRingtoneRef.current.play().catch((err) => {
-      console.warn("Autoplay émetteur bloqué:", err);
-    });
-  } catch (e) {
-    console.log("Audio émetteur non supporté");
-  }
-}, []);
+  }, []);
 
-const stopOutgoingRingtone = useCallback(() => {
-  if (outgoingRingtoneRef.current) {
-    outgoingRingtoneRef.current.pause();
-    outgoingRingtoneRef.current.currentTime = 0;
-  }
-}, []);
+  // Sonnerie pour l'ÉMETTEUR (appel sortant)
+  const playOutgoingRingtone = useCallback(() => {
+    try {
+      if (!outgoingRingtoneRef.current) {
+        outgoingRingtoneRef.current = new Audio(
+          "/sounds/quand tu appelles.wav"
+        );
+        outgoingRingtoneRef.current.loop = true;
+        outgoingRingtoneRef.current.volume = 0.7;
+      }
+      outgoingRingtoneRef.current.play().catch((err) => {
+        console.warn("Autoplay émetteur bloqué:", err);
+      });
+    } catch (e) {
+      console.log("Audio émetteur non supporté");
+    }
+  }, []);
+
+  const stopOutgoingRingtone = useCallback(() => {
+    if (outgoingRingtoneRef.current) {
+      outgoingRingtoneRef.current.pause();
+      outgoingRingtoneRef.current.currentTime = 0;
+    }
+  }, []);
 
   const startDurationTimer = useCallback(() => {
     callStartTimeRef.current = Date.now();
@@ -166,11 +168,10 @@ const stopOutgoingRingtone = useCallback(() => {
         const { data: tokenData } = await api.post("/agora/token", {
           channelName: channel,
           uid: myUid,
-           isGroup,
+          isGroup,
         });
 
         // 2. Créer le message d'appel via API (Backend)
-        // ✅ CORRECTION : Utilisation de /agora/calls/initiate
         const { data: callMessageData } = await api.post(
           "/agora/calls/initiate",
           {
@@ -188,7 +189,7 @@ const stopOutgoingRingtone = useCallback(() => {
           : [(participants._id || participants.id || participants).toString()];
 
         // 3. Mise à jour de l'état local
-        setCurrentCallId(callMessageData.callId); // Utiliser l'ID généré par le backend
+        setCurrentCallId(callMessageData.callId);
         setChannelName(channel);
         setAgoraToken(tokenData.token);
 
@@ -221,7 +222,7 @@ const stopOutgoingRingtone = useCallback(() => {
 
         setCallState("ringing");
         setInCall(true);
-         playOutgoingRingtone();
+        playOutgoingRingtone(); // 🔊 Démarrer sonnerie pour l'appelant
 
         console.log(`📞 Appel initié: ${callMessageData.callId}`);
       } catch (error) {
@@ -237,111 +238,113 @@ const stopOutgoingRingtone = useCallback(() => {
   // ============================================
   // 2. ACCEPTER UN APPEL
   // ============================================
-  // frontend/src/context/CallContext.js
+  const acceptCall = useCallback(async () => {
+    if (!incomingCall || !user) {
+      console.log("⚠️ Pas d'appel entrant ou pas d'utilisateur");
+      return;
+    }
 
-const acceptCall = useCallback(async () => {
-  if (!incomingCall || !user) {
-    console.log("⚠️ Pas d'appel entrant ou pas d'utilisateur");
-    return;
-  }
+    const socket = getSocket();
+    if (!socket?.connected) {
+      setCallError("Connexion perdue");
+      return;
+    }
 
-  const socket = getSocket();
-  if (!socket?.connected) {
-    setCallError("Connexion perdue");
-    return;
-  }
+    try {
+      stopIncomingRingtone(); // Arrêter sonnerie destinataire
+      stopOutgoingRingtone(); // Sécurité supplémentaire
+      setCallState("connecting");
+      console.log("📞 Acceptation de l'appel:", incomingCall);
 
-  try {
-       stopIncomingRingtone(); // Arrêter sonnerie destinataire
-       setCallState("connecting");
-    console.log("📞 Acceptation de l'appel:", incomingCall);
-    
-  
-    const {
-      callId,
-      channelName: channel,
-      callType: type,
-      isGroup,
-      groupName,
-      from,
-      conversationId,
-      participants, // ← Important pour les groupes
-    } = incomingCall;
+      const {
+        callId,
+        channelName: channel,
+        callType: type,
+        isGroup,
+        groupName,
+        from,
+        conversationId,
+        participants,
+      } = incomingCall;
 
-    const myUid = generateNumericUid(user._id || user.id);
+      const myUid = generateNumericUid(user._id || user.id);
 
-    console.log("🎫 Demande de token pour:", {
-      channel,
-      myUid,
-      isGroup,
-      callType: type
-    });
+      console.log("🎫 Demande de token pour:", {
+        channel,
+        myUid,
+        isGroup,
+        callType: type,
+      });
 
-    // 1. Obtenir le token Agora
-    const { data: tokenData } = await api.post("/agora/token", {
-      channelName: channel,
-      uid: myUid,
-      isGroup,
-    });
+      // 1. Obtenir le token Agora
+      const { data: tokenData } = await api.post("/agora/token", {
+        channelName: channel,
+        uid: myUid,
+        isGroup,
+      });
 
-    console.log("✅ Token reçu");
+      console.log("✅ Token reçu");
 
-    // 2. Notifier le backend
-    await api.post(`/agora/calls/${callId}/answer`);
-    console.log("✅ Backend notifié");
+      // 2. Notifier le backend
+      await api.post(`/agora/calls/${callId}/answer`);
+      console.log("✅ Backend notifié");
 
-    // 3. ✅ FIX: Mise à jour état AVANT de notifier via socket
-    setCurrentCallId(callId);
-    setChannelName(channel);
-    setAgoraToken(tokenData.token);
-    setCallType(type);
-    
-    // ✅ FIX: Préparer correctement les données pour le composant VideoCall
-    const allParticipants = isGroup 
-      ? (participants || [from]) 
-      : [from];
-    
-    setCallData({
-      isGroup,
-      name: isGroup ? groupName : from.name,
-      profilePicture: from.profilePicture,
-      participants: allParticipants,
-      conversationId,
-    });
+      // 3. Mise à jour état AVANT de notifier via socket
+      setCurrentCallId(callId);
+      setChannelName(channel);
+      setAgoraToken(tokenData.token);
+      setCallType(type);
 
-    // ✅ FIX: Mettre inCall AVANT ongoing pour déclencher l'affichage
-    setInCall(true);
-    setCallState("ongoing");
-    setIncomingCall(null);
-     
-    console.log("✅ État local mis à jour:", {
-      callId,
-      channel,
-      type,
-      participantsCount: allParticipants.length
-    });
+      // Préparer correctement les données pour le composant VideoCall
+      const allParticipants = isGroup ? participants || [from] : [from];
 
-    // 4. Notifier via socket APRÈS la mise à jour de l'état
-    socket.emit("call-answer", { 
-      callId, 
-      channelName: channel,
-      userId: user._id || user.id 
-    });
+      setCallData({
+        isGroup,
+        name: isGroup ? groupName : from.name,
+        profilePicture: from.profilePicture,
+        participants: allParticipants,
+        conversationId,
+      });
 
-    console.log("✅ Socket notifié");
+      // Mettre inCall AVANT ongoing pour déclencher l'affichage
+      setInCall(true);
+      setCallState("ongoing");
+      setIncomingCall(null);
 
-    // 5. Démarrer le timer
-    startDurationTimer();
+      console.log("✅ État local mis à jour:", {
+        callId,
+        channel,
+        type,
+        participantsCount: allParticipants.length,
+      });
 
-    console.log(`✅ Appel ${callId} accepté et interface affichée`);
-  } catch (error) {
-    console.error("❌ Erreur acceptation appel:", error);
-    setCallError("Impossible de rejoindre l'appel");
-    setCallState("idle");
-    setIncomingCall(null);
-    setInCall(false);
-  }
-}, [incomingCall, user, stopIncomingRingtone, startDurationTimer, generateNumericUid]);
+      // 4. Notifier via socket APRÈS la mise à jour de l'état
+      socket.emit("call-answer", {
+        callId,
+        channelName: channel,
+        userId: user._id || user.id,
+      });
+
+      console.log("✅ Socket notifié");
+
+      // 5. Démarrer le timer
+      startDurationTimer();
+
+      console.log(`✅ Appel ${callId} accepté et interface affichée`);
+    } catch (error) {
+      console.error("❌ Erreur acceptation appel:", error);
+      setCallError("Impossible de rejoindre l'appel");
+      setCallState("idle");
+      setIncomingCall(null);
+      setInCall(false);
+    }
+  }, [
+    incomingCall,
+    user,
+    stopIncomingRingtone,
+    stopOutgoingRingtone,
+    startDurationTimer,
+  ]);
 
   // ============================================
   // 3. REFUSER UN APPEL
@@ -353,7 +356,6 @@ const acceptCall = useCallback(async () => {
 
     try {
       // Notifier le backend
-      // ✅ CORRECTION : Utilisation de /agora/calls/...
       await api.post(`/agora/calls/${incomingCall.callId}/decline`);
 
       if (socket) {
@@ -367,11 +369,12 @@ const acceptCall = useCallback(async () => {
     }
 
     stopIncomingRingtone();
+    stopOutgoingRingtone(); // Au cas où
     setIncomingCall(null);
     setCallState("idle");
 
     console.log(`❌ Appel refusé`);
-  }, [incomingCall, stopIncomingRingtone]);
+  }, [incomingCall, stopIncomingRingtone, stopOutgoingRingtone]);
 
   // ============================================
   // 4. TERMINER UN APPEL
@@ -381,7 +384,7 @@ const acceptCall = useCallback(async () => {
 
     // Arrêter timers et sons immédiatement
     stopIncomingRingtone();
-  stopOutgoingRingtone();
+    stopOutgoingRingtone();
     stopDurationTimer();
 
     if (currentCallId) {
@@ -401,7 +404,6 @@ const acceptCall = useCallback(async () => {
       // Notifier backend
       try {
         const endpoint = isGroupCall ? "leave" : "end";
-        // ✅ CORRECTION : Utilisation de /agora/calls/...
         await api.post(`/agora/calls/${currentCallId}/${endpoint}`, {
           reason: callState === "ongoing" ? "ended" : "cancelled",
         });
@@ -434,6 +436,7 @@ const acceptCall = useCallback(async () => {
     incomingCall,
   ]);
 
+  
   // ============================================
   // ÉCOUTEURS SOCKET
   // ============================================
@@ -444,20 +447,20 @@ const acceptCall = useCallback(async () => {
     // Appel entrant
     const handleIncomingCall = (data) => {
       if (inCall) {
-        // Déjà en appel, refuser automatiquement
         socket.emit("call-decline", { callId: data.callId, reason: "busy" });
         return;
       }
-     
+
       console.log("📱 Appel entrant:", data);
       setIncomingCall(data);
       setCallState("ringing");
       playIncomingRingtone();
     };
 
-    // Appel répondu (pour l'initiateur)
+    // Appel répondu
     const handleCallAnswered = (data) => {
       console.log("✅ Appel répondu:", data);
+      stopOutgoingRingtone();
       setCallState("ongoing");
       startDurationTimer();
     };
@@ -465,12 +468,13 @@ const acceptCall = useCallback(async () => {
     // Appel refusé
     const handleCallDeclined = (data) => {
       console.log("❌ Appel refusé:", data);
+      stopOutgoingRingtone();
       if (data.reason === "busy") {
         setCallError("L'utilisateur est déjà en appel");
       } else {
         setCallError("Appel refusé");
       }
-      setTimeout(endCall, 2000); // Laisser le temps de voir l'erreur
+      setTimeout(endCall, 2000);
     };
 
     // Appel terminé par l'autre
@@ -480,31 +484,64 @@ const acceptCall = useCallback(async () => {
       endCall();
     };
 
+    // ✅ NOUVEAU: Appel annulé par l'appelant (avant réponse)
+    const handleCallCancelled = (data) => {
+      console.log("📵 Appel annulé par l'appelant:", data);
+
+      // Arrêter la sonnerie immédiatement
+      stopIncomingRingtone();
+      stopOutgoingRingtone();
+
+      // Réinitialiser l'état
+      setIncomingCall(null);
+      setCallState("idle");
+      setCallError(null);
+
+      // Optionnel: Afficher une notification
+      console.log("📵 L'appelant a raccroché avant votre réponse");
+    };
+
     // Timeout (pas de réponse)
     const handleCallTimeout = (data) => {
       console.log("⏰ Appel sans réponse:", data);
+      stopOutgoingRingtone();
       setCallError("Pas de réponse");
       setTimeout(endCall, 2000);
     };
 
-    // Appel manqué (si reçu sur un autre appareil ou annulé)
+    // Appel manqué
     const handleCallMissed = (data) => {
       console.log("📵 Appel manqué/annulé:", data);
       stopIncomingRingtone();
+      stopOutgoingRingtone();
       setIncomingCall(null);
       setCallState("idle");
     };
 
     // Erreur
     const handleCallError = (data) => {
-      console.error("❌ Erreur appel socket:", data);
-      setCallError(data.error || "Erreur d'appel");
+      console.error("❌ Erreur appel socket:", JSON.stringify(data));
+      stopOutgoingRingtone();
+      stopIncomingRingtone();
+
+      let errorMessage = "Erreur d'appel";
+      if (typeof data === "string") {
+        errorMessage = data;
+      } else if (data?.error) {
+        errorMessage = data.error;
+      } else if (data?.message) {
+        errorMessage = data.message;
+      }
+
+      setCallError(errorMessage);
+      setTimeout(endCall, 3000);
     };
 
     socket.on("call-incoming", handleIncomingCall);
     socket.on("call-answered", handleCallAnswered);
     socket.on("call-declined", handleCallDeclined);
     socket.on("call-ended", handleCallEnded);
+    socket.on("call-cancelled", handleCallCancelled); // ✅ NOUVEAU
     socket.on("call-timeout", handleCallTimeout);
     socket.on("call-missed", handleCallMissed);
     socket.on("call-error", handleCallError);
@@ -514,18 +551,27 @@ const acceptCall = useCallback(async () => {
       socket.off("call-answered", handleCallAnswered);
       socket.off("call-declined", handleCallDeclined);
       socket.off("call-ended", handleCallEnded);
+      socket.off("call-cancelled", handleCallCancelled); // ✅ NOUVEAU
       socket.off("call-timeout", handleCallTimeout);
       socket.off("call-missed", handleCallMissed);
       socket.off("call-error", handleCallError);
     };
-  }, [user, inCall, playIncomingRingtone, stopIncomingRingtone, startDurationTimer, endCall]);
+  }, [
+    user,
+    inCall,
+    playIncomingRingtone,
+    stopIncomingRingtone,
+    stopOutgoingRingtone,
+    startDurationTimer,
+    endCall,
+  ]);
 
   // Cleanup au démontage du composant
   useEffect(() => {
     return () => {
-  stopIncomingRingtone();
-  stopOutgoingRingtone();
-  stopDurationTimer();
+      stopIncomingRingtone();
+      stopOutgoingRingtone();
+      stopDurationTimer();
     };
   }, [stopIncomingRingtone, stopOutgoingRingtone, stopDurationTimer]);
 

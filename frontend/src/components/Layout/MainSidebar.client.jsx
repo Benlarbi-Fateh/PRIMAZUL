@@ -11,8 +11,8 @@ import {
   ChevronRight,
   ChevronLeft,
   CircleDashed,
-  UsersRound, // Contacts
-  Bell,       // Invitations
+  UsersRound,
+  Bell,
 } from "lucide-react";
 import { getConversations, getReceivedInvitations } from "@/lib/api";
 
@@ -22,9 +22,25 @@ export default function MainSidebar() {
   const { isDark } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
 
-  // 🔴 Compteurs
-  const [unreadMessages, setUnreadMessages] = useState(0);   // messages non lus
-  const [invitationCount, setInvitationCount] = useState(0); // invitations reçues
+  // ✅ Détecter si l'appareil supporte le hover (pas tactile uniquement)
+  const [canHover, setCanHover] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.matchMedia("(hover: hover)").matches;
+    }
+    return false;
+  });
+
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [invitationCount, setInvitationCount] = useState(0);
+
+  // ✅ Détecter la capacité de hover au montage
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(hover: hover)");
+
+    const handler = (e) => setCanHover(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
 
   const sidebarBg = isDark
     ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950 border-blue-800"
@@ -52,33 +68,12 @@ export default function MainSidebar() {
 
   const overlayBg = isDark ? "bg-black/60" : "bg-black/50";
 
-  // ✅ Boutons du menu : on navigue vers l'accueil avec l'onglet voulu
   const menuItems = [
-    {
-      label: "Discussions",
-      icon: MessageCircle,
-      href: "/?tab=chats",        // accueil, onglet "Discussions"
-    },
-    {
-      label: "Contacts",
-      icon: UsersRound,
-      href: "/?tab=contacts",     // accueil, onglet "Contacts"
-    },
-    {
-      label: "Invitations",
-      icon: Bell,
-      href: "/?tab=invitations",  // accueil, onglet "Invitations"
-    },
-    {
-      label: "Statuts",
-      icon: CircleDashed,
-      href: "/status",
-    },
-    {
-      label: "Paramètres",
-      icon: Settings,
-      href: "/settings",
-    },
+    { label: "Discussions", icon: MessageCircle, href: "/?tab=chats" },
+    { label: "Contacts", icon: UsersRound, href: "/?tab=contacts" },
+    { label: "Invitations", icon: Bell, href: "/?tab=invitations" },
+    { label: "Statuts", icon: CircleDashed, href: "/status" },
+    { label: "Paramètres", icon: Settings, href: "/settings" },
   ];
 
   const handleLogout = () => {
@@ -90,14 +85,25 @@ export default function MainSidebar() {
     if (item.href) {
       router.push(item.href);
     }
-
-    // Sur mobile, fermer après clic
-    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+    // ✅ Fermer après clic si on ne peut pas hover (mobile)
+    if (!canHover) {
       setIsOpen(false);
     }
   };
 
-  // 🔁 Rafraîchir périodiquement les compteurs (messages non lus + invitations)
+  // ✅ Gestionnaires de hover simplifiés
+  const handleMouseEnter = () => {
+    if (canHover) {
+      setIsOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (canHover) {
+      setIsOpen(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -115,7 +121,6 @@ export default function MainSidebar() {
         const conversations = convRes.data.conversations || [];
         const invitations = invRes.data.invitations || [];
 
-        // Total messages non lus (toutes convos)
         const totalUnread = conversations.reduce(
           (sum, conv) => sum + (conv.unreadCount || 0),
           0
@@ -128,10 +133,7 @@ export default function MainSidebar() {
       }
     };
 
-    // 1er chargement
     refreshCounts();
-
-    // Toutes les 10 secondes (ajuste si tu veux)
     const interval = setInterval(refreshCounts, 10000);
 
     return () => {
@@ -144,14 +146,10 @@ export default function MainSidebar() {
 
   return (
     <>
-      {/* Bouton Toggle (flèche) */}
+      {/* Bouton Toggle */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        onMouseEnter={() => {
-          if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-            setIsOpen(true);
-          }
-        }}
+        onMouseEnter={handleMouseEnter} // ✅ Utilise le nouveau handler
         className={`fixed top-1/2 -translate-y-1/2 z-60 ${toggleButtonBg} text-white p-2 rounded-r-md shadow-lg hover:shadow-xl transition-all duration-300 ${
           isOpen ? "left-16" : "-left-2"
         }`}
@@ -160,10 +158,10 @@ export default function MainSidebar() {
         {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
       </button>
 
-      {/* Overlay mobile */}
-      {isOpen && (
+      {/* Overlay (visible seulement si on ne peut pas hover = mobile) */}
+      {isOpen && !canHover && (
         <div
-          className={`fixed inset-0 ${overlayBg} z-48 lg:hidden`}
+          className={`fixed inset-0 ${overlayBg} z-48`}
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -173,15 +171,11 @@ export default function MainSidebar() {
         className={`fixed left-0 top-0 h-screen w-16 ${sidebarBg} flex flex-col items-center py-4 shadow-xl z-49 transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        onMouseLeave={() => {
-          if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-            setIsOpen(false);
-          }
-        }}
+        onMouseLeave={handleMouseLeave} // ✅ Utilise le nouveau handler
       >
         {/* Pattern de fond */}
         <div
-          className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${
+          className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,...')] ${
             isDark ? "opacity-10" : "opacity-20"
           }`}
         />
@@ -204,14 +198,12 @@ export default function MainSidebar() {
                   >
                     <IconComponent className="w-6 h-6" />
 
-                    {/* 🔴 Badge messages non lus sur Discussions */}
                     {isDiscussionsItem && unreadMessages > 0 && (
                       <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-lg">
                         {unreadMessages > 9 ? "9+" : unreadMessages}
                       </span>
                     )}
 
-                    {/* 🔔 Badge invitations sur Invitations */}
                     {isInvitationsItem && invitationCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-gradient-to-r from-emerald-500 to-lime-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow-lg">
                         {invitationCount > 9 ? "9+" : invitationCount}
@@ -223,7 +215,6 @@ export default function MainSidebar() {
                   </span>
                 </button>
 
-                {/* Tooltip au survol */}
                 <span
                   className={`absolute left-20 top-1/2 -translate-y-1/2 ${tooltipBg} text-sm font-medium py-2 px-3 rounded-lg border shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50`}
                 >

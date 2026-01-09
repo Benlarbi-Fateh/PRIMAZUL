@@ -1,117 +1,198 @@
+// src/services/socket.js
 import { io } from "socket.io-client";
 
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
   "http://localhost:5001";
+
 let socket = null;
 let currentUserId = null;
 let onlineUsersCache = [];
 let onlineUsersCallbacks = [];
+let isInitializing = false;
 
+// Callbacks pour les différents événements
 let onUpdateMessageCallback = null;
+let globalMessageCallbacks = [];
 
-//zaina:  Fonction pour que le composant React puisse s'abonner aux messages mis à jour
-export const onUpdateMessage = (callback) => {
-  onUpdateMessageCallback = callback;
-
-  if (socket) {
-    socket.off("update-message");
-    socket.on("update-message", (updatedMessage) => {
-      console.log("📡 Message mis à jour reçu:", updatedMessage);
-      onUpdateMessageCallback?.(updatedMessage);
-    });
-  }
-
-  return () => {
-    if (socket) socket.off("update-message");
-    onUpdateMessageCallback = null;
-  };
-};
+// ============================================
+// INITIALISATION DU SOCKET
+// ============================================
 
 export const initSocket = (userId) => {
   if (typeof window === "undefined") return null;
 
+  // Éviter les doubles initialisations
+  if (isInitializing) {
+    console.log("⏳ Initialisation déjà en cours...");
+    return socket;
+  }
+
   currentUserId = userId;
 
-  if (socket?.connected) {
-    console.log("✅ Socket déjà connecté");
+  // Si socket existe et est connecté avec le même userId
+  if (socket?.connected && currentUserId === userId) {
+    console.log("✅ Socket déjà connecté pour cet utilisateur");
     socket.emit("user-online", userId);
     socket.emit("request-online-users");
     return socket;
   }
 
+  // Si socket existe mais pas connecté, essayer de reconnecter
+  if (socket && !socket.connected) {
+    console.log("🔄 Socket existe mais déconnecté, reconnexion...");
+    socket.connect();
+    return socket;
+  }
+
+  // Créer un nouveau socket
+  console.log("🔌 Création d'un nouveau socket pour:", userId);
+  isInitializing = true;
+
   socket = io(SOCKET_URL, {
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
-    timeout: 10000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 10,
+    timeout: 20000,
+    autoConnect: true,
   });
+
+  // ============================================
+  // ÉVÉNEMENTS DE CONNEXION
+  // ============================================
 
   socket.on("connect", () => {
     console.log("✅ Socket connecté:", socket.id);
+    isInitializing = false;
+
     if (currentUserId) {
       socket.emit("user-online", currentUserId);
       socket.emit("request-online-users");
+      console.log(`👤 User ${currentUserId} rejoint sa room personnelle`);
     }
+
+    // Réattacher les écouteurs globaux de messages
+    setupGlobalMessageListeners();
   });
 
   socket.on("connection-confirmed", ({ userId, onlineUsers }) => {
     console.log("✅ Connexion confirmée pour:", userId);
-    console.log("👥 Utilisateurs en ligne:", onlineUsers);
-    onlineUsersCache = onlineUsers;
-    onlineUsersCallbacks.forEach((cb) => cb(onlineUsers));
+    onlineUsersCache = onlineUsers || [];
+    onlineUsersCallbacks.forEach((cb) => cb(onlineUsersCache));
   });
 
   socket.on("online-users-update", (userIds) => {
-    console.log("📡 Socket.js - Mise à jour utilisateurs en ligne:", userIds);
-    onlineUsersCache = userIds;
-    onlineUsersCallbacks.forEach((cb) => cb(userIds));
+    console.log("📡 Mise à jour utilisateurs en ligne:", userIds?.length || 0);
+    onlineUsersCache = userIds || [];
+    onlineUsersCallbacks.forEach((cb) => cb(onlineUsersCache));
   });
 
   socket.on("conversation-joined", ({ conversationId }) => {
     console.log("✅ Conversation rejointe:", conversationId);
   });
 
-  socket.on("reconnect", () => {
-    console.log("🔄 Socket reconnecté");
+  socket.on("reconnect", (attemptNumber) => {
+    console.log("🔄 Socket reconnecté après", attemptNumber, "tentatives");
     if (currentUserId) {
       socket.emit("user-online", currentUserId);
       socket.emit("request-online-users");
     }
+    setupGlobalMessageListeners();
+  });
+
+  socket.on("reconnect_attempt", (attemptNumber) => {
+    console.log("🔄 Tentative de reconnexion:", attemptNumber);
   });
 
   socket.on("connect_error", (error) => {
-    console.error("❌ Erreur de connexion Socket:", error);
+    console.error("❌ Erreur de connexion Socket:", error.message);
+    isInitializing = false;
   });
 
   socket.on("disconnect", (reason) => {
     console.log("⚠️ Socket déconnecté:", reason);
+    isInitializing = false;
+
+    // Reconnexion automatique si déconnexion par le serveur
+    if (reason === "io server disconnect") {
+      console.log("🔄 Reconnexion forcée...");
+      socket.connect();
+    }
   });
 
+  // Message mis à jour (pour les messages programmés)
   socket.on("update-message", (updatedMessage) => {
+    console.log("📡 Message mis à jour reçu:", updatedMessage?._id);
     if (onUpdateMessageCallback) {
       onUpdateMessageCallback(updatedMessage);
     }
   });
 
+  // Configurer les écouteurs globaux
+  setupGlobalMessageListeners();
+
   return socket;
 };
 
-export const onOnlineUsersUpdate = (callback) => {
-  if (socket) {
-    onlineUsersCallbacks.push(callback);
-    return () => {
-      onlineUsersCallbacks = onlineUsersCallbacks.filter(
-        (cb) => cb !== callback
-      );
-    };
-  }
-  // Retourner une fonction vide si pas de socket
-  return () => {};
+// ============================================
+// ÉCOUTEURS GLOBAUX DE MESSAGES
+// ============================================
+
+const setupGlobalMessageListeners = () => {
+  if (!socket) return;
+
+  // Supprimer les anciens écouteurs pour éviter les doublons
+  socket.off("receive-message");
+  socket.off("new-message");
+
+  // Écouteur pour receive-message
+  socket.on("receive-message", (message) => {
+    console.log("📩 [Global] Message reçu:", message?._id);
+    globalMessageCallbacks.forEach((cb) => {
+      try {
+        cb(message);
+      } catch (error) {
+        console.error("❌ Erreur dans callback message:", error);
+      }
+    });
+  });
+
+  // Écouteur pour new-message (au cas où le backend utilise cet événement)
+  socket.on("new-message", (message) => {
+    console.log("📩 [Global] Nouveau message:", message?._id);
+    globalMessageCallbacks.forEach((cb) => {
+      try {
+        cb(message);
+      } catch (error) {
+        console.error("❌ Erreur dans callback message:", error);
+      }
+    });
+  });
+
+  console.log("✅ Écouteurs globaux de messages configurés");
 };
 
+// ============================================
+// GETTERS ET UTILITAIRES
+// ============================================
+
+export const getSocket = () => socket;
+
+export const isSocketConnected = () => socket?.connected || false;
+
+export const getCurrentUserId = () => currentUserId;
+
+export const getOnlineUsersCache = () => onlineUsersCache;
+
 export const getCurrentOnlineUsers = () => onlineUsersCache;
+
+export const isUserOnline = (userId) => onlineUsersCache.includes(userId);
+
+// ============================================
+// ATTENDRE LA CONNEXION
+// ============================================
 
 const waitForConnection = (maxAttempts = 50) => {
   return new Promise((resolve, reject) => {
@@ -119,6 +200,7 @@ const waitForConnection = (maxAttempts = 50) => {
       resolve();
       return;
     }
+
     let attempts = 0;
     const checkConnection = setInterval(() => {
       attempts++;
@@ -132,6 +214,10 @@ const waitForConnection = (maxAttempts = 50) => {
     }, 100);
   });
 };
+
+// ============================================
+// CONVERSATIONS
+// ============================================
 
 export const joinConversation = (conversationId) => {
   waitForConnection()
@@ -151,14 +237,9 @@ export const leaveConversation = (conversationId) => {
   }
 };
 
-export const requestOnlineUsers = () => {
-  if (socket?.connected) {
-    console.log("📤 Demande de liste des utilisateurs en ligne");
-    socket.emit("request-online-users");
-  }
-};
-
-export const getOnlineUsersCache = () => onlineUsersCache;
+// ============================================
+// MESSAGES
+// ============================================
 
 export const sendMessage = (messageData) => {
   waitForConnection()
@@ -166,14 +247,65 @@ export const sendMessage = (messageData) => {
     .catch((error) => console.error("❌ Impossible d'envoyer:", error));
 };
 
+// ✅ Fonction pour écouter les messages (utilisée par ChatPage)
 export const onReceiveMessage = (callback) => {
   if (socket) {
-    socket.off("receive-message");
-    socket.on("receive-message", (message) => {
-      console.log("📩 Message reçu:", message);
-      callback(message);
+    // Ne pas supprimer les écouteurs globaux, juste ajouter le callback
+    if (!globalMessageCallbacks.includes(callback)) {
+      globalMessageCallbacks.push(callback);
+    }
+  }
+};
+
+// ✅ Fonction pour ajouter un écouteur global de messages
+export const addGlobalMessageListener = (callback) => {
+  if (!globalMessageCallbacks.includes(callback)) {
+    globalMessageCallbacks.push(callback);
+    console.log(
+      "➕ Écouteur global ajouté, total:",
+      globalMessageCallbacks.length
+    );
+  }
+
+  // S'assurer que les écouteurs socket sont configurés
+  if (socket?.connected) {
+    setupGlobalMessageListeners();
+  }
+
+  // Retourner une fonction pour se désabonner
+  return () => {
+    globalMessageCallbacks = globalMessageCallbacks.filter(
+      (cb) => cb !== callback
+    );
+    console.log(
+      "➖ Écouteur global retiré, total:",
+      globalMessageCallbacks.length
+    );
+  };
+};
+
+// ✅ Fonction pour retirer un écouteur
+export const removeMessageListener = (callback) => {
+  globalMessageCallbacks = globalMessageCallbacks.filter(
+    (cb) => cb !== callback
+  );
+};
+
+export const onUpdateMessage = (callback) => {
+  onUpdateMessageCallback = callback;
+
+  if (socket) {
+    socket.off("update-message");
+    socket.on("update-message", (updatedMessage) => {
+      console.log("📡 Message mis à jour reçu:", updatedMessage);
+      onUpdateMessageCallback?.(updatedMessage);
     });
   }
+
+  return () => {
+    if (socket) socket.off("update-message");
+    onUpdateMessageCallback = null;
+  };
 };
 
 export const onMessageStatusUpdated = (callback) => {
@@ -181,6 +313,16 @@ export const onMessageStatusUpdated = (callback) => {
     socket.off("message-status-updated");
     socket.on("message-status-updated", (data) => {
       console.log("📊 Statut mis à jour:", data);
+      callback(data);
+    });
+  }
+};
+
+export const onConversationStatusUpdated = (callback) => {
+  if (socket) {
+    socket.off("conversation-status-updated");
+    socket.on("conversation-status-updated", (data) => {
+      console.log("📊 Statut conversation mis à jour:", data);
       callback(data);
     });
   }
@@ -196,47 +338,20 @@ export const onShouldRefreshConversations = (callback) => {
   }
 };
 
-export const onConversationStatusUpdated = (callback) => {
-  if (socket) {
-    socket.off("conversation-status-updated");
-    socket.on("conversation-status-updated", (data) => {
-      console.log("📊 Statut conversation mis à jour:", data);
-      callback(data);
-    });
-  }
-};
+// ============================================
+// TYPING
+// ============================================
 
-// 🆕 Fonctions typing CORRIGÉES
 export const emitTyping = (conversationId, recipientId) => {
   if (socket?.connected) {
     socket.emit("typing", { conversationId, recipientId });
-    console.log("⌨️ Émission typing à:", recipientId);
   }
 };
 
 export const emitStopTyping = (conversationId, recipientId) => {
   if (socket?.connected) {
     socket.emit("stop-typing", { conversationId, recipientId });
-    console.log("⏹️ Émission stop-typing à:", recipientId);
   }
-};
-
-// 🆕 NOUVELLE FONCTION : Écouter les erreurs de blocage
-export const onMessageBlocked = (callback) => {
-  if (socket) {
-    socket.off("message-error");
-    socket.on("message-error", (errorData) => {
-      console.log("🚫 Erreur message bloqué:", errorData);
-      if (errorData.blocked) {
-        callback(errorData);
-      }
-    });
-  }
-};
-
-// 🆕 NOUVELLE FONCTION : Vérifier si un utilisateur est en ligne
-export const isUserOnline = (userId) => {
-  return onlineUsersCache.includes(userId);
 };
 
 export const onUserTyping = (callback) => {
@@ -254,7 +369,47 @@ export const onUserStoppedTyping = (callback) => {
 };
 
 // ============================================
-// 📨 INVITATIONS
+// BLOCAGE
+// ============================================
+
+export const onMessageBlocked = (callback) => {
+  if (socket) {
+    socket.off("message-error");
+    socket.on("message-error", (errorData) => {
+      console.log("🚫 Erreur message bloqué:", errorData);
+      if (errorData.blocked) {
+        callback(errorData);
+      }
+    });
+  }
+};
+
+// ============================================
+// ONLINE USERS
+// ============================================
+
+export const requestOnlineUsers = () => {
+  if (socket?.connected) {
+    console.log("📤 Demande de liste des utilisateurs en ligne");
+    socket.emit("request-online-users");
+  }
+};
+
+export const onOnlineUsersUpdate = (callback) => {
+  onlineUsersCallbacks.push(callback);
+
+  // Appeler immédiatement avec le cache si disponible
+  if (onlineUsersCache.length > 0) {
+    callback(onlineUsersCache);
+  }
+
+  return () => {
+    onlineUsersCallbacks = onlineUsersCallbacks.filter((cb) => cb !== callback);
+  };
+};
+
+// ============================================
+// INVITATIONS
 // ============================================
 
 export const onInvitationReceived = (callback) => {
@@ -271,7 +426,7 @@ export const onInvitationAccepted = (callback) => {
   if (socket) {
     socket.off("invitation-accepted-notification");
     socket.on("invitation-accepted-notification", (data) => {
-      console.log("✅ Invitation acceptée par le destinataire:", data);
+      console.log("✅ Invitation acceptée:", data);
       callback(data);
     });
   }
@@ -281,7 +436,7 @@ export const onInvitationRejected = (callback) => {
   if (socket) {
     socket.off("invitation-rejected-notification");
     socket.on("invitation-rejected-notification", (invitation) => {
-      console.log("❌ Invitation refusée par le destinataire:", invitation);
+      console.log("❌ Invitation refusée:", invitation);
       callback(invitation);
     });
   }
@@ -291,7 +446,7 @@ export const onInvitationCancelled = (callback) => {
   if (socket) {
     socket.off("invitation-cancelled-notification");
     socket.on("invitation-cancelled-notification", (invitationId) => {
-      console.log("🗑️ Invitation annulée par l'expéditeur:", invitationId);
+      console.log("🗑️ Invitation annulée:", invitationId);
       callback(invitationId);
     });
   }
@@ -325,7 +480,7 @@ export const emitInvitationRejected = (data) => {
       console.log("❌ Émission invitation refusée:", data);
       socket.emit("invitation-rejected", data);
     })
-    .catch((error) => console.error("❌ Impossible d'émettre refus:", error)); // ✅ CORRECTION ICI
+    .catch((error) => console.error("❌ Impossible d'émettre refus:", error));
 };
 
 export const emitInvitationCancelled = (data) => {
@@ -340,7 +495,7 @@ export const emitInvitationCancelled = (data) => {
 };
 
 // ============================================
-// 🆕 RÉACTIONS
+// RÉACTIONS
 // ============================================
 
 export const emitToggleReaction = (data) => {
@@ -375,26 +530,8 @@ export const onReactionError = (callback) => {
 };
 
 // ============================================
-// UTILITAIRES
+// APPELS
 // ============================================
-
-export const disconnectSocket = () => {
-  if (socket) {
-    console.log("🔌 Déconnexion du socket");
-    socket.disconnect();
-    socket = null;
-    currentUserId = null;
-    onlineUsersCache = [];
-    onlineUsersCallbacks = [];
-  }
-};
-
-export const getSocket = () => socket;
-
-export const isSocketConnected = () => socket?.connected || false;
-// ===============================
-// 📞 APPELS – HISTORIQUE TEMPS RÉEL
-// ===============================
 
 export const onCallEnded = (callback) => {
   if (socket) {
@@ -414,4 +551,34 @@ export const onCallMissed = (callback) => {
       callback(data);
     });
   }
+};
+
+// ============================================
+// DÉCONNEXION
+// ============================================
+
+export const disconnectSocket = () => {
+  if (socket) {
+    console.log("🔌 Déconnexion du socket");
+    socket.disconnect();
+    socket = null;
+    currentUserId = null;
+    onlineUsersCache = [];
+    onlineUsersCallbacks = [];
+    globalMessageCallbacks = [];
+    isInitializing = false;
+  }
+};
+
+// ============================================
+// EXPORT PAR DÉFAUT
+// ============================================
+
+export default {
+  initSocket,
+  getSocket,
+  isSocketConnected,
+  disconnectSocket,
+  joinConversation,
+  leaveConversation,
 };

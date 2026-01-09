@@ -3,6 +3,9 @@ import { BlockProvider } from "@/context/BlockContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { CallProvider } from "@/context/Callcontext";
 import "./globals.css";
+import { NotificationProvider } from "@/context/NotificationContext";
+import GlobalNotificationListener from "@/components/Notifications/GlobalNotificationListener";
+import SocketInitializer from "@/components/Socket/SocketInitializer";
 
 export const metadata = {
   title: "PrimaZul - Messagerie Moderne",
@@ -25,7 +28,16 @@ export default function RootLayout({ children }) {
         <AuthProvider>
           <BlockProvider>
             <ThemeProvider>
-              <CallProvider> {children}</CallProvider>
+              <NotificationProvider>
+                <CallProvider>
+                  {/* Initialisation du Socket et écoute globale des notifications*/}
+                  <SocketInitializer>
+                    {/*  ÉCOUTEUR GLOBAL DE NOTIFICATIONS */}
+                    <GlobalNotificationListener />
+                    {children}
+                  </SocketInitializer>
+                </CallProvider>
+              </NotificationProvider>
             </ThemeProvider>
           </BlockProvider>
         </AuthProvider>

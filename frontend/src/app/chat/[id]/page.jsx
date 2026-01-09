@@ -34,6 +34,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { CallContext } from "@/context/Callcontext";
 import CallMessage from "@/components/Chat/CallMessage";
 import StoryReplyMessage from "@/components/Chat/StoryReplyMessage";
+import { useNotifications } from "@/context/NotificationContext";
 
 import ProtectedRoute from "@/components/Auth/ProtectedRoute";
 import MainSidebar from "@/components/Layout/MainSidebar.client";
@@ -44,6 +45,7 @@ import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
 import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
 import MessageSearch from "@/components/Chat/MessageSearch";
+import { useSearchParams } from "next/navigation";
 import {
   Plane,
   Users,
@@ -60,6 +62,11 @@ export default function ChatPage() {
   const router = useRouter();
   const { user } = useContext(AuthContext);
   const { isDark } = useTheme();
+
+  const hasInitiatedCall = useRef(false);
+  const searchParams = useSearchParams();
+  // ✅ RÉCUPÉRATION DES NOTIFICATIONS
+  const { showNotification } = useNotifications();
 
   // ✅ RÉCUPÉRATION DE LA FONCTION D'APPEL
   const { initiateCall } = useContext(CallContext);
@@ -82,7 +89,7 @@ export default function ChatPage() {
   const [replyingToSender, setReplyingToSender] = useState(null);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-    // 🆕 savoir si on doit auto‑scroller ou pas
+  // 🆕 savoir si on doit auto‑scroller ou pas
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
 
   const messagesEndRef = useRef(null);
@@ -92,16 +99,12 @@ export default function ChatPage() {
 
   useSocket();
 
-    // 🆕 détecter si l'utilisateur est proche du bas ou pas
+  // 🆕 détecter si l'utilisateur est proche du bas ou pas
   const handleScroll = () => {
     const el = messagesContainerRef.current;
     if (!el) return;
 
-    // distance entre la position actuelle et le bas
-    const distanceFromBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight;
-
-    // si on est à moins de 50px du bas, on considère qu'on est en bas
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const isNearBottom = distanceFromBottom < 50;
 
     setShouldAutoScroll(isNearBottom);
@@ -134,9 +137,8 @@ export default function ChatPage() {
   }, [conversationId]);
 
   useEffect(() => {
-  // quand on change de conversation, on recolle en bas
-  setShouldAutoScroll(true);
-}, [conversationId]);
+    setShouldAutoScroll(true);
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId || !user) return;
@@ -148,7 +150,6 @@ export default function ChatPage() {
         const convResponse = await getConversation(conversationId);
         setConversation(convResponse.data.conversation);
 
-        // ✅ Extraire l'ID du contact (l'autre participant)
         const convData = convResponse.data.conversation;
         if (!convData.isGroup) {
           const userId = user._id || user.id;
@@ -209,50 +210,170 @@ export default function ChatPage() {
       isMarkingAsReadRef.current = false;
     };
   }, [conversationId, user]);
+  // ===============================
+  // 📍 DÉTECTER LE PARAMÈTRE D'APPEL ET LANCER AUTOMATIQUEMENT
+  // ===============================
+  useEffect(() => {
+    const callType = searchParams.get("call");
 
+    // Éviter les appels multiples
+    if (!callType || hasInitiatedCall.current) return;
+
+    // Attendre que la conversation soit chargée
+    if (!conversation) return;
+
+    // Pour les conversations privées, attendre que le contact soit disponible
+    if (!conversation.isGroup) {
+      const userId = user?._id || user?.id;
+      const otherParticipant = conversation.participants?.find(
+        (p) => p._id !== userId
+      );
+      if (!otherParticipant) return;
+    }
+
+    const startCall = async () => {
+      hasInitiatedCall.current = true;
+
+      console.log(`📞 Initiation automatique d'appel ${callType}...`);
+
+      // Petit délai pour laisser le temps à la page de se charger
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+      try {
+        if (callType === "audio") {
+          // ✅ Utiliser la bonne fonction
+          if (conversation.isGroup) {
+            const participants = conversation.participants.filter(
+              (p) => p._id !== (user._id || user.id)
+            );
+            if (participants.length > 0) {
+              initiateCall(
+                conversationId,
+                participants,
+                "audio",
+                true,
+                conversation.groupName
+              );
+            }
+          } else {
+            const userId = user?._id || user?.id;
+            const otherParticipant = conversation.participants?.find(
+              (p) => p._id !== userId
+            );
+            if (otherParticipant) {
+              initiateCall(conversationId, otherParticipant, "audio", false);
+            }
+          }
+        } else if (callType === "video") {
+          // ✅ Utiliser la bonne fonction
+          if (conversation.isGroup) {
+            const participants = conversation.participants.filter(
+              (p) => p._id !== (user._id || user.id)
+            );
+            if (participants.length > 0) {
+              initiateCall(
+                conversationId,
+                participants,
+                "video",
+                true,
+                conversation.groupName
+              );
+            }
+          } else {
+            const userId = user?._id || user?.id;
+            const otherParticipant = conversation.participants?.find(
+              (p) => p._id !== userId
+            );
+            if (otherParticipant) {
+              initiateCall(conversationId, otherParticipant, "video", false);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("❌ Erreur lors de l'initiation de l'appel:", error);
+      }
+
+      // Nettoyer l'URL après l'initiation
+      window.history.replaceState({}, "", `/chat/${conversationId}`);
+    };
+
+    startCall();
+  }, [searchParams, conversation, user, conversationId, initiateCall]);
+  // ✅ USEEFFECT PRINCIPAL POUR LES SOCKETS - CORRIGÉ
   useEffect(() => {
     const socket = getSocket();
 
     if (socket && conversationId && user) {
+      // ✅ DÉFINIR userId AU DÉBUT !
+      const currentUserId = user._id || user.id;
+
       onReceiveMessage((message) => {
-  // message.conversationId peut être un objet ou une string
-  const msgConvId =
-    typeof message.conversationId === "object"
-      ? message.conversationId._id?.toString()
-      : message.conversationId?.toString();
+        const msgConvId =
+          typeof message.conversationId === "object"
+            ? message.conversationId._id?.toString()
+            : message.conversationId?.toString();
 
-  if (msgConvId === conversationId) {
-    setMessages((prev) => {
-      const index = prev.findIndex((m) => m._id === message._id);
-      let next;
+        if (msgConvId === conversationId) {
+          setMessages((prev) => {
+            const index = prev.findIndex((m) => m._id === message._id);
+            let next;
 
-      if (index !== -1) {
-        // 🔁 On met à jour le message existant (cas message programmé)
-        next = [...prev];
-        next[index] = message;
-      } else {
-        // ➕ Nouveau message
-        next = [...prev, message];
-      }
+            if (index !== -1) {
+              next = [...prev];
+              next[index] = message;
+            } else {
+              next = [...prev, message];
+            }
 
-      // 🧹 Toujours garder les messages triés par date d'envoi
-      next.sort((a, b) => {
-        const da = new Date(a.createdAt || a.scheduledFor);
-        const db = new Date(b.createdAt || b.scheduledFor);
-        return da - db;
+            // ✅ CORRECTION : currentUserId est maintenant défini
+            const senderId = message.sender._id || message.sender.id;
+            if (senderId !== currentUserId) {
+              console.log("📨 Message reçu d'un autre utilisateur");
+
+              // Préparer le contenu de la notification
+              let notificationBody = "";
+              if (message.type === "text") {
+                notificationBody =
+                  message.content?.slice(0, 50) || "Nouveau message";
+              } else if (message.type === "image") {
+                notificationBody = "📷 Image";
+              } else if (message.type === "video") {
+                notificationBody = "🎬 Vidéo";
+              } else if (message.type === "file") {
+                notificationBody = `📎 ${message.fileName || "Fichier"}`;
+              } else if (message.type === "voice" || message.type === "audio") {
+                notificationBody = "🎤 Message vocal";
+              } else {
+                notificationBody = "Nouveau message";
+              }
+
+              // ✅ Appeler showNotification
+              showNotification(message.sender?.name || "Nouveau message", {
+                body: notificationBody,
+                icon: message.sender?.profilePicture || "/default-avatar.png",
+                tag: conversationId,
+              });
+            }
+
+            // Trier les messages
+            next.sort((a, b) => {
+              const da = new Date(a.createdAt || a.scheduledFor);
+              const db = new Date(b.createdAt || b.scheduledFor);
+              return da - db;
+            });
+
+            return next;
+          });
+
+          // Marquer comme lu si ce n'est pas mon message
+          const senderId = message.sender._id || message.sender.id;
+          if (senderId !== currentUserId) {
+            markMessagesAsDelivered([message._id])
+              .then(() => markConversationAsRead(conversationId))
+              .catch((err) => console.error("❌ Erreur marquage:", err));
+          }
+        }
       });
-
-      return next;
-    });
-
-    const userId = user._id || user.id;
-    if (message.sender._id !== userId) {
-      markMessagesAsDelivered([message._id])
-        .then(() => markConversationAsRead(conversationId))
-        .catch((err) => console.error("❌ Erreur marquage:", err));
-    }
-  }
-});
 
       onMessageStatusUpdated(({ messageIds, status }) => {
         setMessages((prevMessages) =>
@@ -359,7 +480,6 @@ export default function ChatPage() {
       // ✅ ÉCOUTEURS APPELS - VERSION DIRECTE
       // ===============================
 
-      // Appel terminé
       socket.off("call-ended");
       socket.on("call-ended", ({ callId, duration, status }) => {
         console.log(
@@ -384,7 +504,6 @@ export default function ChatPage() {
         );
       });
 
-      // Appel refusé
       socket.off("call-declined");
       socket.on("call-declined", ({ callId, declinedBy, reason }) => {
         console.log(`❌ Appel refusé: ${callId} par ${declinedBy}`);
@@ -407,7 +526,6 @@ export default function ChatPage() {
         );
       });
 
-      // Appel timeout (pas de réponse)
       socket.off("call-timeout");
       socket.on("call-timeout", ({ callId }) => {
         console.log(`⏰ Appel timeout: ${callId}`);
@@ -431,7 +549,6 @@ export default function ChatPage() {
       });
 
       onUserTyping(({ conversationId: typingConvId, userId }) => {
-        const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
           setTypingUsers((prev) => {
             if (!prev.includes(userId)) {
@@ -443,20 +560,19 @@ export default function ChatPage() {
       });
 
       onUserStoppedTyping(({ conversationId: typingConvId, userId }) => {
-        const currentUserId = user._id || user.id;
         if (typingConvId === conversationId && userId !== currentUserId) {
           setTypingUsers((prev) => prev.filter((id) => id !== userId));
         }
       });
     }
-  }, [conversationId, user]);
+  }, [conversationId, user, showNotification]); // ✅ Ajouter showNotification aux dépendances
 
   // 🆕 auto‑scroll uniquement si l'utilisateur est déjà en bas
-useEffect(() => {
-  if (!shouldAutoScroll || !messagesEndRef.current) return;
+  useEffect(() => {
+    if (!shouldAutoScroll || !messagesEndRef.current) return;
 
-  messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-}, [messages, typingUsers, shouldAutoScroll]);
+    messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [messages, typingUsers, shouldAutoScroll]);
 
   const getOtherParticipant = () => {
     if (!conversation || !user) return null;
@@ -478,7 +594,6 @@ useEffect(() => {
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
 
-      // Ordre des arguments : (conversationId, participants, type, isGroup, groupName)
       initiateCall(
         conversationId,
         participants,
@@ -542,7 +657,6 @@ useEffect(() => {
           conversationId,
           content: content.trim(),
           type: "text",
-          // 🆕 Ajouter les infos de réponse si applicable
           ...(replyingToId && {
             replyTo: replyingToId,
             replyToContent: replyingToContent,
@@ -553,26 +667,22 @@ useEffect(() => {
 
       const response = await sendMessage(messageData);
 
-      // 🆕 Gestion de la redirection si nouvelle conversation créée
       if (
         response.data.conversationId &&
         response.data.conversationId !== conversationId
       ) {
         console.log("🔄 Nouvelle conversation créée, redirection...");
 
-        // Émettre un événement global pour rafraîchir la sidebar
         window.dispatchEvent(
           new CustomEvent("refresh-sidebar-conversations", {
             detail: { newConversationId: response.data.conversationId },
           })
         );
 
-        // Rediriger vers la nouvelle conversation
         router.push(`/chat/${response.data.conversationId}`);
         return;
       }
 
-      // 🆕 Réinitialiser la réponse après envoi
       if (replyingToId) {
         handleCancelReply();
       }
@@ -640,7 +750,6 @@ useEffect(() => {
 
       if (response.data.success) {
         console.log("✅ Message supprimé pour moi");
-        // Retirer le message du state localement
         setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
       }
     } catch (error) {
@@ -649,9 +758,6 @@ useEffect(() => {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION PROGRAMMER UN MESSAGE
-  // ========================================
   // ========================================
   // 🆕 FONCTION PROGRAMMER UN MESSAGE
   // ========================================
@@ -671,7 +777,6 @@ useEffect(() => {
       if (response.data.success) {
         console.log("✅ Message programmé avec succès");
 
-        // ✅ AJOUTER LE MESSAGE PROGRAMMÉ À LA LISTE (SEULEMENT POUR MOI)
         const scheduledMessage = response.data.message;
         setMessages((prev) => [...prev, scheduledMessage]);
 
@@ -753,7 +858,7 @@ useEffect(() => {
         targetLang,
       });
 
-        console.log("📦 Réponse traduction:", response.data);
+      console.log("📦 Réponse traduction:", response.data);
 
       if (response.data.success) {
         console.log("✅ Message traduit:", response.data.translatedContent);
@@ -931,7 +1036,6 @@ useEffect(() => {
               />
             </div>
 
-            {/* EN-TÊTE DE CHAT ORIGINAL (sans statuts) */}
             <div className="hidden lg:block">
               <ChatHeader
                 contact={contact}
@@ -943,7 +1047,6 @@ useEffect(() => {
               />
             </div>
 
-            {/* 🆕 COMPOSANT DE RECHERCHE */}
             <MessageSearch
               conversationId={conversationId}
               onMessageSelect={scrollToMessage}
@@ -951,12 +1054,11 @@ useEffect(() => {
               onClose={() => setIsSearchOpen(false)}
             />
 
-            {/* Container des messages avec scrollbar cachée */}
             <div
-  ref={messagesContainerRef}
-  onScroll={handleScroll} // 🆕
-  className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
->
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className={`flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 ${emptyChatBg} [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`}
+            >
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full animate-fade-in">
                   <div
@@ -1017,7 +1119,6 @@ useEffect(() => {
                           <DateSeparator date={message.createdAt} />
                         )}
 
-                        {/* ✅ HISTORIQUE D'APPEL */}
                         {message.type === "call" ? (
                           <div className="flex w-full mb-2 justify-center">
                             <CallMessage
@@ -1027,23 +1128,21 @@ useEffect(() => {
                             />
                           </div>
                         ) : message.type === "story_reaction" ? (
-                          // ✅ MESSAGE DE RÉACTION À UNE STORY (format commentaire)
                           <div className="flex w-full mb-2 justify-center">
                             <div
                               className={`
-                px-3 py-1.5 rounded-full text-xs
-                ${
-                  isDark
-                    ? "bg-slate-800 text-slate-200"
-                    : "bg-slate-100 text-slate-600"
-                }
-              `}
+                                px-3 py-1.5 rounded-full text-xs
+                                ${
+                                  isDark
+                                    ? "bg-slate-800 text-slate-200"
+                                    : "bg-slate-100 text-slate-600"
+                                }
+                              `}
                             >
                               {message.content}
                             </div>
                           </div>
                         ) : (
-                          // ✅ TOUS LES AUTRES MESSAGES (bulle normale)
                           <MessageBubble
                             message={message}
                             isMine={message.sender?._id === userId}
@@ -1053,7 +1152,7 @@ useEffect(() => {
                             onEdit={handleEditMessage}
                             onTranslate={handleTranslateMessage}
                             onReply={handleReplyMessage}
-                            onDeleteForMe={handleDeleteMessageForMe} // ✅ AJOUT
+                            onDeleteForMe={handleDeleteMessageForMe}
                           />
                         )}
                       </div>
@@ -1077,17 +1176,15 @@ useEffect(() => {
               onStopTyping={handleStopTyping}
               conversationId={conversationId}
               contactId={contactId}
-              // 🆕 Props pour la modification
               editingMessageId={editingMessageId}
               editingContent={editingContent}
               onConfirmEdit={handleConfirmEdit}
               onCancelEdit={handleCancelEdit}
-              // 🆕 Props pour la réponse
               replyingToId={replyingToId}
               replyingToContent={replyingToContent}
               replyingToSender={replyingToSender}
               onCancelReply={handleCancelReply}
-              onSchedule={handleScheduleMessage} // ✅ AJOUT
+              onSchedule={handleScheduleMessage}
             />
           </div>
         </div>

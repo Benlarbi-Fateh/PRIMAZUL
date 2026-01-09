@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     profilePicture: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
 
     // Informations de profil étendues
     username: {
@@ -111,7 +112,6 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpires: { type: Date },
     status: { type: String, default: "Hey there! I'm using WhatsApp" },
     isOnline: { type: Boolean, default: false },
-
 
     // 🔥 Champs ajoutés pour changement d’email
     pendingEmail: { type: String },
