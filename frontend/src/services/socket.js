@@ -16,13 +16,28 @@ let onUpdateMessageCallback = null;
 let globalMessageCallbacks = [];
 
 // ============================================
+// CALLBACKS POUR LES TÂCHES
+// ============================================
+let taskCallbacks = {
+  created: [],
+  updated: [],
+  statusChanged: [],
+  deleted: [],
+  commented: [],
+};
+
+let projectCallbacks = {
+  created: [],
+  deleted: [],
+};
+
+// ============================================
 // INITIALISATION DU SOCKET
 // ============================================
 
 export const initSocket = (userId) => {
   if (typeof window === "undefined") return null;
 
-  // Éviter les doubles initialisations
   if (isInitializing) {
     console.log("⏳ Initialisation déjà en cours...");
     return socket;
@@ -30,7 +45,6 @@ export const initSocket = (userId) => {
 
   currentUserId = userId;
 
-  // Si socket existe et est connecté avec le même userId
   if (socket?.connected && currentUserId === userId) {
     console.log("✅ Socket déjà connecté pour cet utilisateur");
     socket.emit("user-online", userId);
@@ -38,14 +52,12 @@ export const initSocket = (userId) => {
     return socket;
   }
 
-  // Si socket existe mais pas connecté, essayer de reconnecter
   if (socket && !socket.connected) {
     console.log("🔄 Socket existe mais déconnecté, reconnexion...");
     socket.connect();
     return socket;
   }
 
-  // Créer un nouveau socket
   console.log("🔌 Création d'un nouveau socket pour:", userId);
   isInitializing = true;
 
@@ -73,8 +85,8 @@ export const initSocket = (userId) => {
       console.log(`👤 User ${currentUserId} rejoint sa room personnelle`);
     }
 
-    // Réattacher les écouteurs globaux de messages
     setupGlobalMessageListeners();
+    setupTaskListeners(); // ✅ IMPORTANT
   });
 
   socket.on("connection-confirmed", ({ userId, onlineUsers }) => {
@@ -100,6 +112,7 @@ export const initSocket = (userId) => {
       socket.emit("request-online-users");
     }
     setupGlobalMessageListeners();
+    setupTaskListeners(); // ✅ IMPORTANT
   });
 
   socket.on("reconnect_attempt", (attemptNumber) => {
@@ -115,14 +128,12 @@ export const initSocket = (userId) => {
     console.log("⚠️ Socket déconnecté:", reason);
     isInitializing = false;
 
-    // Reconnexion automatique si déconnexion par le serveur
     if (reason === "io server disconnect") {
       console.log("🔄 Reconnexion forcée...");
       socket.connect();
     }
   });
 
-  // Message mis à jour (pour les messages programmés)
   socket.on("update-message", (updatedMessage) => {
     console.log("📡 Message mis à jour reçu:", updatedMessage?._id);
     if (onUpdateMessageCallback) {
@@ -130,8 +141,8 @@ export const initSocket = (userId) => {
     }
   });
 
-  // Configurer les écouteurs globaux
   setupGlobalMessageListeners();
+  setupTaskListeners(); // ✅ IMPORTANT
 
   return socket;
 };
@@ -143,11 +154,9 @@ export const initSocket = (userId) => {
 const setupGlobalMessageListeners = () => {
   if (!socket) return;
 
-  // Supprimer les anciens écouteurs pour éviter les doublons
   socket.off("receive-message");
   socket.off("new-message");
 
-  // Écouteur pour receive-message
   socket.on("receive-message", (message) => {
     console.log("📩 [Global] Message reçu:", message?._id);
     globalMessageCallbacks.forEach((cb) => {
@@ -159,7 +168,6 @@ const setupGlobalMessageListeners = () => {
     });
   });
 
-  // Écouteur pour new-message (au cas où le backend utilise cet événement)
   socket.on("new-message", (message) => {
     console.log("📩 [Global] Nouveau message:", message?._id);
     globalMessageCallbacks.forEach((cb) => {
@@ -172,6 +180,233 @@ const setupGlobalMessageListeners = () => {
   });
 
   console.log("✅ Écouteurs globaux de messages configurés");
+};
+
+// ============================================
+// ÉCOUTEURS DE TÂCHES
+// ============================================
+
+export const setupTaskListeners = () => {
+  if (!socket) {
+    console.warn("⚠️ Socket non disponible pour les tâches");
+    return;
+  }
+
+  // Supprimer les anciens écouteurs
+  socket.off("task:created");
+  socket.off("task:updated");
+  socket.off("task:statusChanged");
+  socket.off("task:deleted");
+  socket.off("task:commented");
+  socket.off("project:created");
+  socket.off("project:deleted");
+
+  // Tâche créée
+  socket.on("task:created", (data) => {
+    console.log("📡 [Socket] task:created reçu:", data?.task?._id);
+    taskCallbacks.created.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback task:created:", error);
+      }
+    });
+  });
+
+  // Tâche mise à jour
+  socket.on("task:updated", (data) => {
+    console.log("📡 [Socket] task:updated reçu:", data?.task?._id);
+    taskCallbacks.updated.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback task:updated:", error);
+      }
+    });
+  });
+
+  // Statut changé
+  socket.on("task:statusChanged", (data) => {
+    console.log(
+      "📡 [Socket] task:statusChanged reçu:",
+      data?.task?._id,
+      "→",
+      data?.newStatus,
+    );
+    taskCallbacks.statusChanged.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback task:statusChanged:", error);
+      }
+    });
+  });
+
+  // Tâche supprimée
+  socket.on("task:deleted", (data) => {
+    console.log("📡 [Socket] task:deleted reçu:", data?.taskId);
+    taskCallbacks.deleted.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback task:deleted:", error);
+      }
+    });
+  });
+
+  // Commentaire ajouté
+  socket.on("task:commented", (data) => {
+    console.log("📡 [Socket] task:commented reçu:", data?.taskId);
+    taskCallbacks.commented.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback task:commented:", error);
+      }
+    });
+  });
+
+  // Projet créé
+  socket.on("project:created", (data) => {
+    console.log("📡 [Socket] project:created reçu:", data?.project?._id);
+    projectCallbacks.created.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback project:created:", error);
+      }
+    });
+  });
+
+  // Projet supprimé
+  socket.on("project:deleted", (data) => {
+    console.log("📡 [Socket] project:deleted reçu:", data?.projectId);
+    projectCallbacks.deleted.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback project:deleted:", error);
+      }
+    });
+  });
+
+  console.log("✅ Écouteurs de tâches configurés");
+};
+
+// ============================================
+// ABONNEMENTS AUX TÂCHES
+// ============================================
+
+export const onTaskCreated = (callback) => {
+  if (!taskCallbacks.created.includes(callback)) {
+    taskCallbacks.created.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    taskCallbacks.created = taskCallbacks.created.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const onTaskUpdated = (callback) => {
+  if (!taskCallbacks.updated.includes(callback)) {
+    taskCallbacks.updated.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    taskCallbacks.updated = taskCallbacks.updated.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const onTaskStatusChanged = (callback) => {
+  if (!taskCallbacks.statusChanged.includes(callback)) {
+    taskCallbacks.statusChanged.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    taskCallbacks.statusChanged = taskCallbacks.statusChanged.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const onTaskDeleted = (callback) => {
+  if (!taskCallbacks.deleted.includes(callback)) {
+    taskCallbacks.deleted.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    taskCallbacks.deleted = taskCallbacks.deleted.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const onTaskCommented = (callback) => {
+  if (!taskCallbacks.commented.includes(callback)) {
+    taskCallbacks.commented.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    taskCallbacks.commented = taskCallbacks.commented.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const onProjectCreated = (callback) => {
+  if (!projectCallbacks.created.includes(callback)) {
+    projectCallbacks.created.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    projectCallbacks.created = projectCallbacks.created.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const onProjectDeleted = (callback) => {
+  if (!projectCallbacks.deleted.includes(callback)) {
+    projectCallbacks.deleted.push(callback);
+  }
+  if (socket?.connected) {
+    setupTaskListeners();
+  }
+  return () => {
+    projectCallbacks.deleted = projectCallbacks.deleted.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+export const clearTaskCallbacks = () => {
+  taskCallbacks = {
+    created: [],
+    updated: [],
+    statusChanged: [],
+    deleted: [],
+    commented: [],
+  };
+  projectCallbacks = {
+    created: [],
+    deleted: [],
+  };
 };
 
 // ============================================
@@ -247,47 +482,41 @@ export const sendMessage = (messageData) => {
     .catch((error) => console.error("❌ Impossible d'envoyer:", error));
 };
 
-// ✅ Fonction pour écouter les messages (utilisée par ChatPage)
 export const onReceiveMessage = (callback) => {
   if (socket) {
-    // Ne pas supprimer les écouteurs globaux, juste ajouter le callback
     if (!globalMessageCallbacks.includes(callback)) {
       globalMessageCallbacks.push(callback);
     }
   }
 };
 
-// ✅ Fonction pour ajouter un écouteur global de messages
 export const addGlobalMessageListener = (callback) => {
   if (!globalMessageCallbacks.includes(callback)) {
     globalMessageCallbacks.push(callback);
     console.log(
       "➕ Écouteur global ajouté, total:",
-      globalMessageCallbacks.length
+      globalMessageCallbacks.length,
     );
   }
 
-  // S'assurer que les écouteurs socket sont configurés
   if (socket?.connected) {
     setupGlobalMessageListeners();
   }
 
-  // Retourner une fonction pour se désabonner
   return () => {
     globalMessageCallbacks = globalMessageCallbacks.filter(
-      (cb) => cb !== callback
+      (cb) => cb !== callback,
     );
     console.log(
       "➖ Écouteur global retiré, total:",
-      globalMessageCallbacks.length
+      globalMessageCallbacks.length,
     );
   };
 };
 
-// ✅ Fonction pour retirer un écouteur
 export const removeMessageListener = (callback) => {
   globalMessageCallbacks = globalMessageCallbacks.filter(
-    (cb) => cb !== callback
+    (cb) => cb !== callback,
   );
 };
 
@@ -398,7 +627,6 @@ export const requestOnlineUsers = () => {
 export const onOnlineUsersUpdate = (callback) => {
   onlineUsersCallbacks.push(callback);
 
-  // Appeler immédiatement avec le cache si disponible
   if (onlineUsersCache.length > 0) {
     callback(onlineUsersCache);
   }
@@ -459,7 +687,7 @@ export const emitInvitationSent = (data) => {
       socket.emit("invitation-sent", data);
     })
     .catch((error) =>
-      console.error("❌ Impossible d'émettre invitation:", error)
+      console.error("❌ Impossible d'émettre invitation:", error),
     );
 };
 
@@ -470,7 +698,7 @@ export const emitInvitationAccepted = (data) => {
       socket.emit("invitation-accepted", data);
     })
     .catch((error) =>
-      console.error("❌ Impossible d'émettre acceptation:", error)
+      console.error("❌ Impossible d'émettre acceptation:", error),
     );
 };
 
@@ -490,7 +718,7 @@ export const emitInvitationCancelled = (data) => {
       socket.emit("invitation-cancelled", data);
     })
     .catch((error) =>
-      console.error("❌ Impossible d'émettre annulation:", error)
+      console.error("❌ Impossible d'émettre annulation:", error),
     );
 };
 
@@ -505,7 +733,7 @@ export const emitToggleReaction = (data) => {
       socket.emit("toggle-reaction", data);
     })
     .catch((error) =>
-      console.error("❌ Impossible d'émettre réaction:", error)
+      console.error("❌ Impossible d'émettre réaction:", error),
     );
 };
 
@@ -566,6 +794,7 @@ export const disconnectSocket = () => {
     onlineUsersCache = [];
     onlineUsersCallbacks = [];
     globalMessageCallbacks = [];
+    clearTaskCallbacks();
     isInitializing = false;
   }
 };

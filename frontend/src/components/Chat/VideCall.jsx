@@ -134,7 +134,7 @@ const RemoteVideoPlayer = React.memo(
   (prev, next) =>
     prev.user.uid === next.user.uid &&
     prev.user.videoTrack === next.user.videoTrack &&
-    prev.isMini === next.isMini
+    prev.isMini === next.isMini,
 );
 
 RemoteVideoPlayer.displayName = "RemoteVideoPlayer";
@@ -189,10 +189,10 @@ export default function VideoCall({
         ? callData.participants
         : [callData.participants];
       return participants.find(
-        (p) => String(generateNumericUid(p._id || p.id)) === String(agoraUid)
+        (p) => String(generateNumericUid(p._id || p.id)) === String(agoraUid),
       );
     },
-    [callData, generateNumericUid]
+    [callData, generateNumericUid],
   );
 
   const updateRemoteUsers = (action, user) => {
@@ -249,7 +249,7 @@ export default function VideoCall({
           updateRemoteUsers("update", {
             uid: user.uid,
             [mediaType + "Track"]: null,
-          })
+          }),
         );
         client.on("user-left", (user) => {
           updateRemoteUsers("remove", user);
@@ -385,7 +385,7 @@ export default function VideoCall({
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
         const screenTrack = await AgoraRTC.createScreenVideoTrack(
           { encoderConfig: "1080p_1" },
-          "auto"
+          "auto",
         );
         const track = Array.isArray(screenTrack) ? screenTrack[0] : screenTrack;
         track.on("track-ended", () => toggleScreenShare());

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { isSameDay } from "date-fns";
 import { AuthContext } from "@/context/AuthProvider";
@@ -46,6 +46,10 @@ import MessageInput from "@/components/Chat/MessageInput";
 import TypingIndicator from "@/components/Chat/TypingIndicator";
 import MessageSearch from "@/components/Chat/MessageSearch";
 import { useSearchParams } from "next/navigation";
+
+// 🆕 IMPORT DU PANNEAU DE TÂCHES
+import TasksSidePanel from "@/components/Tasks/TasksSidePanel";
+
 import {
   Plane,
   Users,
@@ -65,10 +69,7 @@ export default function ChatPage() {
 
   const hasInitiatedCall = useRef(false);
   const searchParams = useSearchParams();
-  // ✅ RÉCUPÉRATION DES NOTIFICATIONS
   const { showNotification } = useNotifications();
-
-  // ✅ RÉCUPÉRATION DE LA FONCTION D'APPEL
   const { initiateCall } = useContext(CallContext);
 
   const conversationId = params.id;
@@ -79,18 +80,20 @@ export default function ChatPage() {
   const [typingUsers, setTypingUsers] = useState([]);
   const [contactId, setContactId] = useState(null);
 
-  // 🆕 États pour la modification
+  // États pour la modification
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState("");
 
-  // 🆕 États pour la réponse
+  // États pour la réponse
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyingToContent, setReplyingToContent] = useState("");
   const [replyingToSender, setReplyingToSender] = useState(null);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  // 🆕 savoir si on doit auto‑scroller ou pas
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+
+  // 🆕 ÉTAT POUR LE PANNEAU DE TÂCHES
+  const [isTasksPanelOpen, setIsTasksPanelOpen] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -99,7 +102,21 @@ export default function ChatPage() {
 
   useSocket();
 
-  // 🆕 détecter si l'utilisateur est proche du bas ou pas
+  // 🆕 FONCTION POUR OUVRIR/FERMER LE PANNEAU DE TÂCHES
+  const handleOpenTasks = useCallback(() => {
+    setIsTasksPanelOpen(true);
+  }, []);
+
+  const handleCloseTasks = useCallback(() => {
+    setIsTasksPanelOpen(false);
+  }, []);
+
+  // 🆕 FONCTION POUR NAVIGUER VERS LA PAGE COMPLÈTE DES TÂCHES
+  const handleGoToFullTasks = useCallback(() => {
+    router.push(`/chat/${conversationId}/tasks`);
+  }, [router, conversationId]);
+
+  // Détecter si l'utilisateur est proche du bas ou pas
   const handleScroll = () => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -110,7 +127,7 @@ export default function ChatPage() {
     setShouldAutoScroll(isNearBottom);
   };
 
-  // 🆕 Fonction pour scroller vers un message recherché
+  // Fonction pour scroller vers un message recherché
   const scrollToMessage = (messageId) => {
     const messageElement = document.getElementById(`message-${messageId}`);
     if (messageElement) {
@@ -154,7 +171,7 @@ export default function ChatPage() {
         if (!convData.isGroup) {
           const userId = user._id || user.id;
           const otherParticipant = convData.participants?.find(
-            (p) => p._id !== userId
+            (p) => p._id !== userId,
           );
 
           if (otherParticipant) {
@@ -183,7 +200,7 @@ export default function ChatPage() {
               .filter(
                 (msg) =>
                   msg.sender._id !== (user._id || user.id) &&
-                  msg.status === "sent"
+                  msg.status === "sent",
               )
               .map((msg) => msg._id);
 
@@ -210,23 +227,18 @@ export default function ChatPage() {
       isMarkingAsReadRef.current = false;
     };
   }, [conversationId, user]);
-  // ===============================
-  // 📍 DÉTECTER LE PARAMÈTRE D'APPEL ET LANCER AUTOMATIQUEMENT
-  // ===============================
+
+  // Détecter le paramètre d'appel et lancer automatiquement
   useEffect(() => {
     const callType = searchParams.get("call");
 
-    // Éviter les appels multiples
     if (!callType || hasInitiatedCall.current) return;
-
-    // Attendre que la conversation soit chargée
     if (!conversation) return;
 
-    // Pour les conversations privées, attendre que le contact soit disponible
     if (!conversation.isGroup) {
       const userId = user?._id || user?.id;
       const otherParticipant = conversation.participants?.find(
-        (p) => p._id !== userId
+        (p) => p._id !== userId,
       );
       if (!otherParticipant) return;
     }
@@ -236,15 +248,13 @@ export default function ChatPage() {
 
       console.log(`📞 Initiation automatique d'appel ${callType}...`);
 
-      // Petit délai pour laisser le temps à la page de se charger
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       try {
         if (callType === "audio") {
-          // ✅ Utiliser la bonne fonction
           if (conversation.isGroup) {
             const participants = conversation.participants.filter(
-              (p) => p._id !== (user._id || user.id)
+              (p) => p._id !== (user._id || user.id),
             );
             if (participants.length > 0) {
               initiateCall(
@@ -252,23 +262,22 @@ export default function ChatPage() {
                 participants,
                 "audio",
                 true,
-                conversation.groupName
+                conversation.groupName,
               );
             }
           } else {
             const userId = user?._id || user?.id;
             const otherParticipant = conversation.participants?.find(
-              (p) => p._id !== userId
+              (p) => p._id !== userId,
             );
             if (otherParticipant) {
               initiateCall(conversationId, otherParticipant, "audio", false);
             }
           }
         } else if (callType === "video") {
-          // ✅ Utiliser la bonne fonction
           if (conversation.isGroup) {
             const participants = conversation.participants.filter(
-              (p) => p._id !== (user._id || user.id)
+              (p) => p._id !== (user._id || user.id),
             );
             if (participants.length > 0) {
               initiateCall(
@@ -276,13 +285,13 @@ export default function ChatPage() {
                 participants,
                 "video",
                 true,
-                conversation.groupName
+                conversation.groupName,
               );
             }
           } else {
             const userId = user?._id || user?.id;
             const otherParticipant = conversation.participants?.find(
-              (p) => p._id !== userId
+              (p) => p._id !== userId,
             );
             if (otherParticipant) {
               initiateCall(conversationId, otherParticipant, "video", false);
@@ -293,18 +302,17 @@ export default function ChatPage() {
         console.error("❌ Erreur lors de l'initiation de l'appel:", error);
       }
 
-      // Nettoyer l'URL après l'initiation
       window.history.replaceState({}, "", `/chat/${conversationId}`);
     };
 
     startCall();
   }, [searchParams, conversation, user, conversationId, initiateCall]);
-  // ✅ USEEFFECT PRINCIPAL POUR LES SOCKETS - CORRIGÉ
+
+  // USEEFFECT PRINCIPAL POUR LES SOCKETS
   useEffect(() => {
     const socket = getSocket();
 
     if (socket && conversationId && user) {
-      // ✅ DÉFINIR userId AU DÉBUT !
       const currentUserId = user._id || user.id;
 
       onReceiveMessage((message) => {
@@ -325,12 +333,10 @@ export default function ChatPage() {
               next = [...prev, message];
             }
 
-            // ✅ CORRECTION : currentUserId est maintenant défini
             const senderId = message.sender._id || message.sender.id;
             if (senderId !== currentUserId) {
               console.log("📨 Message reçu d'un autre utilisateur");
 
-              // Préparer le contenu de la notification
               let notificationBody = "";
               if (message.type === "text") {
                 notificationBody =
@@ -347,7 +353,6 @@ export default function ChatPage() {
                 notificationBody = "Nouveau message";
               }
 
-              // ✅ Appeler showNotification
               showNotification(message.sender?.name || "Nouveau message", {
                 body: notificationBody,
                 icon: message.sender?.profilePicture || "/default-avatar.png",
@@ -355,7 +360,6 @@ export default function ChatPage() {
               });
             }
 
-            // Trier les messages
             next.sort((a, b) => {
               const da = new Date(a.createdAt || a.scheduledFor);
               const db = new Date(b.createdAt || b.scheduledFor);
@@ -365,7 +369,6 @@ export default function ChatPage() {
             return next;
           });
 
-          // Marquer comme lu si ce n'est pas mon message
           const senderId = message.sender._id || message.sender.id;
           if (senderId !== currentUserId) {
             markMessagesAsDelivered([message._id])
@@ -378,8 +381,8 @@ export default function ChatPage() {
       onMessageStatusUpdated(({ messageIds, status }) => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
-            messageIds.includes(msg._id) ? { ...msg, status } : msg
-          )
+            messageIds.includes(msg._id) ? { ...msg, status } : msg,
+          ),
         );
       });
 
@@ -389,12 +392,8 @@ export default function ChatPage() {
             conversationId: updatedConvId,
             status,
           });
-        }
+        },
       );
-
-      // ===============================
-      // 📞 APPELS – MISE À JOUR EN TEMPS RÉEL
-      // ===============================
 
       onCallMissed(({ messageId, callDetails }) => {
         console.log("📵 Appel manqué reçu:", messageId);
@@ -410,8 +409,8 @@ export default function ChatPage() {
                     status: "missed",
                   },
                 }
-              : msg
-          )
+              : msg,
+          ),
         );
       });
 
@@ -429,12 +428,11 @@ export default function ChatPage() {
                     status: "ended",
                   },
                 }
-              : msg
-          )
+              : msg,
+          ),
         );
       });
 
-      // 🆕 ÉCOUTER LES SUPPRESSIONS EN TEMPS RÉEL
       socket.off("message-deleted");
       socket.on(
         "message-deleted",
@@ -444,15 +442,14 @@ export default function ChatPage() {
             setMessages((prev) => {
               const filtered = prev.filter((msg) => msg._id !== messageId);
               console.log(
-                `✅ Message ${messageId} supprimé. Avant: ${prev.length}, Après: ${filtered.length}`
+                `✅ Message ${messageId} supprimé. Avant: ${prev.length}, Après: ${filtered.length}`,
               );
               return filtered;
             });
           }
-        }
+        },
       );
 
-      // 🆕 ÉCOUTER LES MODIFICATIONS EN TEMPS RÉEL
       socket.off("message-edited");
       socket.on(
         "message-edited",
@@ -462,28 +459,24 @@ export default function ChatPage() {
             prev.map((msg) =>
               msg._id === messageId
                 ? { ...msg, content, isEdited, editedAt }
-                : msg
-            )
+                : msg,
+            ),
           );
-        }
+        },
       );
 
       onReactionUpdated(({ messageId, reactions }) => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
-            msg._id === messageId ? { ...msg, reactions } : msg
-          )
+            msg._id === messageId ? { ...msg, reactions } : msg,
+          ),
         );
       });
-
-      // ===============================
-      // ✅ ÉCOUTEURS APPELS - VERSION DIRECTE
-      // ===============================
 
       socket.off("call-ended");
       socket.on("call-ended", ({ callId, duration, status }) => {
         console.log(
-          `📞 Appel terminé reçu: ${callId}, Statut: ${status}, Durée: ${duration}s`
+          `📞 Appel terminé reçu: ${callId}, Statut: ${status}, Durée: ${duration}s`,
         );
 
         setMessages((prevMessages) =>
@@ -500,7 +493,7 @@ export default function ChatPage() {
               };
             }
             return msg;
-          })
+          }),
         );
       });
 
@@ -522,7 +515,7 @@ export default function ChatPage() {
               };
             }
             return msg;
-          })
+          }),
         );
       });
 
@@ -544,7 +537,7 @@ export default function ChatPage() {
               };
             }
             return msg;
-          })
+          }),
         );
       });
 
@@ -565,9 +558,9 @@ export default function ChatPage() {
         }
       });
     }
-  }, [conversationId, user, showNotification]); // ✅ Ajouter showNotification aux dépendances
+  }, [conversationId, user, showNotification]);
 
-  // 🆕 auto‑scroll uniquement si l'utilisateur est déjà en bas
+  // Auto-scroll
   useEffect(() => {
     if (!shouldAutoScroll || !messagesEndRef.current) return;
 
@@ -582,15 +575,13 @@ export default function ChatPage() {
 
   const contact = getOtherParticipant();
 
-  // ========================================
-  // ✅ APPELS VIDÉO/AUDIO
-  // ========================================
+  // APPELS VIDÉO/AUDIO
   const handleVideoCall = () => {
     if (!conversation) return;
 
     if (conversation.isGroup) {
       const participants = conversation.participants.filter(
-        (p) => p._id !== (user._id || user.id)
+        (p) => p._id !== (user._id || user.id),
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
 
@@ -599,7 +590,7 @@ export default function ChatPage() {
         participants,
         "video",
         true,
-        conversation.groupName
+        conversation.groupName,
       );
     } else if (contact) {
       initiateCall(conversationId, contact, "video", false);
@@ -611,7 +602,7 @@ export default function ChatPage() {
 
     if (conversation.isGroup) {
       const participants = conversation.participants.filter(
-        (p) => p._id !== (user._id || user.id)
+        (p) => p._id !== (user._id || user.id),
       );
       if (participants.length === 0) return alert("Seul dans le groupe");
 
@@ -620,7 +611,7 @@ export default function ChatPage() {
         participants,
         "audio",
         true,
-        conversation.groupName
+        conversation.groupName,
       );
     } else if (contact) {
       initiateCall(conversationId, contact, "audio", false);
@@ -676,7 +667,7 @@ export default function ChatPage() {
         window.dispatchEvent(
           new CustomEvent("refresh-sidebar-conversations", {
             detail: { newConversationId: response.data.conversationId },
-          })
+          }),
         );
 
         router.push(`/chat/${response.data.conversationId}`);
@@ -715,9 +706,7 @@ export default function ChatPage() {
     emitStopTyping(conversationId, userId);
   };
 
-  // ========================================
-  // 🆕 FONCTION SUPPRIMER
-  // ========================================
+  // FONCTION SUPPRIMER
   const handleDeleteMessage = async (messageId) => {
     console.log("🗑️ ChatPage: Suppression demandée pour:", messageId);
 
@@ -738,9 +727,7 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION SUPPRIMER POUR MOI
-  // ========================================
+  // FONCTION SUPPRIMER POUR MOI
   const handleDeleteMessageForMe = async (messageId) => {
     console.log("🗑️ ChatPage: Suppression pour moi demandée pour:", messageId);
 
@@ -758,9 +745,7 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION PROGRAMMER UN MESSAGE
-  // ========================================
+  // FONCTION PROGRAMMER UN MESSAGE
   const handleScheduleMessage = async (scheduleData) => {
     console.log("⏰ ChatPage: Programmation message:", scheduleData);
 
@@ -782,8 +767,8 @@ export default function ChatPage() {
 
         alert(
           `✅ Message programmé pour ${new Date(
-            scheduleData.scheduledFor
-          ).toLocaleString("fr-FR")}`
+            scheduleData.scheduledFor,
+          ).toLocaleString("fr-FR")}`,
         );
       }
     } catch (error) {
@@ -793,18 +778,14 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION MODIFIER (ACTIVER LE MODE)
-  // ========================================
+  // FONCTION MODIFIER (ACTIVER LE MODE)
   const handleEditMessage = (messageId, currentContent) => {
     console.log("✏️ ChatPage: Mode édition activé pour:", messageId);
     setEditingMessageId(messageId);
     setEditingContent(currentContent);
   };
 
-  // ========================================
-  // 🆕 FONCTION CONFIRMER LA MODIFICATION
-  // ========================================
+  // FONCTION CONFIRMER LA MODIFICATION
   const handleConfirmEdit = async (newContent) => {
     if (!editingMessageId || !newContent.trim()) {
       console.log("❌ Contenu vide");
@@ -833,24 +814,20 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION ANNULER LA MODIFICATION
-  // ========================================
+  // FONCTION ANNULER LA MODIFICATION
   const handleCancelEdit = () => {
     console.log("❌ Annulation édition");
     setEditingMessageId(null);
     setEditingContent("");
   };
 
-  // ========================================
-  // 🆕 FONCTION TRADUIRE
-  // ========================================
+  // FONCTION TRADUIRE
   const handleTranslateMessage = async (content, messageId, targetLang) => {
     console.log(
       "🌍 ChatPage: Traduction demandée pour:",
       messageId,
       "en",
-      targetLang
+      targetLang,
     );
 
     try {
@@ -872,9 +849,7 @@ export default function ChatPage() {
     }
   };
 
-  // ========================================
-  // 🆕 FONCTION RÉPONDRE
-  // ========================================
+  // FONCTION RÉPONDRE
   const handleReplyMessage = (messageId, content, sender) => {
     console.log("↩️ ChatPage: Réponse activée pour:", messageId);
     setReplyingToId(messageId);
@@ -882,9 +857,7 @@ export default function ChatPage() {
     setReplyingToSender(sender);
   };
 
-  // ========================================
-  // 🆕 FONCTION ANNULER LA RÉPONSE
-  // ========================================
+  // FONCTION ANNULER LA RÉPONSE
   const handleCancelReply = () => {
     console.log("❌ Annulation réponse");
     setReplyingToId(null);
@@ -915,7 +888,6 @@ export default function ChatPage() {
 
   const textPrimary = isDark ? "text-slate-50" : "text-slate-900";
   const textSecondary = isDark ? "text-slate-400" : "text-slate-600";
-  const textMuted = isDark ? "text-slate-500" : "text-slate-500";
 
   const buttonStyle = isDark
     ? "bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 shadow-sky-500/40"
@@ -1024,7 +996,8 @@ export default function ChatPage() {
             <Sidebar activeConversationId={conversationId} />
           </div>
 
-          <div className="flex-1 flex flex-col">
+          {/* 🆕 CONTENEUR PRINCIPAL AVEC PANNEAU DE TÂCHES */}
+          <div className="flex-1 flex flex-col relative">
             <div className="lg:hidden">
               <MobileHeader
                 contact={contact}
@@ -1033,6 +1006,7 @@ export default function ChatPage() {
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
                 onSearchOpen={() => setIsSearchOpen(true)}
+                onOpenTasks={handleOpenTasks}
               />
             </div>
 
@@ -1044,6 +1018,7 @@ export default function ChatPage() {
                 onSearchOpen={() => setIsSearchOpen(true)}
                 onVideoCall={handleVideoCall}
                 onAudioCall={handleAudioCall}
+                onOpenTasks={handleOpenTasks}
               />
             </div>
 
@@ -1106,7 +1081,7 @@ export default function ChatPage() {
                       !prevMessage ||
                       !isSameDay(
                         new Date(message.createdAt),
-                        new Date(prevMessage.createdAt)
+                        new Date(prevMessage.createdAt),
                       );
 
                     return (
@@ -1187,6 +1162,15 @@ export default function ChatPage() {
               onSchedule={handleScheduleMessage}
             />
           </div>
+
+          {/* 🆕 PANNEAU LATÉRAL DE TÂCHES */}
+          <TasksSidePanel
+            isOpen={isTasksPanelOpen}
+            onClose={handleCloseTasks}
+            conversationId={conversationId}
+            conversation={conversation}
+            onGoToFullTasks={handleGoToFullTasks}
+          />
         </div>
       </div>
     </ProtectedRoute>

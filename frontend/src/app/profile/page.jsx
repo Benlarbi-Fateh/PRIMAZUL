@@ -30,102 +30,26 @@ import {
   Calendar,
   Zap,
   Heart,
-  Lock,
-  Globe,
-  Briefcase,
-  Home,
 } from "lucide-react";
 import VerifyCode from "@/components/Auth/VerifyCode";
-import { requestEmailChange, confirmEmailChange } from "@/lib/api";
 
-// Composant Badge animé
-const AnimatedBadge = ({ icon: Icon, label, value, color, isDark }) => (
-  <div
-    className={`group relative overflow-hidden rounded-2xl p-4 border transition-all duration-300 hover:scale-105 hover:shadow-xl ${
-      isDark
-        ? "bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-blue-700/50 hover:border-cyan-500/50"
-        : "bg-gradient-to-br from-white to-blue-50 border-blue-200 hover:border-blue-400"
-    }`}
+import { requestEmailChange, confirmEmailChange } from "@/lib/api"; // doit pointer vers le fichier exact
+// Composant ActivityIcon séparé
+const ActivityIcon = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
   >
-    {/* Effet de brillance au survol */}
-    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-      <div
-        className={`absolute inset-0 bg-gradient-to-r ${color} opacity-5`}
-      ></div>
-    </div>
-
-    <div className="relative flex items-center gap-3">
-      <div
-        className={`p-3 rounded-xl ${
-          isDark ? "bg-blue-800/50" : "bg-blue-100"
-        } transition-transform group-hover:scale-110`}
-      >
-        <Icon
-          className={`w-5 h-5 ${color.replace("from-", "text-").split(" ")[0]}`}
-        />
-      </div>
-      <div>
-        <p
-          className={`text-xs font-medium ${
-            isDark ? "text-blue-300" : "text-slate-500"
-          }`}
-        >
-          {label}
-        </p>
-        <p
-          className={`text-lg font-bold ${
-            isDark ? "text-white" : "text-slate-800"
-          }`}
-        >
-          {value}
-        </p>
-      </div>
-    </div>
-  </div>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+    />
+  </svg>
 );
-
-// Composant Activité avec animation
-const ActivityItem = ({ activity, isDark }) => {
-  const Icon = activity.icon;
-  return (
-    <div
-      className={`group flex items-center gap-4 p-4 rounded-xl transition-all duration-300 hover:scale-[1.02] ${
-        isDark
-          ? "bg-blue-800/30 hover:bg-blue-800/50 border border-blue-700/50"
-          : "bg-white hover:bg-blue-50 border border-blue-100"
-      }`}
-    >
-      <div
-        className={`p-2 rounded-lg transition-all duration-300 ${
-          isDark
-            ? "bg-cyan-500/20 group-hover:bg-cyan-500/30"
-            : "bg-cyan-100 group-hover:bg-cyan-200"
-        }`}
-      >
-        <Icon
-          className={`w-4 h-4 ${isDark ? "text-cyan-400" : "text-cyan-600"}`}
-        />
-      </div>
-      <div className="flex-1">
-        <p
-          className={`text-sm font-medium ${
-            isDark ? "text-blue-100" : "text-slate-700"
-          }`}
-        >
-          {activity.action}
-        </p>
-        <p className={`text-xs ${isDark ? "text-blue-400" : "text-slate-500"}`}>
-          Il y a {activity.time}
-        </p>
-      </div>
-      <div
-        className={`w-2 h-2 rounded-full ${
-          isDark ? "bg-cyan-400/50" : "bg-cyan-500/50"
-        } group-hover:scale-150 transition-transform`}
-      ></div>
-    </div>
-  );
-};
 
 export default function ProfilePage() {
   const { user, updateProfile, setUser } = useContext(AuthContext);
@@ -146,44 +70,83 @@ export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // 🔹 Vérification email
   const [showVerify, setShowVerify] = useState(false);
   const [tempEmail, setTempEmail] = useState("");
 
-  // Styles dynamiques améliorés
+  // Styles basés sur le thème (mêmes couleurs que sidebar)
   const pageBg = isDark
-    ? "bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-950 via-slate-900 to-black"
-    : "bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-indigo-50 to-white";
+    ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
+    : "bg-gradient-to-b from-blue-50 to-indigo-100";
 
   const cardBg = isDark
-    ? "bg-gradient-to-br from-blue-900/40 via-blue-900/20 to-transparent backdrop-blur-xl border-blue-700/30 shadow-2xl"
-    : "bg-white/80 backdrop-blur-xl border-blue-100 shadow-xl";
+    ? "bg-gradient-to-b from-blue-900/90 via-blue-900/80 to-blue-900/90 border-blue-800 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+    : "bg-white border-blue-100 shadow-lg";
 
   const headerBg = isDark
-    ? "bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 bg-[length:200%_100%] animate-gradient"
-    : "bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-[length:200%_100%] animate-gradient";
+    ? "bg-gradient-to-r from-blue-800 via-blue-900 to-blue-950 border-blue-800"
+    : "bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 border-blue-200";
 
-  const buttonPrimary = isDark
-    ? "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50"
-    : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50";
+  const textPrimary = isDark ? "text-blue-50" : "text-slate-800";
+  const textSecondary = isDark ? "text-blue-200" : "text-slate-600";
+  const textMuted = isDark ? "text-blue-300" : "text-slate-500";
 
-  const inputStyle = isDark
-    ? "bg-blue-900/30 border-blue-700/50 text-white placeholder-blue-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
-    : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
+  const buttonStyle = isDark
+    ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-cyan-500/20"
+    : "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-blue-500/20";
 
-  const recentActivity = [
-    { id: 1, action: "A partagé un clip", time: "2 min", icon: Zap },
-    { id: 2, action: "A rejoint un groupe", time: "1 h", icon: Users },
-    { id: 3, action: "A aimé un message", time: "3 h", icon: Heart },
-    { id: 4, action: "A créé un clip", time: "5 h", icon: Zap },
-  ];
+  const statCardBg = isDark
+    ? "bg-blue-800/50 border-blue-700"
+    : "bg-blue-50 border-blue-200";
 
+  const detailCardBg = isDark
+    ? "bg-blue-800/50 border-blue-700"
+    : "bg-slate-50 border-slate-200";
+
+  const activityCardBg = isDark
+    ? "bg-blue-800/70 border-blue-700"
+    : "bg-white border-slate-200";
+
+  const profileHeaderBg = isDark
+    ? "bg-gradient-to-r from-blue-800 via-blue-900 to-blue-950"
+    : "bg-gradient-to-r from-blue-600 to-indigo-600";
+
+  const profileRing = isDark ? "ring-blue-700/50" : "ring-white/50";
+
+  const cameraButton = isDark
+    ? "bg-blue-800 hover:bg-blue-700 text-blue-200 border-blue-600"
+    : "bg-white hover:bg-blue-50 text-blue-600 border-blue-200";
+
+  const quickActionBg = isDark
+    ? "bg-blue-800 hover:bg-blue-700 text-blue-200 border-blue-700"
+    : "bg-blue-50 hover:bg-blue-100 text-slate-700 border-blue-200";
+
+  const tabBg = isDark
+    ? "hover:bg-blue-800 hover:text-blue-100 text-blue-300"
+    : "hover:bg-blue-50 hover:text-slate-800 text-slate-600";
+
+  const inputBg = isDark
+    ? "bg-blue-800 border-blue-700 text-blue-100 placeholder-blue-400 focus:ring-cyan-500"
+    : "bg-white border-slate-300 text-slate-800 placeholder-slate-500 focus:ring-blue-500 focus:border-blue-500";
+
+  const contentHeaderBg = isDark
+    ? "bg-blue-900/50 border-blue-800"
+    : "bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200";
+
+  // Données simulées
   const userStats = {
-    posts: 142,
-    followers: 1248,
-    following: 432,
-    likes: 3891,
+    streak: 12,
   };
 
+  const recentActivity = [
+    { id: 1, action: "a partagé un clip", time: "2 min", icon: Zap },
+    { id: 2, action: "a rejoint un groupe", time: "1 h", icon: Users },
+    { id: 3, action: "a aimé un message", time: "3 h", icon: Heart },
+    { id: 4, action: "a créé un clip", time: "5 h", icon: Zap },
+  ];
+
+  // Fix hydration
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -203,7 +166,10 @@ export default function ProfilePage() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
     setError("");
     setSuccess("");
   };
@@ -223,33 +189,82 @@ export default function ProfilePage() {
     }
 
     setIsLoading(true);
+    setError("");
+
     try {
       const reader = new FileReader();
       reader.onload = (e) => {
         setProfilePicture(e.target.result);
         setIsLoading(false);
       };
+      reader.onerror = () => {
+        setError("Erreur lors de la lecture du fichier");
+        setIsLoading(false);
+      };
       reader.readAsDataURL(file);
     } catch (error) {
-      setError("Erreur lors de l'upload");
+      console.error("Erreur upload image:", error);
+      setError("Erreur lors de l'upload de l'image");
       setIsLoading(false);
     }
   };
 
+  const handleChangeEmail = async (newEmail) => {
+    try {
+      await requestEmailChange(newEmail); // ⚡ frontend appelle le backend
+
+      setTempEmail(newEmail); // mémoriser temporairement
+      setShowVerify(true); // afficher le composant VerifyCode
+    } catch (error) {
+      console.error("ERREUR API:", error.response?.data || error.message);
+      alert(error.response?.data?.error || "Erreur lors de l’envoi du code");
+    }
+  };
+
+  const handleVerify = async (code) => {
+    try {
+      const result = await confirmEmailChange(code); // ⚡ backend confirme OTP
+      setUser({ ...user, email: result.data.email }); // <- result.data.email
+      setShowVerify(false);
+      setIsEditing(false);
+      alert("Adresse email mise à jour !");
+    } catch (error) {
+      alert(error.response?.data?.error || "Code incorrect ou expiré");
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      console.log("Simulé : renvoi code pour", tempEmail);
+      alert(`Code renvoyé à ${tempEmail}`);
+    } catch (error) {
+      alert("Erreur lors de l’envoi du code");
+    }
+  };
+
+  // -----------------------------
+  // 🔹 Sauvegarde du profil
+  // -----------------------------
   const handleSave = async () => {
     setIsLoading(true);
     setError("");
     setSuccess("");
 
     try {
+      // Changement d’email
       if (formData.email !== user.email) {
-        await requestEmailChange(formData.email);
-        setTempEmail(formData.email);
-        setShowVerify(true);
+        const newEmail = formData.email.trim();
+        if (!newEmail) {
+          setError("Email invalide");
+          setIsLoading(false);
+          return;
+        }
+        await handleChangeEmail(newEmail);
         setIsLoading(false);
         return;
       }
 
+      // Mise à jour normale
       const dataToUpdate = {
         name: formData.name,
         phone: formData.phone,
@@ -258,69 +273,78 @@ export default function ProfilePage() {
         profilePicture,
       };
 
-      await updateProfile(dataToUpdate);
+      // Appel API réel (updateProfile existe dans ton api.js)
+      const result = await updateProfile(dataToUpdate);
+
       setSuccess("✅ Profil mis à jour avec succès !");
       setIsEditing(false);
     } catch (error) {
+      console.error(error);
       setError("Erreur lors de la mise à jour");
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleVerify = async (code) => {
-    try {
-      const result = await confirmEmailChange(code);
-      setUser({ ...user, email: result.data.email });
-      setShowVerify(false);
-      setIsEditing(false);
-      setSuccess("Email mis à jour !");
-    } catch (error) {
-      setError("Code incorrect");
+  const handleCancel = () => {
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phoneNumber || user.phone || "",
+        location: user.location || "",
+        bio: user.bio || "",
+      });
+      setProfilePicture(user.profilePicture || "");
     }
+    setIsEditing(false);
+    setError("");
+    setSuccess("");
   };
 
+  // -----------------------------
+  // 🔹 Vérification du code reçu
+  // -----------------------------
+
+  // -----------------------------------------
+  // 🔹 MODE VÉRIFICATION EMAIL
+  // -----------------------------------------
   if (showVerify) {
     return (
-      <div
-        className={`min-h-screen ${pageBg} flex items-center justify-center p-4`}
-      >
+      <div className="min-h-screen flex items-center justify-center p-4">
         <VerifyCode
           email={tempEmail}
           type="email-change"
           onVerify={handleVerify}
-          onResend={() => requestEmailChange(tempEmail)}
+          onResend={handleResend}
           onBack={() => setShowVerify(false)}
         />
       </div>
     );
   }
-
   if (!isMounted || !user) {
     return (
       <div
-        className={`min-h-screen ${pageBg} flex items-center justify-center`}
+        className={`min-h-screen ${pageBg} flex items-center justify-center p-4`}
       >
         <div className="text-center">
-          <div className="relative w-20 h-20 mx-auto">
+          <div className="relative">
             <div
-              className={`absolute inset-0 rounded-full border-4 ${
-                isDark ? "border-blue-800/30" : "border-blue-200"
+              className={`animate-spin rounded-full h-16 w-16 border-4 mx-auto ${
+                isDark
+                  ? "border-blue-800/50 border-t-cyan-400"
+                  : "border-blue-600/20 border-t-blue-600"
               }`}
             ></div>
-            <div
-              className={`absolute inset-0 rounded-full border-4 border-transparent ${
-                isDark ? "border-t-cyan-400" : "border-t-blue-600"
-              } animate-spin`}
-            ></div>
-            <User
-              className={`absolute inset-0 m-auto w-8 h-8 ${
-                isDark ? "text-cyan-400" : "text-blue-600"
-              }`}
-            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <User
+                className={`w-6 h-6 animate-pulse ${
+                  isDark ? "text-cyan-400" : "text-blue-600"
+                }`}
+              />
+            </div>
           </div>
           <p
-            className={`mt-6 font-semibold ${
+            className={`mt-6 font-medium ${
               isDark ? "text-blue-300" : "text-blue-600"
             }`}
           >
@@ -330,476 +354,252 @@ export default function ProfilePage() {
       </div>
     );
   }
-
   return (
-    <div className={`min-h-screen ${pageBg} transition-colors duration-300`}>
-      {/* Animation CSS pour le gradient */}
-      <style jsx>{`
-        @keyframes gradient {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
-        }
-        .animate-gradient {
-          animation: gradient 3s ease infinite;
-        }
-      `}</style>
-
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header avec bouton retour */}
-        <div className="mb-8 flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            className={`group flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${buttonPrimary}`}
+    <div className={`min-h-screen ${pageBg}`}>
+      <div className="min-h-screen p-4">
+        <div className="max-w-7xl mx-auto flex flex-col gap-6">
+          {/* ===== HEADER ===== */}
+          <div
+            className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl shadow-lg border ${headerBg}`}
           >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            Retour
-          </button>
-
-          {!isEditing ? (
             <button
-              onClick={() => setIsEditing(true)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${buttonPrimary}`}
+              onClick={() => router.back()}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all shadow-md ${buttonStyle}`}
             >
-              <Edit3 className="w-5 h-5" />
-              Modifier le profil
+              <ArrowLeft className="w-4 h-4" />
+              Retour
             </button>
-          ) : (
-            <div className="flex gap-3">
-              <button
-                onClick={() => setIsEditing(false)}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-                  isDark
-                    ? "bg-slate-700 hover:bg-slate-600 text-white"
-                    : "bg-slate-200 hover:bg-slate-300 text-slate-800"
-                }`}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isLoading}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${buttonPrimary} disabled:opacity-50`}
-              >
-                <Save className="w-5 h-5" />
-                {isLoading ? "Sauvegarde..." : "Sauvegarder"}
-              </button>
+
+            <div className="text-center">
+              <h1 className={`text-xl font-bold ${textPrimary}`}>Mon Profil</h1>
+              <p className={`text-sm ${textSecondary}`}>
+                Gérez vos informations personnelles
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              {!isEditing ? (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className={`px-4 py-2 rounded-xl font-semibold shadow-md ${buttonStyle}`}
+                >
+                  <Edit3 className="w-4 h-4 inline mr-1" />
+                  Modifier
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleCancel}
+                    disabled={isLoading}
+                    className={`px-4 py-2 rounded-xl ${
+                      isDark
+                        ? "bg-blue-800 text-blue-200"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    Annuler
+                  </button>
+
+                  <button
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className={`px-4 py-2 rounded-xl text-white shadow-md ${
+                      isDark
+                        ? "bg-linear-to-r from-emerald-600 to-cyan-600"
+                        : "bg-linear-to-r from-green-600 to-cyan-500"
+                    }`}
+                  >
+                    {isLoading ? "Sauvegarde..." : "Sauvegarder"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ===== ALERTES ===== */}
+          {(error || success) && (
+            <div
+              className={`p-3 rounded-xl text-sm border ${
+                error
+                  ? isDark
+                    ? "bg-red-900/30 border-red-800 text-red-300"
+                    : "bg-red-50 border-red-200 text-red-700"
+                  : isDark
+                    ? "bg-green-900/30 border-green-800 text-green-300"
+                    : "bg-green-50 border-green-200 text-green-700"
+              }`}
+            >
+              {error || success}
             </div>
           )}
-        </div>
 
-        {/* Alertes */}
-        {(error || success) && (
-          <div
-            className={`mb-6 p-4 rounded-xl border-l-4 animate-in slide-in-from-top ${
-              error
-                ? isDark
-                  ? "bg-red-900/20 border-red-500 text-red-300"
-                  : "bg-red-50 border-red-500 text-red-700"
-                : isDark
-                ? "bg-green-900/20 border-green-500 text-green-300"
-                : "bg-green-50 border-green-500 text-green-700"
-            }`}
-          >
-            {error || success}
-          </div>
-        )}
+          {/* ===== CONTENU ===== */}
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+            {/* ===== SIDEBAR ===== */}
+            <aside className=" h-fit">
+              <div
+                className={`rounded-2xl shadow-lg border overflow-hidden ${cardBg}`}
+              >
+                <div className={`p-4 text-center ${profileHeaderBg}`}>
+                  <div className="relative mx-auto w-20 h-20 rounded-xl overflow-hidden ring-4 shadow-lg">
+                    {profilePicture ? (
+                      <Image
+                        src={profilePicture}
+                        alt={user.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-blue-500">
+                        <User className="text-white w-8 h-8" />
+                      </div>
+                    )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-8">
-          {/* Sidebar */}
-          <aside className="space-y-6">
-            {/* Card Profil Principal */}
-            <div className={`rounded-3xl overflow-hidden border ${cardBg}`}>
-              {/* Header avec dégradé */}
-              <div className={`relative h-32 ${headerBg}`}>
-                <div className="absolute inset-0 bg-black/10"></div>
-                {/* Pattern décoratif */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-0 left-0 w-40 h-40 bg-white rounded-full blur-3xl"></div>
-                  <div className="absolute bottom-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl"></div>
-                </div>
-              </div>
-
-              {/* Photo de profil */}
-              <div className="relative px-6 -mt-16 mb-4">
-                <div className="relative w-32 h-32 mx-auto">
-                  <div
-                    className={`absolute inset-0 rounded-2xl ${
-                      isDark
-                        ? "bg-gradient-to-br from-cyan-500 to-blue-600"
-                        : "bg-gradient-to-br from-blue-500 to-indigo-600"
-                    } p-1 shadow-2xl`}
-                  >
-                    <div className="w-full h-full rounded-2xl overflow-hidden bg-slate-800">
-                      {profilePicture ? (
-                        <Image
-                          src={profilePicture}
-                          alt={user.name}
-                          fill
-                          className="object-cover"
+                    {isEditing && (
+                      <label
+                        className={`absolute bottom-1 right-1 p-1 rounded-lg cursor-pointer ${cameraButton}`}
+                      >
+                        <Camera className="w-3 h-3" />
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={handleProfilePictureChange}
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600">
-                          <User className="w-16 h-16 text-white" />
-                        </div>
-                      )}
-                    </div>
+                      </label>
+                    )}
                   </div>
 
-                  {/* Badge en ligne */}
-                  <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 rounded-full border-4 border-white shadow-lg"></div>
-
-                  {/* Bouton Camera */}
-                  {isEditing && (
-                    <label
-                      className={`absolute top-0 right-0 p-2 rounded-xl cursor-pointer shadow-lg transition-all hover:scale-110 ${
-                        isDark
-                          ? "bg-cyan-500 hover:bg-cyan-600 text-white"
-                          : "bg-white hover:bg-blue-50 text-blue-600 border-2 border-blue-200"
-                      }`}
-                    >
-                      <Camera className="w-4 h-4" />
-                      <input
-                        type="file"
-                        hidden
-                        accept="image/*"
-                        onChange={handleProfilePictureChange}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                {/* Nom et email */}
-                <div className="text-center mt-4">
-                  <h2
-                    className={`text-2xl font-bold ${
-                      isDark ? "text-white" : "text-slate-900"
-                    }`}
-                  >
+                  <h2 className="mt-3 font-bold text-white truncate">
                     {formData.name}
                   </h2>
-                  <p
-                    className={`text-sm mt-1 ${
-                      isDark ? "text-blue-300" : "text-slate-600"
-                    }`}
-                  >
+                  <p className="text-sm text-blue-100 truncate">
                     {formData.email}
                   </p>
-
-                  {/* Badge vérifié */}
-                  <div className="flex items-center justify-center gap-2 mt-3">
-                    <div
-                      className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${
-                        isDark
-                          ? "bg-cyan-500/20 text-cyan-300"
-                          : "bg-cyan-100 text-cyan-700"
-                      }`}
-                    >
-                      <Shield className="w-3 h-3" />
-                      Vérifié
-                    </div>
-                  </div>
                 </div>
-
-                {/* Bio */}
-                <div className="mt-6">
-                  <p
-                    className={`text-sm text-center leading-relaxed ${
-                      isDark ? "text-blue-200" : "text-slate-600"
-                    }`}
-                  >
-                    {formData.bio || "Aucune bio renseignée"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action rapides */}
-              <div className="p-6 pt-0 space-y-3">
-                <button
-                  onClick={() => router.push("/")}
-                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all ${buttonPrimary}`}
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  Mes Conversations
-                </button>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
-                      isDark
-                        ? "bg-blue-800/50 hover:bg-blue-800 text-blue-200"
-                        : "bg-blue-100 hover:bg-blue-200 text-blue-700"
-                    }`}
-                  >
-                    <Settings className="w-4 h-4" />
-                    Paramètres
-                  </button>
-                  <button
-                    onClick={() => router.push("/")}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all ${
-                      isDark
-                        ? "bg-blue-800/50 hover:bg-blue-800 text-blue-200"
-                        : "bg-blue-100 hover:bg-blue-200 text-blue-700"
-                    }`}
-                  >
-                    <Home className="w-4 h-4" />
-                    Accueil
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          {/* Contenu Principal */}
-          <main className="space-y-6">
-            {/* Tabs */}
-            <div className={`rounded-2xl p-2 border ${cardBg}`}>
-              <div className="flex gap-2">
-                {[
-                  { id: "profile", label: "Informations", icon: User },
-                  { id: "security", label: "Sécurité", icon: Shield },
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold transition-all ${
-                        activeTab === tab.id
-                          ? isDark
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg"
-                            : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg"
-                          : isDark
-                          ? "text-blue-300 hover:bg-blue-800/50"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Contenu des tabs */}
-            {activeTab === "profile" && (
-              <div className={`rounded-2xl border ${cardBg}`}>
                 <div
-                  className={`p-6 border-b ${
-                    isDark ? "border-blue-700/30" : "border-slate-200"
-                  }`}
+                  className={`rounded-xl p-4 border ${statCardBg} space-y-4`}
                 >
-                  <h2
-                    className={`text-xl font-bold ${
-                      isDark ? "text-white" : "text-slate-900"
+                  {/* Header */}
+                  <h3
+                    className={`flex items-center text-sm font-bold ${
+                      isDark ? "text-blue-200" : "text-slate-800"
                     }`}
                   >
-                    Informations personnelles
-                  </h2>
-                  <p
-                    className={`text-sm mt-1 ${
-                      isDark ? "text-blue-300" : "text-slate-600"
-                    }`}
-                  >
-                    Gérez vos informations de profil
-                  </p>
-                </div>
+                    <Clock
+                      className={`w-4 h-4 mr-2 ${
+                        isDark ? "text-cyan-400" : "text-blue-600"
+                      }`}
+                    />
+                    Statut et activité
+                  </h3>
 
-                <div className="p-6 space-y-6">
-                  {/* Champs de formulaire stylés */}
-                  {[
-                    {
-                      label: "Nom complet",
-                      name: "name",
-                      type: "text",
-                      icon: User,
-                    },
-                    {
-                      label: "Adresse email",
-                      name: "email",
-                      type: "email",
-                      icon: Mail,
-                    },
-                    {
-                      label: "Téléphone",
-                      name: "phone",
-                      type: "tel",
-                      icon: Phone,
-                    },
-                    {
-                      label: "Localisation",
-                      name: "location",
-                      type: "text",
-                      icon: MapPin,
-                    },
-                  ].map((field) => {
-                    const Icon = field.icon;
-                    return (
-                      <div key={field.name} className="space-y-2">
-                        <label
-                          className={`flex items-center gap-2 text-sm font-semibold ${
-                            isDark ? "text-blue-200" : "text-slate-700"
-                          }`}
-                        >
-                          <Icon className="w-4 h-4" />
-                          {field.label}
-                        </label>
-                        {isEditing ? (
-                          <div className="relative">
-                            <input
-                              type={field.type}
-                              name={field.name}
-                              value={formData[field.name]}
-                              onChange={handleInputChange}
-                              className={`w-full px-4 py-3 rounded-xl border transition-all focus:outline-none ${inputStyle}`}
-                              placeholder={`Entrez votre ${field.label.toLowerCase()}`}
-                            />
-                          </div>
-                        ) : (
-                          <div
-                            className={`px-4 py-3 rounded-xl border ${
-                              isDark
-                                ? "bg-blue-900/20 border-blue-700/30 text-white"
-                                : "bg-slate-50 border-slate-200 text-slate-900"
-                            }`}
-                          >
-                            {formData[field.name] || "Non renseigné"}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {/* Statut en ligne */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center ">
+                      <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></div>
+                      <span
+                        className={`font-semibold ${
+                          isDark ? "text-cyan-400" : "text-cyan-600"
+                        }`}
+                      >
+                        En ligne
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium text-cyan-500">
+                      Statut
+                    </span>
+                  </div>
 
-                  {/* Bio */}
-                  <div className="space-y-2">
-                    <label
-                      className={`flex items-center gap-2 text-sm font-semibold ${
+                  {/* Membre depuis */}
+                  <div className="flex justify-between text-sm">
+                    <span
+                      className={isDark ? "text-blue-300" : "text-slate-600"}
+                    >
+                      Membre depuis :
+                    </span>
+                    <span
+                      className={`font-medium ${
                         isDark ? "text-blue-200" : "text-slate-700"
                       }`}
                     >
-                      <MessageCircle className="w-4 h-4" />
-                      Biographie
-                    </label>
-                    {isEditing ? (
-                      <textarea
-                        name="bio"
-                        rows={4}
-                        value={formData.bio}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-3 rounded-xl border transition-all focus:outline-none resize-none ${inputStyle}`}
-                        placeholder="Parlez-nous de vous..."
-                      />
-                    ) : (
-                      <div
-                        className={`px-4 py-3 rounded-xl border ${
-                          isDark
-                            ? "bg-blue-900/20 border-blue-700/30 text-blue-100"
-                            : "bg-slate-50 border-slate-200 text-slate-700"
-                        }`}
-                      >
-                        {formData.bio || "Aucune biographie"}
-                      </div>
-                    )}
+                      {new Date(
+                        user.createdAt || Date.now(),
+                      ).toLocaleDateString("fr-FR")}
+                    </span>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {activeTab === "security" && (
-              <div className={`rounded-2xl border ${cardBg}`}>
-                <div
-                  className={`p-6 border-b ${
-                    isDark ? "border-blue-700/30" : "border-slate-200"
-                  }`}
-                >
-                  <h2
-                    className={`text-xl font-bold ${
-                      isDark ? "text-white" : "text-slate-900"
-                    }`}
+                {/* Conversations */}
+                <div className="p-4 pt-3">
+                  <button
+                    onClick={() => router.push("/")}
+                    className={`w-full flex items-center gap-2 p-2 rounded-lg border text-sm font-medium transition-all ${quickActionBg}`}
                   >
-                    Sécurité et confidentialité
-                  </h2>
-                  <p
-                    className={`text-sm mt-1 ${
-                      isDark ? "text-blue-300" : "text-slate-600"
-                    }`}
-                  >
-                    Protégez votre compte
-                  </p>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  {[
-                    {
-                      icon: Lock,
-                      title: "Mot de passe",
-                      desc: "Dernière modification il y a 2 mois",
-                      action: "Modifier",
-                    },
-                  ].map((item, i) => {
-                    const Icon = item.icon;
-                    return (
-                      <div
-                        key={i}
-                        className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:scale-[1.01] ${
-                          isDark
-                            ? "bg-blue-800/30 border-blue-700/50 hover:bg-blue-800/50"
-                            : "bg-slate-50 border-slate-200 hover:bg-slate-100"
-                        }`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`p-3 rounded-xl ${
-                              isDark ? "bg-cyan-500/20" : "bg-cyan-100"
-                            }`}
-                          >
-                            <Icon
-                              className={`w-5 h-5 ${
-                                isDark ? "text-cyan-400" : "text-cyan-600"
-                              }`}
-                            />
-                          </div>
-                          <div>
-                            <p
-                              className={`font-semibold ${
-                                isDark ? "text-white" : "text-slate-900"
-                              }`}
-                            >
-                              {item.title}
-                            </p>
-                            <p
-                              className={`text-sm ${
-                                isDark ? "text-blue-300" : "text-slate-600"
-                              }`}
-                            >
-                              {item.desc}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => router.push("/settings")}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            isDark
-                              ? "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300"
-                              : "bg-blue-100 hover:bg-blue-200 text-blue-700"
-                          }`}
-                        >
-                          {item.action}
-                        </button>
-                      </div>
-                    );
-                  })}
+                    <MessageCircle className="w-4 h-4" />
+                    Conversations
+                  </button>
                 </div>
               </div>
-            )}
-          </main>
+            </aside>
+
+            {/* ===== MAIN CONTENT ===== */}
+            <main className={`rounded-2xl shadow-lg border ${cardBg}`}>
+              <div className={`p-4 border-b ${contentHeaderBg}`}>
+                <h2 className={`font-bold ${textPrimary}`}>
+                  Informations personnelles
+                </h2>
+              </div>
+
+              <div className="p-4 space-y-4">
+                {/* Champ générique */}
+                {[
+                  { label: "Nom complet", name: "name", type: "text" },
+                  { label: "Adresse email", name: "email", type: "email" },
+                ].map((field) => (
+                  <div
+                    key={field.name}
+                    className={`p-4 rounded-xl border ${detailCardBg}`}
+                  >
+                    <label className="text-sm font-medium mb-1 block">
+                      {field.label}
+                    </label>
+                    {isEditing ? (
+                      <input
+                        type={field.type}
+                        name={field.name}
+                        value={formData[field.name]}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 rounded-lg ${inputBg}`}
+                      />
+                    ) : (
+                      <p className={`font-semibold ${textPrimary}`}>
+                        {formData[field.name]}
+                      </p>
+                    )}
+                  </div>
+                ))}
+
+                {/* BIO */}
+                <div className={`p-4 rounded-xl border ${detailCardBg}`}>
+                  <label className="text-sm font-medium mb-1 block">Bio</label>
+                  {isEditing ? (
+                    <textarea
+                      name="bio"
+                      rows={3}
+                      value={formData.bio}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 rounded-lg ${inputBg}`}
+                    />
+                  ) : (
+                    <p className="text-sm opacity-80">
+                      {formData.bio || "Aucune bio renseignée"}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </main>
+          </div>
         </div>
       </div>
     </div>

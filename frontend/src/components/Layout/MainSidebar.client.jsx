@@ -13,6 +13,7 @@ import {
   CircleDashed,
   UsersRound,
   Bell,
+  ListTodo,
 } from "lucide-react";
 import { getConversations, getReceivedInvitations } from "@/lib/api";
 
@@ -73,6 +74,7 @@ export default function MainSidebar() {
     { label: "Contacts", icon: UsersRound, href: "/?tab=contacts" },
     { label: "Invitations", icon: Bell, href: "/?tab=invitations" },
     { label: "Statuts", icon: CircleDashed, href: "/status" },
+    { label: "Mes Taches", icon: ListTodo, href: "/personal-tasks" },
     { label: "Paramètres", icon: Settings, href: "/settings" },
   ];
 
@@ -123,7 +125,7 @@ export default function MainSidebar() {
 
         const totalUnread = conversations.reduce(
           (sum, conv) => sum + (conv.unreadCount || 0),
-          0
+          0,
         );
 
         setUnreadMessages(totalUnread);

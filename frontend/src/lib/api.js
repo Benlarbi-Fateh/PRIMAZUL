@@ -23,7 +23,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // 🔹 Gestion des erreurs 401
@@ -38,7 +38,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // =================== UPLOAD DE FICHIERS ===================
@@ -51,7 +51,7 @@ export const uploadFile = (formData) => {
     timeout: 60000, // ✅ AJOUT: 60 secondes pour les gros fichiers
     onUploadProgress: (progressEvent) => {
       const percentCompleted = Math.round(
-        (progressEvent.loaded * 100) / progressEvent.total
+        (progressEvent.loaded * 100) / progressEvent.total,
       );
       console.log(`📊 Upload: ${percentCompleted}%`);
     },
@@ -199,5 +199,71 @@ export const requestEmailChange = (newEmail) =>
 
 export const confirmEmailChange = (code) =>
   api.post("/confirm-email-change", { code });
+// =================== Tasks  ===================
+export const fetchTasks = (conversationId) =>
+  api.get(`/conversations/${conversationId}/tasks`);
+export const createTask = (conversationId, payload) =>
+  api.post(`/conversations/${conversationId}/tasks`, payload);
+export const updateTask = (taskId, patch) =>
+  api.patch(`/tasks/${taskId}`, patch);
+export const deleteTask = (taskId) => api.delete(`/tasks/${taskId}`);
+// =================== TASK COMMENTS ===================
+export const addTaskComment = (taskId, payload) =>
+  api.post(`/tasks/${taskId}/comments`, payload);
+export const getTaskComments = (taskId) => api.get(`/tasks/${taskId}/comments`);
+// =================== PROJECTS ===================
+export const fetchProjects = (conversationId) =>
+  api.get(`/conversations/${conversationId}/projects`);
 
+export const createProject = (conversationId, payload) =>
+  api.post(`/conversations/${conversationId}/projects`, payload);
+
+export const deleteProject = (conversationId, projectId) =>
+  api.delete(`/conversations/${conversationId}/projects/${projectId}`);
+// =================== PARTICIPANTS ===================
+export const fetchParticipants = (conversationId) =>
+  api.get(`/conversations/${conversationId}`);
+// =================== PERSONAL TASKS ===================
+// =================== PERSONAL TASKS ===================
+export const getPersonalLists = () => api.get("/personal-tasks/lists");
+export const createPersonalList = (data) =>
+  api.post("/personal-tasks/lists", data);
+export const updatePersonalList = (listId, data) =>
+  api.patch(`/personal-tasks/lists/${listId}`, data);
+export const deletePersonalList = (listId) =>
+  api.delete(`/personal-tasks/lists/${listId}`);
+
+// Tâches
+export const getPersonalTasks = (params = {}) =>
+  api.get("/personal-tasks", { params });
+export const getPersonalTask = (taskId) => api.get(`/personal-tasks/${taskId}`);
+export const createPersonalTask = (data) => api.post("/personal-tasks", data);
+export const updatePersonalTask = (taskId, data) =>
+  api.patch(`/personal-tasks/${taskId}`, data);
+export const deletePersonalTask = (taskId) =>
+  api.delete(`/personal-tasks/${taskId}`);
+
+// Vues spéciales
+export const getTodayTasks = () => api.get("/personal-tasks/today");
+export const getUpcomingTasks = (days = 7) =>
+  api.get("/personal-tasks/upcoming", { params: { days } });
+export const getStarredTasks = () => api.get("/personal-tasks/starred");
+export const getOverdueTasks = () => api.get("/personal-tasks/overdue");
+
+// Actions
+export const completePersonalTask = (taskId) =>
+  api.post(`/personal-tasks/${taskId}/complete`);
+export const reopenPersonalTask = (taskId) =>
+  api.post(`/personal-tasks/${taskId}/reopen`);
+
+// Sous-tâches
+export const addSubtask = (taskId, text) =>
+  api.post(`/personal-tasks/${taskId}/subtasks`, { text });
+export const updateSubtask = (taskId, subtaskId, data) =>
+  api.patch(`/personal-tasks/${taskId}/subtasks/${subtaskId}`, data);
+export const deleteSubtask = (taskId, subtaskId) =>
+  api.delete(`/personal-tasks/${taskId}/subtasks/${subtaskId}`);
+
+// Stats
+export const getPersonalTasksStats = () => api.get("/personal-tasks/stats");
 export default api;
