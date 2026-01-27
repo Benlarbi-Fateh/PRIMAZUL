@@ -172,7 +172,7 @@ export const saveTheme = (theme, wallpaperUrl) =>
     theme,
     wallpaperUrl,
   });
-
+export const getMutedConversations = () => api.get("/message-settings/muted");
 // =================== ARCHIVAGE ===================
 export const archiveConversation = (conversationId) =>
   api.post(`/message-settings/conversations/${conversationId}/archive`);

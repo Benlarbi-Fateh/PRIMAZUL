@@ -10,10 +10,12 @@ import {
   isSocketConnected,
   addGlobalMessageListener,
 } from "@/services/socket";
+import { useMute } from "@/context/MuteContext";
 
 export default function GlobalNotificationListener() {
   const { user } = useContext(AuthContext);
   const { showNotification } = useNotifications();
+  const { isMuted } = useMute();
   const pathname = usePathname();
   const listenerAddedRef = useRef(false);
   const retryIntervalRef = useRef(null);
@@ -46,6 +48,12 @@ export default function GlobalNotificationListener() {
         typeof message.conversationId === "object"
           ? message.conversationId._id?.toString()
           : message.conversationId?.toString();
+
+            // ✅ AJOUT ICI (avant le check "on est sur la conversation")
+    if (messageConvId && isMuted(messageConvId)) {
+      console.log("🔕 Conversation muted, notification bloquée:", messageConvId);
+      return;
+    }
 
       // Si on est sur la conversation, pas de notification (ChatPage gère)
       if (currentConvId && currentConvId === messageConvId) {
@@ -89,7 +97,7 @@ export default function GlobalNotificationListener() {
         tag: messageConvId,
       });
     },
-    [user, getCurrentConversationId, showNotification]
+    [user, getCurrentConversationId, showNotification, isMuted] 
   );
 
   useEffect(() => {

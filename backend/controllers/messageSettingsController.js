@@ -983,3 +983,27 @@ exports.getArchivedConversations = async (req, res) => {
     });
   }
 };
+
+// ✅ Récupérer toutes les conversations mutées par l'utilisateur connecté
+exports.getMutedConversations = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ success: false, message: "Non authentifié" });
+    }
+
+    const userId = req.user._id;
+
+    const conversations = await Conversation.find({
+      participants: userId,
+      mutedBy: userId
+    }).select("_id").lean();
+
+    return res.json({
+      success: true,
+      mutedConversationIds: conversations.map(c => c._id.toString())
+    });
+  } catch (err) {
+    console.error("❌ getMutedConversations error:", err);
+    return res.status(500).json({ success: false, message: "Erreur serveur" });
+  }
+};

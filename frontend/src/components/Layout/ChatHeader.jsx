@@ -50,6 +50,7 @@ import { formatMessageDate } from "@/utils/dateFormatter";
 import ImageComponent from "next/image";
 import MessageSearch from "@/components/Chat/MessageSearch";
 import AddMembersModal from "@/components/Group/AddMembersModal";
+import { useMute } from "@/context/MuteContext";
 
 // ✅ TOUTES LES PROPS COMBINÉES
 export default function ChatHeader({
@@ -74,6 +75,7 @@ export default function ChatHeader({
   const [settings, setSettings] = useState({
     muted: false,
   });
+  const { setConversationMuted } = useMute();
   const [selectedImage, setSelectedImage] = useState(null);
   
   // 🆕 États pour l'audio (du code 2)
@@ -342,14 +344,13 @@ export default function ChatHeader({
       const data = response.data;
 
       if (data.success) {
-        setSettings((prev) => ({ ...prev, muted: !prev.muted }));
+  const newMuted = !settings.muted;
 
-        const msg = settings.muted
-          ? "✅ Notifications réactivées"
-          : "🔕 Notifications désactivées";
+  setSettings((prev) => ({ ...prev, muted: newMuted }));
+  setConversationMuted(conversation._id, newMuted);
 
-        alert(msg);
-      }
+  alert(newMuted ? "🔕 Notifications désactivées" : "✅ Notifications réactivées");
+}
     } catch (err) {
       console.error("❌ Erreur toggle mute:", err);
       alert("Erreur lors de la modification des notifications");

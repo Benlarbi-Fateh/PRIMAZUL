@@ -31,4 +31,6 @@ router.post('/conversations/:id/archive', auth, ctrl.archiveConversationForUser)
 router.post('/conversations/:id/unarchive', auth, ctrl.unarchiveConversationForUser);
 router.get('/archived', auth, ctrl.getArchivedConversations);
 
+router.get("/muted", auth, ctrl.getMutedConversations);
+
 module.exports = router;

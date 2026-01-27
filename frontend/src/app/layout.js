@@ -6,6 +6,7 @@ import "./globals.css";
 import { NotificationProvider } from "@/context/NotificationContext";
 import GlobalNotificationListener from "@/components/Notifications/GlobalNotificationListener";
 import SocketInitializer from "@/components/Socket/SocketInitializer";
+import { MuteProvider } from "@/context/MuteContext";
 
 export const metadata = {
   title: "PrimaZul - Messagerie Moderne",
@@ -32,9 +33,10 @@ export default function RootLayout({ children }) {
                 <CallProvider>
                   {/* Initialisation du Socket et écoute globale des notifications*/}
                   <SocketInitializer>
-                    {/*  ÉCOUTEUR GLOBAL DE NOTIFICATIONS */}
-                    <GlobalNotificationListener />
-                    {children}
+                   <MuteProvider>
+                     <GlobalNotificationListener />
+                      {children}
+                   </MuteProvider>
                   </SocketInitializer>
                 </CallProvider>
               </NotificationProvider>
