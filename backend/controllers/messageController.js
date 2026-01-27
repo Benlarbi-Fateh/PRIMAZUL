@@ -11,9 +11,9 @@ async function recomputeLastMessage(conversationId) {
     conversationId,
     // Ne pas prendre en compte les messages programmés PAS encore envoyés
     $or: [
-      { isSent: { $exists: false } }, // messages "normaux"
-      { isSent: true }                // messages programmés déjà envoyés
-    ]
+  { isScheduled: { $ne: true } }, // messages normaux
+  { isSent: true }                // messages programmés mais déjà envoyés
+]
   })
     .sort({ createdAt: -1 })
     .lean();
@@ -49,37 +49,41 @@ exports.getMessages = async (req, res) => {
     let messages;
 
     if (deletedByUser) {
-      const deletionDate = deletedByUser.deletedAt;
-      
-      messages = await Message.find({ 
-        conversationId,
-        deletedFor: { $ne: userId },
-        createdAt: { $gt: deletionDate },
-        // ✅ FILTRER LES MESSAGES PROGRAMMÉS NON ENVOYÉS
-        $or: [
-          { isSent: true },                              // Messages déjà envoyés
-          { sender: userId, isScheduled: true }          // Mes messages programmés (seulement pour moi)
-        ]
-      })
-        .populate('sender', 'name profilePicture')
-        .populate('reactions.userId', 'name profilePicture')
-        .populate('replyToSender', 'name profilePicture')
-        .sort({ createdAt: 1 });
-    } else {
-      messages = await Message.find({ 
-        conversationId,
-        deletedFor: { $ne: userId },
-        // ✅ FILTRER LES MESSAGES PROGRAMMÉS NON ENVOYÉS
-        $or: [
-          { isSent: true },                              // Messages déjà envoyés
-          { sender: userId, isScheduled: true }          // Mes messages programmés (seulement pour moi)
-        ]
-      })
-        .populate('sender', 'name profilePicture')
-        .populate('reactions.userId', 'name profilePicture')
-        .populate('replyToSender', 'name profilePicture')
-        .sort({ createdAt: 1 });
-    }
+  const deletionDate = deletedByUser.deletedAt;
+
+  messages = await Message.find({
+    conversationId,
+    deletedFor: { $ne: userId },
+    createdAt: { $gt: deletionDate },
+
+    // ✅ IMPORTANT : on n'affiche PAS les messages programmés non envoyés
+    $or: [
+      { isScheduled: { $ne: true } }, // messages normaux
+      { isSent: true }                // programmés déjà envoyés
+    ]
+  })
+    .populate('sender', 'name profilePicture')
+    .populate('reactions.userId', 'name profilePicture')
+    .populate('replyToSender', 'name profilePicture')
+    .sort({ createdAt: 1 });
+
+} else {
+
+  messages = await Message.find({
+    conversationId,
+    deletedFor: { $ne: userId },
+
+    // ✅ IMPORTANT : on n'affiche PAS les messages programmés non envoyés
+    $or: [
+      { isScheduled: { $ne: true } }, // messages normaux
+      { isSent: true }                // programmés déjà envoyés
+    ]
+  })
+    .populate('sender', 'name profilePicture')
+    .populate('reactions.userId', 'name profilePicture')
+    .populate('replyToSender', 'name profilePicture')
+    .sort({ createdAt: 1 });
+}
 
     console.log(`📊 ${messages.length} messages visibles pour ${userId}`);
 
@@ -1004,66 +1008,64 @@ exports.updateScheduledMessage = async (req, res) => {
 const checkScheduledMessages = async (io) => {
   try {
     const now = new Date();
-    
+
     const messagesToSend = await Message.find({
       isScheduled: true,
       isSent: false,
       scheduledFor: { $lte: now }
-    })
-      .populate('sender', 'name profilePicture')
-      .populate('conversationId');
+    }).populate('conversationId');
 
-    if (messagesToSend.length === 0) {
-      return;
-    }
+    if (!messagesToSend.length) return;
 
     console.log(`⏰ ${messagesToSend.length} messages programmés à envoyer`);
 
-    for (const message of messagesToSend) {
-      // 🕒 Date "réelle" d'envoi : la date programmée
-      const sendDate = message.scheduledFor || new Date();
+    for (const sched of messagesToSend) {
+      const sendDate = new Date();
 
-      // ✅ Marquer comme envoyé
-      message.isSent = true;
-      message.isScheduled = false;
-      message.status = 'sent';
+      // 1) créer un vrai message "normal"
+      const real = await Message.create({
+        conversationId: sched.conversationId._id,
+        sender: sched.sender,
+        content: sched.content || '',
+        type: sched.type || 'text',
+        fileUrl: sched.fileUrl,
+        fileName: sched.fileName,
+        fileSize: sched.fileSize,
 
-      // ⚠️ IMPORTANT : faire comme si le message avait été créé
-      // à l'heure d'envoi
-      message.createdAt = sendDate;
-      message.updatedAt = sendDate;
+        status: 'sent',
+        deletedFor: [],
 
-      await message.save();
+        // optionnel: garder trace
+        sentAt: sendDate,
+        scheduledFor: sched.scheduledFor,
+        isScheduled: false,
+        isSent: true
+      });
 
-      // ✅ Mettre à jour la conversation avec cette date
-      await Conversation.findByIdAndUpdate(
-        message.conversationId._id,
-        {
-          lastMessage: message._id,
-          updatedAt: sendDate
-        }
-      );
+      // 2) supprimer l'ancien message programmé (ou le marquer envoyé)
+      await Message.findByIdAndDelete(sched._id);
 
-      // ✅ Émettre le message via socket.io
+      // 3) update conversation
+      await Conversation.findByIdAndUpdate(sched.conversationId._id, {
+        lastMessage: real._id,
+        updatedAt: sendDate
+      });
+
+      // 4) envoyer au front un message propre
+      const populatedReal = await Message.findById(real._id)
+        .populate('sender', 'name profilePicture')
+        .lean();
+
       if (io) {
-        // On s'assure que les champs modifiés sont bien présents
-        const plainMessage = message.toObject();
+        io.to(sched.conversationId._id.toString()).emit('receive-message', populatedReal);
 
-        io.to(message.conversationId._id.toString()).emit(
-          'receive-message',
-          plainMessage
-        );
-
-        // Notifier tous les participants pour la sidebar
-        message.conversationId.participants.forEach((participant) => {
-          const participantId = participant._id
-            ? participant._id.toString()
-            : participant.toString();
-          io.to(participantId).emit('should-refresh-conversations');
+        // sidebar refresh
+        sched.conversationId.participants.forEach((p) => {
+          io.to(p.toString()).emit('should-refresh-conversations');
         });
       }
 
-      console.log(`✅ Message programmé envoyé: ${message._id}`);
+      console.log(`✅ Message programmé envoyé (nouveau message): ${real._id}`);
     }
   } catch (error) {
     console.error('❌ Erreur checkScheduledMessages:', error);

@@ -36,6 +36,7 @@ import {
 import {
   LogOut,
   Search,
+  User,
   MessageCircle,
   Users,
   MoreVertical,
@@ -63,9 +64,10 @@ import Contacts from "../Contacts/Contacts";
 export default function Sidebar({ activeConversationId }) {
   const { user, logout } = useContext(AuthContext);
   const { isDark } = useTheme();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const currentUserId = user?._id || user?.id;
-  const searchParams = useSearchParams();
+
 
 
   const [conversations, setConversations] = useState([]);
@@ -85,6 +87,8 @@ export default function Sidebar({ activeConversationId }) {
   const searchTimeoutRef = useRef(null);
   const refreshTimeoutRef = useRef(null);
   const [conversationFilter, setConversationFilter] = useState("all"); 
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const isAllMode = conversationFilter === "all" && unreadOnly === false;
 
   const usersToDisplay = useMemo(() => {
     if (activeTab !== "contacts" || !searchTerm.trim()) {
@@ -923,10 +927,11 @@ const visibleConversations = useMemo(
       // Filtre par type
       if (conversationFilter === "private" && conv.isGroup) return false;
       if (conversationFilter === "group" && !conv.isGroup) return false;
+      if (unreadOnly && (conv.unreadCount || 0) === 0) return false;
 
       return true;
     }),
-  [conversations, hiddenConversationIds, currentUserId, conversationFilter]
+  [conversations, hiddenConversationIds, currentUserId, conversationFilter, unreadOnly]
 );
 
   return (
@@ -1029,42 +1034,65 @@ const visibleConversations = useMemo(
       </button>
     </div>
 
-    {/* 🔹 FILTRES TOUS / PRIVÉS / GROUPES UNIQUEMENT EN MODE CONVERSATIONS */}
     {activeTab === "chats" && (
-      <div className={`flex gap-2 ${tabBg} p-1.5 rounded-2xl`}>
-        <button
-          onClick={() => setConversationFilter("all")}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-            conversationFilter === "all" ? activeTabStyle : inactiveTabStyle
-          }`}
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span className="hidden sm:inline">Tous</span>
-        </button>
+  <div className={`flex gap-2 ${tabBg} p-1.5 rounded-2xl`}>
+    {/* TOUS */}
+<button
+  title="Tous"
+  onClick={() => {
+    setConversationFilter("all");
+    setUnreadOnly(false); // ✅ IMPORTANT
+  }}
+  className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
+    conversationFilter === "all" && !unreadOnly ? activeTabStyle : inactiveTabStyle
+  }`}
+>
+  <MessageCircle className="w-5 h-5" />
+</button>
 
-        <button
-          onClick={() => setConversationFilter("private")}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-            conversationFilter === "private"
-              ? activeTabStyle
-              : inactiveTabStyle
-          }`}
-        >
-          <UsersRound className="w-4 h-4" />
-          <span className="hidden sm:inline">Privés</span>
-        </button>
+    {/* NON LUS */}
+<button
+  title="Non lus"
+  onClick={() => {
+    setConversationFilter("all");
+    setUnreadOnly(true); // ✅ IMPORTANT
+  }}
+  className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
+    unreadOnly ? activeTabStyle : inactiveTabStyle
+  }`}
+>
+  <Bell className="w-5 h-5" />
+</button>
 
-        <button
-          onClick={() => setConversationFilter("group")}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-            conversationFilter === "group" ? activeTabStyle : inactiveTabStyle
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span className="hidden sm:inline">Groupes</span>
-        </button>
-      </div>
-    )}
+    {/* PRIVÉS */}
+    <button
+  title="Privés"
+  onClick={() => {
+    setConversationFilter("private");
+    setUnreadOnly(false);
+  }}
+  className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
+    conversationFilter === "private" && !unreadOnly ? activeTabStyle : inactiveTabStyle
+  }`}
+>
+  <User className="w-5 h-5" />
+</button>
+
+    {/* GROUPES */}
+    <button
+      title="Groupes"
+      onClick={() => {
+        setConversationFilter("group");
+        setUnreadOnly(false);
+      }}
+      className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
+        conversationFilter === "group" && !unreadOnly ? activeTabStyle : inactiveTabStyle
+      }`}
+    >
+      <Users className="w-5 h-5" />
+    </button>
+  </div>
+)}
   </div>
 </div>
 
@@ -1375,12 +1403,14 @@ const visibleConversations = useMemo(
     <p className={`text-sm mb-6 ${textSecondary}`}>
       Commencez à discuter avec vos contacts
     </p>
-    <button
-      onClick={() => router.push("/contacts")}
-      className={`px-8 py-3 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl ${buttonStyle}`}
-    >
-      Rechercher des contacts
-    </button>
+    {isAllMode && (
+  <button
+    onClick={() => router.push("/?tab=contacts&subtab=add")}
+    className={`px-8 py-3 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl ${buttonStyle}`}
+  >
+    Rechercher des contacts
+  </button>
+)}
   </div>
 ) : (
   <div className="p-3 space-y-2">

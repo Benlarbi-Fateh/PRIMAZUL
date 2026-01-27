@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   ArrowLeft,
@@ -23,6 +23,7 @@ import api from "../../lib/api";
 import { searchUsers, sendInvitation, getSentInvitations } from "@/lib/api";
 import { getSocket, onInvitationCancelled } from "@/services/socket";
 import { useTheme } from "@/hooks/useTheme";
+
 
 /* ---------------- AVATAR ---------------- */
 function Avatar({ user, size = "md", showStatus = true }) {
@@ -820,6 +821,7 @@ export default function ContactsPage() {
   const [contactIds, setContactIds] = useState(new Set());
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [blockedUserIds, setBlockedUserIds] = useState(new Set());
+  const searchParams = useSearchParams();
 
   const pageBg = isDark
     ? "bg-gradient-to-b from-blue-950 via-blue-950 to-blue-950"
@@ -915,6 +917,14 @@ export default function ContactsPage() {
     return () =>
       window.removeEventListener("block-status-changed", handleBlockChange);
   }, []);
+
+  useEffect(() => {
+  const tab = searchParams.get("tab");
+  if (tab === "add") {
+    setActiveTab("add");
+    setSelected(null);
+  }
+}, [searchParams]);
 
   const toggleFavorite = async (userId) => {
     const wasFavorite = favoriteIds.has(userId);
