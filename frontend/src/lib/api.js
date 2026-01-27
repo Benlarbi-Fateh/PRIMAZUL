@@ -147,6 +147,8 @@ export const markMessagesAsDelivered = (messageIds) =>
 export const markConversationAsRead = (conversationId) =>
   api.post("/messages/mark-read", { conversationId });
 export const getUnreadCount = () => api.get("/messages/unread/count");
+export const getMessageReadBy = (messageId) =>
+  api.get(`/messages/read-by/${messageId}`);
 
 // =================== PARAMÈTRES DE MESSAGES ===================
 export const deleteConversationForUser = (conversationId) =>

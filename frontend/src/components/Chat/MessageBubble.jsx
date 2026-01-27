@@ -67,7 +67,8 @@ export default function MessageBubble({
   onEdit,
   onTranslate,
   onReply,
-  onDeleteForMe // ✅ AJOUTÉ
+  onDeleteForMe, // ✅ AJOUTÉ
+  onClickMessage // ✅ AJOUT
 }) {
   // ========================================
   // 📦 ÉTATS
@@ -1812,14 +1813,15 @@ export default function MessageBubble({
             </div>
 
             <div
-              className={`max-w-xs lg:max-w-md xl-max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
-                isMine
-                  ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
-                  : isDark
-                    ? 'bg-slate-800 text-slate-100 rounded-bl-md border border-slate-700'
-                    : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
-              }`}
-            >
+  onClick={onClickMessage}  // ✅ AJOUT ICI
+  className={`max-w-xs lg:max-w-md xl-max-w-lg px-5 py-3 rounded-3xl shadow-md transition-all transform hover:scale-[1.02] ${
+    isMine
+      ? 'bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-600 text-white rounded-br-md'
+      : isDark
+        ? 'bg-slate-800 text-slate-100 rounded-bl-md border border-slate-700'
+        : 'bg-white text-slate-800 rounded-bl-md border-2 border-blue-100'
+  }`}
+>
               {message.replyTo && (
                 <div
                   className={`mb-2 p-2 rounded-lg border-l-4 ${

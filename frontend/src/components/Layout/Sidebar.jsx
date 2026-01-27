@@ -672,7 +672,7 @@ useEffect(() => {
     return online;
   };
 
-  const getLastMessagePreview = (conv) => {
+    const getLastMessagePreview = (conv) => {
     const userId = user?._id || user?.id;
 
     // Est-ce que MOI j'ai vidé cette discussion ?
@@ -698,11 +698,33 @@ useEffect(() => {
 
     const lastMsg = conv.lastMessage;
 
-    // Types spéciaux
+    // 🆕 GESTION DES APPELS (MODIFICATION ICI)
+    if (lastMsg.type === "call") {
+      const isVideo = lastMsg.callDetails?.type === 'video';
+      const icon = isVideo ? "📹" : "📞";
+      const status = lastMsg.callDetails?.status;
+      const amICaller = lastMsg.sender?._id === userId;
+
+      if (status === "missed") {
+        // Si je suis l'appelant et qu'il n'y a pas eu de réponse
+        if (amICaller) return `${icon} Appel sans réponse`;
+        // Si je suis le receveur et que j'ai raté l'appel
+        return `${icon} Appel manqué`;
+      }
+      
+      if (status === "ended") {
+        return `${icon} Appel terminé`;
+      }
+
+      // Fallback si le statut n'est pas clair (ex: appel en cours)
+      return `${icon} Appel`;
+    }
+
+    // Autres types de messages
     if (lastMsg.type === "image") return "🖼️ Image";
     if (lastMsg.type === "video") return "🎬 Vidéo";
     if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
-    if (lastMsg.type === "voice") return "🎤 Message vocal";
+    if (lastMsg.type === "voice" || lastMsg.type === "audio") return "🎤 Message vocal";
 
     // Texte
     const preview = lastMsg.content || "";

@@ -275,10 +275,11 @@ exports.markAsRead = async (req, res) => {
     console.log('👁️ Marquage comme lu pour conversation:', conversationId, 'par user:', userId);
 
     const messagesToUpdate = await Message.find({
-      conversationId,
-      sender: { $ne: userId },
-      status: { $ne: 'read' }
-    }).select('_id sender').lean();
+  conversationId,
+  sender: { $ne: userId },
+  status: { $ne: 'read' },
+  deletedFor: { $ne: userId } // ✅ important
+}).select('_id sender').lean();
 
     const messageIds = messagesToUpdate.map(m => m._id);
 
@@ -301,6 +302,16 @@ exports.markAsRead = async (req, res) => {
       { $set: { status: 'read' } }
     );
 
+    // ✅ 2) Ajouter readBy pour chaque message (par utilisateur)
+await Message.updateMany(
+  {
+    _id: { $in: messageIds },
+    "readBy.user": { $ne: userId } // pas déjà lu par cet utilisateur
+  },
+  {
+    $push: { readBy: { user: userId, readAt: new Date() } }
+  }
+);
     console.log(`✅ ${result.modifiedCount} messages marqués comme lus`);
 
     if (io && result.modifiedCount > 0) {
@@ -337,6 +348,56 @@ exports.markAsRead = async (req, res) => {
   } catch (error) {
     console.error('❌ Erreur markAsRead:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getMessageReadBy = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { messageId } = req.params;
+
+    const msg = await Message.findById(messageId)
+      .select('conversationId sender readBy createdAt')
+      .populate('readBy.user', 'name profilePicture')
+      .lean();
+
+    if (!msg) {
+      return res.status(404).json({ success: false, error: 'Message non trouvé' });
+    }
+
+    const conversation = await Conversation.findById(msg.conversationId).select('participants isGroup').lean();
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversation non trouvée' });
+    }
+
+    const isParticipant = conversation.participants.some(
+      p => p.toString() === userId.toString()
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({ success: false, error: 'Non autorisé' });
+    }
+
+    // Optionnel: en groupe seulement
+    // si tu veux aussi en 1-1, enlève ce if
+    if (!conversation.isGroup) {
+      return res.json({ success: true, readBy: [] });
+    }
+
+    const readBy = (msg.readBy || [])
+      .map(r => ({
+        _id: r.user?._id,
+        name: r.user?.name,
+        profilePicture: r.user?.profilePicture,
+        readAt: r.readAt
+      }))
+      .filter(x => x._id)
+      .sort((a, b) => new Date(a.readAt) - new Date(b.readAt));
+
+    return res.json({ success: true, readBy });
+  } catch (error) {
+    console.error('❌ Erreur getMessageReadBy:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 

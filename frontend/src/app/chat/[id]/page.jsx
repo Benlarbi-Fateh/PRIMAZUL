@@ -10,6 +10,7 @@ import {
   sendMessage,
   markMessagesAsDelivered,
   markConversationAsRead,
+  getMessageReadBy,
 } from "@/lib/api";
 import api from "@/lib/api";
 import {
@@ -100,6 +101,10 @@ export default function ChatPage() {
   const typingTimeoutRef = useRef(null);
   const isMarkingAsReadRef = useRef(false);
 
+  const [isReadByOpen, setIsReadByOpen] = useState(false);
+  const [readByUsers, setReadByUsers] = useState([]);
+  const [readByLoading, setReadByLoading] = useState(false);
+
   useSocket();
 
   // 🆕 FONCTION POUR OUVRIR/FERMER LE PANNEAU DE TÂCHES
@@ -115,6 +120,29 @@ export default function ChatPage() {
   const handleGoToFullTasks = useCallback(() => {
     router.push(`/chat/${conversationId}/tasks`);
   }, [router, conversationId]);
+
+  // ✅ CORRECTION: handleShowReadBy doit être ici (PAS dans loadConversation)
+  const handleShowReadBy = async (message) => {
+    if (!conversation?.isGroup) return;
+
+    // ✅ (optionnel) seulement si c'est MON message:
+    const myId = user?._id || user?.id;
+    const senderId = message.sender?._id || message.sender?.id;
+    if (senderId !== myId) return;
+
+    setIsReadByOpen(true);
+    setReadByLoading(true);
+
+    try {
+      const res = await getMessageReadBy(message._id);
+      setReadByUsers(res.data.readBy || []);
+    } catch (e) {
+      console.error(e);
+      setReadByUsers([]);
+    } finally {
+      setReadByLoading(false);
+    }
+  };
 
   // Détecter si l'utilisateur est proche du bas ou pas
   const handleScroll = () => {
@@ -1128,6 +1156,7 @@ export default function ChatPage() {
                             onTranslate={handleTranslateMessage}
                             onReply={handleReplyMessage}
                             onDeleteForMe={handleDeleteMessageForMe}
+                            onClickMessage={() => handleShowReadBy(message)}
                           />
                         )}
                       </div>
@@ -1171,6 +1200,45 @@ export default function ChatPage() {
             conversation={conversation}
             onGoToFullTasks={handleGoToFullTasks}
           />
+
+          {/* ✅ CORRECTION: la MODAL doit être ici, pas dans TasksSidePanel */}
+          {isReadByOpen && (
+            <div
+              className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4"
+              onClick={() => setIsReadByOpen(false)}
+            >
+              <div
+                className={`w-full max-w-md rounded-2xl p-5 ${cardStyle} border`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={`font-bold ${textPrimary}`}>Vu par</h3>
+                  <button
+                    onClick={() => setIsReadByOpen(false)}
+                    className={textSecondary}
+                  >
+                    Fermer
+                  </button>
+                </div>
+
+                {readByLoading ? (
+                  <p className={textSecondary}>Chargement...</p>
+                ) : readByUsers.length === 0 ? (
+                  <p className={textSecondary}>
+                    Personne n’a encore vu ce message.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {readByUsers.map((u) => (
+                      <li key={u._id} className={`text-sm ${textPrimary}`}>
+                        {u.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </ProtectedRoute>

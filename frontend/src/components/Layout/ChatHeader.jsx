@@ -921,25 +921,53 @@ export default function ChatHeader({
     );
   }
 
+    // ... (juste avant le return)
+
+    // ================= DÉBUT DU CORRECTIF =================
   const isGroup = conversation?.isGroup || false;
+  
   const displayName = isGroup
     ? conversation?.groupName || "Groupe sans nom"
     : contact?.name || "Utilisateur";
 
-  const displayImage = isGroup
-    ? conversation?.groupImage ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        conversation?.groupName || "Groupe"
-      )}&background=${isDark ? "6366f1" : "6366f1"}&color=fff&bold=true`
-    : contact?.profilePicture ||
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        contact?.name || "User"
-      )}&background=${isDark ? "0ea5e9" : "3b82f6"}&color=fff&bold=true`;
+  // 1. IMPORTANT : Mets ici l'adresse exacte de ton backend (ex: http://localhost:5000)
+  // Si tu ne mets pas ça, l'image ne s'affichera jamais si elle vient de ton dossier 'uploads'
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+  // 2. Fonction qui force l'URL complète
+  const getFullUrl = (path) => {
+    if (!path || path.trim() === "") return null;
+    if (path.startsWith("http")) return path; // C'est déjà une URL complète
+    // Sinon, on colle l'URL du serveur devant
+    return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
+  // 3. Avatar par défaut (Lettres)
+  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    displayName
+  )}&background=${
+    isGroup ? (isDark ? "6366f1" : "6366f1") : (isDark ? "0ea5e9" : "3b82f6")
+  }&color=fff&bold=true`;
+
+  // 4. Calcul final de l'image
+  let displayImage = defaultAvatar;
+
+  if (isGroup) {
+    // On essaie de récupérer l'image du groupe corrigée
+    const urlGroupe = getFullUrl(conversation?.groupImage);
+    if (urlGroupe) displayImage = urlGroupe;
+  } else {
+    // On essaie de récupérer l'image du contact corrigée
+    const urlContact = getFullUrl(contact?.profilePicture);
+    if (urlContact) displayImage = urlContact;
+  }
+  // ================= FIN DU CORRECTIF =================
 
   const participantsCount = isGroup
     ? conversation?.participants?.length || 0
     : null;
   const contactIsOnline = !isGroup && contact?._id && isUserOnline(contact._id);
+  
 
   return (
     <>
@@ -2454,18 +2482,49 @@ export default function ChatHeader({
                         }
                       `}
                           >
-                            <div className="relative shrink-0">
-                              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-cyan-100 rounded-xl flex items-center justify-center overflow-hidden group-hover:scale-105 transition-transform">
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-cyan-500/20"></div>
-                                <Play className="w-10 h-10 text-blue-500 relative z-10" />
-                              </div>
-                              <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 text-white text-xs font-bold rounded-md backdrop-blur-sm">
-                                {Math.floor(video.duration / 60)}:
-                                {(video.duration % 60)
-                                  .toString()
-                                  .padStart(2, "0")}
-                              </div>
-                            </div>
+                                        {/* Photo du CONTACT ou GROUPE */}
+            <div
+              className="relative shrink-0 cursor-pointer group"
+              onClick={() => {
+                if (!conversation?.isGroup && contact?._id) {
+                  router.push(`/contact/${contact._id}`);
+                }
+              }}
+              title={getProfileTitle()}
+            >
+              <div
+                className={`w-10 h-10 rounded-xl ring-2 ${ringStyle} shadow-lg overflow-hidden transition-all`}
+              >
+                <ImageComponent
+                  key={displayImage} 
+                  src={displayImage}
+                  alt={displayName}
+                  width={40}
+                  height={40}
+                  className="w-full h-full object-cover"
+                  unoptimized={true} 
+                  onError={(e) => {
+                    e.currentTarget.src = defaultAvatar;
+                  }}
+                />
+              </div>
+              
+              {/* Badge Groupe */}
+              {isGroup && (
+                <div
+                  className={`absolute -bottom-1 -right-1 w-4 h-4 ${groupBadge} rounded-full border-2 flex items-center justify-center`}
+                >
+                  <Users className="w-2 h-2 text-white" />
+                </div>
+              )}
+              
+              {/* Point vert si contact en ligne */}
+              {!isGroup && contactIsOnline && (
+                <div
+                  className={`absolute -bottom-1 -right-1 w-3 h-3 ${onlineDot} rounded-full border-2 ${borderStyle}`}
+                ></div>
+              )}
+            </div>
 
                             <div className="flex-1 min-w-0">
                               <p

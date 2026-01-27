@@ -22,12 +22,13 @@ const {
   updateScheduledMessage,
   searchMessages,           // 🆕 AJOUT
   getMessageContext,        // 🆕 AJOUT
-  searchAllMessages         // 🆕 AJOUT
+  searchAllMessages ,        // 🆕 AJOUT
+  getMessageReadBy
 } = require('../controllers/messageController');
 
 // 🔍 Recherche de messages
 router.get('/search/:conversationId', authMiddleware, messageController.searchMessages);
-
+router.get('/read-by/:messageId', authMiddleware, getMessageReadBy);
 // Routes de base
 router.get('/:conversationId', authMiddleware, getMessages);
 router.post('/', authMiddleware, checkBlockStatus, sendMessage);
@@ -77,6 +78,5 @@ router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
   
   return res.json({ success: true, typing: isTyping || true });
 });
-router.delete('/:messageId/for-me', authMiddleware, messageController.deleteMessageForMe);
 
 module.exports = router;
