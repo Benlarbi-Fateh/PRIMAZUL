@@ -108,6 +108,42 @@ const initSocket = (io) => {
         .emit("user-stopped-typing", { conversationId, userId });
     });
 
+    // ============================================
+    // ✅ AJOUT MANQUANT : RÉACTIONS
+    // ============================================
+    socket.on("toggle-reaction", async (data) => {
+      try {
+        const { messageId, emoji, userId, conversationId } = data;
+        const message = await Message.findById(messageId);
+        if (!message) return;
+
+        const existingIndex = message.reactions.findIndex(
+          (r) => r.userId.toString() === userId,
+        );
+
+        if (existingIndex > -1) {
+          if (message.reactions[existingIndex].emoji === emoji) {
+            message.reactions.splice(existingIndex, 1);
+          } else {
+            message.reactions[existingIndex].emoji = emoji;
+          }
+        } else {
+          message.reactions.push({ userId, emoji });
+        }
+
+        await message.save();
+        // 🔥 IMPORTANT : Populate pour que le frontend puisse afficher les noms
+        await message.populate("reactions.userId", "name profilePicture");
+
+        io.to(conversationId).emit("reaction-updated", {
+          messageId: message._id,
+          reactions: message.reactions,
+        });
+      } catch (error) {
+        console.error("❌ Erreur reaction:", error);
+      }
+    });
+
     // --- APPELS (Relay via Socket pour P2P instantané) ---
     socket.on("call-initiate", (data) => {
       const { targetUserIds, ...callInfo } = data;
@@ -125,10 +161,6 @@ const initSocket = (io) => {
         });
       }
     });
-
-    // Pour les autres événements d'appel, on peut soit relayer ici, soit laisser l'API gérer
-    // Pour simplifier en mode "Sans Redis", on laisse l'API faire le travail de mise à jour BDD
-    // et on utilise ici juste le relay temps réel si besoin.
 
     // --- INVITATIONS ---
     socket.on("invitation-sent", (data) => {

@@ -1,13 +1,13 @@
-'use client'
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 export default function MessageReactions({
   reactions = [],
   onReactionClick,
   currentUserId,
   isMine,
-  isDark = false, // 👈 NOUVELLE PROP AVEC VALEUR PAR DÉFAUT
+  isDark = false,
 }) {
   const [showTooltip, setShowTooltip] = useState(null);
 
@@ -19,69 +19,84 @@ export default function MessageReactions({
     if (!acc[emoji]) {
       acc[emoji] = { count: 0, users: [], hasReacted: false };
     }
+
+    // Protection contre les utilisateurs supprimés ou null
+    if (!reaction.userId) return acc;
+
     acc[emoji].count++;
     acc[emoji].users.push(reaction.userId);
-    
-    // Vérifier si l'utilisateur actuel a réagi avec cet emoji
-    const reactionUserId = reaction.userId?._id || reaction.userId;
-    if (reactionUserId?.toString() === currentUserId?.toString()) {
+
+    // Robustesse : gérer si userId est un objet ou une string
+    const reactionUserId =
+      typeof reaction.userId === "object"
+        ? reaction.userId._id
+        : reaction.userId;
+
+    if (
+      reactionUserId &&
+      currentUserId &&
+      reactionUserId.toString() === currentUserId.toString()
+    ) {
       acc[emoji].hasReacted = true;
     }
     return acc;
   }, {});
 
   return (
-    <div className={`w-full mt-2 ${isMine ? 'text-right' : 'text-left'}`}>
-      <div
-        className={`inline-flex items-center gap-1 flex-wrap justify-start max-w-full ${
-          isMine ? 'justify-end' : 'justify-start'
-        }`}
-      >
-        {Object.entries(groupedReactions).map(([emoji, data]) => (
-          <div key={emoji} className="relative">
-            <button
-              onClick={() => onReactionClick(emoji)}
-              onMouseEnter={() => setShowTooltip(emoji)}
-              onMouseLeave={() => setShowTooltip(null)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all min-w-10 justify-center
+    <div
+      className={`w-full mt-2 flex flex-wrap gap-1 ${isMine ? "justify-end" : "justify-start"}`}
+    >
+      {Object.entries(groupedReactions).map(([emoji, data]) => (
+        <div key={emoji} className="relative group/reaction">
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Important pour ne pas ouvrir le message
+              onReactionClick(emoji);
+            }}
+            onMouseEnter={() => setShowTooltip(emoji)}
+            onMouseLeave={() => setShowTooltip(null)}
+            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all border
                 ${
                   data.hasReacted
                     ? isDark
-                      ? 'bg-blue-900/40 border border-blue-400 hover:bg-blue-900/70'
-                      : 'bg-blue-100 border-2 border-blue-300 hover:bg-blue-200'
+                      ? "bg-blue-500/20 border-blue-500 text-blue-300"
+                      : "bg-blue-100 border-blue-300 text-blue-700"
                     : isDark
-                      ? 'bg-slate-800 border border-slate-600 hover:bg-slate-700'
-                      : 'bg-slate-100 border border-slate-200 hover:bg-slate-200'
-                }`}
-            >
-              <span className="text-sm">{emoji}</span>
-              {data.count > 1 && (
-                <span
-                  className={`font-medium min-w-2 text-center ${
-                    isDark ? 'text-slate-200' : 'text-slate-600'
-                  }`}
-                >
-                  {data.count}
-                </span>
-              )}
-            </button>
-
-            {/* Tooltip avec les noms */}
-            {showTooltip === emoji && data.users.length > 0 && (
-              <div
-                className={`absolute bottom-full mb-1 px-2 py-1 bg-slate-800 text-white text-xs rounded-lg whitespace-nowrap z-50
-                ${isMine ? 'right-0' : 'left-0'}`}
-              >
-                {data.users
-                  .map((u) =>
-                    typeof u === 'object' ? u?.name : 'Utilisateur'
-                  )
-                  .join(', ')}
-              </div>
+                      ? "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                      : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                } transform active:scale-95`}
+          >
+            <span className="text-sm leading-none">{emoji}</span>
+            {data.count > 1 && (
+              <span className="font-semibold text-[10px] ml-0.5">
+                {data.count}
+              </span>
             )}
-          </div>
-        ))}
-      </div>
+          </button>
+
+          {/* Tooltip avec les noms (affichage conditionnel) */}
+          {showTooltip === emoji && data.users.length > 0 && (
+            <div
+              className={`absolute bottom-full mb-2 px-2 py-1.5 bg-slate-900 text-white text-[10px] rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none transition-opacity duration-200
+                ${isMine ? "right-0" : "left-0"}`}
+            >
+              {data.users
+                .map((u) =>
+                  typeof u === "object" ? u.name || "Inconnu" : "Utilisateur",
+                )
+                .slice(0, 5) // Limiter à 5 noms pour pas que ce soit énorme
+                .join(", ")}
+              {data.users.length > 5 &&
+                ` et ${data.users.length - 5} autres...`}
+
+              {/* Petite flèche du tooltip */}
+              <div
+                className={`absolute top-full w-0 h-0 border-4 border-transparent border-t-slate-900 ${isMine ? "right-3" : "left-3"}`}
+              ></div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

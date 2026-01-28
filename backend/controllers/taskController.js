@@ -100,6 +100,7 @@ exports.createTask = async (req, res) => {
       status = "todo",
       projectId,
       assignees = [],
+      responsible,
     } = req.body;
 
     if (!title?.trim()) {
@@ -118,12 +119,18 @@ exports.createTask = async (req, res) => {
       dueDate: dueDate ? new Date(dueDate) : null,
       status,
       projectId: projectId || null,
-      assignees: validAssignees.length > 0 ? validAssignees : [userId],
+      assignees: assignees,
+      responsible: responsible || userId, // 🆕 Par défaut le créateur est responsable
       conversationId,
       createdBy: userId,
     });
 
-    const populatedTask = await populateTask(task._id);
+    const populatedTask = await Task.findById(task._id)
+      .populate("createdBy", "name email profilePicture")
+      .populate("assignees", "name email profilePicture")
+      .populate("responsible", "name email profilePicture") // 🆕 Populate responsable
+      .populate("projectId", "name")
+      .populate("comments.author", "name email profilePicture");
 
     // ✅ ÉMETTRE L'ÉVÉNEMENT SOCKET
     emitToConversation(req, conversationId, "task:created", {

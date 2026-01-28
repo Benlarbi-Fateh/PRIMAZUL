@@ -1,3 +1,4 @@
+// backend/models/Message.js
 const mongoose = require("mongoose");
 
 const reactionSchema = new mongoose.Schema(
@@ -27,7 +28,7 @@ const messageSchema = new mongoose.Schema(
     },
     content: { type: String, default: "" },
 
-    // ⚠️ AJOUT: autoriser les types story_reply et story_reaction
+    // ✅ CORRECTION ICI : Ajout de 'call' dans l'enum
     type: {
       type: String,
       enum: [
@@ -37,6 +38,7 @@ const messageSchema = new mongoose.Schema(
         "audio",
         "voice",
         "video",
+        "call",
         "story_reply",
         "story_reaction",
       ],
@@ -47,28 +49,16 @@ const messageSchema = new mongoose.Schema(
     fileName: { type: String, default: "" },
     fileSize: { type: Number, default: 0 },
 
-    // Pour les messages vocaux
     voiceUrl: { type: String, default: "" },
     voiceDuration: { type: Number, default: 0 },
 
-    // Pour les vidéos
     videoDuration: { type: Number, default: 0 },
     videoThumbnail: { type: String, default: "" },
 
     cloudinaryId: { type: String, default: "" },
 
-    // Champs pour la modification
     isEdited: { type: Boolean, default: false },
     editedAt: { type: Date, default: null },
-
-    // Champs pour la traduction
-    translations: [
-      {
-        lang: String,
-        content: String,
-        translatedAt: { type: Date, default: Date.now },
-      },
-    ],
 
     status: {
       type: String,
@@ -76,7 +66,6 @@ const messageSchema = new mongoose.Schema(
       default: "sent",
     },
 
-    // Messages programmés
     isScheduled: { type: Boolean, default: false },
     scheduledFor: { type: Date, default: null },
     scheduledBy: {
@@ -86,7 +75,6 @@ const messageSchema = new mongoose.Schema(
     },
     isSent: { type: Boolean, default: true },
 
-    // Réponse à un message
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",
@@ -99,28 +87,42 @@ const messageSchema = new mongoose.Schema(
       default: null,
     },
 
-    // 🟣 Réponse à une story (statut)
     storyReply: {
-      statusId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Status",
-      },
-      storyType: {
-        type: String, // "text", "image", "video"
-      },
-      storyUrl: {
+      statusId: { type: mongoose.Schema.Types.ObjectId, ref: "Status" },
+      storyType: { type: String },
+      storyUrl: { type: String },
+      storyText: { type: String },
+      storyExpiresAt: { type: Date },
+      deleted: { type: Boolean, default: false },
+    },
+
+    // ✅ Structure complète pour les appels
+    callDetails: {
+      callId: String,
+      callType: { type: String, enum: ["audio", "video"] },
+      status: {
         type: String,
+        enum: ["initiated", "ongoing", "ended", "missed", "declined"],
+        default: "initiated",
       },
-      storyText: {
-        type: String,
-      },
-      storyExpiresAt: {
-        type: Date, // date d’expiration 24h
-      },
-      deleted: {
-        type: Boolean, // true si story supprimée manuellement
-        default: false,
-      },
+      initiator: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      isGroup: { type: Boolean, default: false },
+      startedAt: Date,
+      endedAt: Date,
+      duration: Number,
+      participants: [
+        {
+          userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+          name: String,
+          profilePicture: String,
+          joinedAt: Date,
+          leftAt: Date,
+          status: String,
+        },
+      ],
+      answeredBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      missedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      declinedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     },
 
     readBy: [
@@ -130,7 +132,6 @@ const messageSchema = new mongoose.Schema(
       },
     ],
 
-    // Réactions
     reactions: [reactionSchema],
 
     deletedFor: [
@@ -143,10 +144,10 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Index pour optimiser les requêtes
+// Indexes
 messageSchema.index({ "reactions.userId": 1 });
 messageSchema.index({ conversationId: 1, createdAt: -1 });
-messageSchema.index({ deletedBy: 1 });
-messageSchema.index({ "storyReply.statusId": 1 }); // utile pour updateMany
+messageSchema.index({ deletedFor: 1 });
+messageSchema.index({ "storyReply.statusId": 1 });
 
 module.exports = mongoose.model("Message", messageSchema);

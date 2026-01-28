@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Plus,
   Type,
+  Check,
 } from "lucide-react";
 
 export default function TaskDetailModal({ task, isNew, projectId, onClose }) {
@@ -191,6 +192,103 @@ export default function TaskDetailModal({ task, isNew, projectId, onClose }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* --- SECTION RESPONSABLE (NOUVEAU) --- */}
+            <div className="space-y-3">
+              <label className={labelStyle}>
+                <User size={12} /> Responsable (Lead)
+              </label>
+              <div className="flex items-center gap-3">
+                {participants.map((p) => (
+                  <button
+                    key={p._id}
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, responsible: p._id }))
+                    }
+                    className={`relative group p-1 rounded-full transition-all ${
+                      formData.responsible === p._id
+                        ? "ring-2 ring-offset-2 ring-blue-500"
+                        : "opacity-50 hover:opacity-100"
+                    }`}
+                    title={p.name}
+                  >
+                    <img
+                      src={
+                        p.profilePicture ||
+                        `https://ui-avatars.com/api/?name=${p.name}`
+                      }
+                      alt={p.name}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                    {formData.responsible === p._id && (
+                      <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-0.5 border border-white">
+                        <Check size={8} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* --- SECTION CHAT DE TÂCHE (AMÉLIORÉ) --- */}
+            {!isNew && (
+              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
+                <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                  <MessageSquare size={16} />
+                  Discussion sur cette tâche
+                </h3>
+
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-4 max-h-60 overflow-y-auto mb-4">
+                  {task.comments?.length === 0 && (
+                    <p className="text-xs text-center text-slate-400 italic">
+                      Aucun commentaire. Commencez la discussion !
+                    </p>
+                  )}
+
+                  {task.comments?.map((comment, idx) => (
+                    <div key={idx} className="flex gap-3">
+                      <img
+                        src={
+                          comment.author?.profilePicture ||
+                          "/default-avatar.png"
+                        }
+                        className="w-8 h-8 rounded-full mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="bg-white dark:bg-slate-700 p-3 rounded-xl rounded-tl-none shadow-sm">
+                          <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                            {comment.author?.name}
+                          </p>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">
+                            {comment.text}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-slate-400 ml-2">
+                          {new Date(comment.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Input Commentaire */}
+                <div className="flex gap-2">
+                  <input
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
+                    placeholder="Écrire un commentaire..."
+                    className={`flex-1 px-4 py-3 rounded-xl border outline-none transition-all ${inputBg}`}
+                  />
+                  <button
+                    onClick={handleAddComment}
+                    disabled={!commentText.trim()}
+                    className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all disabled:opacity-50"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Priorité */}
             <div>
               <label className={labelStyle}>

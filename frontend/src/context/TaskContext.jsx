@@ -1,4 +1,4 @@
-// context/TaskContext.jsx
+// frontend/src/context/TaskContext.jsx
 
 "use client";
 
@@ -29,17 +29,23 @@ import {
 const TaskContext = createContext(null);
 
 export function TaskProvider({ children, conversationId }) {
+  // --- ÉTATS ---
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [participants, setParticipants] = useState([]);
+
+  // États de chargement et d'erreur
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [currentProjectId, setCurrentProjectId] = useState("all");
+  // Filtres et Tri
+  // 🔴 IMPORTANT : On initialise à null pour forcer la sélection d'un projet plus tard
+  const [currentProjectId, setCurrentProjectId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState("createdAt_desc");
 
+  // Refs pour éviter les fuites de mémoire
   const mountedRef = useRef(true);
   const conversationIdRef = useRef(conversationId);
 
@@ -50,187 +56,149 @@ export function TaskProvider({ children, conversationId }) {
 
   // =================== FETCH DATA ===================
 
-  const fetchTasks = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     if (!conversationId) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const res = await api.get(`/conversations/${conversationId}/tasks`);
+      const [tasksRes, projectsRes, convRes] = await Promise.all([
+        api.get(`/conversations/${conversationId}/tasks`),
+        api.get(`/conversations/${conversationId}/projects`),
+        api.get(`/conversations/${conversationId}`),
+      ]);
+
       if (mountedRef.current) {
-        setTasks(res.data?.tasks || []);
+        setTasks(tasksRes.data?.tasks || []);
+        const loadedProjects = projectsRes.data?.projects || [];
+        setProjects(loadedProjects);
+        setParticipants(convRes.data?.conversation?.participants || []);
+
+        // ✅ SÉLECTION AUTOMATIQUE DU PREMIER PROJET SI AUCUN SÉLECTIONNÉ
+        if (loadedProjects.length > 0 && !currentProjectId) {
+          setCurrentProjectId(loadedProjects[0]._id);
+        }
       }
     } catch (err) {
-      console.error("❌ Erreur fetch tâches:", err);
+      console.error("❌ Erreur chargement TaskContext:", err);
       if (mountedRef.current) {
-        setError("Impossible de charger les tâches");
+        setError("Impossible de charger les données du projet");
       }
-    }
-  }, [conversationId]);
-
-  const fetchProjects = useCallback(async () => {
-    if (!conversationId) return;
-    try {
-      const res = await api.get(`/conversations/${conversationId}/projects`);
-      if (mountedRef.current) {
-        setProjects(res.data?.projects || []);
-      }
-    } catch (err) {
-      console.error("❌ Erreur fetch projets:", err);
-    }
-  }, [conversationId]);
-
-  const fetchParticipants = useCallback(async () => {
-    if (!conversationId) return;
-    try {
-      const res = await api.get(`/conversations/${conversationId}`);
-      if (mountedRef.current) {
-        setParticipants(res.data?.conversation?.participants || []);
-      }
-    } catch (err) {
-      console.error("❌ Erreur fetch participants:", err);
-    }
-  }, [conversationId]);
-
-  // Charger les données au montage
-  useEffect(() => {
-    mountedRef.current = true;
-
-    const loadAll = async () => {
-      setLoading(true);
-      setError(null);
-      await Promise.all([fetchTasks(), fetchProjects(), fetchParticipants()]);
+    } finally {
       if (mountedRef.current) {
         setLoading(false);
       }
-    };
+    }
+  }, [conversationId, currentProjectId]);
 
-    loadAll();
-
+  // Chargement initial
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchAllData();
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchTasks, fetchProjects, fetchParticipants]);
+  }, [fetchAllData]);
 
-  // =================== SOCKET.IO ===================
+  // =================== SOCKET.IO OPTIMISÉ ===================
 
   useEffect(() => {
     if (!conversationId) return;
 
     const socket = getSocket();
-    if (!socket) {
-      console.warn("⚠️ Socket non disponible pour les tâches");
-      return;
-    }
+    if (!socket) return;
 
-    // Rejoindre la room de la conversation
-    console.log(`📥 [TaskContext] Rejoindre conversation:${conversationId}`);
+    console.log(`📥 [TaskContext] Abonnement conversation:${conversationId}`);
     joinConversation(conversationId);
-
-    // S'assurer que les écouteurs sont configurés
     setupTaskListeners();
 
-    // =================== HANDLERS ===================
-
-    const isForThisConversation = (task) => {
-      if (!task) return false;
-      const taskConvId = task.conversationId?._id || task.conversationId;
-      return taskConvId?.toString() === conversationIdRef.current;
+    // Helper pour vérifier si l'événement concerne cette conv
+    const isRelevant = (item) => {
+      if (!item) return false;
+      const cId = item.conversationId?._id || item.conversationId;
+      return cId?.toString() === conversationIdRef.current;
     };
 
-    const handleTaskCreated = ({ task }) => {
-      if (!mountedRef.current || !isForThisConversation(task)) return;
-      console.log("📡 [TaskContext] task:created:", task._id);
+    // --- HANDLERS ---
 
+    const handleTaskCreated = ({ task }) => {
+      if (!isRelevant(task)) return;
       setTasks((prev) => {
-        const exists = prev.some((t) => t._id === task._id);
-        if (exists) {
-          return prev.map((t) => (t._id === task._id ? task : t));
-        }
+        if (prev.some((t) => t._id === task._id)) return prev;
         return [task, ...prev];
       });
     };
 
     const handleTaskUpdated = ({ task }) => {
-      if (!mountedRef.current || !isForThisConversation(task)) return;
-      console.log("📡 [TaskContext] task:updated:", task._id);
-      setTasks((prev) => prev.map((t) => (t._id === task._id ? task : t)));
-    };
-
-    const handleTaskStatusChanged = ({ task, oldStatus, newStatus }) => {
-      if (!mountedRef.current || !isForThisConversation(task)) return;
-      console.log(
-        `📡 [TaskContext] task:statusChanged: ${oldStatus} → ${newStatus}`,
-      );
+      if (!isRelevant(task)) return;
       setTasks((prev) => prev.map((t) => (t._id === task._id ? task : t)));
     };
 
     const handleTaskDeleted = ({ taskId }) => {
-      if (!mountedRef.current) return;
-      console.log("📡 [TaskContext] task:deleted:", taskId);
       setTasks((prev) => prev.filter((t) => t._id !== taskId));
     };
 
-    const handleTaskCommented = ({ taskId, task }) => {
-      if (!mountedRef.current) return;
-      if (task && isForThisConversation(task)) {
-        console.log("📡 [TaskContext] task:commented:", taskId);
-        setTasks((prev) => prev.map((t) => (t._id === task._id ? task : t)));
-      }
-    };
-
     const handleProjectCreated = ({ project }) => {
-      if (!mountedRef.current) return;
-      const projConvId =
-        project?.conversationId?._id || project?.conversationId;
-      if (projConvId?.toString() !== conversationIdRef.current) return;
-
-      console.log("📡 [TaskContext] project:created:", project._id);
+      if (!isRelevant(project)) return;
       setProjects((prev) => {
         if (prev.some((p) => p._id === project._id)) return prev;
+        // Si c'est le premier projet, on le sélectionne
+        if (prev.length === 0) setCurrentProjectId(project._id);
         return [...prev, project];
       });
     };
 
     const handleProjectDeleted = ({ projectId }) => {
-      if (!mountedRef.current) return;
-      console.log("📡 [TaskContext] project:deleted:", projectId);
-
-      setProjects((prev) => prev.filter((p) => p._id !== projectId));
+      setProjects((prev) => {
+        const newProjects = prev.filter((p) => p._id !== projectId);
+        // Si on supprime le projet courant, on bascule sur le premier dispo ou null
+        if (currentProjectId === projectId) {
+          setCurrentProjectId(
+            newProjects.length > 0 ? newProjects[0]._id : null,
+          );
+        }
+        return newProjects;
+      });
+      // Nettoyer les tâches liées
       setTasks((prev) =>
         prev.filter((t) => {
-          const tProjectId = t.projectId?._id || t.projectId;
-          return tProjectId !== projectId;
+          const tPid = t.projectId?._id || t.projectId;
+          return tPid !== projectId;
         }),
       );
-
-      // Reset la vue si on était sur ce projet
-      setCurrentProjectId((current) =>
-        current === projectId ? "all" : current,
-      );
     };
 
-    // S'abonner aux événements
-    const unsubCreated = onTaskCreated(handleTaskCreated);
-    const unsubUpdated = onTaskUpdated(handleTaskUpdated);
-    const unsubStatus = onTaskStatusChanged(handleTaskStatusChanged);
-    const unsubDeleted = onTaskDeleted(handleTaskDeleted);
-    const unsubCommented = onTaskCommented(handleTaskCommented);
-    const unsubProjCreated = onProjectCreated(handleProjectCreated);
-    const unsubProjDeleted = onProjectDeleted(handleProjectDeleted);
+    // Abonnements
+    const unsubCreates = onTaskCreated(handleTaskCreated);
+    const unsubUpdates = onTaskUpdated(handleTaskUpdated);
+    const unsubStatus = onTaskStatusChanged(({ task }) =>
+      handleTaskUpdated({ task }),
+    );
+    const unsubDeletes = onTaskDeleted(handleTaskDeleted);
+    const unsubComments = onTaskCommented(({ task }) =>
+      handleTaskUpdated({ task }),
+    );
 
-    // Cleanup
+    const unsubProjCreate = onProjectCreated(handleProjectCreated);
+    const unsubProjDelete = onProjectDeleted(handleProjectDeleted);
+
     return () => {
-      console.log(`📤 [TaskContext] Quitter conversation:${conversationId}`);
+      console.log(
+        `📤 [TaskContext] Désabonnement conversation:${conversationId}`,
+      );
       leaveConversation(conversationId);
-      unsubCreated();
-      unsubUpdated();
+      unsubCreates();
+      unsubUpdates();
       unsubStatus();
-      unsubDeleted();
-      unsubCommented();
-      unsubProjCreated();
-      unsubProjDeleted();
+      unsubDeletes();
+      unsubComments();
+      unsubProjCreate();
+      unsubProjDelete();
     };
-  }, [conversationId]);
+  }, [conversationId, currentProjectId]);
 
-  // =================== ACTIONS ===================
+  // =================== ACTIONS CRUD ===================
 
   const createTask = useCallback(
     async (taskData) => {
@@ -239,18 +207,13 @@ export function TaskProvider({ children, conversationId }) {
           `/conversations/${conversationId}/tasks`,
           taskData,
         );
-        // Socket.io devrait mettre à jour automatiquement
-        // Mais on ajoute aussi manuellement au cas où
         const newTask = res.data.task;
         if (newTask) {
-          setTasks((prev) => {
-            if (prev.some((t) => t._id === newTask._id)) return prev;
-            return [newTask, ...prev];
-          });
+          setTasks((prev) => [newTask, ...prev]);
         }
         return { success: true, task: newTask };
       } catch (err) {
-        console.error("❌ Erreur création:", err);
+        console.error("❌ Erreur création tâche:", err);
         return {
           success: false,
           error: err.response?.data?.message || "Erreur",
@@ -260,83 +223,78 @@ export function TaskProvider({ children, conversationId }) {
     [conversationId],
   );
 
-  const updateTask = useCallback(async (taskId, updates) => {
-    try {
-      const res = await api.patch(`/tasks/${taskId}`, updates);
-      const updatedTask = res.data.task;
-      if (updatedTask) {
-        setTasks((prev) =>
-          prev.map((t) => (t._id === taskId ? updatedTask : t)),
-        );
+  const updateTask = useCallback(
+    async (taskId, updates) => {
+      setTasks((prev) =>
+        prev.map((t) => (t._id === taskId ? { ...t, ...updates } : t)),
+      );
+      try {
+        const res = await api.patch(`/tasks/${taskId}`, updates);
+        if (res.data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t._id === taskId ? res.data.task : t)),
+          );
+        }
+        return { success: true };
+      } catch (err) {
+        console.error("❌ Erreur mise à jour tâche:", err);
+        fetchAllData();
+        return { success: false, error: "Erreur mise à jour" };
       }
-      return { success: true, task: updatedTask };
-    } catch (err) {
-      console.error("❌ Erreur mise à jour:", err);
-      return {
-        success: false,
-        error: err.response?.data?.message || "Erreur",
-      };
-    }
-  }, []);
+    },
+    [fetchAllData],
+  );
 
   const deleteTask = useCallback(
     async (taskId) => {
-      // Suppression optimiste
       setTasks((prev) => prev.filter((t) => t._id !== taskId));
-
       try {
         await api.delete(`/tasks/${taskId}`);
         return { success: true };
       } catch (err) {
-        console.error("❌ Erreur suppression:", err);
-        // Rollback en cas d'erreur
-        await fetchTasks();
-        return {
-          success: false,
-          error: err.response?.data?.message || "Erreur",
-        };
+        console.error("❌ Erreur suppression tâche:", err);
+        fetchAllData();
+        return { success: false, error: "Erreur suppression" };
       }
     },
-    [fetchTasks],
+    [fetchAllData],
   );
 
   const changeTaskStatus = useCallback(
     async (taskId, newStatus) => {
-      // Mise à jour optimiste
       setTasks((prev) =>
         prev.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t)),
       );
-
       try {
-        const res = await api.post(`/tasks/${taskId}/status`, {
-          status: newStatus,
-        });
-        return { success: true, task: res.data.task };
+        await api.post(`/tasks/${taskId}/status`, { status: newStatus });
+        return { success: true };
       } catch (err) {
-        console.error("❌ Erreur changement statut:", err);
-        // Rollback
-        await fetchTasks();
-        return {
-          success: false,
-          error: err.response?.data?.message || "Erreur",
-        };
+        console.error("❌ Erreur statut:", err);
+        fetchAllData();
+        return { success: false };
       }
     },
-    [fetchTasks],
+    [fetchAllData],
   );
 
-  const addComment = useCallback(async (taskId, text) => {
-    try {
-      const res = await api.post(`/tasks/${taskId}/comments`, { text });
-      return { success: true, comment: res.data.comment };
-    } catch (err) {
-      console.error("❌ Erreur commentaire:", err);
-      return {
-        success: false,
-        error: err.response?.data?.message || "Erreur",
-      };
-    }
-  }, []);
+  const addComment = useCallback(
+    async (taskId, text) => {
+      try {
+        const res = await api.post(`/tasks/${taskId}/comments`, { text });
+        if (res.data.task) {
+          setTasks((prev) =>
+            prev.map((t) => (t._id === taskId ? res.data.task : t)),
+          );
+        } else {
+          fetchAllData();
+        }
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: "Erreur commentaire" };
+      }
+    },
+    [fetchAllData],
+  );
 
   const createProject = useCallback(
     async (projectData) => {
@@ -347,14 +305,12 @@ export function TaskProvider({ children, conversationId }) {
         );
         const newProject = res.data.project;
         if (newProject) {
-          setProjects((prev) => {
-            if (prev.some((p) => p._id === newProject._id)) return prev;
-            return [...prev, newProject];
-          });
+          setProjects((prev) => [...prev, newProject]);
+          // ✅ Sélectionner le nouveau projet automatiquement
+          setCurrentProjectId(newProject._id);
         }
         return { success: true, project: newProject };
       } catch (err) {
-        console.error("❌ Erreur création projet:", err);
         return {
           success: false,
           error: err.response?.data?.message || "Erreur",
@@ -366,18 +322,24 @@ export function TaskProvider({ children, conversationId }) {
 
   const deleteProject = useCallback(
     async (projectId) => {
-      // Suppression optimiste
-      setProjects((prev) => prev.filter((p) => p._id !== projectId));
+      // Optimistic delete
+      setProjects((prev) => {
+        const newProjects = prev.filter((p) => p._id !== projectId);
+        // Si on supprime le projet courant, changer
+        if (currentProjectId === projectId) {
+          setCurrentProjectId(
+            newProjects.length > 0 ? newProjects[0]._id : null,
+          );
+        }
+        return newProjects;
+      });
+
       setTasks((prev) =>
         prev.filter((t) => {
-          const tProjectId = t.projectId?._id || t.projectId;
-          return tProjectId !== projectId;
+          const tPid = t.projectId?._id || t.projectId;
+          return tPid !== projectId;
         }),
       );
-
-      if (currentProjectId === projectId) {
-        setCurrentProjectId("all");
-      }
 
       try {
         await api.delete(
@@ -385,35 +347,33 @@ export function TaskProvider({ children, conversationId }) {
         );
         return { success: true };
       } catch (err) {
-        console.error("❌ Erreur suppression projet:", err);
-        // Rollback
-        await fetchProjects();
-        await fetchTasks();
-        return {
-          success: false,
-          error: err.response?.data?.message || "Erreur",
-        };
+        fetchAllData();
+        return { success: false, error: "Erreur suppression projet" };
       }
     },
-    [conversationId, currentProjectId, fetchProjects, fetchTasks],
+    [conversationId, currentProjectId, fetchAllData],
   );
 
-  // =================== DONNÉES DÉRIVÉES ===================
+  // =================== CALCULS DÉRIVÉS (MEMOIZÉS) ===================
 
   const filteredTasks = useMemo(() => {
+    // 🔴 Si pas de projet sélectionné, pas de tâches
+    if (!currentProjectId) return [];
+
     let result = [...tasks];
 
-    if (currentProjectId !== "all") {
-      result = result.filter((t) => {
-        const tProjectId = t.projectId?._id || t.projectId;
-        return tProjectId === currentProjectId;
-      });
-    }
+    // ✅ Filtre STRICT par Projet
+    result = result.filter((t) => {
+      const tPid = t.projectId?._id || t.projectId;
+      return tPid === currentProjectId;
+    });
 
+    // Filtre Statut
     if (statusFilter !== "all") {
       result = result.filter((t) => t.status === statusFilter);
     }
 
+    // Recherche
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -423,6 +383,7 @@ export function TaskProvider({ children, conversationId }) {
       );
     }
 
+    // Tri
     const [field, direction] = sortOption.split("_");
     result.sort((a, b) => {
       let comparison = 0;
@@ -436,8 +397,11 @@ export function TaskProvider({ children, conversationId }) {
           comparison = new Date(a.dueDate) - new Date(b.dueDate);
           break;
         case "priority":
-          const order = { urgent: 3, normal: 2, low: 1 };
+          const order = { urgent: 3, high: 2, normal: 1, low: 0 };
           comparison = (order[a.priority] || 0) - (order[b.priority] || 0);
+          break;
+        case "title":
+          comparison = a.title.localeCompare(b.title);
           break;
         default:
           comparison = 0;
@@ -463,74 +427,55 @@ export function TaskProvider({ children, conversationId }) {
     const done = tasksByStatus.done.length;
     const total = todo + inProgress + done;
     const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+
     const overdue = filteredTasks.filter(
       (t) =>
         t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done",
     ).length;
+
     return { todo, inProgress, done, total, progress, overdue };
   }, [tasksByStatus, filteredTasks]);
 
   const currentProject = useMemo(() => {
-    if (currentProjectId === "all") return null;
+    if (!currentProjectId) return null;
     return projects.find((p) => p._id === currentProjectId);
   }, [currentProjectId, projects]);
 
-  // =================== CONTEXT VALUE ===================
+  // =================== PROVIDER ===================
 
-  const value = useMemo(
-    () => ({
-      tasks,
-      filteredTasks,
-      tasksByStatus,
-      projects,
-      participants,
-      stats,
-      currentProject,
-      loading,
-      error,
-      currentProjectId,
-      statusFilter,
-      searchQuery,
-      sortOption,
-      setCurrentProjectId,
-      setStatusFilter,
-      setSearchQuery,
-      setSortOption,
-      createTask,
-      updateTask,
-      deleteTask,
-      changeTaskStatus,
-      addComment,
-      createProject,
-      deleteProject,
-      refreshTasks: fetchTasks,
-      refreshProjects: fetchProjects,
-    }),
-    [
-      tasks,
-      filteredTasks,
-      tasksByStatus,
-      projects,
-      participants,
-      stats,
-      currentProject,
-      loading,
-      error,
-      currentProjectId,
-      statusFilter,
-      searchQuery,
-      sortOption,
-      createTask,
-      updateTask,
-      deleteTask,
-      changeTaskStatus,
-      addComment,
-      createProject,
-      deleteProject,
-      fetchTasks,
-      fetchProjects,
-    ],
-  );
+  const value = {
+    tasks,
+    filteredTasks,
+    tasksByStatus,
+    projects,
+    participants,
+    stats,
+    currentProject,
+    loading,
+    error,
+
+    // États filtres
+    currentProjectId,
+    statusFilter,
+    searchQuery,
+    sortOption,
+
+    // Setters filtres
+    setCurrentProjectId,
+    setStatusFilter,
+    setSearchQuery,
+    setSortOption,
+
+    // Actions
+    createTask,
+    updateTask,
+    deleteTask,
+    changeTaskStatus,
+    addComment,
+    createProject,
+    deleteProject,
+    refreshTasks: fetchAllData,
+  };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
 }
