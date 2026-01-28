@@ -32,9 +32,15 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
+        // ✅ AJOUT : Ne pas rediriger si on est déjà sur la page de login ou register
+        if (
+          window.location.pathname !== "/login" &&
+          window.location.pathname !== "/register"
+        ) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+        }
       }
     }
     return Promise.reject(error);
@@ -173,6 +179,12 @@ export const saveTheme = (theme, wallpaperUrl) =>
     wallpaperUrl,
   });
 export const getMutedConversations = () => api.get("/message-settings/muted");
+// =================== MODIFICATION/SUPPRESSION DE MESSAGES ===================
+export const deleteMessageForMe = (messageId) =>
+  api.delete(`/messages/${messageId}/for-me`); // ✅ Ajout de cette fonction
+
+export const deleteMessageForAll = (messageId) =>
+  api.delete(`/messages/${messageId}`);
 // =================== ARCHIVAGE ===================
 export const archiveConversation = (conversationId) =>
   api.post(`/message-settings/conversations/${conversationId}/archive`);

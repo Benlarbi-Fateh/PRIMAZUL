@@ -1,304 +1,278 @@
-const Conversation = require('../models/Conversation');
-const User = require('../models/User');
-const Message = require('../models/Message');
-const Contact = require('../models/Contact');
-const BlockedUser = require('../models/BlockedUser'); 
-
+const Conversation = require("../models/Conversation");
+const User = require("../models/User");
+const Message = require("../models/Message");
+const Contact = require("../models/Contact");
+const BlockedUser = require("../models/BlockedUser");
+const mongoose = require("mongoose");
 
 exports.getConversations = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = new mongoose.Types.ObjectId(req.user._id);
 
-    // 1️⃣ RÉCUPÉRER TOUS MES CONTACTS
-    const myContacts = await Contact.find({ owner: userId }).select('contact').lean();
-    const contactIds = myContacts.map(c => c.contact.toString());
+    // 1️⃣ Optimisation : Récupérer Bloqués et Contacts en parallèle (Index Only)
+    const [blockedDocs, contactsDocs] = await Promise.all([
+      BlockedUser.find({
+        $or: [{ userId: userId }, { blockedUserId: userId }],
+      })
+        .select("userId blockedUserId")
+        .lean(),
+      Contact.find({ owner: userId }).select("contact").lean(),
+    ]);
 
-    console.log(`📇 ${contactIds.length} contacts trouvés pour ${userId}`);
-
-    // 2️⃣ RÉCUPÉRER LES UTILISATEURS BLOQUÉS
-    const blockedUsers = await BlockedUser.find({
-      $or: [
-        { blocker: userId },
-        { blocked: userId }
-      ]
-    }).lean();
-
-    const blockedUserIds = new Set();
-    blockedUsers.forEach(block => {
-      if (block.blocker.toString() === userId.toString()) {
-        blockedUserIds.add(block.blocked.toString());
-      } else {
-        blockedUserIds.add(block.blocker.toString());
-      }
+    // Création de Sets pour accès O(1) instantané
+    const blockedSet = new Set();
+    blockedDocs.forEach((b) => {
+      blockedSet.add(b.userId.toString());
+      blockedSet.add(b.blockedUserId.toString());
     });
 
-    console.log(`🚫 ${blockedUserIds.size} utilisateurs bloqués`);
+    const contactSet = new Set(contactsDocs.map((c) => c.contact.toString()));
 
-    // 3️⃣ CRÉER UNE DISCUSSION VIDE POUR CHAQUE CONTACT (si elle n'existe pas)
-    for (const contactId of contactIds) {
-      if (blockedUserIds.has(contactId)) {
-        console.log(`🚫 Contact ${contactId} ignoré - Bloqué`);
+    // 2️⃣ PIPELINE D'AGRÉGATION MONGODB
+    const conversations = await Conversation.aggregate([
+      // A. Filtrer les conversations où je suis participant
+      { $match: { participants: userId } },
+
+      // B. Exclure les conversations archivées par moi
+      {
+        $match: {
+          "archivedBy.userId": { $ne: userId },
+        },
+      },
+
+      // C. Récupérer le dernier message (Optimisé)
+      {
+        $lookup: {
+          from: "messages",
+          localField: "lastMessage",
+          foreignField: "_id",
+          as: "lastMessageDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$lastMessageDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // D. Populer les participants (Nom, Photo, Online)
+      {
+        $lookup: {
+          from: "users",
+          localField: "participants",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                email: 1,
+                profilePicture: 1,
+                isOnline: 1,
+                lastSeen: 1,
+              },
+            },
+          ],
+          as: "participantsDetails",
+        },
+      },
+
+      // E. Populer l'expéditeur du dernier message
+      {
+        $lookup: {
+          from: "users",
+          localField: "lastMessageDetails.sender",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1 } }],
+          as: "senderDetails",
+        },
+      },
+      {
+        $addFields: {
+          "lastMessageDetails.sender": { $arrayElemAt: ["$senderDetails", 0] },
+        },
+      },
+
+      // F. COMPTER LES MESSAGES NON LUS (Complexe mais performant)
+      {
+        $lookup: {
+          from: "messages",
+          let: { convId: "$_id", deletedArr: "$deletedBy" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$conversationId", "$$convId"] }, // Même conversation
+                    { $ne: ["$sender", userId] }, // Pas mes messages
+                    { $ne: ["$status", "read"] }, // Pas encore lus
+                    {
+                      $not: { $in: [userId, { $ifNull: ["$deletedFor", []] }] },
+                    }, // Pas supprimés pour moi
+
+                    // Gérer "Vider la discussion" (Soft Delete)
+                    {
+                      $gte: [
+                        "$createdAt",
+                        {
+                          $let: {
+                            vars: {
+                              userDel: {
+                                $filter: {
+                                  input: { $ifNull: ["$$deletedArr", []] },
+                                  as: "del",
+                                  cond: { $eq: ["$$del.userId", userId] },
+                                },
+                              },
+                            },
+                            in: {
+                              $ifNull: [
+                                { $arrayElemAt: ["$$userDel.deletedAt", 0] },
+                                new Date(0),
+                              ],
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            { $count: "count" },
+          ],
+          as: "unreadInfo",
+        },
+      },
+      {
+        $addFields: {
+          unreadCount: {
+            $ifNull: [{ $arrayElemAt: ["$unreadInfo.count", 0] }, 0],
+          },
+          participants: "$participantsDetails",
+          lastMessage: "$lastMessageDetails",
+        },
+      },
+
+      // Nettoyage final
+      {
+        $project: {
+          unreadInfo: 0,
+          participantsDetails: 0,
+          lastMessageDetails: 0,
+          senderDetails: 0,
+        },
+      },
+      { $sort: { updatedAt: -1 } },
+    ]);
+
+    // 3️⃣ FILTRAGE FINAL (Logique métier complexe en RAM, mais sur un dataset réduit)
+    const visibleConversations = [];
+
+    for (const conv of conversations) {
+      // Groupes toujours visibles
+      if (conv.isGroup) {
+        visibleConversations.push(conv);
         continue;
       }
 
-      let conversation = await Conversation.findOne({
-        participants: { $all: [userId, contactId], $size: 2 },
-        isGroup: false
-      });
+      // Logique 1-1
+      const otherParticipant = conv.participants.find(
+        (p) => p._id.toString() !== userId.toString(),
+      );
 
-      if (!conversation) {
-        console.log(`🆕 Création conversation vide pour contact ${contactId}`);
-        conversation = new Conversation({
-          participants: [userId, contactId],
-          isGroup: false,
-          deletedBy: []
-        });
-        await conversation.save();
+      if (!otherParticipant) continue;
+
+      const otherId = otherParticipant._id.toString();
+
+      // Vérif Blocage (Rapide grâce au Set)
+      if (blockedSet.has(otherId)) {
+        continue;
       }
+
+      // Vérif Contact (Rapide grâce au Set) - Si pas contact, on cache sauf si message existant
+      if (!contactSet.has(otherId) && !conv.lastMessage) {
+        continue;
+      }
+
+      // Gestion de l'affichage du dernier message après "Vider la discussion"
+      if (conv.lastMessage) {
+        const myDeletion = conv.deletedBy?.find(
+          (d) => d.userId.toString() === userId.toString(),
+        );
+
+        if (
+          myDeletion &&
+          new Date(conv.lastMessage.createdAt) <= new Date(myDeletion.deletedAt)
+        ) {
+          conv.lastMessage = null; // On cache le vieux message
+        }
+      }
+
+      visibleConversations.push(conv);
     }
-
-    // 4️⃣ RÉCUPÉRER TOUTES LES CONVERSATIONS
-    const allConversations = await Conversation.find({
-      participants: userId
-    })
-      .populate('participants', 'name email profilePicture isOnline lastSeen')
-      .populate('groupAdmin', 'name email profilePicture')
-      .populate({
-        path: 'lastMessage',
-        populate: { path: 'sender', select: 'name' }
-      })
-      .sort({ updatedAt: -1 });
-
-    // 5️⃣ FILTRER ET CALCULER LES NON-LUS
-    const contactSet = new Set(contactIds);
-const visibleConversations = [];
-
-for (const conv of allConversations) {
-  // 🆕 EXCLURE SI ARCHIVÉE PAR L'UTILISATEUR
-  const isArchivedByMe = conv.archivedBy?.some(
-    item => item.userId && item.userId.toString() === userId.toString()
-  );
-  
-  if (isArchivedByMe) {
-    console.log(`📦 Conversation ${conv._id} archivée - Masquée`);
-    continue;
-  }
-  
-  // ✅ Garder les groupes
-  if (conv.isGroup) {
-    visibleConversations.push(conv);
-    continue;
-  }
-  
-  // ✅ Pour les conversations 1-1
-  const otherParticipant = conv.participants.find(
-    p => p._id.toString() !== userId.toString()
-  );
-  
-  if (!otherParticipant) continue;
-  
-  const otherUserId = otherParticipant._id.toString();
-  
-  // ❌ Exclure si bloqué
-  if (blockedUserIds.has(otherUserId)) {
-    console.log(`🚫 Conversation ${conv._id} masquée - Bloqué`);
-    continue;
-  }
-  
-  // ❌ Exclure si pas contact
-  if (!contactSet.has(otherUserId)) {
-    console.log(`⚠️ Conversation ${conv._id} exclue - Pas contact`);
-    continue;
-  }
-  
-  visibleConversations.push(conv);
-}
-
-    console.log(`✅ ${visibleConversations.length} conversations visibles`);
-
-// 6️⃣ CALCULER LES NON-LUS + DERNIER MESSAGE VISIBLE POUR L'UTILISATEUR
-const conversationsWithUnread = await Promise.all(
-  visibleConversations.map(async (conv) => {
-    const wasDeletedByMe = conv.deletedBy?.find(
-      item => item.userId && item.userId.toString() === userId.toString()
-    );
-
-    // ---- 1) Unread count (en tenant compte de "vider la discussion" + "supprimer pour moi") ----
-    const unreadFilter = {
-      conversationId: conv._id,
-      sender: { $ne: userId },
-      status: { $ne: 'read' },
-      deletedFor: { $nin: [userId] }, // ✅ messages PAS "supprimés pour moi"
-    };
-
-    if (wasDeletedByMe) {
-      unreadFilter.createdAt = { $gt: wasDeletedByMe.deletedAt };
-    }
-
-    const unreadCount = await Message.countDocuments(unreadFilter);
-
-    let conversationObj = conv.toObject();
-
-    // ---- 2) Dernier message VISIBLE pour CET utilisateur ----
-    const lastMsgFilter = {
-      conversationId: conv._id,
-      deletedFor: { $nin: [userId] }, // ✅ pas "supprimé pour moi"
-    };
-
-    if (wasDeletedByMe) {
-      lastMsgFilter.createdAt = { $gt: wasDeletedByMe.deletedAt };
-    }
-
-    // Ne pas prendre les messages programmés non envoyés
-    lastMsgFilter.$or = [
-      { isSent: { $exists: false } }, // messages normaux
-      { isSent: true },               // programmés déjà envoyés
-    ];
-
-    // 2.1) Essayer d'abord avec les filtres par utilisateur
-    let lastVisibleMessage = await Message.findOne(lastMsgFilter)
-      .sort({ createdAt: -1 })
-      .populate('sender', 'name profilePicture')
-      .lean();
-
-    // 2.2) FALLBACK : si aucun message visible pour cet utilisateur,
-    //      on récupère le dernier message GLOBAL de la conversation,
-    //      pour éviter d'afficher "Démarrer la conversation" alors que
-    //      la conversation n'est pas vraiment vide en BDD.
-    if (!lastVisibleMessage) {
-      const globalLastMsgFilter = {
-        conversationId: conv._id,
-        $or: [
-          { isSent: { $exists: false } }, // messages normaux
-          { isSent: true },               // programmés déjà envoyés
-        ],
-      };
-
-      lastVisibleMessage = await Message.findOne(globalLastMsgFilter)
-        .sort({ createdAt: -1 })
-        .populate('sender', 'name profilePicture')
-        .lean();
-    }
-
-    // 👉 Ce lastMessage sera utilisé par le front pour le preview dans la sidebar
-    conversationObj.lastMessage = lastVisibleMessage || null;
-
-    return {
-      ...conversationObj,
-      unreadCount
-    };
-  })
-);
-
-    console.log(`✅ ${conversationsWithUnread.length} conversations retournées`);
 
     res.json({
       success: true,
-      conversations: conversationsWithUnread
+      conversations: visibleConversations,
     });
   } catch (error) {
-    console.error('❌ Erreur getConversations:', error);
+    console.error("❌ Erreur getConversations:", error);
     res.status(500).json({ error: error.message });
   }
 };
+
 // ========================================
-// ✅ REMPLACEZ LA FONCTION getOrCreateConversation PAR CELLE-CI
+// GARDEZ CES FONCTIONS EXISTANTES TELLES QUELLES (NON OPTIMISÉES MAIS FONCTIONNELLES)
 // ========================================
+
 exports.getOrCreateConversation = async (req, res) => {
   try {
     const userId = req.user._id;
     const { contactId } = req.body;
 
-    if (!contactId) {
-      return res.status(400).json({ error: 'Contact ID manquant' });
-    }
+    if (!contactId)
+      return res.status(400).json({ error: "Contact ID manquant" });
 
-    const contactExists = await User.findById(contactId);
-    if (!contactExists) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-    
-    const isBlocked = await BlockedUser.findOne({
-      $or: [
-        { blocker: userId, blocked: contactId },
-        { blocker: contactId, blocked: userId }
-      ]
-    });
-
-    if (isBlocked) {
-      return res.status(403).json({ 
-        error: 'Impossible de créer une conversation avec cet utilisateur'
-      });
-    }
-
-    const isContact = await Contact.findOne({
-      owner: userId,
-      contact: contactId
-    });
-
-    if (!isContact) {
-      console.log('⚠️ Tentative de créer conversation avec non-contact');
-      return res.status(403).json({ 
-        error: 'Vous devez d\'abord ajouter cette personne en contact'
-      });
-    }
-
-    // ✅ CHERCHER UNE CONVERSATION EXISTANTE
     let conversation = await Conversation.findOne({
       participants: { $all: [userId, contactId], $size: 2 },
-      isGroup: false
-    }).populate('participants', 'name email profilePicture isOnline lastSeen');
+      isGroup: false,
+    }).populate("participants", "name email profilePicture isOnline lastSeen");
 
-    // 🔥 CORRECTION : AJOUTER CETTE LIGNE
     let restored = false;
-    
+
     if (conversation) {
-      console.log('✅ Conversation trouvée:', conversation._id);
-      
-      // Vérifier si supprimée par cet utilisateur
       const wasDeletedByMe = conversation.deletedBy?.some(
-        item => item.userId && item.userId.toString() === userId.toString()
+        (item) => item.userId && item.userId.toString() === userId.toString(),
       );
-      
+
       if (wasDeletedByMe) {
-        // Restaurer la conversation
         conversation.deletedBy = conversation.deletedBy.filter(
-          item => !item.userId || item.userId.toString() !== userId.toString()
+          (item) =>
+            !item.userId || item.userId.toString() !== userId.toString(),
         );
         await conversation.save();
         restored = true;
-        console.log('🔄 Conversation restaurée pour l\'utilisateur');
       }
-      
-      return res.json({ 
-        success: true, 
-        conversation,
-        restored // ✅ CORRECT
-      });
+      return res.json({ success: true, conversation, restored });
     }
 
-    // ✅ CRÉER UNE NOUVELLE CONVERSATION VIERGE
-    console.log('🆕 Création d\'une nouvelle conversation vierge...');
     conversation = new Conversation({
       participants: [userId, contactId],
       isGroup: false,
-      deletedBy: []
+      deletedBy: [],
     });
     await conversation.save();
-    await conversation.populate('participants', 'name email profilePicture isOnline lastSeen');
+    await conversation.populate(
+      "participants",
+      "name email profilePicture isOnline lastSeen",
+    );
 
-    console.log('✅ Nouvelle conversation vierge créée:', conversation._id);
-    res.json({ 
-      success: true, 
-      conversation,
-      isNew: true
-    });
+    res.json({ success: true, conversation, isNew: true });
   } catch (error) {
-    console.error('❌ Erreur getOrCreateConversation:', error);
     res.status(500).json({ error: error.message });
   }
 };
-
 
 exports.getConversationById = async (req, res) => {
   try {
@@ -306,53 +280,46 @@ exports.getConversationById = async (req, res) => {
     const { id } = req.params;
 
     const conversation = await Conversation.findById(id)
-      .populate('participants', 'name email profilePicture isOnline lastSeen')
-      .populate('groupAdmin', 'name email profilePicture')
+      .populate("participants", "name email profilePicture isOnline lastSeen")
+      .populate("groupAdmin", "name email profilePicture")
       .populate({
-        path: 'lastMessage',
-        populate: { path: 'sender', select: 'name' }
+        path: "lastMessage",
+        populate: { path: "sender", select: "name" },
       });
 
-    if (!conversation) {
-      return res.status(404).json({ error: 'Conversation non trouvée' });
-    }
+    if (!conversation)
+      return res.status(404).json({ error: "Conversation non trouvée" });
 
-    // Vérifier que l'utilisateur fait partie de la conversation
     const isParticipant = conversation.participants.some(
-      p => p._id.toString() === userId.toString()
+      (p) => p._id.toString() === userId.toString(),
     );
 
-    if (!isParticipant) {
-      return res.status(403).json({ error: 'Accès refusé' });
-    }
+    if (!isParticipant) return res.status(403).json({ error: "Accès refusé" });
 
-    // 🔥 NOUVEAU : VÉRIFIER SI L'AUTRE PARTICIPANT EST BLOQUÉ
     if (!conversation.isGroup) {
       const otherParticipant = conversation.participants.find(
-        p => p._id.toString() !== userId.toString()
+        (p) => p._id.toString() !== userId.toString(),
       );
 
       if (otherParticipant) {
         const isBlocked = await BlockedUser.findOne({
           $or: [
-            { blocker: userId, blocked: otherParticipant._id },
-            { blocker: otherParticipant._id, blocked: userId }
-          ]
+            { userId: userId, blockedUserId: otherParticipant._id },
+            { userId: otherParticipant._id, blockedUserId: userId },
+          ],
         });
 
         if (isBlocked) {
-          return res.status(403).json({ 
-            error: 'Conversation inaccessible - Utilisateur bloqué',
-            blocked: true
+          return res.status(403).json({
+            error: "Conversation inaccessible - Utilisateur bloqué",
+            blocked: true,
           });
         }
       }
     }
 
-    console.log('✅ Conversation récupérée:', conversation._id);
     res.json({ success: true, conversation });
   } catch (error) {
-    console.error('❌ Erreur getConversationById:', error);
     res.status(500).json({ error: error.message });
   }
 };

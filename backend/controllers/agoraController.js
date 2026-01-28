@@ -1,22 +1,16 @@
-// backend/controllers/callController.js
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { v4: uuidv4 } = require("uuid");
 
-// Stocker les appels actifs en mémoire
+// ✅ Stockage en mémoire RAM (Pas de Redis)
 const activeCallsMap = new Map();
 
-// ============================================
-// INITIER UN APPEL
-// ============================================
 exports.initiateCall = async (req, res) => {
   try {
     const { conversationId, callType, isGroup, participants } = req.body;
     const initiatorId = req.user._id || req.user.id;
-
     const callId = uuidv4();
 
-    // Créer le message d'appel
     const callMessage = await Message.create({
       conversationId,
       sender: initiatorId,
@@ -40,7 +34,7 @@ exports.initiateCall = async (req, res) => {
     await callMessage.populate("sender", "name profilePicture");
     await callMessage.populate("callDetails.initiator", "name profilePicture");
 
-    // Stocker l'appel actif
+    // Stockage RAM
     activeCallsMap.set(callId, {
       messageId: callMessage._id,
       conversationId,
@@ -48,43 +42,34 @@ exports.initiateCall = async (req, res) => {
       startedAt: new Date(),
       participants: new Map(),
       status: "initiated",
+      isGroup: !!isGroup,
     });
 
-    // Mettre à jour la conversation
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: callMessage._id,
       updatedAt: Date.now(),
     });
 
-    console.log(`📞 Appel initié: ${callId}`);
+    console.log(`📞 Appel initié (RAM): ${callId}`);
 
-    res.status(201).json({
-      success: true,
-      callId,
-      message: callMessage,
-    });
+    res.status(201).json({ success: true, callId, message: callMessage });
   } catch (error) {
-    console.error("❌ Erreur initiation appel:", error);
+    console.error("❌ Erreur initiation:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// ============================================
-// RÉPONDRE À UN APPEL
-// ============================================
 exports.answerCall = async (req, res) => {
   try {
     const { callId } = req.params;
-    const userId = req.user._id || req.user.id;
+    const userId = (req.user._id || req.user.id).toString();
     const userName = req.user.name;
 
     const activeCall = activeCallsMap.get(callId);
-    if (!activeCall) {
-      return res.status(404).json({ error: "Appel introuvable ou terminé" });
-    }
+    if (!activeCall)
+      return res.status(404).json({ error: "Appel introuvable" });
 
-    // Marquer comme répondu
-    activeCall.participants.set(userId.toString(), {
+    activeCall.participants.set(userId, {
       joinedAt: new Date(),
       name: userName,
     });
@@ -94,179 +79,123 @@ exports.answerCall = async (req, res) => {
       activeCall.answeredAt = new Date();
     }
 
-    // Mettre à jour le message
     await Message.findByIdAndUpdate(activeCall.messageId, {
       "callDetails.status": "ongoing",
       $addToSet: { "callDetails.answeredBy": userId },
       $pull: { "callDetails.missedBy": userId },
     });
 
-    console.log(`✅ ${userName} a répondu à l'appel ${callId}`);
-
     res.json({ success: true, callId });
   } catch (error) {
-    console.error("❌ Erreur réponse appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// ============================================
-// REFUSER UN APPEL
-// ============================================
 exports.declineCall = async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id;
 
-    const activeCall = activeCallsMap.get(callId);
-    if (!activeCall) {
-      return res.status(404).json({ error: "Appel introuvable" });
+    // On met à jour la BDD même si l'appel n'est plus en RAM
+    const msg = await Message.findOne({ "callDetails.callId": callId });
+    if (msg) {
+      await Message.findByIdAndUpdate(msg._id, {
+        $addToSet: { "callDetails.declinedBy": userId },
+      });
     }
-
-    await Message.findByIdAndUpdate(activeCall.messageId, {
-      $addToSet: { "callDetails.declinedBy": userId },
-    });
-
-    console.log(`❌ Appel ${callId} refusé par ${userId}`);
-
     res.json({ success: true });
   } catch (error) {
-    console.error("❌ Erreur refus appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// ============================================
-// TERMINER UN APPEL
-// ============================================
 exports.endCall = async (req, res) => {
   try {
     const { callId } = req.params;
-    const { reason } = req.body; // 'ended', 'no_answer', 'busy'
+    const { reason } = req.body;
 
     const activeCall = activeCallsMap.get(callId);
-    if (!activeCall) {
-      return res.status(404).json({ error: "Appel introuvable" });
-    }
+    // Si pas en RAM, on cherche en BDD pour clore proprement
+    const message = await Message.findOne({ "callDetails.callId": callId });
+
+    if (!message) return res.status(404).json({ error: "Appel introuvable" });
 
     const endedAt = new Date();
-    const startedAt = activeCall.answeredAt || activeCall.startedAt;
-    const duration = activeCall.answeredAt
+    const startedAt =
+      activeCall?.answeredAt ||
+      activeCall?.startedAt ||
+      message.callDetails.startedAt;
+    const duration = activeCall?.answeredAt
       ? Math.round((endedAt - activeCall.answeredAt) / 1000)
       : 0;
 
-    // Déterminer le statut final
     let finalStatus = reason || "ended";
-    if (!activeCall.answeredAt && activeCall.status === "initiated") {
+    if (!activeCall?.answeredAt && message.callDetails.status === "initiated") {
       finalStatus = "missed";
     }
 
-    // Calculer les participants qui ont manqué
-    const message = await Message.findById(activeCall.messageId);
+    // Participants manqués
     const allParticipants = message.callDetails.participants.map((p) =>
-      p.userId.toString()
+      p.userId.toString(),
     );
     const answeredUsers = (message.callDetails.answeredBy || []).map((id) =>
-      id.toString()
+      id.toString(),
     );
     const missedUsers = allParticipants.filter(
-      (id) => !answeredUsers.includes(id)
+      (id) => !answeredUsers.includes(id),
     );
 
-    // Mettre à jour le message
-    await Message.findByIdAndUpdate(activeCall.messageId, {
+    await Message.findByIdAndUpdate(message._id, {
       "callDetails.status": finalStatus,
       "callDetails.endedAt": endedAt,
       "callDetails.duration": duration,
       "callDetails.missedBy": missedUsers,
     });
 
-    // Nettoyer
     activeCallsMap.delete(callId);
-
-    console.log(
-      `🛑 Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`
-    );
-
-    res.json({
-      success: true,
-      duration,
-      status: finalStatus,
-    });
+    res.json({ success: true, duration, status: finalStatus });
   } catch (error) {
-    console.error("❌ Erreur fin appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// ============================================
-// PARTICIPANT QUITTE L'APPEL
-// ============================================
 exports.leaveCall = async (req, res) => {
   try {
     const { callId } = req.params;
-    const userId = req.user._id || req.user.id;
-
+    const userId = (req.user._id || req.user.id).toString();
     const activeCall = activeCallsMap.get(callId);
-    if (!activeCall) {
-      return res.status(404).json({ error: "Appel introuvable" });
+
+    if (activeCall && activeCall.participants.has(userId)) {
+      // Logique simplifiée pour RAM
+      activeCall.participants.delete(userId);
+      if (activeCall.participants.size === 0) {
+        return this.endCall(req, res);
+      }
     }
-
-    const participant = activeCall.participants.get(userId.toString());
-    if (participant) {
-      participant.leftAt = new Date();
-      participant.duration = Math.round(
-        (participant.leftAt - participant.joinedAt) / 1000
-      );
-    }
-
-    // Si c'était le dernier participant, terminer l'appel
-    const remainingParticipants = Array.from(
-      activeCall.participants.values()
-    ).filter((p) => !p.leftAt);
-
-    if (remainingParticipants.length <= 1) {
-      // Terminer l'appel automatiquement
-      return this.endCall(req, res);
-    }
-
     res.json({ success: true });
   } catch (error) {
-    console.error("❌ Erreur quitter appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// ============================================
-// OBTENIR L'ÉTAT D'UN APPEL
-// ============================================
 exports.getCallStatus = async (req, res) => {
   try {
     const { callId } = req.params;
-
     const activeCall = activeCallsMap.get(callId);
+
     if (activeCall) {
       return res.json({
         success: true,
         active: true,
         status: activeCall.status,
         participants: Array.from(activeCall.participants.entries()).map(
-          ([id, data]) => ({
-            id,
-            ...data,
-          })
+          ([id, data]) => ({ id, ...data }),
         ),
       });
     }
 
-    // Chercher dans la base de données
-    const message = await Message.findOne({ "callDetails.callId": callId })
-      .populate("callDetails.initiator", "name profilePicture")
-      .populate("callDetails.answeredBy", "name profilePicture");
-
-    if (!message) {
-      return res.status(404).json({ error: "Appel introuvable" });
-    }
+    const message = await Message.findOne({ "callDetails.callId": callId });
+    if (!message) return res.status(404).json({ error: "Appel introuvable" });
 
     res.json({
       success: true,
@@ -274,10 +203,9 @@ exports.getCallStatus = async (req, res) => {
       callDetails: message.callDetails,
     });
   } catch (error) {
-    console.error("❌ Erreur statut appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
-// Exporter la map pour le socket handler
+// Export pour utilisation ailleurs si besoin
 exports.activeCallsMap = activeCallsMap;

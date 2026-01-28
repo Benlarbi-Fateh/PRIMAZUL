@@ -12,7 +12,11 @@ const server = http.createServer(app);
 
 // ✅ Configuration CORS
 const corsOptions = {
-  origin: ["http://localhost:3000", "http://192.168.1.7:3000", process.env.FRONTEND_URL],
+  origin: [
+    "http://localhost:3000",
+    "http://192.168.1.7:3000",
+    process.env.FRONTEND_URL,
+  ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -21,19 +25,17 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // ✅ Limites de taille
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Middleware de logs
-app.use((req, res, next) => {
-  console.log(`📨 ${req.method} ${req.url}`);
-  next();
-});
-
-// ✅ Configuration Socket.IO
+// ✅ Configuration Socket.IO (SANS Redis)
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.1.7:3000", process.env.FRONTEND_URL],
+    origin: [
+      "http://localhost:3000",
+      "http://192.168.1.7:3000",
+      process.env.FRONTEND_URL,
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   },
@@ -46,12 +48,9 @@ app.set("io", io);
 // Connexion BDD
 connectDB();
 
-// ============================================
 // 🔗 CHARGEMENT DES ROUTES
-// ============================================
 console.log("🔍 Chargement des routes...");
 
-// Chargement direct pour éviter les variables intermédiaires qui peuvent planter
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/conversations", require("./routes/conversationRoutes"));
 app.use("/api/messages", require("./routes/messageRoutes"));
@@ -72,61 +71,45 @@ app.use("/api/profile", require("./routes/profileRoutes"));
 app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
-    message: "Backend is running",
-    timestamp: new Date().toISOString()
+    message: "Backend is running (No Redis)",
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ============================================
 // 🔥 CONFIGURATION SOCKET.IO
-// ============================================
 const initSocket = require("./socket/socketHandler");
 try {
-    initSocket(io);
-    io.on("connection", (socket) => {
-        console.log(`🔌 Client connecté: ${socket.id}`);
-    });
+  initSocket(io);
+  io.on("connection", (socket) => {
+    // console.log(`🔌 Client connecté: ${socket.id}`);
+  });
 } catch (e) {
-    console.error("⚠️ Erreur initialisation Socket:", e.message);
+  console.error("⚠️ Erreur initialisation Socket:", e.message);
 }
 
-// ============================================
-// ⚙️ GESTION ERREURS & DÉMARRAGE
-// ============================================
-
+// ⚙️ GESTION ERREURS
 app.use((error, req, res, next) => {
   console.error("🚨 ERREUR SERVEUR:", error);
   res.status(500).json({ error: error.message });
 });
 
-process.on("SIGINT", () => {
-  console.log("🛑 Arrêt du serveur...");
-  io.disconnectSockets();
-  server.close(() => {
-    console.log("✅ Serveur arrêté proprement");
-    process.exit(0);
-  });
-});
-
-// ============================================
-// ⏰ CRON JOB (Avec sécurité)
-// ============================================
+// ⏰ CRON JOB
 mongoose.connection.once("open", () => {
   console.log("✅ MongoDB connecté");
-  
-  // On charge le contrôleur ici pour éviter les erreurs cycliques
   try {
-      const { checkScheduledMessages } = require("./controllers/messageController");
-      console.log("⏰ CRON Job activé");
-      setInterval(() => {
-        if (mongoose.connection.readyState === 1) {
-          checkScheduledMessages(io);
-        }
-      }, 30000);
+    const {
+      checkScheduledMessages,
+    } = require("./controllers/messageController");
+    console.log("⏰ CRON Job activé");
+    setInterval(() => {
+      if (mongoose.connection.readyState === 1) {
+        checkScheduledMessages(io);
+      }
+    }, 30000);
   } catch (e) {
-      console.log("⚠️ Impossible de charger le CRON job:", e.message);
+    console.log("⚠️ Impossible de charger le CRON job:", e.message);
   }
 });
 

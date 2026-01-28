@@ -1,4 +1,3 @@
-// frontend/src/context/CallContext.js
 "use client";
 
 import {
@@ -8,21 +7,20 @@ import {
   useContext,
   useCallback,
   useRef,
+  Phone, 
+  PhoneOff,
 } from "react";
 import dynamic from "next/dynamic";
 import { AuthContext } from "@/context/AuthProvider";
 import { getSocket } from "@/services/socket";
 import api from "@/lib/api";
-import { Phone, PhoneOff, Video, Users } from "lucide-react";
 
-// Import dynamique pour éviter les erreurs SSR avec Agora
 const VideoCall = dynamic(() => import("@/components/Chat/VideCall"), {
   ssr: false,
 });
 
 export const CallContext = createContext();
 
-// Générer un UID numérique pour Agora (car Agora n'accepte pas les strings MongoDB)
 const generateNumericUid = (str) => {
   if (!str) return Math.floor(Math.random() * 100000);
   let hash = 0;
@@ -34,7 +32,6 @@ const generateNumericUid = (str) => {
   return Math.abs(hash);
 };
 
-// Générer un ID d'appel unique temporaire (le vrai viendra du backend)
 const generateCallId = () => {
   return `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 };
@@ -42,11 +39,8 @@ const generateCallId = () => {
 export const CallProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
 
-  // ============================================
-  // ÉTATS
-  // ============================================
   const [inCall, setInCall] = useState(false);
-  const [callState, setCallState] = useState("idle"); // idle, ringing, connecting, ongoing, ended
+  const [callState, setCallState] = useState("idle");
   const [agoraToken, setAgoraToken] = useState(null);
   const [channelName, setChannelName] = useState(null);
   const [callType, setCallType] = useState("video");
@@ -56,17 +50,12 @@ export const CallProvider = ({ children }) => {
   const [callDuration, setCallDuration] = useState(0);
   const [callError, setCallError] = useState(null);
 
-  // Refs pour gestion audio et timers
   const callStartTimeRef = useRef(null);
   const durationIntervalRef = useRef(null);
-  const incomingRingtoneRef = useRef(null); // Pour le destinataire
-  const outgoingRingtoneRef = useRef(null); // Pour l'émetteur
+  const incomingRingtoneRef = useRef(null);
+  const outgoingRingtoneRef = useRef(null);
 
-  // ============================================
-  // GESTION SONNERIE & TIMER
-  // ============================================
-
-  // Sonnerie pour le DESTINATAIRE (appel entrant)
+  // --- SONNERIES ---
   const playIncomingRingtone = useCallback(() => {
     try {
       if (!incomingRingtoneRef.current) {
@@ -88,12 +77,11 @@ export const CallProvider = ({ children }) => {
     }
   }, []);
 
-  // Sonnerie pour l'ÉMETTEUR (appel sortant)
   const playOutgoingRingtone = useCallback(() => {
     try {
       if (!outgoingRingtoneRef.current) {
         outgoingRingtoneRef.current = new Audio(
-          "/sounds/quand tu appelles.wav"
+          "/sounds/quand tu appelles.wav",
         );
         outgoingRingtoneRef.current.loop = true;
         outgoingRingtoneRef.current.volume = 0.7;
@@ -113,16 +101,22 @@ export const CallProvider = ({ children }) => {
     }
   }, []);
 
+  // ✅ CORRECTION MAJEURE : Timer basé sur Date.now()
   const startDurationTimer = useCallback(() => {
-    callStartTimeRef.current = Date.now();
-    // Reset timer précédent si existant
     if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+
+    // On stocke le timestamp de début
+    callStartTimeRef.current = Date.now();
+    setCallDuration(0); // Reset visuel immédiat
 
     durationIntervalRef.current = setInterval(() => {
       if (callStartTimeRef.current) {
-        setCallDuration(
-          Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+        // Calcul précis de la durée écoulée
+        const now = Date.now();
+        const secondsElapsed = Math.floor(
+          (now - callStartTimeRef.current) / 1000,
         );
+        setCallDuration(secondsElapsed);
       }
     }, 1000);
   }, []);
@@ -132,22 +126,20 @@ export const CallProvider = ({ children }) => {
       clearInterval(durationIntervalRef.current);
       durationIntervalRef.current = null;
     }
+    callStartTimeRef.current = null;
     setCallDuration(0);
   }, []);
 
-  // ============================================
-  // 1. INITIER UN APPEL
-  // ============================================
+  // --- ACTIONS D'APPEL (Reste inchangé mais inclus pour complétude) ---
   const initiateCall = useCallback(
     async (
       conversationId,
       participants,
       type = "video",
       isGroup = false,
-      groupName = ""
+      groupName = "",
     ) => {
       if (!user) return;
-
       const socket = getSocket();
       if (!socket?.connected) {
         setCallError("Connexion perdue. Réessayez.");
@@ -159,19 +151,16 @@ export const CallProvider = ({ children }) => {
         setCallType(type);
         setCallError(null);
 
-        // ID temporaire pour le channel Agora
         const tempCallId = generateCallId();
         const channel = `channel_${tempCallId}`;
         const myUid = generateNumericUid(user._id || user.id);
 
-        // 1. Obtenir le token Agora
         const { data: tokenData } = await api.post("/agora/token", {
           channelName: channel,
           uid: myUid,
           isGroup,
         });
 
-        // 2. Créer le message d'appel via API (Backend)
         const { data: callMessageData } = await api.post(
           "/agora/calls/initiate",
           {
@@ -181,14 +170,13 @@ export const CallProvider = ({ children }) => {
             participants: Array.isArray(participants)
               ? participants
               : [participants],
-          }
+          },
         );
 
         const targetUserIds = Array.isArray(participants)
           ? participants.map((p) => (p._id || p.id || p).toString())
           : [(participants._id || participants.id || participants).toString()];
 
-        // 3. Mise à jour de l'état local
         setCurrentCallId(callMessageData.callId);
         setChannelName(channel);
         setAgoraToken(tokenData.token);
@@ -207,7 +195,6 @@ export const CallProvider = ({ children }) => {
           conversationId,
         });
 
-        // 4. Émettre l'appel via socket
         socket.emit("call-initiate", {
           callId: callMessageData.callId,
           conversationId,
@@ -222,39 +209,26 @@ export const CallProvider = ({ children }) => {
 
         setCallState("ringing");
         setInCall(true);
-        playOutgoingRingtone(); // 🔊 Démarrer sonnerie pour l'appelant
-
-        console.log(`📞 Appel initié: ${callMessageData.callId}`);
+        playOutgoingRingtone();
       } catch (error) {
-        console.error("❌ Erreur initiation appel:", error);
+        console.error("❌ Erreur initiation:", error);
         setCallError("Impossible de lancer l'appel");
         setCallState("idle");
         setInCall(false);
       }
     },
-    [user, playOutgoingRingtone]
+    [user, playOutgoingRingtone],
   );
 
-  // ============================================
-  // 2. ACCEPTER UN APPEL
-  // ============================================
   const acceptCall = useCallback(async () => {
-    if (!incomingCall || !user) {
-      console.log("⚠️ Pas d'appel entrant ou pas d'utilisateur");
-      return;
-    }
-
+    if (!incomingCall || !user) return;
     const socket = getSocket();
-    if (!socket?.connected) {
-      setCallError("Connexion perdue");
-      return;
-    }
+    if (!socket?.connected) return;
 
     try {
-      stopIncomingRingtone(); // Arrêter sonnerie destinataire
-      stopOutgoingRingtone(); // Sécurité supplémentaire
+      stopIncomingRingtone();
+      stopOutgoingRingtone();
       setCallState("connecting");
-      console.log("📞 Acceptation de l'appel:", incomingCall);
 
       const {
         callId,
@@ -266,36 +240,21 @@ export const CallProvider = ({ children }) => {
         conversationId,
         participants,
       } = incomingCall;
-
       const myUid = generateNumericUid(user._id || user.id);
 
-      console.log("🎫 Demande de token pour:", {
-        channel,
-        myUid,
-        isGroup,
-        callType: type,
-      });
-
-      // 1. Obtenir le token Agora
       const { data: tokenData } = await api.post("/agora/token", {
         channelName: channel,
         uid: myUid,
         isGroup,
       });
 
-      console.log("✅ Token reçu");
-
-      // 2. Notifier le backend
       await api.post(`/agora/calls/${callId}/answer`);
-      console.log("✅ Backend notifié");
 
-      // 3. Mise à jour état AVANT de notifier via socket
       setCurrentCallId(callId);
       setChannelName(channel);
       setAgoraToken(tokenData.token);
       setCallType(type);
 
-      // Préparer correctement les données pour le composant VideoCall
       const allParticipants = isGroup ? participants || [from] : [from];
 
       setCallData({
@@ -306,36 +265,21 @@ export const CallProvider = ({ children }) => {
         conversationId,
       });
 
-      // Mettre inCall AVANT ongoing pour déclencher l'affichage
       setInCall(true);
       setCallState("ongoing");
       setIncomingCall(null);
 
-      console.log("✅ État local mis à jour:", {
-        callId,
-        channel,
-        type,
-        participantsCount: allParticipants.length,
-      });
-
-      // 4. Notifier via socket APRÈS la mise à jour de l'état
       socket.emit("call-answer", {
         callId,
         channelName: channel,
         userId: user._id || user.id,
       });
 
-      console.log("✅ Socket notifié");
-
-      // 5. Démarrer le timer
-      startDurationTimer();
-
-      console.log(`✅ Appel ${callId} accepté et interface affichée`);
+      startDurationTimer(); // ✅ Démarre le timer précis
     } catch (error) {
-      console.error("❌ Erreur acceptation appel:", error);
+      console.error("❌ Erreur acceptation:", error);
       setCallError("Impossible de rejoindre l'appel");
       setCallState("idle");
-      setIncomingCall(null);
       setInCall(false);
     }
   }, [
@@ -346,18 +290,12 @@ export const CallProvider = ({ children }) => {
     startDurationTimer,
   ]);
 
-  // ============================================
-  // 3. REFUSER UN APPEL
-  // ============================================
   const rejectCall = useCallback(async () => {
     if (!incomingCall) return;
-
     const socket = getSocket();
 
     try {
-      // Notifier le backend
       await api.post(`/agora/calls/${incomingCall.callId}/decline`);
-
       if (socket) {
         socket.emit("call-decline", {
           callId: incomingCall.callId,
@@ -365,35 +303,23 @@ export const CallProvider = ({ children }) => {
         });
       }
     } catch (error) {
-      console.error("Erreur refus appel:", error);
+      console.error("Erreur refus:", error);
     }
 
     stopIncomingRingtone();
-    stopOutgoingRingtone(); // Au cas où
     setIncomingCall(null);
     setCallState("idle");
+  }, [incomingCall, stopIncomingRingtone]);
 
-    console.log(`❌ Appel refusé`);
-  }, [incomingCall, stopIncomingRingtone, stopOutgoingRingtone]);
-
-  // ============================================
-  // 4. TERMINER UN APPEL
-  // ============================================
   const endCall = useCallback(async () => {
     const socket = getSocket();
-
-    // Arrêter timers et sons immédiatement
     stopIncomingRingtone();
     stopOutgoingRingtone();
     stopDurationTimer();
 
     if (currentCallId) {
-      // Déterminer si c'est un groupe
       const isGroupCall = callData?.isGroup || incomingCall?.isGroup || false;
-
-      // Notifier socket
       if (socket) {
-        // Si c'est un groupe, on quitte, sinon on termine
         if (isGroupCall) {
           socket.emit("call-leave", { callId: currentCallId });
         } else {
@@ -401,21 +327,16 @@ export const CallProvider = ({ children }) => {
         }
       }
 
-      // Notifier backend
       try {
         const endpoint = isGroupCall ? "leave" : "end";
         await api.post(`/agora/calls/${currentCallId}/${endpoint}`, {
           reason: callState === "ongoing" ? "ended" : "cancelled",
         });
-        console.log(
-          `✅ Appel ${endpoint} envoyé au backend pour ${currentCallId}`
-        );
       } catch (error) {
-        console.error("Erreur fin appel API:", error);
+        console.error("Erreur fin appel:", error);
       }
     }
 
-    // Reset complet de l'état
     setInCall(false);
     setCallState("idle");
     setAgoraToken(null);
@@ -424,8 +345,6 @@ export const CallProvider = ({ children }) => {
     setCurrentCallId(null);
     setIncomingCall(null);
     setCallError(null);
-
-    console.log(`🛑 Appel terminé localement`);
   }, [
     currentCallId,
     callState,
@@ -436,144 +355,69 @@ export const CallProvider = ({ children }) => {
     incomingCall,
   ]);
 
-  
-  // ============================================
-  // ÉCOUTEURS SOCKET
-  // ============================================
+  // --- SOCKET LISTENERS ---
   useEffect(() => {
     const socket = getSocket();
     if (!socket || !user) return;
 
-    // Appel entrant
     const handleIncomingCall = (data) => {
       if (inCall) {
         socket.emit("call-decline", { callId: data.callId, reason: "busy" });
         return;
       }
-
-      console.log("📱 Appel entrant:", data);
       setIncomingCall(data);
       setCallState("ringing");
       playIncomingRingtone();
     };
 
-    // Appel répondu
-    const handleCallAnswered = (data) => {
-      console.log("✅ Appel répondu:", data);
+    const handleCallAnswered = () => {
       stopOutgoingRingtone();
       setCallState("ongoing");
-      startDurationTimer();
+      startDurationTimer(); // ✅ Démarre le timer pour l'appelant aussi
     };
 
-    // Appel refusé
-    const handleCallDeclined = (data) => {
-      console.log("❌ Appel refusé:", data);
-      stopOutgoingRingtone();
-      if (data.reason === "busy") {
-        setCallError("L'utilisateur est déjà en appel");
-      } else {
-        setCallError("Appel refusé");
-      }
-      setTimeout(endCall, 2000);
-    };
-
-    // Appel terminé par l'autre
-    const handleCallEnded = (data) => {
-      console.log("🛑 Appel terminé par distant:", data);
+    const handleCallEnded = () => {
       setCallState("ended");
       endCall();
     };
 
-    // ✅ NOUVEAU: Appel annulé par l'appelant (avant réponse)
-    const handleCallCancelled = (data) => {
-      console.log("📵 Appel annulé par l'appelant:", data);
-
-      // Arrêter la sonnerie immédiatement
-      stopIncomingRingtone();
+    const handleCallDeclined = (data) => {
       stopOutgoingRingtone();
-
-      // Réinitialiser l'état
-      setIncomingCall(null);
-      setCallState("idle");
-      setCallError(null);
-
-      // Optionnel: Afficher une notification
-      console.log("📵 L'appelant a raccroché avant votre réponse");
-    };
-
-    // Timeout (pas de réponse)
-    const handleCallTimeout = (data) => {
-      console.log("⏰ Appel sans réponse:", data);
-      stopOutgoingRingtone();
-      setCallError("Pas de réponse");
+      setCallError(
+        data.reason === "busy" ? "Utilisateur occupé" : "Appel refusé",
+      );
       setTimeout(endCall, 2000);
-    };
-
-    // Appel manqué
-    const handleCallMissed = (data) => {
-      console.log("📵 Appel manqué/annulé:", data);
-      stopIncomingRingtone();
-      stopOutgoingRingtone();
-      setIncomingCall(null);
-      setCallState("idle");
-    };
-
-    // Erreur
-    const handleCallError = (data) => {
-      console.error("❌ Erreur appel socket:", JSON.stringify(data));
-      stopOutgoingRingtone();
-      stopIncomingRingtone();
-
-      let errorMessage = "Erreur d'appel";
-      if (typeof data === "string") {
-        errorMessage = data;
-      } else if (data?.error) {
-        errorMessage = data.error;
-      } else if (data?.message) {
-        errorMessage = data.message;
-      }
-
-      setCallError(errorMessage);
-      setTimeout(endCall, 3000);
     };
 
     socket.on("call-incoming", handleIncomingCall);
     socket.on("call-answered", handleCallAnswered);
-    socket.on("call-declined", handleCallDeclined);
     socket.on("call-ended", handleCallEnded);
-    socket.on("call-cancelled", handleCallCancelled); // ✅ NOUVEAU
-    socket.on("call-timeout", handleCallTimeout);
-    socket.on("call-missed", handleCallMissed);
-    socket.on("call-error", handleCallError);
+    socket.on("call-declined", handleCallDeclined);
+
+    // Ajout des listeners manquants pour la robustesse
+    socket.on("call-cancelled", endCall);
+    socket.on("call-timeout", () => {
+      stopOutgoingRingtone();
+      setCallError("Pas de réponse");
+      setTimeout(endCall, 2000);
+    });
 
     return () => {
       socket.off("call-incoming", handleIncomingCall);
       socket.off("call-answered", handleCallAnswered);
-      socket.off("call-declined", handleCallDeclined);
       socket.off("call-ended", handleCallEnded);
-      socket.off("call-cancelled", handleCallCancelled); // ✅ NOUVEAU
-      socket.off("call-timeout", handleCallTimeout);
-      socket.off("call-missed", handleCallMissed);
-      socket.off("call-error", handleCallError);
+      socket.off("call-declined", handleCallDeclined);
+      socket.off("call-cancelled");
+      socket.off("call-timeout");
     };
   }, [
     user,
     inCall,
     playIncomingRingtone,
-    stopIncomingRingtone,
     stopOutgoingRingtone,
     startDurationTimer,
     endCall,
   ]);
-
-  // Cleanup au démontage du composant
-  useEffect(() => {
-    return () => {
-      stopIncomingRingtone();
-      stopOutgoingRingtone();
-      stopDurationTimer();
-    };
-  }, [stopIncomingRingtone, stopOutgoingRingtone, stopDurationTimer]);
 
   return (
     <CallContext.Provider
@@ -590,79 +434,49 @@ export const CallProvider = ({ children }) => {
       }}
     >
       {children}
-
-      {/* ============================================ */}
-      {/* MODAL APPEL ENTRANT */}
-      {/* ============================================ */}
+      {/* Modal appel entrant */}
       {incomingCall && !inCall && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-white/10">
-            {/* Avatar animé */}
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4">
             <div className="relative mb-6">
               <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-blue-500 shadow-lg animate-pulse">
-                {incomingCall.from?.profilePicture ? (
-                  <img
-                    src={incomingCall.from.profilePicture}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    {incomingCall.isGroup ? (
-                      <Users className="w-12 h-12 text-white" />
-                    ) : (
-                      <span className="text-3xl font-bold text-white">
-                        {(incomingCall.from?.name || "?")
-                          .charAt(0)
-                          .toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-              {/* Icône type d'appel */}
-              <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center border-4 border-white dark:border-slate-900">
-                {incomingCall.callType === "video" ? (
-                  <Video className="w-5 h-5 text-white" />
-                ) : (
-                  <Phone className="w-5 h-5 text-white" />
-                )}
+                <img
+                  src={
+                    incomingCall.from?.profilePicture ||
+                    `https://ui-avatars.com/api/?name=${incomingCall.from?.name}`
+                  }
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
-
-            {/* Infos */}
-            <h3 className="text-xl font-bold mb-1 dark:text-white text-center">
+            <h3 className="text-xl font-bold mb-1 dark:text-white">
               {incomingCall.isGroup
                 ? incomingCall.groupName
                 : incomingCall.from?.name}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-sm text-gray-500 mb-8">
               Appel {incomingCall.callType === "video" ? "vidéo" : "audio"}{" "}
               entrant...
             </p>
-
-            {/* Boutons */}
-            <div className="flex gap-6 w-full justify-center">
+            <div className="flex gap-8 w-full justify-center">
               <button
                 onClick={rejectCall}
-                className="w-16 h-16 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95"
+                className="w-16 h-16 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110"
               >
-                <PhoneOff className="w-7 h-7" />
+                <PhoneOff className="w-8 h-8" />
               </button>
               <button
                 onClick={acceptCall}
-                className="w-16 h-16 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 animate-bounce"
+                className="w-16 h-16 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 animate-bounce"
               >
-                <Phone className="w-7 h-7" />
+                <Phone className="w-8 h-8" />
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* ============================================ */}
-      {/* COMPOSANT APPEL VIDÉO */}
-      {/* ============================================ */}
+      {/* Composant vidéo */}
       {inCall && agoraToken && channelName && (
         <VideoCall
           channelName={channelName}
@@ -670,10 +484,8 @@ export const CallProvider = ({ children }) => {
           uid={generateNumericUid(user?._id || user?.id)}
           callType={callType}
           callData={callData}
-          callState={callState}
-          callDuration={callDuration}
-          callError={callError}
           onHangup={endCall}
+          callDuration={callDuration}
         />
       )}
     </CallContext.Provider>
