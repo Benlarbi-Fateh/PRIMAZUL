@@ -455,6 +455,18 @@ exports.updateGroupImage = async (req, res) => {
         error: "Seuls les admins peuvent modifier l'image",
       });
     }
+   
+    // 1. Récupérer le chemin brut
+    let imagePath = file.path;
+    // 2. Remplacer les antislashs Windows (\) par des slashs URL (/)
+    imagePath = imagePath.replace(/\\/g, "/");
+    // 3. (Optionnel mais recommandé) Nettoyer le préfixe "public/" si présent
+    // Cela permet d'avoir une URL propre : "uploads/image.jpg" au lieu de "public/uploads/image.jpg"
+    if (imagePath.startsWith("public/")) {
+        imagePath = imagePath.replace("public/", "");
+    }
+    // 4. Enregistrer le chemin corrigé
+    group.groupImage = imagePath;
 
     group.groupImage = file.path;
     await group.save();

@@ -933,7 +933,7 @@ export default function ChatHeader({
 
   // 1. IMPORTANT : Mets ici l'adresse exacte de ton backend (ex: http://localhost:5000)
   // Si tu ne mets pas ça, l'image ne s'affichera jamais si elle vient de ton dossier 'uploads'
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
   // 2. Fonction qui force l'URL complète
   const getFullUrl = (path) => {

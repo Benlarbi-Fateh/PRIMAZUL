@@ -92,6 +92,19 @@ export default function Sidebar({ activeConversationId }) {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const isAllMode = conversationFilter === "all" && unreadOnly === false;
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+
+// ✅ 2. FONCTION UTILITAIRE POUR CORRIGER LES URLS
+  const getFullUrl = (path) => {
+    if (!path || path.trim() === "") return null;
+    // Remplace les antislashs Windows par des slashs
+    let cleanPath = path.replace(/\\/g, "/");
+    // Si c'est déjà une URL complète (ex: https://google...), on ne touche pas
+    if (cleanPath.startsWith("http")) return cleanPath;
+    // Sinon on colle l'URL du serveur devant
+    return `${API_URL}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+  };
+
   const usersToDisplay = useMemo(() => {
     if (activeTab !== "contacts" || !searchTerm.trim()) {
       return [];
@@ -715,22 +728,26 @@ useEffect(() => {
     return contact?.name || "Utilisateur";
   };
 
-  const getDisplayImage = (conv) => {
+    const getDisplayImage = (conv) => {
     if (conv.isGroup) {
+      // ✅ On utilise getFullUrl pour l'image de groupe
+      const fullUrl = getFullUrl(conv.groupImage);
+      
       return (
-        conv.groupImage ||
+        fullUrl ||
         `https://ui-avatars.com/api/?name=${encodeURIComponent(
           conv.groupName || "Groupe"
         )}&background=6366f1&color=fff`
       );
     }
+    
     const contact = getOtherParticipant(conv);
 
-    const hasValidProfilePicture =
-      contact?.profilePicture && contact.profilePicture.trim() !== "";
+    // ✅ On utilise aussi getFullUrl pour les photos de profil
+    const profileUrl = getFullUrl(contact?.profilePicture);
 
-    return hasValidProfilePicture
-      ? contact.profilePicture
+    return profileUrl
+      ? profileUrl
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(
           contact?.name || "User"
         )}&background=3b82f6&color=fff&bold=true`;

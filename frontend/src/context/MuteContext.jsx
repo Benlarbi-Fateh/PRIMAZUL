@@ -11,6 +11,7 @@ export function MuteProvider({ children }) {
   const { user } = useContext(AuthContext); 
   
   const [mutedSet, setMutedSet] = useState(() => new Set());
+    const [isLoaded, setIsLoaded] = useState(false);
 
   const refreshMuted = useCallback(async () => {
     // 🛑 PROTECTION : Si pas d'utilisateur, on ne fait rien !
@@ -27,6 +28,9 @@ export function MuteProvider({ children }) {
     } catch (e) {
       console.error("❌ refreshMuted error:", e);
       // Ici, on capture l'erreur silencieusement pour ne pas faire planter l'appli
+    }
+    finally {
+      setIsLoaded(true); // 👈 AJOUT IMPORTANT (Marque la fin du chargement)
     }
   }, [user]); // 👈 On ajoute user comme dépendance
 
@@ -50,18 +54,18 @@ export function MuteProvider({ children }) {
     [mutedSet]
   );
 
-  // 2. Le useEffect ne se lance que si l'utilisateur change ou est présent
-  useEffect(() => {
+   useEffect(() => {
     if (user) {
         refreshMuted();
+    } else {
+        setIsLoaded(false); // 👈 AJOUT (Sécurité logout)
     }
   }, [refreshMuted, user]); 
 
-  const value = useMemo(
-    () => ({ mutedSet, refreshMuted, setConversationMuted, isMuted }),
-    [mutedSet, refreshMuted, setConversationMuted, isMuted]
+   const value = useMemo(
+    () => ({ mutedSet, refreshMuted, setConversationMuted, isMuted, isLoaded }), // 👈 AJOUTE isLoaded ICI
+    [mutedSet, refreshMuted, setConversationMuted, isMuted, isLoaded]            // 👈 ET ICI
   );
-
   return <MuteContext.Provider value={value}>{children}</MuteContext.Provider>;
 }
 

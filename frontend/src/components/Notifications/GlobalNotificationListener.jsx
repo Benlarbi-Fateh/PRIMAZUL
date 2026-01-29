@@ -1,7 +1,7 @@
 // src/components/Notifications/GlobalNotificationListener.jsx
 "use client";
 
-import { useEffect, useContext, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useContext, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { AuthContext } from "@/context/AuthProvider";
 import { useNotifications } from "@/context/NotificationContext";
@@ -15,10 +15,19 @@ import { useMute } from "@/context/MuteContext";
 export default function GlobalNotificationListener() {
   const { user } = useContext(AuthContext);
   const { showNotification } = useNotifications();
-  const { isMuted } = useMute();
+  const { mutedSet, isLoaded } = useMute(); 
   const pathname = usePathname();
   const listenerAddedRef = useRef(false);
   const retryIntervalRef = useRef(null);
+   const mutedRef = useRef(mutedSet);
+   const isLoadedRef = useRef(isLoaded);
+
+
+   // 3️⃣ AJOUT ICI : Mettre à jour la référence quand la liste change
+  useLayoutEffect(() => {
+  mutedRef.current = mutedSet;
+  isLoadedRef.current = isLoaded; // 👈 Ligne à ajouter
+}, [mutedSet, isLoaded]); 
 
   // Extraire l'ID de conversation actuelle depuis l'URL
   const getCurrentConversationId = useCallback(() => {
@@ -29,33 +38,42 @@ export default function GlobalNotificationListener() {
   }, [pathname]);
 
   // Handler pour les nouveaux messages
+    // Handler pour les nouveaux messages
   const handleNewMessage = useCallback(
     (message) => {
       if (!user || !message) return;
 
+      // 🛑 PROTECTION CRITIQUE
+      if (!isLoadedRef.current) {
+        console.log("⏳ MuteContext non chargé, notification ignorée par sécurité.");
+        return;
+      }
+
       const currentUserId = user._id || user.id;
-      const senderId =
-        message.sender?._id || message.sender?.id || message.sender;
+      const senderId = message.sender?._id || message.sender?.id || message.sender;
 
       // Ignorer mes propres messages
       if (senderId === currentUserId) {
         return;
       }
+      
+      const rawConvId = typeof message.conversationId === "object"
+        ? message.conversationId._id
+        : message.conversationId;
 
-      // Vérifier si on est sur cette conversation
-      const currentConvId = getCurrentConversationId();
-      const messageConvId =
-        typeof message.conversationId === "object"
-          ? message.conversationId._id?.toString()
-          : message.conversationId?.toString();
+      const messageConvId = rawConvId?.toString();
 
-            // ✅ AJOUT ICI (avant le check "on est sur la conversation")
-    if (messageConvId && isMuted(messageConvId)) {
-      console.log("🔕 Conversation muted, notification bloquée:", messageConvId);
-      return;
-    }
+      // ✅ Mute check
+      if (messageConvId && mutedRef.current?.has(messageConvId)) {
+        console.log("🔕 Notification bloquée (Conversation muette):", messageConvId);
+        return;
+      }
+
+      // 🔥 CORRECTION ICI : On définit la variable manquante
+      const currentConvId = getCurrentConversationId(); 
 
       // Si on est sur la conversation, pas de notification (ChatPage gère)
+      // Maintenant currentConvId existe, donc plus d'erreur !
       if (currentConvId && currentConvId === messageConvId) {
         console.log("📍 Sur la conversation, pas de notification globale");
         return;
@@ -97,7 +115,7 @@ export default function GlobalNotificationListener() {
         tag: messageConvId,
       });
     },
-    [user, getCurrentConversationId, showNotification, isMuted] 
+    [user, getCurrentConversationId, showNotification] 
   );
 
   useEffect(() => {
