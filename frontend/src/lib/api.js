@@ -142,6 +142,8 @@ export const cancelInvitation = (invitationId) =>
 export const getMessages = (conversationId) =>
   api.get(`/messages/${conversationId}`);
 export const sendMessage = (data) => api.post("/messages", data);
+export const deleteMessage = (messageId) => api.delete(`/messages/${messageId}`); // Supprimer pour tous
+export const deleteMessageForMe = (messageId) => api.delete(`/messages/${messageId}/for-me`); // ✅ Supprimer 
 export const markMessagesAsDelivered = (messageIds) =>
   api.post("/messages/mark-delivered", { messageIds });
 export const markConversationAsRead = (conversationId) =>

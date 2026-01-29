@@ -11,6 +11,7 @@ const {
   markAsRead,
   getUnreadCount,
   deleteMessage,
+  deleteMessageForMe,
   editMessage,
   translateMessage,
   // 🆕 AJOUT DES FONCTIONS MANQUANTES
@@ -40,6 +41,7 @@ router.get('/unread/count', authMiddleware, getUnreadCount);
 
 // Routes pour modification/suppression
 router.delete('/:messageId', authMiddleware, deleteMessage);
+router.delete('/:messageId/for-me', authMiddleware, deleteMessageForMe);
 router.put('/:messageId', authMiddleware, editMessage);
 router.post('/:messageId/translate', authMiddleware, translateMessage);
 

@@ -91,6 +91,8 @@ const messageSchema = new mongoose.Schema({
       default: false,
     },
   },
+
+  sentAt: { type: Date },
   
 readBy: [{
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -100,7 +102,7 @@ readBy: [{
   // Réactions
   reactions: [reactionSchema],
 
-  deletedBy: [{
+  deletedFor: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }]
@@ -110,7 +112,7 @@ readBy: [{
 // Index pour optimiser les requêtes
 messageSchema.index({ 'reactions.userId': 1 });
 messageSchema.index({ conversationId: 1, createdAt: -1 });
-messageSchema.index({ deletedBy: 1 });
+messageSchema.index({ deletedFor: 1 });
 messageSchema.index({ 'storyReply.statusId': 1 }); // utile pour updateMany
 
 module.exports = mongoose.model('Message', messageSchema);

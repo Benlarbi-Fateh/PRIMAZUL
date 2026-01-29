@@ -11,6 +11,7 @@ import {
   markMessagesAsDelivered,
   markConversationAsRead,
   getMessageReadBy,
+  deleteMessageForMe,
 } from "@/lib/api";
 import api from "@/lib/api";
 import {
@@ -760,11 +761,13 @@ export default function ChatPage() {
     console.log("🗑️ ChatPage: Suppression pour moi demandée pour:", messageId);
 
     try {
-      const response = await api.delete(`/messages/${messageId}/for-me`);
+      // ✅ ON UTILISE LA FONCTION IMPORTÉE DE LIB/API
+      const response = await deleteMessageForMe(messageId);
       console.log("📦 Réponse suppression pour moi:", response.data);
 
       if (response.data.success) {
         console.log("✅ Message supprimé pour moi");
+        // Mise à jour immédiate de l'interface (retire le message de la liste)
         setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
       }
     } catch (error) {
