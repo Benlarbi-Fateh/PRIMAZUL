@@ -73,6 +73,8 @@ export default function Sidebar({ activeConversationId }) {
   const [conversations, setConversations] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
+  const isFirstLoadRef = useRef(true); 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
   const [menuOpen, setMenuOpen] = useState(null);
@@ -179,21 +181,94 @@ useEffect(() => {
     }
   };
 
-  const fetchConversations = useCallback(async () => {
+    const fetchConversations = useCallback(async () => {
     try {
+      // 🚀 CORRECTION : On met le loading SEULEMENT si c'est le tout premier lancement
+      // Si on rafraîchit la liste après un message, isFirstLoadRef sera false, donc pas de spinner !
+      if (isFirstLoadRef.current) {
+          setConversationsLoading(true);
+      }
+      
       const response = await getConversations();
       setConversations(response.data.conversations || []);
-      setLoading(false);
     } catch (error) {
       console.error('Erreur lors du chargement des conversations:', error);
+    } finally {
+      // On note que le premier chargement est terminé
+      isFirstLoadRef.current = false;
+      
+      // On retire les loadings
+      setConversationsLoading(false);
       setLoading(false);
     }
   }, []);
 
+// 🆕 Fonction pour charger les statuts une fois
+  const loadAllStatuses = useCallback(async () => {
+  try {
+    const token = localStorage.getItem("token");
+    console.log('🔍 Chargement des statuts pour sidebar...');
+   
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+   
+    if (response.ok) {
+      const data = await response.json();
+      console.log('📦 Données statuts complètes:', data);
+     
+      const statusMap = new Map();
+      const unviewedMap = new Map();
+     
+      if (data?.friendsStatuses && Array.isArray(data.friendsStatuses)) {
+        console.log(`👥 ${data.friendsStatuses.length} amis avec statuts`);
+       
+        data.friendsStatuses.forEach((group, index) => {
+          if (group.user?._id) {
+            const userId = group.user._id;
+            statusMap.set(userId, true);
+           
+            // ✅ Debug détaillé
+            console.log(`[${index}] ${group.user.name}: hasUnviewed = ${group.hasUnviewed} (${typeof group.hasUnviewed})`);
+           
+            // Assurez-vous que c'est un boolean
+            const isUnviewed = Boolean(group.hasUnviewed);
+            unviewedMap.set(userId, isUnviewed);
+          }
+        });
+      } else {
+        console.log('⚠️ Aucun friendsStatuses reçu');
+      }
+     
+      console.log(`✅ Cache: ${statusMap.size} utilisateurs`);
+      console.log('📊 Vue d\'ensemble:', Array.from(unviewedMap.entries()));
+     
+      setStatusCache(statusMap);
+      setStatusViewedCache(unviewedMap);
+    } else {
+      console.error('❌ Erreur API:', await response.text());
+    }
+  } catch (error) {
+    console.error('❌ Erreur chargement:', error);
+  }
+}, [currentUserId]);
+ 
+
+      // 👇 LE USEEFFECT DOIT ÊTRE APRÈS LA DÉFINITION DE loadAllStatuses
   useEffect(() => {
     if (user) {
-      fetchConversations();
-      fetchInvitations();
+      const loadData = async () => {
+        // 1. On charge les conversations (c'est le plus important pour l'utilisateur)
+        await fetchConversations();
+        
+        // 2. On charge le reste en arrière-plan sans bloquer l'écran
+        Promise.all([
+          fetchInvitations(),
+          loadAllStatuses() 
+        ]).catch(err => console.error("Erreur background loading:", err));
+      };
+  
+      loadData();
       
       const interval = setInterval(() => {
         fetchInvitations();
@@ -201,7 +276,7 @@ useEffect(() => {
       
       return () => clearInterval(interval);
     }
-  }, [user, fetchConversations]);
+  }, [user, fetchConversations, loadAllStatuses]);
 
 useEffect(() => {
   const tab = searchParams.get("tab");
@@ -765,59 +840,7 @@ useEffect(() => {
   };
 
   
-  
-  
-  // 🆕 Fonction pour charger les statuts une fois
-  const loadAllStatuses = useCallback(async () => {
-  try {
-    const token = localStorage.getItem("token");
-    console.log('🔍 Chargement des statuts pour sidebar...');
-    
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('📦 Données statuts complètes:', data);
-      
-      const statusMap = new Map();
-      const unviewedMap = new Map();
-      
-      if (data?.friendsStatuses && Array.isArray(data.friendsStatuses)) {
-        console.log(`👥 ${data.friendsStatuses.length} amis avec statuts`);
-        
-        data.friendsStatuses.forEach((group, index) => {
-          if (group.user?._id) {
-            const userId = group.user._id;
-            statusMap.set(userId, true);
-            
-            // ✅ Debug détaillé
-            console.log(`[${index}] ${group.user.name}: hasUnviewed = ${group.hasUnviewed} (${typeof group.hasUnviewed})`);
-            
-            // Assurez-vous que c'est un boolean
-            const isUnviewed = Boolean(group.hasUnviewed);
-            unviewedMap.set(userId, isUnviewed);
-          }
-        });
-      } else {
-        console.log('⚠️ Aucun friendsStatuses reçu');
-      }
-      
-      console.log(`✅ Cache: ${statusMap.size} utilisateurs`);
-      console.log('📊 Vue d\'ensemble:', Array.from(unviewedMap.entries()));
-      
-      setStatusCache(statusMap);
-      setStatusViewedCache(unviewedMap);
-    } else {
-      console.error('❌ Erreur API:', await response.text());
-    }
-  } catch (error) {
-    console.error('❌ Erreur chargement:', error);
-  }
-}, [currentUserId]);
 
-// 🆕 Vérifier si un contact a des statuts NON VUS
 // 🆕 Vérifier si un contact a des statuts NON VUS
 const checkContactHasUnviewedStatus = (contactId) => {
   if (!contactId || !statusCache.has(contactId)) return false;
@@ -1098,7 +1121,7 @@ const visibleConversations = useMemo(
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-scrollbar]:hidden">
-        {loading && activeTab !== "invitations" ? (
+        {(activeTab === "chats" ? conversationsLoading : loading) && activeTab !== "invitations" ? (
           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
             <div className="relative">
               <div className={`animate-spin rounded-full h-16 w-16 border-4 ${isDark ? 'border-blue-800/50 border-t-cyan-400' : 'border-blue-100 border-t-blue-600'}`}></div>
@@ -1464,6 +1487,7 @@ const visibleConversations = useMemo(
       <img
         src={displayImage}
         alt={displayName}
+        loading="lazy" 
         className="w-full h-full object-cover"
         onError={(e) => {
           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
