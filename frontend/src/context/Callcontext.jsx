@@ -70,12 +70,20 @@ export const CallProvider = ({ children }) => {
   const playIncomingRingtone = useCallback(() => {
     try {
       if (!incomingRingtoneRef.current) {
-        incomingRingtoneRef.current = new Audio("/sounds/appel recue '.wav");
+        // Assurez-vous que le chemin du fichier est correct (pas d'espace ou apostrophe bizarre)
+        incomingRingtoneRef.current = new Audio("/sounds/appel_recue.wav"); 
         incomingRingtoneRef.current.loop = true;
       }
-      incomingRingtoneRef.current.play().catch((err) => {
-        console.warn("Autoplay bloqué:", err);
-      });
+      
+      // Tentative de lecture sécurisée
+      const playPromise = incomingRingtoneRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          // On capture l'erreur pour ne pas polluer la console
+          console.log("🔕 Sonnerie bloquée par le navigateur (attente d'interaction)");
+        });
+      }
     } catch (e) {
       console.log("Audio non supporté");
     }
@@ -92,15 +100,19 @@ export const CallProvider = ({ children }) => {
   const playOutgoingRingtone = useCallback(() => {
     try {
       if (!outgoingRingtoneRef.current) {
-        outgoingRingtoneRef.current = new Audio(
-          "/sounds/quand tu appelles.wav"
-        );
+        // Vérifiez le nom du fichier ici aussi
+        outgoingRingtoneRef.current = new Audio("/sounds/quand_tu_appelles.wav");
         outgoingRingtoneRef.current.loop = true;
         outgoingRingtoneRef.current.volume = 0.7;
       }
-      outgoingRingtoneRef.current.play().catch((err) => {
-        console.warn("Autoplay émetteur bloqué:", err);
-      });
+      
+      const playPromise = outgoingRingtoneRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.log("🔕 Sonnerie sortante bloquée par le navigateur");
+        });
+      }
     } catch (e) {
       console.log("Audio émetteur non supporté");
     }

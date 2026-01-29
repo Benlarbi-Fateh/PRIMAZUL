@@ -17,10 +17,12 @@ exports.initiateCall = async (req, res) => {
     const callId = uuidv4();
 
     // Créer le message d'appel
+// ... début de la fonction ...
     const callMessage = await Message.create({
       conversationId,
       sender: initiatorId,
-      type: "call",
+      type: "call", // Ceci fonctionne maintenant grâce à l'Étape 1
+      content: "Appel " + (callType === "video" ? "vidéo" : "audio"), // Fallback pour affichage simple
       callDetails: {
         callId,
         callType: callType || "video",
@@ -28,15 +30,14 @@ exports.initiateCall = async (req, res) => {
         initiator: initiatorId,
         isGroup: isGroup || false,
         startedAt: new Date(),
-        participants:
-          participants?.map((p) => ({
-            userId: p._id || p.userId,
-            name: p.name,
-            profilePicture: p.profilePicture,
-          })) || [],
+        participants: participantsList,
+        answeredBy: [], // Initialisation importante
+        missedBy: [],   // Initialisation importante
+        declinedBy: [], // Initialisation importante
+        duration: 0,
       },
     });
-
+// ... fin de la fonction ...
     await callMessage.populate("sender", "name profilePicture");
     await callMessage.populate("callDetails.initiator", "name profilePicture");
 

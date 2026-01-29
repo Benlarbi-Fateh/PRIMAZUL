@@ -11,10 +11,44 @@ const messageSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   content: { type: String, default: '' },
 
+    // Début du bloc à ajouter
+  callDetails: {
+    callId: { type: String },
+    callType: { type: String, enum: ['audio', 'video'] },
+    status: { 
+      type: String, 
+      enum: ['initiated', 'ongoing', 'ended', 'missed', 'rejected', 'busy'],
+      default: 'initiated'
+    },
+    initiator: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    isGroup: { type: Boolean, default: false },
+    startedAt: { type: Date },
+    answeredAt: { type: Date },
+    endedAt: { type: Date },
+    duration: { type: Number, default: 0 },
+    
+    // Participants
+    participants: [{
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      name: String,
+      profilePicture: String,
+      status: { type: String },
+      joinedAt: Date,
+      leftAt: Date,
+      _id: false 
+    }],
+    
+    // Suivi
+    answeredBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    missedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    declinedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+  },
+  // Fin du bloc à ajouter
+
   // ⚠️ AJOUT: autoriser les types story_reply et story_reaction
   type: { 
     type: String, 
-    enum: ['text', 'image', 'file', 'audio', 'voice', 'video', 'story_reply', 'story_reaction'],
+    enum: ['text', 'image', 'file', 'audio', 'voice', 'video', 'story_reply', 'story_reaction', 'call'],
     default: 'text' 
   },
 
@@ -110,6 +144,7 @@ readBy: [{
 }, { timestamps: true });
 
 // Index pour optimiser les requêtes
+messageSchema.index({ 'callDetails.callId': 1 });
 messageSchema.index({ 'reactions.userId': 1 });
 messageSchema.index({ conversationId: 1, createdAt: -1 });
 messageSchema.index({ deletedFor: 1 });
