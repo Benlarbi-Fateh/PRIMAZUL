@@ -16,7 +16,7 @@ const {
   verifyAndChangePassword,
   requestEmailChange,
   confirmEmailChange,
-} = require("../controllers/authcontroller");
+} = require("../controllers/authController");
 const {
   uploadProfilePicture,
   skipProfilePicture,
