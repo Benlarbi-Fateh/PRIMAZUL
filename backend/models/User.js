@@ -103,7 +103,13 @@ const userSchema = new mongoose.Schema(
     verificationCodeExpiry: { type: Date },
     verificationCodeType: {
       type: String,
-      enum: ["registration", "login", "password-reset", "change-password"],
+      enum: [
+        "registration",
+        "login",
+        "password-reset",
+        "change-password",
+        "email-change",
+      ],
       default: "registration",
     },
 
@@ -114,13 +120,13 @@ const userSchema = new mongoose.Schema(
     isOnline: { type: Boolean, default: false },
 
     // 🔥 Champs ajoutés pour changement d’email
-    pendingEmail: { type: String },
+    pendingEmail: { type: String, default: null },
     emailVerificationCode: { type: String },
     emailCodeExpires: { type: Date },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Index pour améliorer les performances

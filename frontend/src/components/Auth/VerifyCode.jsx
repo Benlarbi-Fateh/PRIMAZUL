@@ -1,28 +1,37 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { Shield, Mail, ArrowLeft, RotateCcw, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
+import {
+  Shield,
+  Mail,
+  ArrowLeft,
+  RotateCcw,
+  CheckCircle,
+  Sparkles,
+} from "lucide-react";
 
-export default function VerifyCode({ 
-  email, 
-  userId, 
-  type = 'registration', // 'registration' ou 'login'
-  onVerify, 
+export default function VerifyCode({
+  email,
+  userId,
+  type = "registration",
+  onVerify,
   onResend,
-  onBack 
+  onBack,
 }) {
-  const [code, setCode] = useState(['', '', '', '', '', '']);
-  const [error, setError] = useState('');
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [success, setSuccess] = useState(false);
-  
+
   const inputRefs = useRef([]);
 
-  // Countdown pour le resend
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      const timer = setTimeout(
+        () => setResendCooldown(resendCooldown - 1),
+        1000,
+      );
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
@@ -33,38 +42,41 @@ export default function VerifyCode({
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
-    setError('');
+    setError("");
 
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    if (newCode.every(digit => digit !== '') && newCode.join('').length === 6) {
-      handleVerify(newCode.join(''));
+    if (
+      newCode.every((digit) => digit !== "") &&
+      newCode.join("").length === 6
+    ) {
+      handleVerify(newCode.join(""));
     }
   };
 
   const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !code[index] && index > 0) {
+    if (e.key === "Backspace" && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
-    
-    if (e.key === 'ArrowLeft' && index > 0) {
+
+    if (e.key === "ArrowLeft" && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
-    if (e.key === 'ArrowRight' && index < 5) {
+    if (e.key === "ArrowRight" && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').trim();
-    
+    const pastedData = e.clipboardData.getData("text").trim();
+
     if (/^\d{6}$/.test(pastedData)) {
-      const newCode = pastedData.split('');
+      const newCode = pastedData.split("");
       setCode(newCode);
-      setError('');
+      setError("");
       inputRefs.current[5]?.focus();
       handleVerify(pastedData);
     }
@@ -72,14 +84,14 @@ export default function VerifyCode({
 
   const handleVerify = async (codeString) => {
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      await onVerify(codeString || code.join(''));
+      await onVerify(codeString || code.join(""));
       setSuccess(true);
     } catch (error) {
-      setError(error.response?.data?.error || 'Code incorrect');
-      setCode(['', '', '', '', '', '']);
+      setError(error.response?.data?.error || "Code incorrect");
+      setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
@@ -88,75 +100,101 @@ export default function VerifyCode({
 
   const handleResend = async () => {
     if (resendCooldown > 0) return;
-    
+
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
       await onResend();
       setResendCooldown(60);
-      setCode(['', '', '', '', '', '']);
+      setCode(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } catch (error) {
-      setError(error.response?.data?.error || 'Erreur lors du renvoi');
+      setError(error.response?.data?.error || "Erreur lors du renvoi");
     } finally {
       setLoading(false);
     }
   };
 
-  const title = type === 'registration' 
-    ? 'Vérifiez votre email' 
-    : 'Vérification de sécurité';
-  
-  const subtitle = type === 'registration'
-    ? `Nous avons envoyé un code de vérification à ${email}`
-    : `Pour sécuriser votre connexion, entrez le code envoyé à ${email}`;
+  const title =
+    type === "registration"
+      ? "Vérifiez votre email"
+      : "Vérification de sécurité";
 
+  const subtitle =
+    type === "registration"
+      ? "Nous avons envoyé un code de vérification"
+      : "Code de sécurité envoyé";
+
+  // ✅ Écran de succès
   if (success) {
     return (
-      <div className="text-center space-y-6">
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-linear-to-br from-green-400 to-green-600 rounded-full shadow-2xl">
-          <CheckCircle className="w-12 h-12 text-white" />
+      <div className="text-center space-y-6 py-4 sm:py-8">
+        {/* Icône de succès */}
+        <div className="relative inline-flex">
+          <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse"></div>
+          <div className="relative inline-flex items-center justify-center w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full shadow-2xl shadow-emerald-500/30">
+            <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Vérification réussie !</h2>
-          <p className="text-gray-600">Redirection en cours...</p>
+
+        {/* Message */}
+        <div className="space-y-2">
+          <h2 className="text-xl sm:text-2xl font-bold text-white">
+            Vérification réussie !
+          </h2>
+          <p className="text-slate-400 text-sm sm:text-base flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            Redirection en cours...
+          </p>
+        </div>
+
+        {/* Loader */}
+        <div className="flex justify-center">
+          <div className="w-8 h-8 border-3 border-slate-600 border-t-cyan-500 rounded-full animate-spin"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="text-center space-y-4">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-linear-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
-          <Shield className="w-10 h-10 text-white" />
+        <div className="relative inline-flex">
+          <div className="absolute inset-0 bg-cyan-500/20 rounded-2xl blur-xl"></div>
+          <div className="relative inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/25">
+            <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+          </div>
         </div>
-        
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{title}</h2>
-          <p className="text-gray-600 flex items-center justify-center gap-2">
-            <Mail className="w-4 h-4" />
-            {subtitle}
+
+        <div className="space-y-2">
+          <h2 className="text-xl sm:text-2xl font-bold text-white">{title}</h2>
+          <div className="flex items-center justify-center gap-2 text-slate-400 text-sm sm:text-base">
+            <Mail className="w-4 h-4 text-cyan-400" />
+            <span>{subtitle}</span>
+          </div>
+          <p className="text-cyan-400 text-xs sm:text-sm font-medium px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-xl inline-block">
+            {email}
           </p>
         </div>
       </div>
 
+      {/* Erreur */}
+      {error && (
+        <div className="p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-xl sm:rounded-2xl text-red-400 text-sm flex items-center justify-center gap-3">
+          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Code Input */}
       <div className="space-y-6">
-        {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center justify-center gap-3">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <span>{error}</span>
-          </div>
-        )}
-
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-2 sm:gap-3">
           {code.map((digit, index) => (
             <input
               key={index}
-              ref={el => inputRefs.current[index] = el}
+              ref={(el) => (inputRefs.current[index] = el)}
               type="text"
               inputMode="numeric"
               maxLength={1}
@@ -165,30 +203,56 @@ export default function VerifyCode({
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
               disabled={loading}
-              className={`w-14 h-16 text-center text-2xl font-bold bg-white border-2 rounded-xl text-gray-900 transition-all duration-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 ${
-                digit 
-                  ? 'border-blue-500 bg-blue-50 shadow-md' 
-                  : 'border-gray-300 hover:border-gray-400'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`
+                w-10 h-12 sm:w-12 sm:h-14 md:w-14 md:h-16 
+                text-center text-xl sm:text-2xl font-bold 
+                bg-slate-700/50 border-2 rounded-xl sm:rounded-2xl 
+                text-white transition-all duration-300 
+                outline-none focus:ring-2 focus:ring-cyan-500/50 
+                ${
+                  digit
+                    ? "border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20"
+                    : "border-slate-600 hover:border-slate-500"
+                } 
+                ${loading ? "opacity-50 cursor-not-allowed" : ""}
+              `}
               autoFocus={index === 0}
             />
           ))}
         </div>
 
+        {/* Info expiration */}
         <div className="text-center space-y-4">
-          <p className="text-sm text-gray-600">
-            Le code expire dans <span className="font-bold text-gray-900">10 minutes</span>
-          </p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-xl">
+            <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+            <p className="text-sm text-slate-300">
+              Expire dans{" "}
+              <span className="font-bold text-amber-400">10 minutes</span>
+            </p>
+          </div>
 
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-sm text-gray-600">Code non reçu ?</span>
+          {/* Renvoyer le code */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <span className="text-sm text-slate-400">Code non reçu ?</span>
             <button
               onClick={handleResend}
               disabled={resendCooldown > 0 || loading}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className={`
+                text-sm font-semibold transition-all duration-300 
+                flex items-center gap-2 px-3 py-1.5 rounded-lg
+                ${
+                  resendCooldown > 0 || loading
+                    ? "text-slate-500 cursor-not-allowed"
+                    : "text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                }
+              `}
             >
-              <RotateCcw className="w-4 h-4" />
-              {resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : 'Renvoyer le code'}
+              <RotateCcw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+              {resendCooldown > 0
+                ? `Renvoyer (${resendCooldown}s)`
+                : "Renvoyer le code"}
             </button>
           </div>
         </div>
@@ -198,11 +262,37 @@ export default function VerifyCode({
       <button
         onClick={onBack}
         disabled={loading}
-        className="w-full py-3 bg-gray-100 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-200 hover:border-gray-400 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
+        className="
+          w-full py-3 sm:py-4 
+          bg-slate-700/50 border border-slate-600 
+          rounded-xl sm:rounded-2xl 
+          text-slate-300 font-medium 
+          hover:bg-slate-600/50 hover:border-slate-500 hover:text-white
+          transition-all duration-300 
+          flex items-center justify-center gap-2 
+          disabled:opacity-50 disabled:cursor-not-allowed
+          text-sm sm:text-base
+        "
       >
-        <ArrowLeft className="w-5 h-5" />
-        Retour
+        <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+        Retour à la connexion
       </button>
+
+      {/* Info sécurité */}
+      <div className="p-3 sm:p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-xl sm:rounded-2xl">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-cyan-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-cyan-300">
+              Vérification sécurisée
+            </p>
+            <p className="text-xs text-cyan-400/70 mt-1">
+              Ce code à usage unique protège votre compte contre les accès non
+              autorisés.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

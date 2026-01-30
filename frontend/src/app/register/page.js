@@ -121,7 +121,7 @@ export default function RegisterPage() {
           ...userData,
           profilePicture: response.data.user.profilePicture,
         });
-        router.push("/");
+       // router.push("/");
       }
     } catch (error) {
       setError("Erreur lors de la connexion");

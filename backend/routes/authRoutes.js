@@ -13,7 +13,9 @@ const {
   getUsers,
   updateLastLogin,
   requestPasswordChangeOTP,
-  verifyAndChangePassword, // 🆕 AJOUTER CET IMPORT
+  verifyAndChangePassword,
+  requestEmailChange,
+  confirmEmailChange,
 } = require("../controllers/authcontroller");
 const {
   uploadProfilePicture,
@@ -35,7 +37,7 @@ router.post("/resend-code", resendCode);
 router.post(
   "/upload-profile-picture",
   upload.single("profilePicture"),
-  uploadProfilePicture
+  uploadProfilePicture,
 );
 router.post("/skip-profile-picture", skipProfilePicture);
 router.post("/finalize-registration", finalizeRegistration);
@@ -52,19 +54,22 @@ router.put("/update-last-login", authMiddleware, updateLastLogin);
 router.get("/search", authMiddleware, searchUsers);
 router.get("/users", authMiddleware, getUsers);
 
-module.exports = router;
-
 // 🆕 ROUTES POUR LA GESTION DU CHANGEMENT DE MOT DE PASS
 // 2. Demande d'envoi du code OTP pour changer le mot de passe
 router.post(
   "/settings/send-password-otp",
   authMiddleware,
-  requestPasswordChangeOTP
+  requestPasswordChangeOTP,
 );
 
 // 3. Vérification du code OTP et changement effectif du mot de passe
 router.put(
   "/settings/verify-change-password",
   authMiddleware,
-  verifyAndChangePassword
+  verifyAndChangePassword,
 );
+//  NOUVELLES ROUTES - Changement d'email
+router.post("/request-email-change", authMiddleware, requestEmailChange);
+router.post("/confirm-email-change", authMiddleware, confirmEmailChange);
+
+module.exports = router;

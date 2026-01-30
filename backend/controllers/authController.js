@@ -1,9 +1,11 @@
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const generateToken = require('../utils/generateToken');
-const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
-const profileService = require('../utils/profileService');
-
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const generateToken = require("../utils/generateToken");
+const {
+  generateVerificationCode,
+  sendVerificationEmail,
+} = require("../utils/emailService");
+const profileService = require("../utils/profileService");
 
 // 🆕 FONCTION : Vérifier si le 2FA est nécessaire (24 heures)
 const isTwoFactorRequired = (user) => {
@@ -13,8 +15,8 @@ const isTwoFactorRequired = (user) => {
   console.log(`⏰ Dernière connexion: ${user.lastLogin}`);
   console.log(
     `⏰ Temps écoulé: ${Math.round(
-      timeSinceLastLogin / (60 * 60 * 1000)
-    )} heures`
+      timeSinceLastLogin / (60 * 60 * 1000),
+    )} heures`,
   );
   console.log(`🔐 2FA requis: ${timeSinceLastLogin > TWENTY_FOUR_HOURS}`);
 
@@ -412,7 +414,7 @@ exports.forgotPassword = async (req, res) => {
       email,
       user.name,
       verificationCode,
-      "password-reset"
+      "password-reset",
     );
 
     console.log("✅ Code de réinitialisation envoyé:", email);
@@ -536,8 +538,15 @@ exports.sendProfileUpdateCode = async (req, res) => {
     const { userId } = req.user; // ou req.body.userId si nécessaire
     const updatedData = req.body;
 
-    const data = await profileService.sendProfileUpdateCode(userId, updatedData);
-    res.json({ success: true, message: 'Code de vérification envoyé', ...data });
+    const data = await profileService.sendProfileUpdateCode(
+      userId,
+      updatedData,
+    );
+    res.json({
+      success: true,
+      message: "Code de vérification envoyé",
+      ...data,
+    });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
@@ -548,12 +557,19 @@ exports.verifyProfileUpdateCode = async (req, res) => {
   try {
     const { userId, code } = req.body;
 
-    const updatedUser = await profileService.verifyProfileUpdateCode(userId, code);
-    res.json({ success: true, message: 'Profil mis à jour !', user: updatedUser });
+    const updatedUser = await profileService.verifyProfileUpdateCode(
+      userId,
+      code,
+    );
+    res.json({
+      success: true,
+      message: "Profil mis à jour !",
+      user: updatedUser,
+    });
   } catch (error) {
-    res.status(400).json({ success: false, error: error.message })};
+    res.status(400).json({ success: false, error: error.message });
+  }
 };
-
 
 // 2. DEMANDER OTP POUR CHANGEMENT DE MOT DE PASSE
 exports.requestPasswordChangeOTP = async (req, res) => {
@@ -629,5 +645,148 @@ exports.verifyAndChangePassword = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Erreur serveur lors du changement de mot de passe" });
+  }
+};
+// =================== CHANGEMENT D'EMAIL ===================
+
+// 🆕 DEMANDER LE CHANGEMENT D'EMAIL (envoie OTP)
+exports.requestEmailChange = async (req, res) => {
+  try {
+    const { newEmail } = req.body;
+    const userId = req.user.userId || req.user._id || req.user.id;
+
+    // Validation de l'email
+    if (!newEmail || !newEmail.includes("@")) {
+      return res.status(400).json({
+        success: false,
+        message: "Email invalide",
+      });
+    }
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur introuvable",
+      });
+    }
+
+    // Vérifier si le nouvel email est différent
+    if (user.email === newEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Le nouvel email doit être différent de l'actuel",
+      });
+    }
+
+    // Vérifier si le nouvel email n'est pas déjà utilisé
+    const existingUser = await User.findOne({ email: newEmail });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Cet email est déjà utilisé par un autre compte",
+      });
+    }
+
+    // Générer OTP
+    const code = generateVerificationCode();
+
+    // Sauvegarder le code et le nouvel email en attente
+    user.verificationCode = code;
+    user.verificationCodeExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.verificationCodeType = "email-change";
+    user.pendingEmail = newEmail; // Stocker le nouvel email en attente
+    await user.save();
+
+    // Envoyer l'OTP au NOUVEL email
+    await sendVerificationEmail(newEmail, user.name, code, "email-change");
+
+    console.log("✅ Code de changement d'email envoyé à:", newEmail);
+
+    res.json({
+      success: true,
+      message: "Code de vérification envoyé au nouvel email",
+      email: newEmail,
+    });
+  } catch (error) {
+    console.error("❌ Erreur requestEmailChange:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// 🆕 CONFIRMER LE CHANGEMENT D'EMAIL (vérifie OTP)
+exports.confirmEmailChange = async (req, res) => {
+  try {
+    const { code } = req.body;
+    const userId = req.user.userId || req.user._id || req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Utilisateur introuvable",
+      });
+    }
+
+    // Vérifier le code
+    if (user.verificationCode !== code) {
+      return res.status(400).json({
+        success: false,
+        message: "Code de vérification incorrect",
+      });
+    }
+
+    // Vérifier l'expiration
+    if (user.verificationCodeExpiry < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "Code expiré. Demandez un nouveau code.",
+      });
+    }
+
+    // Vérifier le type
+    if (user.verificationCodeType !== "email-change") {
+      return res.status(400).json({
+        success: false,
+        message: "Code invalide pour cette opération",
+      });
+    }
+
+    // Vérifier qu'il y a bien un email en attente
+    if (!user.pendingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Aucun changement d'email en attente",
+      });
+    }
+
+    // Sauvegarder l'ancien email (optionnel, pour l'historique)
+    const oldEmail = user.email;
+
+    // Mettre à jour l'email
+    user.email = user.pendingEmail;
+    user.pendingEmail = undefined;
+    user.verificationCode = undefined;
+    user.verificationCodeExpiry = undefined;
+    user.verificationCodeType = undefined;
+    await user.save();
+
+    console.log(`✅ Email changé: ${oldEmail} -> ${user.email}`);
+
+    res.json({
+      success: true,
+      message: "Email modifié avec succès !",
+      newEmail: user.email,
+    });
+  } catch (error) {
+    console.error("❌ Erreur confirmEmailChange:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

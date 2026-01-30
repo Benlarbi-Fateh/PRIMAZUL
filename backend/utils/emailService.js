@@ -1,15 +1,18 @@
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 // 🆕 MODE DÉVELOPPEMENT - Change cette valeur
 const DEV_MODE = false; // Mettre à false en production
 
 // Configuration du transporteur email
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
+    pass: process.env.EMAIL_PASSWORD,
+  },
+  tls: {
+    rejectUnauthorized: false, // ✅ Résout l'erreur SSL
+  },
 });
 
 // Générer un code à 6 chiffres
@@ -18,25 +21,33 @@ const generateVerificationCode = () => {
 };
 
 // Template HTML pour l'email
-const getEmailTemplate = (code, userName, type = 'registration') => {
+const getEmailTemplate = (code, userName, type = "registration") => {
   let title, message;
-  
-  switch(type) {
-    case 'registration':
-      title = 'Bienvenue ! Vérifiez votre compte';
-      message = 'Merci de vous être inscrit ! Pour activer votre compte, veuillez utiliser le code ci-dessous :';
+
+  switch (type) {
+    case "registration":
+      title = "Bienvenue ! Vérifiez votre compte";
+      message =
+        "Merci de vous être inscrit ! Pour activer votre compte, veuillez utiliser le code ci-dessous :";
       break;
-    case 'login':
-      title = 'Code de connexion sécurisée';
-      message = 'Vous tentez de vous connecter. Utilisez le code ci-dessous pour continuer :';
+    case "login":
+      title = "Code de connexion sécurisée";
+      message =
+        "Vous tentez de vous connecter. Utilisez le code ci-dessous pour continuer :";
       break;
-    case 'password-reset':
-      title = 'Réinitialisation de mot de passe';
-      message = 'Vous avez demandé à réinitialiser votre mot de passe. Utilisez le code ci-dessous :';
+    case "password-reset":
+      title = "Réinitialisation de mot de passe";
+      message =
+        "Vous avez demandé à réinitialiser votre mot de passe. Utilisez le code ci-dessous :";
+      break;
+    case "email-change":
+      title = "Changement d'email demandé";
+      message =
+        "Vous avez demandé à changer votre adresse email. Utilisez le code ci-dessous pour confirmer ce changement :";
       break;
     default:
-      title = 'Code de vérification';
-      message = 'Votre code de vérification :';
+      title = "Code de vérification";
+      message = "Votre code de vérification :";
   }
 
   return `
@@ -221,72 +232,49 @@ const getEmailTemplate = (code, userName, type = 'registration') => {
 };
 
 // Envoyer le code de vérification
-const sendVerificationEmail = async (email, userName, code, type = 'registration') => {
+const sendVerificationEmail = async (
+  email,
+  userName,
+  code,
+  type = "registration",
+) => {
   try {
-    // 🆕 MODE DÉVELOPPEMENT : Afficher le code dans la console au lieu d'envoyer l'email
-    if (DEV_MODE) {
-      console.log('\n╔══════════════════════════════════════════════════════════╗');
-      console.log('║          📧 MODE DÉVELOPPEMENT - EMAIL SIMULÉ          ║');
-      console.log('╚══════════════════════════════════════════════════════════╝');
-      console.log(`📨 Destinataire: ${email}`);
-      console.log(`👤 Nom: ${userName}`);
-      
-      let typeDisplay;
-      switch(type) {
-        case 'registration':
-          typeDisplay = '📝 Inscription';
-          break;
-        case 'login':
-          typeDisplay = '🔐 Connexion';
-          break;
-        case 'password-reset':
-          typeDisplay = '🔑 Réinitialisation mot de passe';
-          break;
-        default:
-          typeDisplay = '❓ Inconnu';
-      }
-      
-      console.log(`🔐 Type: ${typeDisplay}`);
-      console.log(`\n🎯 CODE DE VÉRIFICATION: ${code}`);
-      console.log('\n⏰ Ce code expire dans 10 minutes');
-      console.log('╚══════════════════════════════════════════════════════════╝\n');
-      
-      return { success: true, messageId: 'dev-mode-' + Date.now() };
-    }
-
     // MODE PRODUCTION : Envoyer vraiment l'email
     let subject;
-    switch(type) {
-      case 'registration':
-        subject = '🔐 Code de vérification - Activation de votre compte';
+    switch (type) {
+      case "registration":
+        subject = "🔐 Code de vérification - Activation de votre compte";
         break;
-      case 'login':
-        subject = '🔐 Code de connexion sécurisée';
+      case "login":
+        subject = "🔐 Code de connexion sécurisée";
         break;
-      case 'password-reset':
-        subject = '🔑 Code de réinitialisation de mot de passe';
+      case "password-reset":
+        subject = "🔑 Code de réinitialisation de mot de passe";
         break;
       default:
-        subject = '🔐 Code de vérification';
+        subject = "🔐 Code de vérification";
+      case "email-change":
+        subject = "✉️ Code de vérification pour changement d'email";
+        break;
     }
 
     const mailOptions = {
       from: `"PRIMAZUL Chat" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: subject,
-      html: getEmailTemplate(code, userName, type)
+      html: getEmailTemplate(code, userName, type),
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email envoyé avec succès:', info.messageId);
+    console.log("✅ Email envoyé avec succès:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('❌ Erreur lors de l\'envoi de l\'email:', error);
-    throw new Error('Impossible d\'envoyer l\'email de vérification');
+    console.error("❌ Erreur lors de l'envoi de l'email:", error);
+    throw new Error("Impossible d'envoyer l'email de vérification");
   }
 };
 
 module.exports = {
   generateVerificationCode,
-  sendVerificationEmail
+  sendVerificationEmail,
 };
