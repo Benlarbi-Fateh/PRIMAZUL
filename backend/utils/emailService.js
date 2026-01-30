@@ -2,7 +2,7 @@ const nodemailer = require("nodemailer");
 
 // 🆕 MODE DÉVELOPPEMENT AUTOMATIQUE
 // Si on est en production (Render), ça vaut false. Sinon true.
-const DEV_MODE = process.env.NODE_ENV !== "production";
+const DEV_MODE = false;
 
 // Configuration du transporteur email
 const transporter = nodemailer.createTransport({
