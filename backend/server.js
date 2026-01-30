@@ -20,6 +20,8 @@ app.use((req, res, next) => {
   console.log(`📨 ${req.method} ${req.url}`);
   next();
 });
+app.use(cors(corsOptions));
+app.set("io", io);
 
 // ✅ Configuration Socket.IO
 // ✅ Configuration CORS Dynamique (Accepte tout Vercel)
@@ -46,8 +48,6 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 };
 
-app.use(cors(corsOptions));
-
 // ... (suite du code)
 
 // ✅ Configuration Socket.IO (Même logique)
@@ -72,8 +72,6 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000,
 });
-
-app.set("io", io);
 
 // Connexion BDD
 connectDB();
