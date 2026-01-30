@@ -7,7 +7,7 @@ import { NotificationProvider } from "@/context/NotificationContext";
 import GlobalNotificationListener from "@/components/Notifications/GlobalNotificationListener";
 import SocketInitializer from "@/components/Socket/SocketInitializer";
 import { MuteProvider } from "@/context/MuteContext";
-
+//////////// METADATA ET LAYOUT GLOBAL DE L'APPLICATION //////////////
 export const metadata = {
   title: "PrimaZul - Messagerie Moderne",
   description: "Application de messagerie instantanée moderne et sécurisée",
