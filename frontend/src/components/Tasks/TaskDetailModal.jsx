@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useContext } from "react";
+import { useState, useContext } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useTasks } from "@/context/TaskContext";
 import { AuthContext } from "@/context/AuthProvider";
@@ -8,31 +8,20 @@ import {
   X,
   Calendar,
   User,
-  Users,
-  AlertCircle,
   AlignLeft,
-  MessageSquare,
   Send,
   Trash2,
-  CheckCircle2,
-  Plus,
-  Type,
   Check,
+  Layout,
+  Tag,
 } from "lucide-react";
 
 export default function TaskDetailModal({ task, isNew, projectId, onClose }) {
   const { isDark } = useTheme();
   const { user } = useContext(AuthContext);
-  const {
-    participants,
-    createTask,
-    updateTask,
-    deleteTask,
-    addComment,
-    currentProjectId,
-  } = useTasks();
+  const { participants, createTask, updateTask, deleteTask, addComment } =
+    useTasks();
 
-  // État local du formulaire
   const [formData, setFormData] = useState({
     title: task?.title || "",
     description: task?.description || "",
@@ -40,332 +29,187 @@ export default function TaskDetailModal({ task, isNew, projectId, onClose }) {
     status: task?.status || "todo",
     dueDate: task?.dueDate ? task.dueDate.split("T")[0] : "",
     assignees: task?.assignees?.map((a) => a._id || a) || [],
-    projectId: projectId || task?.projectId?._id || task?.projectId || null,
+    projectId: projectId || task?.projectId,
   });
 
   const [commentText, setCommentText] = useState("");
   const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  // Détecter les changements
-  useEffect(() => {
-    if (!isNew && task) {
-      const original = {
-        title: task.title,
-        description: task.description || "",
-        priority: task.priority,
-        status: task.status,
-        dueDate: task.dueDate ? task.dueDate.split("T")[0] : "",
-        assignees: task.assignees?.map((a) => a._id || a) || [],
-      };
-      setHasChanges(
-        JSON.stringify(formData) !==
-          JSON.stringify({ ...formData, ...original }),
-      );
-    }
-  }, [formData, task, isNew]);
 
   const handleSave = async () => {
-    if (!formData.title.trim()) {
-      alert("Le titre est requis");
-      return;
-    }
-
+    if (!formData.title.trim()) return;
     setSaving(true);
-
     try {
       if (isNew) {
-        const result = await createTask({
+        await createTask({
           ...formData,
-          assignees:
-            formData.assignees.length > 0 ? formData.assignees : [user._id],
+          assignees: formData.assignees.length
+            ? formData.assignees
+            : [user._id],
         });
-        if (result.success) {
-          onClose();
-        } else {
-          alert(result.error);
-        }
       } else {
-        const result = await updateTask(task._id, formData);
-        if (result.success) {
-          onClose();
-        } else {
-          alert(result.error);
-        }
+        await updateTask(task._id, formData);
       }
+      onClose();
     } finally {
       setSaving(false);
     }
   };
 
+  // ✅ Fonction centralisée pour supprimer
   const handleDelete = async () => {
-    if (!confirm("Supprimer cette tâche ?")) return;
-    await deleteTask(task._id);
-    onClose();
+    if (confirm("Voulez-vous vraiment supprimer cette tâche ?")) {
+      await deleteTask(task._id);
+      onClose();
+    }
   };
 
-  const handleAddComment = async () => {
-    if (!commentText.trim()) return;
-    await addComment(task._id, commentText.trim());
-    setCommentText("");
-  };
+  // Styles Inputs
+  const inputClass = `w-full px-4 py-3 rounded-xl outline-none transition-all ${
+    isDark
+      ? "bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-blue-500/50 placeholder:text-slate-500"
+      : "bg-white text-slate-900 ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 focus:shadow-lg focus:shadow-blue-500/5 placeholder:text-slate-400"
+  }`;
 
-  const toggleAssignee = (userId) => {
-    setFormData((prev) => ({
-      ...prev,
-      assignees: prev.assignees.includes(userId)
-        ? prev.assignees.filter((id) => id !== userId)
-        : [...prev.assignees, userId],
-    }));
-  };
-
-  // Styles
-  const overlayBg = "bg-black/60 backdrop-blur-sm";
-  const modalBg = isDark
-    ? "bg-slate-900 border-slate-700"
-    : "bg-white border-slate-200";
-  const headerBg = isDark ? "border-slate-800" : "border-slate-100";
-  const inputBg = isDark
-    ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
-    : "bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500";
-  const textPrimary = isDark ? "text-white" : "text-slate-900";
-  const textMuted = isDark ? "text-slate-400" : "text-slate-500";
-  const labelStyle = `text-[10px] font-bold uppercase tracking-widest ${textMuted} mb-2 flex items-center gap-2`;
-
-  const priorityOptions = [
-    { value: "low", label: "Faible", emoji: "🟢" },
-    { value: "normal", label: "Normal", emoji: "🔵" },
-    { value: "urgent", label: "Urgent", emoji: "🔴" },
-  ];
+  const labelClass =
+    "text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2 ml-1";
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${overlayBg}`}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[100] flex justify-center items-end sm:items-center p-0 sm:p-4">
+      {/* Backdrop */}
       <div
-        className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl ${modalBg}`}
-        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Modal Content */}
+      <div
+        className={`
+        relative w-full max-w-2xl bg-white dark:bg-slate-900 
+        rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col 
+        max-h-[95vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-10 fade-in
+      `}
       >
         {/* Header */}
-        <div
-          className={`flex items-center justify-between p-6 border-b ${headerBg}`}
-        >
-          <div>
-            <h2 className={`text-xl font-bold ${textPrimary}`}>
-              {isNew ? "✨ Nouvelle tâche" : "📝 Modifier la tâche"}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2 rounded-lg ${
+                isNew
+                  ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20"
+                  : "bg-slate-100 text-slate-600 dark:bg-slate-800"
+              }`}
+            >
+              <Layout size={20} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              {isNew ? "Nouvelle tâche" : "Détails"}
             </h2>
-            {!isNew && (
-              <p className={`text-xs mt-1 ${textMuted}`}>
-                Créée le {new Date(task.createdAt).toLocaleDateString("fr-FR")}
-              </p>
-            )}
           </div>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-xl transition-all ${
-              isDark
-                ? "hover:bg-slate-800 text-slate-400"
-                : "hover:bg-slate-100 text-slate-500"
-            }`}
-          >
-            <X size={20} />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* ✅ AJOUT ICI : Bouton Supprimer pour MOBILE (Visible uniquement sur sm et moins) */}
+            {!isNew && (
+              <button
+                onClick={handleDelete}
+                className="sm:hidden p-2 rounded-full text-rose-500 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/20 dark:hover:bg-rose-900/40 transition-colors"
+                title="Supprimer la tâche"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-800 transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
           {/* Titre */}
           <div>
-            <label className={labelStyle}>
-              <Type size={12} /> Titre
-            </label>
             <input
-              autoFocus
               value={formData.title}
               onChange={(e) =>
-                setFormData((p) => ({ ...p, title: e.target.value }))
+                setFormData({ ...formData, title: e.target.value })
               }
               placeholder="Titre de la tâche..."
-              className={`w-full px-4 py-3 rounded-xl border outline-none transition-all ${inputBg}`}
+              className="w-full text-2xl font-bold bg-transparent border-none outline-none placeholder-slate-300 text-slate-900 dark:text-white"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* --- SECTION RESPONSABLE (NOUVEAU) --- */}
-            <div className="space-y-3">
-              <label className={labelStyle}>
-                <User size={12} /> Responsable (Lead)
+          {/* Grid options */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass}>
+                <Tag size={14} /> Priorité
               </label>
-              <div className="flex items-center gap-3">
-                {participants.map((p) => (
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                {["low", "normal", "urgent"].map((p) => (
                   <button
-                    key={p._id}
-                    onClick={() =>
-                      setFormData((prev) => ({ ...prev, responsible: p._id }))
-                    }
-                    className={`relative group p-1 rounded-full transition-all ${
-                      formData.responsible === p._id
-                        ? "ring-2 ring-offset-2 ring-blue-500"
-                        : "opacity-50 hover:opacity-100"
+                    key={p}
+                    onClick={() => setFormData({ ...formData, priority: p })}
+                    className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all ${
+                      formData.priority === p
+                        ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-white"
+                        : "text-slate-500 hover:text-slate-700"
                     }`}
-                    title={p.name}
                   >
-                    <img
-                      src={
-                        p.profilePicture ||
-                        `https://ui-avatars.com/api/?name=${p.name}`
-                      }
-                      alt={p.name}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                    {formData.responsible === p._id && (
-                      <div className="absolute -top-1 -right-1 bg-blue-500 rounded-full p-0.5 border border-white">
-                        <Check size={8} className="text-white" />
-                      </div>
-                    )}
+                    {p}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* --- SECTION CHAT DE TÂCHE (AMÉLIORÉ) --- */}
-            {!isNew && (
-              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
-                <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
-                  <MessageSquare size={16} />
-                  Discussion sur cette tâche
-                </h3>
-
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-4 max-h-60 overflow-y-auto mb-4">
-                  {task.comments?.length === 0 && (
-                    <p className="text-xs text-center text-slate-400 italic">
-                      Aucun commentaire. Commencez la discussion !
-                    </p>
-                  )}
-
-                  {task.comments?.map((comment, idx) => (
-                    <div key={idx} className="flex gap-3">
-                      <img
-                        src={
-                          comment.author?.profilePicture ||
-                          "/default-avatar.png"
-                        }
-                        className="w-8 h-8 rounded-full mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="bg-white dark:bg-slate-700 p-3 rounded-xl rounded-tl-none shadow-sm">
-                          <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-                            {comment.author?.name}
-                          </p>
-                          <p className="text-sm text-slate-800 dark:text-slate-200">
-                            {comment.text}
-                          </p>
-                        </div>
-                        <span className="text-[10px] text-slate-400 ml-2">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Input Commentaire */}
-                <div className="flex gap-2">
-                  <input
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
-                    placeholder="Écrire un commentaire..."
-                    className={`flex-1 px-4 py-3 rounded-xl border outline-none transition-all ${inputBg}`}
-                  />
-                  <button
-                    onClick={handleAddComment}
-                    disabled={!commentText.trim()}
-                    className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all disabled:opacity-50"
-                  >
-                    <Send size={18} />
-                  </button>
-                </div>
-              </div>
-            )}
-            {/* Priorité */}
             <div>
-              <label className={labelStyle}>
-                <AlertCircle size={12} /> Priorité
-              </label>
-              <div className="flex gap-2">
-                {priorityOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() =>
-                      setFormData((p) => ({ ...p, priority: opt.value }))
-                    }
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 transition-all ${
-                      formData.priority === opt.value
-                        ? "border-blue-500 bg-blue-500/10"
-                        : isDark
-                          ? "border-slate-700 hover:border-slate-600"
-                          : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <span>{opt.emoji}</span>
-                    <span className={`text-sm font-medium ${textPrimary}`}>
-                      {opt.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Date d'échéance */}
-            <div>
-              <label className={labelStyle}>
-                <Calendar size={12} /> Échéance
+              <label className={labelClass}>
+                <Calendar size={14} /> Échéance
               </label>
               <input
                 type="date"
                 value={formData.dueDate}
                 onChange={(e) =>
-                  setFormData((p) => ({ ...p, dueDate: e.target.value }))
+                  setFormData({ ...formData, dueDate: e.target.value })
                 }
-                className={`w-full px-4 py-3 rounded-xl border outline-none transition-all cursor-pointer ${inputBg}`}
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* Assignés */}
           <div>
-            <label className={labelStyle}>
-              <Users size={12} /> Collaborateurs
+            <label className={labelClass}>
+              <User size={14} /> Assigné à
             </label>
-            <div
-              className={`flex flex-wrap gap-2 p-4 rounded-2xl ${
-                isDark ? "bg-slate-800/50" : "bg-slate-50"
-              }`}
-            >
+            <div className="flex flex-wrap gap-2">
               {participants.map((p) => {
                 const isSelected = formData.assignees.includes(p._id);
                 return (
                   <button
                     key={p._id}
-                    onClick={() => toggleAssignee(p._id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 transition-all text-xs font-bold ${
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        assignees: isSelected
+                          ? prev.assignees.filter((id) => id !== p._id)
+                          : [...prev.assignees, p._id],
+                      }))
+                    }
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-xs font-bold ${
                       isSelected
-                        ? "bg-blue-500/10 border-blue-500 text-blue-600"
-                        : isDark
-                          ? "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600"
-                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-blue-400 text-slate-600 dark:text-slate-300"
                     }`}
                   >
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white ${
-                        isSelected ? "bg-blue-600" : "bg-slate-400"
-                      }`}
-                    >
-                      {p.name[0].toUpperCase()}
-                    </div>
+                    <img
+                      src={p.profilePicture || "/default-avatar.png"}
+                      className="w-5 h-5 rounded-full bg-slate-200"
+                    />
                     {p.name}
+                    {isSelected && <Check size={12} />}
                   </button>
                 );
               })}
@@ -374,74 +218,66 @@ export default function TaskDetailModal({ task, isNew, projectId, onClose }) {
 
           {/* Description */}
           <div>
-            <label className={labelStyle}>
-              <AlignLeft size={12} /> Description
+            <label className={labelClass}>
+              <AlignLeft size={14} /> Description
             </label>
             <textarea
+              rows={4}
               value={formData.description}
               onChange={(e) =>
-                setFormData((p) => ({ ...p, description: e.target.value }))
+                setFormData({ ...formData, description: e.target.value })
               }
               placeholder="Ajouter des détails..."
-              rows={3}
-              className={`w-full px-4 py-3 rounded-xl border outline-none transition-all resize-none ${inputBg}`}
+              className={inputClass}
             />
           </div>
 
-          {/* Commentaires (uniquement en mode édition) */}
-          {!isNew && task && (
-            <div
-              className={`pt-4 border-t ${isDark ? "border-slate-800" : "border-slate-100"}`}
-            >
-              <label className={labelStyle}>
-                <MessageSquare size={12} /> Discussion
-              </label>
-
-              {/* Liste des commentaires */}
-              <div className="space-y-3 max-h-48 overflow-y-auto mb-4">
-                {(task.comments || []).map((comment) => (
-                  <div key={comment._id} className="flex gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${
-                        isDark
-                          ? "bg-blue-900/50 text-blue-300"
-                          : "bg-blue-100 text-blue-700"
-                      }`}
-                    >
-                      {(comment.author?.name || "?")[0].toUpperCase()}
+          {/* Chat Section */}
+          {!isNew && (
+            <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-sm mb-4 text-slate-500">
+                Commentaires
+              </h3>
+              <div className="space-y-4 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+                {task.comments?.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center">
+                    Aucun commentaire
+                  </p>
+                )}
+                {task.comments?.map((c, i) => (
+                  <div key={i} className="flex gap-3 text-sm">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
+                      {(c.author?.name || "?")[0]}
                     </div>
-                    <div
-                      className={`flex-1 p-3 rounded-xl ${
-                        isDark ? "bg-slate-800" : "bg-slate-50"
-                      }`}
-                    >
-                      <p className={`text-xs font-bold ${textMuted}`}>
-                        {comment.author?.name}
-                      </p>
-                      <p className={`text-sm mt-1 ${textPrimary}`}>
-                        {comment.text}
-                      </p>
-                      <p className={`text-[10px] mt-2 ${textMuted}`}>
-                        {new Date(comment.createdAt).toLocaleString("fr-FR")}
+                    <div>
+                      <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-slate-100 dark:ring-0">
+                        <p className="font-bold text-xs opacity-70 mb-1">
+                          {c.author?.name}
+                        </p>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {c.text}
+                        </p>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1 ml-2">
+                        {new Date(c.createdAt).toLocaleTimeString()}
                       </p>
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Ajouter un commentaire */}
-              <div className="flex gap-2">
+              <div className="relative">
                 <input
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && addComment(task._id, commentText)
+                  }
                   placeholder="Écrire un message..."
-                  className={`flex-1 px-4 py-2.5 rounded-xl border outline-none transition-all ${inputBg}`}
+                  className={`${inputClass} pr-12`}
                 />
                 <button
-                  onClick={handleAddComment}
-                  disabled={!commentText.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-blue-600 text-white disabled:opacity-50 transition-all"
+                  onClick={() => addComment(task._id, commentText)}
+                  className="absolute right-2 top-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Send size={16} />
                 </button>
@@ -450,45 +286,32 @@ export default function TaskDetailModal({ task, isNew, projectId, onClose }) {
           )}
         </div>
 
-        {/* Footer */}
-        <div
-          className={`p-6 border-t flex justify-between ${
-            isDark
-              ? "border-slate-800 bg-slate-900/50"
-              : "border-slate-100 bg-slate-50/50"
-          }`}
-        >
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center rounded-b-3xl shrink-0">
           {!isNew && (
+            // ✅ CORRECTION : Visible uniquement sur Desktop (hidden sm:block) pour éviter les doublons avec le header
             <button
               onClick={handleDelete}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
-                isDark
-                  ? "text-rose-400 hover:bg-rose-500/20"
-                  : "text-rose-500 hover:bg-rose-50"
-              }`}
+              className="hidden sm:flex items-center gap-2 text-rose-500 px-3 py-2 hover:bg-rose-50 rounded-xl transition-colors font-medium text-sm"
             >
-              <Trash2 size={16} />
-              Supprimer
+              <Trash2 size={18} />
+              <span className="hidden lg:inline">Supprimer</span>
             </button>
           )}
 
-          <div className={`flex gap-3 ${isNew ? "ml-auto" : ""}`}>
+          <div className="flex gap-3 w-full sm:w-auto">
             <button
               onClick={onClose}
-              className={`px-5 py-2.5 rounded-xl font-semibold transition-all ${
-                isDark
-                  ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               Annuler
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !formData.title.trim()}
-              className="px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all shadow-lg shadow-blue-500/25"
+              disabled={saving}
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all active:scale-95"
             >
-              {saving ? "..." : isNew ? "Créer" : "Enregistrer"}
+              {saving ? "..." : "Enregistrer"}
             </button>
           </div>
         </div>

@@ -12,23 +12,28 @@ export default function TasksPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
-      {/* 1. Main Navigation (Tout à gauche) */}
-      <MainSidebar />
+    <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-[#F8FAFC] to-[#F1F5F9] dark:from-[#0B1120] dark:to-[#0B1120] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      {/* Navigation principale (Sidebar fine) */}
+      <div className="hidden md:block z-50">
+        <MainSidebar />
+      </div>
 
-      {/* 2. Task Provider Wrapper */}
+      {/* Contexte des tâches */}
       <TaskProvider conversationId={conversationId}>
-        {/* 3. Project Sidebar (Responsive) */}
-        <ProjectSidebar
-          conversationId={conversationId}
-          isOpen={sidebarOpen}
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        />
+        <div className="flex flex-1 w-full overflow-hidden relative">
+          {/* Sidebar Projet (Liste des projets) */}
+          <ProjectSidebar
+            conversationId={conversationId}
+            isOpen={sidebarOpen}
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          />
 
-        {/* 4. Main Content Area */}
-        <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
-          <TaskBoard toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-        </main>
+          {/* Zone principale (Tableau) */}
+          {/* On ajoute un backdrop-blur pour que le contenu glisse élégamment sur le fond */}
+          <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden bg-white/30 dark:bg-slate-900/50 backdrop-blur-sm">
+            <TaskBoard toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+          </main>
+        </div>
       </TaskProvider>
     </div>
   );

@@ -1,247 +1,223 @@
 "use client";
 
+import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useTasks } from "@/context/TaskContext";
 import {
-  Check,
   Clock,
-  AlertCircle,
-  MoreHorizontal,
-  Trash2,
   MessageSquare,
-  CheckCircle2,
+  ArrowRightLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 
-const priorityConfig = {
-  urgent: {
-    label: "Urgent",
-    emoji: "🔴",
-    bgLight: "bg-rose-50 text-rose-700 border-rose-100",
-    bgDark: "bg-rose-900/30 text-rose-300 border-rose-800",
-  },
-  normal: {
-    label: "Normal",
-    emoji: "🔵",
-    bgLight: "bg-blue-50 text-blue-700 border-blue-100",
-    bgDark: "bg-blue-900/30 text-blue-300 border-blue-800",
-  },
-  low: {
-    label: "Faible",
-    emoji: "🟢",
-    bgLight: "bg-emerald-50 text-emerald-700 border-emerald-100",
-    bgDark: "bg-emerald-900/30 text-emerald-300 border-emerald-800",
-  },
-};
-
-export default function TaskCard({ task, onClick, isDragging }) {
+export default function TaskCard({ task, onClick, isDragging, isMobileView }) {
   const { isDark } = useTheme();
-  const { changeTaskStatus, deleteTask } = useTasks();
+  const { changeTaskStatus } = useTasks();
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
 
   const isOverdue =
     task.dueDate &&
     new Date(task.dueDate) < new Date() &&
     task.status !== "done";
 
-  const priority = priorityConfig[task.priority] || priorityConfig.normal;
-
-  // Styles
-  const cardBg = isDark
-    ? `bg-slate-800/80 border-slate-700 hover:bg-slate-800 hover:border-slate-600 ${
-        isDragging ? "shadow-2xl ring-2 ring-blue-500" : ""
-      }`
-    : `bg-white border-slate-200 hover:shadow-lg hover:border-slate-300 ${
-        isDragging ? "shadow-2xl ring-2 ring-blue-500" : ""
-      }`;
-
-  const overdueBg = isDark
-    ? "!bg-rose-900/20 !border-rose-700/50"
-    : "!bg-rose-50 !border-rose-200";
-
-  const handleStatusToggle = (e) => {
-    e.stopPropagation();
-    const nextStatus = {
-      todo: "inProgress",
-      inProgress: "done",
-      done: "todo",
-    };
-    changeTaskStatus(task._id, nextStatus[task.status]);
+  // Gestion du déplacement mobile
+  const handleMobileMove = (e, newStatus) => {
+    e.stopPropagation(); // Empêche le clic de traverser
+    changeTaskStatus(task._id, newStatus);
+    setShowMoveMenu(false);
   };
 
-  const handleDelete = (e) => {
-    e.stopPropagation();
-    if (confirm("Supprimer cette tâche ?")) {
-      deleteTask(task._id);
-    }
-  };
+  // Options de déplacement (exclure le statut actuel)
+  const statusOptions = [
+    {
+      id: "todo",
+      label: "À Faire",
+      color: "bg-blue-500",
+      iconColor: "text-blue-500",
+    },
+    {
+      id: "inProgress",
+      label: "En Cours",
+      color: "bg-amber-500",
+      iconColor: "text-amber-500",
+    },
+    {
+      id: "done",
+      label: "Terminé",
+      color: "bg-emerald-500",
+      iconColor: "text-emerald-500",
+    },
+  ].filter((s) => s.id !== task.status);
 
   return (
-    <div
-      onClick={onClick}
-      className={`
-        group relative p-4 rounded-xl border cursor-pointer
-        transition-all duration-200
-        ${cardBg}
-        ${task.status === "done" ? "opacity-60" : ""}
-        ${isOverdue ? overdueBg : ""}
-      `}
-    >
-      <div className="flex items-start gap-3">
-        {/* Checkbox */}
-        <button
-          onClick={handleStatusToggle}
-          className={`
-            mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0
-            flex items-center justify-center transition-all
-            ${
-              task.status === "done"
-                ? "bg-emerald-500 border-emerald-500"
-                : isDark
-                  ? "border-slate-600 hover:border-blue-500 hover:bg-blue-500/20"
-                  : "border-slate-300 hover:border-blue-500 hover:bg-blue-50"
-            }
-          `}
-        >
-          {task.status === "done" && (
-            <Check size={12} className="text-white" strokeWidth={3} />
-          )}
-        </button>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <h4
-            className={`
-              font-medium text-sm leading-snug
-              ${task.status === "done" ? "line-through" : ""}
-              ${isDark ? "text-slate-200" : "text-slate-800"}
+    <>
+      <div
+        onClick={onClick}
+        className={`
+                relative p-4 rounded-xl cursor-pointer select-none group
+                transition-all duration-200
+                bg-white dark:bg-slate-900
+                ${
+                  isDragging
+                    ? "shadow-2xl ring-2 ring-blue-600 rotate-2 z-50"
+                    : isMobileView
+                      ? "border border-slate-200 shadow-sm active:scale-[0.98]"
+                      : "border border-transparent shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-slate-200 hover:-translate-y-1"
+                }
+                ${isDark ? "border-slate-800 dark:shadow-none" : ""}
+                ${task.status === "done" ? "opacity-70" : ""}
             `}
-          >
-            {task.title}
-          </h4>
-
-          {/* Metadata */}
-          <div className="flex flex-wrap items-center gap-2 mt-2">
-            {/* Priorité */}
-            {task.priority === "urgent" && (
+      >
+        {/* Header: Priorité + Retard */}
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex gap-2">
+            {task.priority !== "normal" && (
               <span
-                className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-bold border
-                  ${isDark ? priority.bgDark : priority.bgLight}
-                `}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                  task.priority === "urgent"
+                    ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                }`}
               >
-                {priority.emoji} {priority.label}
+                {task.priority}
               </span>
             )}
-
-            {/* Date d'échéance */}
-            {task.dueDate && (
-              <span
-                className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-medium
-                  ${
-                    isOverdue
-                      ? isDark
-                        ? "bg-rose-900/50 text-rose-300"
-                        : "bg-rose-100 text-rose-600"
-                      : isDark
-                        ? "bg-slate-700 text-slate-300"
-                        : "bg-slate-100 text-slate-600"
-                  }
-                `}
-              >
-                <Clock size={10} />
-                {new Date(task.dueDate).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                })}
-              </span>
-            )}
-
-            {/* Commentaires */}
-            {task.comments?.length > 0 && (
-              <span
-                className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-medium
-                  ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}
-                `}
-              >
-                <MessageSquare size={10} />
-                {task.comments.length}
-              </span>
-            )}
-
-            {/* Sous-tâches */}
-            {task.subtasks?.length > 0 && (
-              <span
-                className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-medium
-                  ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}
-                `}
-              >
-                <CheckCircle2 size={10} />
-                {task.subtasks.filter((s) => s.completed).length}/
-                {task.subtasks.length}
+            {isOverdue && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-600 text-white flex items-center gap-1">
+                <Clock size={10} /> Retard
               </span>
             )}
           </div>
+        </div>
 
-          {/* Assignés */}
-          {task.assignees?.length > 0 && (
-            <div className="flex -space-x-1.5 mt-3">
-              {task.assignees.slice(0, 4).map((assignee, idx) => (
+        {/* Titre : Noir profond en mode clair */}
+        <h4
+          className={`text-sm font-bold leading-snug mb-4 ${
+            task.status === "done"
+              ? "line-through text-slate-400"
+              : "text-slate-900 dark:text-white"
+          }`}
+        >
+          {task.title}
+        </h4>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 text-slate-400 dark:text-slate-500">
+            {task.dueDate && (
+              <div
+                className={`flex items-center gap-1 text-xs font-semibold ${isOverdue ? "text-red-500" : ""}`}
+              >
+                <Clock size={12} />
+                {new Date(task.dueDate).toLocaleDateString(undefined, {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </div>
+            )}
+            {task.comments?.length > 0 && (
+              <div className="flex items-center gap-1 text-xs font-semibold">
+                <MessageSquare size={12} /> {task.comments.length}
+              </div>
+            )}
+          </div>
+
+          {/* --- BOUTON DÉPLACER (MOBILE SEULEMENT) --- */}
+          {isMobileView && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMoveMenu(true);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 text-xs font-bold flex items-center gap-1 dark:bg-blue-900/30 dark:text-blue-300 active:bg-blue-100 transition-colors"
+            >
+              Déplacer <ArrowRightLeft size={12} />
+            </button>
+          )}
+
+          {/* Avatars (Desktop) */}
+          {!isMobileView && task.assignees?.length > 0 && (
+            <div className="flex -space-x-2">
+              {task.assignees.slice(0, 3).map((u, i) => (
                 <div
-                  key={assignee._id || idx}
-                  className={`
-                    w-6 h-6 rounded-full border-2 flex items-center justify-center
-                    text-[9px] font-bold
-                    ${
-                      isDark
-                        ? "bg-slate-700 border-slate-800 text-slate-300"
-                        : "bg-slate-200 border-white text-slate-600"
-                    }
-                  `}
-                  title={assignee.name}
+                  key={i}
+                  className="w-6 h-6 rounded-full border-2 border-white dark:border-slate-900 bg-slate-200 flex items-center justify-center text-[8px] overflow-hidden"
                 >
-                  {(assignee.name || "?")[0].toUpperCase()}
+                  {u.profilePicture ? (
+                    <img
+                      src={u.profilePicture}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    u.name[0]
+                  )}
                 </div>
               ))}
-              {task.assignees.length > 4 && (
-                <div
-                  className={`
-                    w-6 h-6 rounded-full border-2 flex items-center justify-center
-                    text-[9px] font-bold
-                    ${
-                      isDark
-                        ? "bg-slate-700 border-slate-800 text-slate-300"
-                        : "bg-slate-200 border-white text-slate-600"
-                    }
-                  `}
-                >
-                  +{task.assignees.length - 4}
-                </div>
-              )}
             </div>
           )}
         </div>
-
-        {/* Actions */}
-        <button
-          onClick={handleDelete}
-          className={`
-            p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all
-            ${
-              isDark
-                ? "hover:bg-slate-700 text-slate-500 hover:text-rose-400"
-                : "hover:bg-slate-100 text-slate-400 hover:text-rose-500"
-            }
-          `}
-        >
-          <Trash2 size={14} />
-        </button>
       </div>
-    </div>
+
+      {/* =========================================================
+            MENU DE DÉPLACEMENT CENTRÉ (MODAL / POPUP)
+           ========================================================= */}
+      {showMoveMenu && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          {/* 1. Backdrop Flou (Clic pour fermer) */}
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMoveMenu(false);
+            }}
+          />
+
+          {/* 2. La Boîte Popup Centrée */}
+          <div
+            className="relative w-full max-w-xs bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-2 border border-slate-100 dark:border-slate-800 scale-100 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()} // Empêche la fermeture si on clique DANS la boîte
+          >
+            {/* Header Popup */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 mb-1">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Déplacer vers...
+              </h3>
+              <button
+                onClick={() => setShowMoveMenu(false)}
+                className="p-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Liste des options */}
+            <div className="p-2 space-y-2">
+              {statusOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={(e) => handleMobileMove(e, opt.id)}
+                  className="w-full flex items-center justify-between px-4 py-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left group border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Indicateur visuel rond */}
+                    <div
+                      className={`w-3 h-3 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-900 ${opt.color}`}
+                    />
+                    <span className="text-base font-bold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white">
+                      {opt.label}
+                    </span>
+                  </div>
+                  <ChevronRight
+                    size={18}
+                    className="text-slate-300 group-hover:text-blue-600 transition-colors"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
