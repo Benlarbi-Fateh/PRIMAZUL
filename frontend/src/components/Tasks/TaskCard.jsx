@@ -78,19 +78,19 @@ export default function TaskCard({ task, onClick, isDragging }) {
     <div
       onClick={onClick}
       className={`
-        group relative p-4 rounded-xl border cursor-pointer
+        group relative p-3 sm:p-4 rounded-lg sm:rounded-xl border cursor-pointer
         transition-all duration-200
         ${cardBg}
         ${task.status === "done" ? "opacity-60" : ""}
         ${isOverdue ? overdueBg : ""}
       `}
     >
-      <div className="flex items-start gap-3">
-        {/* Checkbox */}
+      <div className="flex items-start gap-2 sm:gap-3">
+        {/* Checkbox - Responsive */}
         <button
           onClick={handleStatusToggle}
           className={`
-            mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0
+            mt-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex-shrink-0
             flex items-center justify-center transition-all
             ${
               task.status === "done"
@@ -102,15 +102,16 @@ export default function TaskCard({ task, onClick, isDragging }) {
           `}
         >
           {task.status === "done" && (
-            <Check size={12} className="text-white" strokeWidth={3} />
+            <Check size={10} className="sm:w-3 sm:h-3 text-white" strokeWidth={3} />
           )}
         </button>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
+          {/* Title - Responsive font size */}
           <h4
             className={`
-              font-medium text-sm leading-snug
+              font-medium text-xs sm:text-sm leading-snug
               ${task.status === "done" ? "line-through" : ""}
               ${isDark ? "text-slate-200" : "text-slate-800"}
             `}
@@ -118,18 +119,20 @@ export default function TaskCard({ task, onClick, isDragging }) {
             {task.title}
           </h4>
 
-          {/* Metadata */}
-          <div className="flex flex-wrap items-center gap-2 mt-2">
+          {/* Metadata - Responsive spacing and wrapping */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
             {/* Priorité */}
             {task.priority === "urgent" && (
               <span
                 className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-bold border
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-bold border
                   ${isDark ? priority.bgDark : priority.bgLight}
                 `}
               >
-                {priority.emoji} {priority.label}
+                <span className="hidden xs:inline">{priority.emoji}</span>
+                <span className="hidden sm:inline">{priority.label}</span>
+                <span className="sm:hidden">Urgent</span>
               </span>
             )}
 
@@ -137,8 +140,8 @@ export default function TaskCard({ task, onClick, isDragging }) {
             {task.dueDate && (
               <span
                 className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-medium
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-medium
                   ${
                     isOverdue
                       ? isDark
@@ -150,11 +153,19 @@ export default function TaskCard({ task, onClick, isDragging }) {
                   }
                 `}
               >
-                <Clock size={10} />
-                {new Date(task.dueDate).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                })}
+                <Clock size={9} className="sm:w-[10px] sm:h-[10px]" />
+                <span className="hidden sm:inline">
+                  {new Date(task.dueDate).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+                <span className="sm:hidden">
+                  {new Date(task.dueDate).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "numeric",
+                  })}
+                </span>
               </span>
             )}
 
@@ -162,12 +173,12 @@ export default function TaskCard({ task, onClick, isDragging }) {
             {task.comments?.length > 0 && (
               <span
                 className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-medium
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-medium
                   ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}
                 `}
               >
-                <MessageSquare size={10} />
+                <MessageSquare size={9} className="sm:w-[10px] sm:h-[10px]" />
                 {task.comments.length}
               </span>
             )}
@@ -176,27 +187,27 @@ export default function TaskCard({ task, onClick, isDragging }) {
             {task.subtasks?.length > 0 && (
               <span
                 className={`
-                  inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                  text-[10px] font-medium
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-medium
                   ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}
                 `}
               >
-                <CheckCircle2 size={10} />
+                <CheckCircle2 size={9} className="sm:w-[10px] sm:h-[10px]" />
                 {task.subtasks.filter((s) => s.completed).length}/
                 {task.subtasks.length}
               </span>
             )}
           </div>
 
-          {/* Assignés */}
+          {/* Assignés - Responsive avatars */}
           {task.assignees?.length > 0 && (
-            <div className="flex -space-x-1.5 mt-3">
+            <div className="flex -space-x-1 sm:-space-x-1.5 mt-2 sm:mt-3">
               {task.assignees.slice(0, 4).map((assignee, idx) => (
                 <div
                   key={assignee._id || idx}
                   className={`
-                    w-6 h-6 rounded-full border-2 flex items-center justify-center
-                    text-[9px] font-bold
+                    w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center
+                    text-[8px] sm:text-[9px] font-bold
                     ${
                       isDark
                         ? "bg-slate-700 border-slate-800 text-slate-300"
@@ -211,8 +222,8 @@ export default function TaskCard({ task, onClick, isDragging }) {
               {task.assignees.length > 4 && (
                 <div
                   className={`
-                    w-6 h-6 rounded-full border-2 flex items-center justify-center
-                    text-[9px] font-bold
+                    w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center
+                    text-[8px] sm:text-[9px] font-bold
                     ${
                       isDark
                         ? "bg-slate-700 border-slate-800 text-slate-300"
@@ -227,19 +238,24 @@ export default function TaskCard({ task, onClick, isDragging }) {
           )}
         </div>
 
-        {/* Actions */}
+        {/* Actions - Visible sur mobile au tap, sur desktop au hover */}
         <button
           onClick={handleDelete}
           className={`
-            p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all
+            p-1 sm:p-1.5 rounded-lg 
+            transition-all
             ${
               isDark
                 ? "hover:bg-slate-700 text-slate-500 hover:text-rose-400"
                 : "hover:bg-slate-100 text-slate-400 hover:text-rose-500"
             }
+            /* Mobile: toujours visible mais discret */
+            opacity-50 active:opacity-100
+            /* Desktop: apparaît au hover */
+            sm:opacity-0 sm:group-hover:opacity-100
           `}
         >
-          <Trash2 size={14} />
+          <Trash2 size={12} className="sm:w-[14px] sm:h-[14px]" />
         </button>
       </div>
     </div>

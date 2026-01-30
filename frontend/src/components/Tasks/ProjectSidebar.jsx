@@ -1,6 +1,8 @@
 // components/Tasks/ProjectSidebar.jsx
 
 "use client";
+import { useContext } from "react";
+import { AuthContext } from "@/context/AuthProvider";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -16,6 +18,7 @@ import {
   FolderPlus,
   LayoutGrid,
   Loader2,
+  Menu,
 } from "lucide-react";
 
 export default function ProjectSidebar({ conversationId, onClose }) {
@@ -35,12 +38,20 @@ export default function ProjectSidebar({ conversationId, onClose }) {
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { user, logout } = useContext(AuthContext);
 
   // ✅ Force re-render when theme changes
   const [, forceUpdate] = useState({});
   useEffect(() => {
     forceUpdate({});
   }, [isDark]);
+
+  // ✅ Close mobile sidebar when project is selected
+  const handleProjectSelect = (projectId) => {
+    setCurrentProjectId(projectId);
+    setIsMobileOpen(false);
+  };
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim() || creating) return;
@@ -118,62 +129,120 @@ export default function ProjectSidebar({ conversationId, onClose }) {
 
   return (
     <>
-      <aside
-        className={`w-64 h-screen flex flex-col border-r flex-shrink-0 transition-colors duration-200 ${sidebarBg}`}
+      {/* ===== BOUTON TOGGLE MOBILE (visible uniquement sur mobile) ===== */}
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        className={`fixed top-4 left-4 z-50 lg:hidden p-3 rounded-xl shadow-lg transition-all active:scale-95 ${
+          isDark
+            ? "bg-slate-800 text-white border border-slate-700"
+            : "bg-white text-slate-900 border border-slate-200"
+        }`}
       >
-        {/* Header */}
-        <div className={`p-5 border-b ${headerBorder}`}>
-          <div className="flex items-center justify-between">
+        <Menu size={20} />
+      </button>
+
+      {/* ===== OVERLAY MOBILE (ferme la sidebar au clic) ===== */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* ===== SIDEBAR ===== */}
+      <aside
+        className={`
+          ${sidebarBg}
+          
+          /* Mobile: sidebar en overlay avec animation slide */
+          fixed lg:relative
+          top-0 left-0
+          h-screen
+          w-72 sm:w-80 lg:w-64
+          
+          /* Animation slide sur mobile */
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          
+          /* Z-index */
+          z-50 lg:z-auto
+          
+          /* Layout */
+          flex flex-col
+          border-r
+          flex-shrink-0
+        `}
+      >
+        {/* ===== HEADER ===== */}
+        <div className={`p-4 sm:p-5 border-b ${headerBorder}`}>
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
             <button
-              onClick={() => router.push(`/chat/${conversationId}`)}
-              className={`flex items-center gap-2 text-sm font-medium transition-colors ${textSecondary} hover:${textPrimary}`}
+              onClick={() => {
+                router.push(`/chat/${conversationId}`);
+                setIsMobileOpen(false);
+              }}
+              className={`group flex items-center gap-2 text-sm font-bold transition-all ${
+                isDark
+                  ? "text-slate-400 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
             >
-              <ArrowLeft size={16} />
-              Retour
+              <ArrowLeft
+                size={18}
+                className="transition-transform group-hover:-translate-x-1"
+              />
+              <span className="hidden sm:inline">Retour</span>
             </button>
+
             <button
               onClick={() => setShowNewProjectModal(true)}
-              className={`p-2 rounded-xl transition-all ${buttonHover}`}
+              className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-full shadow-lg shadow-blue-500/30 transition-all active:scale-90 hover:scale-110 ${
+                isDark
+                  ? "bg-blue-600 hover:bg-blue-500 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
               title="Nouveau projet"
             >
-              <Plus size={18} />
+              <Plus size={22} strokeWidth={2.5} />
             </button>
           </div>
 
-          <div className="flex items-center gap-3 mt-5">
+          <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${iconContainerBg}`}
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shadow-lg ${iconContainerBg}`}
             >
               <LayoutGrid className="text-white" size={20} />
             </div>
             <div>
-              <h1 className={`text-lg font-bold ${textPrimary}`}>Projets</h1>
+              <h1 className={`text-base sm:text-lg font-bold ${textPrimary}`}>
+                Projets
+              </h1>
               <p className={`text-xs ${textMuted}`}>
-                {stats.total} tâche{stats.total !== 1 ? "s" : ""} au total
-              </p>
+  {projects.length} projet{projects.length !== 1 ? "s" : ""} au total
+</p>
             </div>
           </div>
         </div>
 
-        {/* Navigation */}
+        {/* ===== NAVIGATION ===== */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {/* Vue globale */}
           <button
-            onClick={() => setCurrentProjectId("all")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+            onClick={() => handleProjectSelect("all")}
+            className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all text-sm sm:text-base ${
               currentProjectId === "all"
                 ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
                 : itemBase
             }`}
           >
             <FolderOpen size={18} />
-            <span className="font-medium">Toutes les tâches</span>
+            <span className="font-medium">Tout les projets</span>
           </button>
 
           {/* Séparateur */}
-          <div className="py-4">
+          <div className="py-3 sm:py-4">
             <p
-              className={`px-4 text-[10px] font-bold uppercase tracking-widest ${textMuted}`}
+              className={`px-3 sm:px-4 text-[10px] font-bold uppercase tracking-widest ${textMuted}`}
             >
               Projets ({projects.length})
             </p>
@@ -185,7 +254,7 @@ export default function ProjectSidebar({ conversationId, onClose }) {
               <Loader2 className={`w-6 h-6 animate-spin ${textMuted}`} />
             </div>
           ) : projects.length === 0 ? (
-            <div className={`text-center py-8 ${emptyStateBg}`}>
+            <div className={`text-center py-8 px-4 ${emptyStateBg}`}>
               <FolderOpen size={32} className="mx-auto mb-2 opacity-50" />
               <p className="text-sm">Aucun projet</p>
               <button
@@ -210,9 +279,9 @@ export default function ProjectSidebar({ conversationId, onClose }) {
                   }`}
                 >
                   <button
-                    onClick={() => setCurrentProjectId(project._id)}
+                    onClick={() => handleProjectSelect(project._id)}
                     disabled={isDeleting}
-                    className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    className={`flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all text-sm sm:text-base ${
                       isActive ? "" : itemBase
                     } ${isDeleting ? "opacity-50" : ""}`}
                   >
@@ -251,22 +320,68 @@ export default function ProjectSidebar({ conversationId, onClose }) {
             })
           )}
         </nav>
+
+        {/* ===== USER FOOTER ===== */}
+        <div
+          className={`p-3 sm:p-4 mt-auto border-t ${headerBorder} bg-opacity-50 backdrop-blur-sm`}
+        >
+          <div
+            className={`flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-2xl transition-all ${
+              isDark
+                ? "bg-slate-800/40 border border-slate-700/50"
+                : "bg-slate-50 border border-slate-100"
+            }`}
+          >
+            {/* Avatar avec halo de statut */}
+            <div className="relative">
+              <div
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm shadow-inner transition-transform active:scale-95 ${
+                  isDark
+                    ? "bg-blue-600 text-white shadow-blue-900/20"
+                    : "bg-slate-900 text-white"
+                }`}
+              >
+                {user?.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+              {/* Petit point vert de statut */}
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
+            </div>
+
+            {/* User info */}
+            <div className="flex-1 min-w-0">
+              <p
+                className={`text-xs font-black uppercase tracking-wider truncate ${
+                  isDark ? "text-slate-200" : "text-slate-900"
+                }`}
+              >
+                {user?.name || "Utilisateur"}
+              </p>
+              <p
+                className={`text-[10px] font-medium truncate ${
+                  isDark ? "text-slate-500" : "text-slate-400"
+                }`}
+              >
+                Connecté
+              </p>
+            </div>
+          </div>
+        </div>
       </aside>
 
-      {/* Modal nouveau projet */}
+      {/* ===== MODAL NOUVEAU PROJET ===== */}
       {showNewProjectModal && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
           onClick={() => !creating && setShowNewProjectModal(false)}
         >
           <div
-            className={`w-full max-w-md rounded-3xl p-6 shadow-2xl ${modalBg}`}
+            className={`w-full max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl ${modalBg}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between mb-5 sm:mb-6">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div
-                  className={`p-3 rounded-2xl ${
+                  className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl ${
                     isDark ? "bg-blue-500/20" : "bg-blue-100"
                   }`}
                 >
@@ -275,7 +390,7 @@ export default function ProjectSidebar({ conversationId, onClose }) {
                     className={isDark ? "text-blue-400" : "text-blue-600"}
                   />
                 </div>
-                <h2 className={`text-lg font-bold ${textPrimary}`}>
+                <h2 className={`text-base sm:text-lg font-bold ${textPrimary}`}>
                   Nouveau projet
                 </h2>
               </div>
@@ -299,26 +414,27 @@ export default function ProjectSidebar({ conversationId, onClose }) {
               onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
               placeholder="Nom du projet..."
               disabled={creating}
-              className={`w-full px-4 py-3 rounded-xl border outline-none mb-6 transition-colors ${inputBg}`}
+              className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border outline-none mb-5 sm:mb-6 transition-colors text-sm sm:text-base ${inputBg}`}
             />
 
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => setShowNewProjectModal(false)}
                 disabled={creating}
-                className={`flex-1 py-3 rounded-xl font-semibold transition-colors ${buttonSecondary}`}
+                className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold transition-colors text-sm sm:text-base ${buttonSecondary}`}
               >
                 Annuler
               </button>
               <button
                 onClick={handleCreateProject}
                 disabled={!newProjectName.trim() || creating}
-                className="flex-1 py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 sm:py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
               >
                 {creating ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Création...
+                    <span className="hidden sm:inline">Création...</span>
+                    <span className="sm:hidden">...</span>
                   </>
                 ) : (
                   "Créer"

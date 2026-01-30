@@ -1,5 +1,4 @@
 "use client";
-
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { useTheme } from "@/hooks/useTheme";
 import TaskCard from "./TaskCard";
@@ -43,27 +42,31 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
           ref={provided.innerRef}
           {...provided.droppableProps}
           className={`
-            flex flex-col rounded-2xl border transition-all
+            flex flex-col rounded-xl sm:rounded-2xl border transition-all
             ${columnBg}
             ${snapshot.isDraggingOver ? "ring-2 ring-blue-500/50 bg-blue-500/5" : ""}
           `}
         >
-          {/* Header */}
+          {/* Header - Responsive */}
           <div
-            className={`flex items-center justify-between p-4 border-b ${headerBg}`}
+            className={`flex items-center justify-between p-3 sm:p-4 border-b ${headerBg}`}
           >
-            <div className="flex items-center gap-2">
-              <span className={`w-2.5 h-2.5 rounded-full ${config.dotColor}`} />
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`} />
               <h3
-                className={`font-bold text-sm uppercase tracking-wide ${
+                className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
                   isDark ? "text-slate-200" : "text-slate-700"
                 }`}
               >
-                {title}
+                {/* Mobile: titre court, Desktop: titre complet */}
+                <span className="hidden sm:inline">{title}</span>
+                <span className="sm:hidden">
+                  {id === "todo" ? "À faire" : id === "inProgress" ? "En cours" : "Faites"}
+                </span>
               </h3>
             </div>
             <span
-              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+              className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
                 isDark
                   ? "bg-slate-800 text-slate-300"
                   : "bg-slate-200 text-slate-600"
@@ -73,8 +76,15 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
             </span>
           </div>
 
-          {/* Liste des tâches */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px] max-h-[calc(100vh-400px)]">
+          {/* Liste des tâches - Hauteur responsive */}
+          <div
+            className={`
+              flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2
+              min-h-[180px] sm:min-h-[200px]
+              max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-400px)]
+              md:max-h-[calc(100vh-380px)]
+            `}
+          >
             {tasks.map((task, index) => (
               <Draggable key={task._id} draggableId={task._id} index={index}>
                 {(provided, snapshot) => (
@@ -93,18 +103,23 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
                 )}
               </Draggable>
             ))}
-
             {provided.placeholder}
 
+            {/* État vide - Responsive */}
             {tasks.length === 0 && (
               <div
                 className={`
-                  flex items-center justify-center py-12
-                  border-2 border-dashed rounded-xl
+                  flex items-center justify-center 
+                  py-8 sm:py-12
+                  border-2 border-dashed rounded-lg sm:rounded-xl
                   ${emptyBg}
                 `}
               >
-                <p className="text-sm font-medium">Déposez une tâche ici</p>
+                <p className="text-xs sm:text-sm font-medium text-center px-4">
+                  {/* Mobile: texte court, Desktop: texte complet */}
+                  <span className="hidden sm:inline">Déposez une tâche ici</span>
+                  <span className="sm:hidden">Vide</span>
+                </p>
               </div>
             )}
           </div>
