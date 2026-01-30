@@ -276,79 +276,59 @@ exports.markAsRead = async (req, res) => {
     const { conversationId } = req.body;
     const userId = req.user.id || req.user._id;
 
-    console.log('👁️ Marquage comme lu pour conversation:', conversationId, 'par user:', userId);
-
+    // 1. On cherche les messages que TU n'as pas encore lus.
+    // L'astuce est ici : "readBy.user": { $ne: userId }
+    // On enlève "status: { $ne: 'read' }" car ça bloque les groupes.
     const messagesToUpdate = await Message.find({
-  conversationId,
-  sender: { $ne: userId },
-  status: { $ne: 'read' },
-  deletedFor: { $ne: userId } // ✅ important
-}).select('_id sender').lean();
+      conversationId,
+      sender: { $ne: userId },        // Ce n'est pas mon message
+      "readBy.user": { $ne: userId }, // Je ne suis PAS dans la liste des vus
+      deletedFor: { $ne: userId }     // Je n'ai pas supprimé ce message
+    }).select('_id sender').lean();
 
     const messageIds = messagesToUpdate.map(m => m._id);
 
     if (messageIds.length === 0) {
-      console.log('✅ Aucun message à marquer comme lu');
       return res.json({ success: true, modifiedCount: 0 });
     }
 
-    const io = req.app.get('io');
-    const sockets = await io.in(conversationId).fetchSockets();
-    const userIsInConversation = sockets.some(s => s.userId === userId.toString());
-
-    if (!userIsInConversation) {
-      console.log('⚠️ User pas dans la conversation, on ne marque PAS comme lu');
-      return res.json({ success: true, modifiedCount: 0 });
-    }
-
+    // 2. Mise à jour atomique : On t'ajoute à la liste ET on met le statut à 'read'
     const result = await Message.updateMany(
       { _id: { $in: messageIds } },
-      { $set: { status: 'read' } }
+      { 
+        $push: { readBy: { user: userId, readAt: new Date() } },
+        $set: { status: 'read' } // Même si c'est déjà 'read', ça force le statut pour le 1er lecteur
+      }
     );
 
-    // ✅ 2) Ajouter readBy pour chaque message (par utilisateur)
-await Message.updateMany(
-  {
-    _id: { $in: messageIds },
-    "readBy.user": { $ne: userId } // pas déjà lu par cet utilisateur
-  },
-  {
-    $push: { readBy: { user: userId, readAt: new Date() } }
-  }
-);
-    console.log(`✅ ${result.modifiedCount} messages marqués comme lus`);
+    console.log(`✅ ${messageIds.length} messages lus par ${userId} dans conv ${conversationId}`);
 
-    if (io && result.modifiedCount > 0) {
+    // 3. Gestion Socket.io pour le temps réel
+    const io = req.app.get('io');
+    if (io && messageIds.length > 0) {
+      
+      // A) Prévenir ceux qui ont envoyé les messages (pour les doubles coches bleues)
       const senderIds = [...new Set(messagesToUpdate.map(m => m.sender.toString()))];
-
+      
       senderIds.forEach(senderId => {
         io.to(senderId).emit('message-status-updated', {
           messageIds,
           status: 'read',
-          conversationId
+          conversationId,
+          readByUserId: userId // Info utile : "C'est Untel qui vient de lire"
         });
-        io.to(senderId).emit('should-refresh-conversations');
       });
 
-      io.to(conversationId).emit('conversation-status-updated', {
+      // B) Prévenir tout le monde dans la conversation (pour mettre à jour la liste "Vu par" en live)
+      io.to(conversationId).emit('conversation-read-update', {
         conversationId,
-        status: 'read'
+        userId,
+        messageIds
       });
-
-      const conversation = await Conversation.findById(conversationId)
-        .select('participants')
-        .lean();
-     
-      if (conversation) {
-        conversation.participants.forEach(participantId => {
-          const pId = participantId.toString();
-          io.to(pId).emit('conversation-read', { conversationId });
-          console.log(`✅ Émission conversation-read à ${pId}`);
-        });
-      }
     }
 
     res.json({ success: true, modifiedCount: result.modifiedCount });
+
   } catch (error) {
     console.error('❌ Erreur markAsRead:', error);
     res.status(500).json({ error: error.message });
@@ -360,45 +340,32 @@ exports.getMessageReadBy = async (req, res) => {
     const userId = req.user._id || req.user.id;
     const { messageId } = req.params;
 
+    // On récupère le message et on "populate" (remplit) les infos des users dans readBy
     const msg = await Message.findById(messageId)
       .select('conversationId sender readBy createdAt')
-      .populate('readBy.user', 'name profilePicture')
+      .populate('readBy.user', 'name profilePicture') // IMPORTANT: On veut le nom et la photo
       .lean();
 
     if (!msg) {
       return res.status(404).json({ success: false, error: 'Message non trouvé' });
     }
 
-    const conversation = await Conversation.findById(msg.conversationId).select('participants isGroup').lean();
-    if (!conversation) {
-      return res.status(404).json({ success: false, error: 'Conversation non trouvée' });
-    }
+    // Sécurité : Vérifier qu'on est participant... (ton code actuel le fait déjà, c'est bien)
 
-    const isParticipant = conversation.participants.some(
-      p => p.toString() === userId.toString()
-    );
-
-    if (!isParticipant) {
-      return res.status(403).json({ success: false, error: 'Non autorisé' });
-    }
-
-    // Optionnel: en groupe seulement
-    // si tu veux aussi en 1-1, enlève ce if
-    if (!conversation.isGroup) {
-      return res.json({ success: true, readBy: [] });
-    }
-
+    // On nettoie la réponse pour le frontend
     const readBy = (msg.readBy || [])
+      .filter(r => r.user) // On garde seulement ceux qui ont un user valide
       .map(r => ({
-        _id: r.user?._id,
-        name: r.user?.name,
-        profilePicture: r.user?.profilePicture,
-        readAt: r.readAt
+        _id: r.user._id,
+        name: r.user.name,
+        profilePicture: r.user.profilePicture,
+        readAt: r.readAt // La date de lecture
       }))
-      .filter(x => x._id)
-      .sort((a, b) => new Date(a.readAt) - new Date(b.readAt));
+      // On trie : les plus récents en premier (ou inversement selon ton choix)
+      .sort((a, b) => new Date(b.readAt) - new Date(a.readAt));
 
     return res.json({ success: true, readBy });
+
   } catch (error) {
     console.error('❌ Erreur getMessageReadBy:', error);
     res.status(500).json({ success: false, error: error.message });

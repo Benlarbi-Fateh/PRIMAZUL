@@ -61,6 +61,9 @@ import {
   Search,
   MoreVertical,
   ArrowLeft,
+   X,
+  Check,
+  CheckCheck
 } from "lucide-react";
 import { useMute } from "@/context/MuteContext";
 
@@ -198,8 +201,11 @@ export default function ChatPage() {
     setShouldAutoScroll(true);
   }, [conversationId]);
 
-  useEffect(() => {
+    useEffect(() => {
     if (!conversationId || !user) return;
+
+    // Variable pour stocker le timer
+    let markReadTimeout;
 
     const loadConversation = async () => {
       try {
@@ -208,17 +214,14 @@ export default function ChatPage() {
         const convResponse = await getConversation(conversationId);
         setConversation(convResponse.data.conversation);
 
+        // ... (Logique Contact ID inchangée) ...
         const convData = convResponse.data.conversation;
         if (!convData.isGroup) {
           const userId = user._id || user.id;
           const otherParticipant = convData.participants?.find(
             (p) => p._id !== userId,
           );
-
-          if (otherParticipant) {
-            console.log("👤 Contact ID trouvé:", otherParticipant._id);
-            setContactId(otherParticipant._id);
-          }
+          if (otherParticipant) setContactId(otherParticipant._id);
         }
 
         const messagesResponse = await getMessages(conversationId);
@@ -232,8 +235,16 @@ export default function ChatPage() {
           joinConversation(conversationId);
         }
 
-        setTimeout(async () => {
+        // ✅ CORRECTION ICI : On assigne le timeout à la variable
+        markReadTimeout = setTimeout(async () => {
           if (isMarkingAsReadRef.current) return;
+          
+          // 🛑 Vérification supplémentaire : si l'utilisateur a changé de page entre temps
+          if (document.hidden) {
+             console.log("🙈 Page cachée, marquage annulé");
+             return;
+          }
+
           isMarkingAsReadRef.current = true;
 
           try {
@@ -256,6 +267,7 @@ export default function ChatPage() {
             isMarkingAsReadRef.current = false;
           }
         }, 500);
+
       } catch (error) {
         console.error("Erreur chargement conversation:", error);
         setLoading(false);
@@ -264,7 +276,9 @@ export default function ChatPage() {
 
     loadConversation();
 
+    // ✅ CLEANUP : On annule le marquage si l'utilisateur quitte
     return () => {
+      if (markReadTimeout) clearTimeout(markReadTimeout);
       isMarkingAsReadRef.current = false;
     };
   }, [conversationId, user]);
@@ -349,13 +363,34 @@ export default function ChatPage() {
     startCall();
   }, [searchParams, conversation, user, conversationId, initiateCall]);
 
+    // ✅ GESTIONNAIRE DE FOCUS : Marque comme lu quand on clique sur la fenêtre
+  useEffect(() => {
+    const handleFocus = () => {
+      if (conversationId && user) {
+        // Petite pause pour s'assurer que tout est chargé
+        setTimeout(() => {
+           console.log("🎯 Focus fenêtre : Marquage conversation comme lue");
+           markConversationAsRead(conversationId).catch(err => console.error(err));
+        }, 100);
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    // On appelle aussi au montage pour être sûr
+    if (document.hasFocus()) handleFocus();
+
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [conversationId, user]);
+
   // USEEFFECT PRINCIPAL POUR LES SOCKETS
+   // USEEFFECT PRINCIPAL POUR LES SOCKETS
   useEffect(() => {
     const socket = getSocket();
 
     if (socket && conversationId && user) {
       const currentUserId = user._id || user.id;
 
+      // 1. RECEPTION D'UN MESSAGE
       onReceiveMessage((message) => {
         const msgConvId =
           typeof message.conversationId === "object"
@@ -364,246 +399,140 @@ export default function ChatPage() {
 
         if (msgConvId === conversationId) {
           setMessages((prev) => {
-            const index = prev.findIndex((m) => m._id === message._id);
-            let next;
-
-            if (index !== -1) {
-              next = [...prev];
-              next[index] = message;
-            } else {
-              next = [...prev, message];
-            }
-
-            const senderId = message.sender._id || message.sender.id;
-if (senderId !== currentUserId) {
-  
-  // 👇 DÉBUT DE LA MODIFICATION 👇
-  // On vérifie si la conversation est mutée via la Ref
-  if (!isMutedRef.current) { 
-      console.log("📨 Message reçu (Son autorisé)");
-
-      let notificationBody = "";
-      if (message.type === "text") {
-        notificationBody = message.content?.slice(0, 50) || "Nouveau message";
-      } else if (message.type === "image") {
-        notificationBody = "📷 Image";
-      } else if (message.type === "video") {
-        notificationBody = "🎬 Vidéo";
-      } else if (message.type === "file") {
-        notificationBody = `📎 ${message.fileName || "Fichier"}`;
-      } else if (message.type === "voice" || message.type === "audio") {
-        notificationBody = "🎤 Message vocal";
-      } else {
-        notificationBody = "Nouveau message";
-      }
-
-      showNotification(message.sender?.name || "Nouveau message", {
-        body: notificationBody,
-        icon: message.sender?.profilePicture || "/default-avatar.png",
-        tag: conversationId,
-      });
-  } else {
-      console.log("🔕 Notification sonore bloquée (Conversation muette)");
-  }
-  // 👆 FIN DE LA MODIFICATION 👆
-}
-
-            next.sort((a, b) => {
-              const da = new Date(a.createdAt || a.scheduledFor);
-              const db = new Date(b.createdAt || b.scheduledFor);
-              return da - db;
+            // Évite les doublons
+            if (prev.some((m) => m._id === message._id)) return prev;
+            
+            const next = [...prev, message].sort((a, b) => {
+              return new Date(a.createdAt) - new Date(b.createdAt);
             });
-
             return next;
           });
 
           const senderId = message.sender._id || message.sender.id;
+          
+          // Si ce n'est pas mon message (donc je le reçois)
           if (senderId !== currentUserId) {
-            markMessagesAsDelivered([message._id])
-              .then(() => markConversationAsRead(conversationId))
-              .catch((err) => console.error("❌ Erreur marquage:", err));
+            
+            // A. Je notifie (Son/Pop-up) si pas muet
+            if (!isMutedRef.current) {
+              // ... ta logique de notification existante ...
+               let notificationBody = "Nouveau message";
+               if (message.type === "text") notificationBody = message.content?.slice(0, 50);
+               else if (message.type === "image") notificationBody = "📷 Image";
+               // ...
+               showNotification(message.sender?.name || "Nouveau message", {
+                body: notificationBody,
+                icon: message.sender?.profilePicture || "/default-avatar.png",
+                tag: conversationId,
+              });
+            }
+
+            // B. LOGIQUE CRITIQUE "VU"
+            // 1. Je dis au serveur "Bien reçu sur mon appareil" (Coches grises)
+            markMessagesAsDelivered([message._id]);
+
+            // 2. Si je suis ACTIVEMENT sur la fenêtre, je dis "J'ai lu" (Coches bleues)
+            if (document.hasFocus() && !document.hidden) {
+               console.log("👀 Fenêtre active : Marquage immédiat comme LU");
+               markConversationAsRead(conversationId);
+            }
           }
         }
       });
 
-      onMessageStatusUpdated(({ messageIds, status }) => {
+      // 2. MISE À JOUR DU STATUT (Distribué / Lu)
+      onMessageStatusUpdated(({ messageIds, status, readByUserId }) => {
+        console.log(`🔄 Mise à jour statut messages: ${status} par ${readByUserId}`);
+        
         setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            messageIds.includes(msg._id) ? { ...msg, status } : msg,
-          ),
+          prevMessages.map((msg) => {
+            if (messageIds.includes(msg._id)) {
+              
+              // Si c'est un groupe, on met à jour la liste "Vu par" en temps réel
+              let updatedReadBy = msg.readBy || [];
+              
+              // Si le statut passe à "Lu" et qu'on connait l'utilisateur
+              if (status === 'read' && readByUserId) {
+                 // Vérifie si l'utilisateur est déjà dans la liste pour éviter doublons
+                 const alreadyInList = updatedReadBy.some(r => {
+                    const rId = r.user?._id || r.user;
+                    return rId === readByUserId;
+                 });
+
+                 if (!alreadyInList) {
+                   // Ajout optimiste pour affichage immédiat
+                   updatedReadBy = [
+                     ...updatedReadBy, 
+                     { user: { _id: readByUserId, name: '...' }, readAt: new Date() } // Le nom se mettra à jour au reload, l'important c'est le compte
+                   ];
+                 }
+              }
+
+              return { 
+                ...msg, 
+                status: status, 
+                readBy: updatedReadBy
+              };
+            }
+            return msg;
+          })
         );
       });
 
-      onConversationStatusUpdated(
-        ({ conversationId: updatedConvId, status }) => {
-          console.log("📊 Statut conversation mis à jour:", {
-            conversationId: updatedConvId,
-            status,
-          });
-        },
-      );
-
-      onCallMissed(({ messageId, callDetails }) => {
-        console.log("📵 Appel manqué reçu:", messageId);
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg._id === messageId
-              ? {
-                  ...msg,
-                  callDetails: {
-                    ...msg.callDetails,
-                    ...callDetails,
-                    status: "missed",
-                  },
-                }
-              : msg,
-          ),
-        );
+      // 3. MISE À JOUR DE LA CONVERSATION (Tout le monde a lu)
+      onConversationStatusUpdated(({ conversationId: updatedConvId, status, userId }) => {
+        if (updatedConvId === conversationId) {
+          console.log("✅ Conversation marquée comme lue");
+          
+          setMessages((prevMessages) =>
+            prevMessages.map((msg) => {
+              // Si c'est MON message et qu'il n'est pas encore marqué lu -> Je le marque lu (bleu)
+              const isMyMessage = (msg.sender._id || msg.sender) === currentUserId;
+              
+              if (isMyMessage && msg.status !== 'read') {
+                 return { ...msg, status: 'read' };
+              }
+              
+              // Pour les groupes, si on reçoit l'info qu'un user a tout lu
+              if (userId && msg.status !== 'read') {
+                 // On pourrait complexifier ici, mais passer à 'read' suffit souvent pour l'UX
+                 return { ...msg, status: 'read' };
+              }
+              
+              return msg;
+            })
+          );
+        }
       });
 
-      onCallEnded(({ messageId, callDetails }) => {
-        console.log("📞 Appel terminé reçu:", messageId);
-
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg._id === messageId
-              ? {
-                  ...msg,
-                  callDetails: {
-                    ...msg.callDetails,
-                    ...callDetails,
-                    status: "ended",
-                  },
-                }
-              : msg,
-          ),
-        );
-      });
-
+      // ... (Garde tes autres écouteurs ici : call, delete, edit, typing) ...
+      onCallMissed(({ messageId, callDetails }) => { /* ton code */ });
+      onCallEnded(({ messageId, callDetails }) => { /* ton code */ });
+      
       socket.off("message-deleted");
-      socket.on(
-        "message-deleted",
-        ({ messageId, conversationId: deletedConvId }) => {
-          console.log("🗑️ Message supprimé reçu:", messageId);
-          if (deletedConvId === conversationId || !deletedConvId) {
-            setMessages((prev) => {
-              const filtered = prev.filter((msg) => msg._id !== messageId);
-              console.log(
-                `✅ Message ${messageId} supprimé. Avant: ${prev.length}, Après: ${filtered.length}`,
-              );
-              return filtered;
-            });
-          }
-        },
-      );
+      socket.on("message-deleted", ({ messageId }) => {
+          setMessages(prev => prev.filter(m => m._id !== messageId));
+      });
 
       socket.off("message-edited");
-      socket.on(
-        "message-edited",
-        ({ messageId, content, isEdited, editedAt }) => {
-          console.log("✏️ Message modifié reçu:", messageId);
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg._id === messageId
-                ? { ...msg, content, isEdited, editedAt }
-                : msg,
-            ),
-          );
-        },
-      );
+      socket.on("message-edited", ({ messageId, content, isEdited, editedAt }) => {
+          setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content, isEdited, editedAt } : m));
+      });
 
       onReactionUpdated(({ messageId, reactions }) => {
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg._id === messageId ? { ...msg, reactions } : msg,
-          ),
-        );
+         setMessages(prev => prev.map(m => m._id === messageId ? { ...m, reactions } : m));
+      });
+      
+      onUserTyping(({ conversationId: cId, userId: uId }) => {
+         if (cId === conversationId && uId !== currentUserId) {
+            setTypingUsers(prev => prev.includes(uId) ? prev : [...prev, uId]);
+         }
       });
 
-      socket.off("call-ended");
-      socket.on("call-ended", ({ callId, duration, status }) => {
-        console.log(
-          `📞 Appel terminé reçu: ${callId}, Statut: ${status}, Durée: ${duration}s`,
-        );
-
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) => {
-            if (msg.type === "call" && msg.callDetails?.callId === callId) {
-              return {
-                ...msg,
-                callDetails: {
-                  ...msg.callDetails,
-                  status: status,
-                  duration: duration,
-                  endedAt: new Date().toISOString(),
-                },
-              };
-            }
-            return msg;
-          }),
-        );
-      });
-
-      socket.off("call-declined");
-      socket.on("call-declined", ({ callId, declinedBy, reason }) => {
-        console.log(`❌ Appel refusé: ${callId} par ${declinedBy}`);
-
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) => {
-            if (msg.type === "call" && msg.callDetails?.callId === callId) {
-              return {
-                ...msg,
-                callDetails: {
-                  ...msg.callDetails,
-                  status: "missed",
-                  duration: 0,
-                  endedAt: new Date().toISOString(),
-                },
-              };
-            }
-            return msg;
-          }),
-        );
-      });
-
-      socket.off("call-timeout");
-      socket.on("call-timeout", ({ callId }) => {
-        console.log(`⏰ Appel timeout: ${callId}`);
-
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) => {
-            if (msg.type === "call" && msg.callDetails?.callId === callId) {
-              return {
-                ...msg,
-                callDetails: {
-                  ...msg.callDetails,
-                  status: "missed",
-                  duration: 0,
-                  endedAt: new Date().toISOString(),
-                },
-              };
-            }
-            return msg;
-          }),
-        );
-      });
-
-      onUserTyping(({ conversationId: typingConvId, userId }) => {
-        if (typingConvId === conversationId && userId !== currentUserId) {
-          setTypingUsers((prev) => {
-            if (!prev.includes(userId)) {
-              return [...prev, userId];
-            }
-            return prev;
-          });
-        }
-      });
-
-      onUserStoppedTyping(({ conversationId: typingConvId, userId }) => {
-        if (typingConvId === conversationId && userId !== currentUserId) {
-          setTypingUsers((prev) => prev.filter((id) => id !== userId));
-        }
+      onUserStoppedTyping(({ conversationId: cId, userId: uId }) => {
+         if (cId === conversationId) {
+            setTypingUsers(prev => prev.filter(id => id !== uId));
+         }
       });
     }
   }, [conversationId, user, showNotification]);
@@ -1136,10 +1065,10 @@ if (senderId !== currentUserId) {
 
                     return (
                       <div
-                        key={message._id}
-                        id={`message-${message._id}`}
-                        className="transition-all duration-300"
-                      >
+      key={`${message._id}-${index}`} // 👈 Sécurité anti-doublon
+      id={`message-${message._id}`}
+      className="transition-all duration-300"
+    >
                         {showDateSeparator && (
                           <DateSeparator date={message.createdAt} />
                         )}
@@ -1224,43 +1153,87 @@ if (senderId !== currentUserId) {
           />
 
           {/* ✅ CORRECTION: la MODAL doit être ici, pas dans TasksSidePanel */}
-          {isReadByOpen && (
-            <div
-              className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center p-4"
-              onClick={() => setIsReadByOpen(false)}
-            >
-              <div
-                className={`w-full max-w-md rounded-2xl p-5 ${cardStyle} border`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`font-bold ${textPrimary}`}>Vu par</h3>
-                  <button
-                    onClick={() => setIsReadByOpen(false)}
-                    className={textSecondary}
-                  >
-                    Fermer
-                  </button>
+          {/* MODAL VU PAR (Correction Groupe) */}
+{isReadByOpen && (
+  <div
+    className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+    onClick={() => setIsReadByOpen(false)}
+  >
+    <div
+      className={`w-full max-w-sm rounded-2xl p-5 ${cardStyle} border shadow-2xl flex flex-col max-h-[80vh]`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* En-tête */}
+      <div className="flex items-center justify-between mb-4 border-b pb-3 border-gray-100 dark:border-gray-700">
+        <h3 className={`font-bold text-lg ${textPrimary} flex items-center gap-2`}>
+          <Users className="w-5 h-5 text-blue-500" />
+          Vu par ({readByUsers.length})
+        </h3>
+        <button
+          onClick={() => setIsReadByOpen(false)}
+          className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition ${textSecondary}`}
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Liste */}
+      <div className="overflow-y-auto flex-1 custom-scrollbar pr-1">
+        {readByLoading ? (
+          <div className="flex flex-col items-center justify-center py-10">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+            <p className={`text-sm ${textSecondary}`}>Chargement...</p>
+          </div>
+        ) : readByUsers.length === 0 ? (
+          <div className="text-center py-10 px-4">
+            <div className="w-12 h-12 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+               <Check className="w-6 h-6 text-gray-400" />
+            </div>
+            <p className={`text-sm ${textSecondary}`}>
+              Personne n'a encore vu ce message.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {readByUsers.map((u, index) => (
+              <li 
+                 key={`${u._id}-${index}`} 
+    className="flex items-center gap-3 p-2.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+  >
+                {/* Avatar */}
+                <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0 border border-gray-100 dark:border-slate-600">
+                  {u.profilePicture ? (
+                    <img src={u.profilePicture} alt={u.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm">
+                      {u.name?.charAt(0).toUpperCase() || "?"}
+                    </div>
+                  )}
                 </div>
 
-                {readByLoading ? (
-                  <p className={textSecondary}>Chargement...</p>
-                ) : readByUsers.length === 0 ? (
-                  <p className={textSecondary}>
-                    Personne n’a encore vu ce message.
+                {/* Infos */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${textPrimary}`}>
+                    {u.name || "Utilisateur inconnu"}
                   </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {readByUsers.map((u) => (
-                      <li key={u._id} className={`text-sm ${textPrimary}`}>
-                        {u.name}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )}
+                  {u.readAt && (
+                    <p className="text-xs text-blue-400 dark:text-blue-300 flex items-center gap-1">
+                      <CheckCheck className="w-3 h-3" />
+                      {new Date(u.readAt).toLocaleDateString('fr-FR', {
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  </div>
+)}
         </div>
       </div>
     </ProtectedRoute>

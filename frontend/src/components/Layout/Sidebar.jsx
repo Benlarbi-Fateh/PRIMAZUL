@@ -382,10 +382,12 @@ useEffect(() => {
     };
   }, [user]);
 
+    // GESTION DES SOCKETS (Mises à jour en temps réel)
   useEffect(() => {
     const socket = getSocket();
 
     if (socket && user) {
+      // 1. Mise à jour générale (dernier message, etc.)
       socket.on("conversation-updated", (updatedConversation) => {
         setConversations((prevConversations) => {
           const existingIndex = prevConversations.findIndex(
@@ -394,7 +396,14 @@ useEffect(() => {
 
           if (existingIndex !== -1) {
             const newConversations = [...prevConversations];
-            newConversations[existingIndex] = updatedConversation;
+            newConversations[existingIndex] = {
+              ...newConversations[existingIndex],
+              ...updatedConversation,
+              // Si c'est moi qui ai envoyé le dernier message, je n'ai pas de non-lus
+              unreadCount: (updatedConversation.lastMessage?.sender === currentUserId) 
+                ? 0 
+                : updatedConversation.unreadCount
+            };
             return newConversations.sort(
               (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
             );
@@ -404,27 +413,37 @@ useEffect(() => {
         });
       });
 
-      socket.on("group-created", (group) => {
-        setConversations((prevConversations) => {
-          const exists = prevConversations.some(
-            (conv) => conv._id === group._id
+      // 2. ✅ C'EST ICI LA CORRECTION IMPORTANTE POUR LE "VU"
+      // Quand le backend dit "C'est lu", on met le compteur à 0
+      socket.on("conversation-read-update", ({ conversationId, userId }) => {
+        // Si c'est MOI (currentUserId) qui ai lu le message (depuis ChatPage)
+        if (userId === currentUserId) {
+          console.log("👀 Sidebar: Conversation lue, reset compteur pour", conversationId);
+          setConversations((prev) =>
+            prev.map((conv) =>
+              conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
+            )
           );
-          if (!exists) {
-            return [group, ...prevConversations];
-          }
-          return prevConversations;
-        });
+        }
       });
 
+      // (Garde la compatibilité avec l'ancien événement au cas où)
       socket.on("conversation-read", ({ conversationId }) => {
-        setConversations((prevConversations) =>
-          prevConversations.map((conv) =>
+        setConversations((prev) =>
+          prev.map((conv) =>
             conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
           )
         );
       });
 
-      onShouldRefreshConversations(() => {
+      socket.on("group-created", (group) => {
+        setConversations((prev) => {
+          const exists = prev.some((conv) => conv._id === group._id);
+          return exists ? prev : [group, ...prev];
+        });
+      });
+
+      socket.on("should-refresh-conversations", () => {
         clearTimeout(refreshTimeoutRef.current);
         refreshTimeoutRef.current = setTimeout(() => {
           fetchConversations();
@@ -433,13 +452,14 @@ useEffect(() => {
 
       return () => {
         socket.off("conversation-updated");
-        socket.off("group-created");
+        socket.off("conversation-read-update"); // N'oublie pas de nettoyer
         socket.off("conversation-read");
+        socket.off("group-created");
         socket.off("should-refresh-conversations");
         clearTimeout(refreshTimeoutRef.current);
       };
     }
-  }, [user]);
+  }, [user, currentUserId, fetchConversations]); // Ajoute currentUserId aux dépendances
 
   useEffect(() => {
     if (activeTab !== "contacts" || !searchTerm.trim()) {
@@ -526,22 +546,119 @@ useEffect(() => {
     }
   }, [activeTab, fetchConversations]);
 
+    // GESTION DES SOCKETS (Mises à jour Sidebar en temps réel)
   useEffect(() => {
-    if (!user) return;
-    
     const socket = getSocket();
-    
-    if (socket) {
-      socket.on('should-refresh-conversations', () => {
-        console.log('🔄 Sidebar: Rafraîchissement demandé via Socket.io');
-        fetchConversations();
+
+    if (socket && user && currentUserId) {
+      
+      // 1. QUAND UN NOUVEAU MESSAGE ARRIVE (ou qu'on envoie)
+      socket.on("conversation-updated", (updatedConversation) => {
+        setConversations((prevConversations) => {
+          const existingIndex = prevConversations.findIndex(
+            (conv) => conv._id === updatedConversation._id
+          );
+
+          if (existingIndex !== -1) {
+            const newConversations = [...prevConversations];
+            
+            // On fusionne les infos
+            newConversations[existingIndex] = {
+              ...newConversations[existingIndex],
+              ...updatedConversation,
+              lastMessage: updatedConversation.lastMessage, // Force la mise à jour du dernier message
+              updatedAt: updatedConversation.updatedAt,
+              // Si c'est MOI l'expéditeur du dernier message, je n'ai pas de "non-lus"
+              unreadCount: (updatedConversation.lastMessage?.sender === currentUserId || updatedConversation.lastMessage?.sender?._id === currentUserId)
+                ? 0 
+                : updatedConversation.unreadCount
+            };
+            
+            return newConversations.sort(
+              (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+            );
+          } else {
+            // Nouvelle conversation
+            return [updatedConversation, ...prevConversations];
+          }
+        });
+      });
+
+      // 2. 🔥 C'EST ÇA QUI MANQUAIT : QUAND L'AUTRE LIT TON MESSAGE (Mise à jour des coches ✔✔)
+      socket.on("message-status-updated", ({ messageIds, status, conversationId }) => {
+        setConversations((prev) => 
+          prev.map((conv) => {
+            // On cherche la bonne conversation ET on vérifie si le lastMessage est concerné
+            if (conv._id === conversationId && conv.lastMessage && messageIds.includes(conv.lastMessage._id)) {
+              console.log("Sidebar: Mise à jour statut LastMessage ->", status);
+              return {
+                ...conv,
+                lastMessage: {
+                  ...conv.lastMessage,
+                  status: status // Ex: passe de 'sent' à 'read' (bleu)
+                }
+              };
+            }
+            return conv;
+          })
+        );
+      });
+
+      // 3. QUAND JE LIS LA CONVERSATION (Remise à zéro du compteur)
+      socket.on("conversation-read-update", ({ conversationId, userId }) => {
+        if (userId === currentUserId) {
+          setConversations((prev) =>
+            prev.map((conv) =>
+              conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
+            )
+          );
+        }
+      });
+
+      // 4. MISE À JOUR GLOBALE DU STATUT DE LA CONVERSATION
+      socket.on("conversation-status-updated", ({ conversationId, status }) => {
+         setConversations((prev) => 
+          prev.map((conv) => {
+            if (conv._id === conversationId && conv.lastMessage) {
+               return {
+                 ...conv,
+                 lastMessage: { ...conv.lastMessage, status: status }
+               };
+            }
+            return conv;
+          })
+        );
+      });
+
+      // (Le reste de tes écouteurs habituels)
+      socket.on("conversation-read", ({ conversationId }) => {
+        setConversations((prev) => prev.map((conv) => conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv));
       });
       
+      socket.on("group-created", (group) => {
+        setConversations((prev) => {
+          const exists = prev.some((conv) => conv._id === group._id);
+          return exists ? prev : [group, ...prev];
+        });
+      });
+
+      socket.on("should-refresh-conversations", () => {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = setTimeout(() => { fetchConversations(); }, 300);
+      });
+
       return () => {
-        socket.off('should-refresh-conversations');
+        socket.off("conversation-updated");
+        socket.off("message-status-updated"); // 🔥 Indispensable
+        socket.off("conversation-read-update");
+        socket.off("conversation-status-updated");
+        socket.off("conversation-read");
+        socket.off("group-created");
+        socket.off("should-refresh-conversations");
+        clearTimeout(refreshTimeoutRef.current);
       };
     }
-  }, [user, fetchConversations]);
+  }, [user, currentUserId, fetchConversations]);
 
   const handleTabChange = (tab) => {
     if (tab !== activeTab) {
