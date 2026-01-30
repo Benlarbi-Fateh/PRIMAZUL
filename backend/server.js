@@ -71,9 +71,6 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-app.use(cors(corsOptions));
-app.set("io", io);
-
 // Connexion BDD
 connectDB();
 
@@ -140,6 +137,9 @@ process.on("SIGINT", () => {
     process.exit(0);
   });
 });
+
+app.use(cors(corsOptions));
+app.set("io", io);
 
 // ============================================
 // ⏰ CRON JOB (Avec sécurité)
