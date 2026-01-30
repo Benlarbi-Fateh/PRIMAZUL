@@ -17,6 +17,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
+    "node-mailjet": "^6.0.11",
     "nodemailer": "^7.0.10",
     "resend": "^6.9.1",
     "socket": "^1.1.29",
