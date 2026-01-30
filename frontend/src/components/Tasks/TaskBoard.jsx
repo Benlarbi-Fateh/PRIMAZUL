@@ -7,7 +7,7 @@ import { useTasks } from "@/context/TaskContext";
 import TaskColumn from "./TaskColumn";
 import TaskFilters from "./TaskFilters";
 import TaskDetailModal from "./TaskDetailModal";
-import { Menu, FolderOpen, Hash } from "lucide-react";
+import { Menu, FolderOpen, Hash, Circle, Clock, CheckCircle2 } from "lucide-react";
 
 export default function TaskBoard() {
   const { isDark } = useTheme();
@@ -18,11 +18,12 @@ export default function TaskBoard() {
     currentProjectId,
     participants,
     projects,
-    setIsMobileSidebarOpen, // À ajouter dans votre contexte si pas déjà présent
+    setIsMobileSidebarOpen,
   } = useTasks();
 
   const [selectedTask, setSelectedTask] = useState(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("todo"); // État pour les onglets mobile/tablette
 
   // Trouver le projet courant
   const currentProject = projects?.find((p) => p._id === currentProjectId);
@@ -50,27 +51,16 @@ export default function TaskBoard() {
     ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
     : "bg-gradient-to-br from-slate-50 via-white to-blue-50";
 
-  const headerBg = isDark ? "bg-slate-900/80 border-slate-800" : "bg-white/80 border-slate-200";
-
   return (
     <div className={`flex flex-col h-full ${containerBg}`}>
-      {/* Header Projet - NOUVEAU */}
-      <div
-        className={`flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b backdrop-blur-sm ${headerBg}`}
-      >
+      {/* Header Projet - BLEU VIBRANT */}
+      <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b bg-blue-600 border-blue-700">
         {/* Menu hamburger - visible sur mobile/tablette uniquement */}
         <button
           onClick={() => {
-            // Logique pour ouvrir la sidebar mobile
-            // Si vous avez un état pour ça dans le contexte:
-            // setIsMobileSidebarOpen(true)
             console.log("Ouvrir sidebar mobile");
           }}
-          className={`lg:hidden p-2 rounded-lg transition-all ${
-            isDark
-              ? "hover:bg-slate-800 text-slate-400 hover:text-white"
-              : "hover:bg-slate-100 text-slate-500 hover:text-slate-900"
-          }`}
+          className="lg:hidden p-2 rounded-lg transition-all hover:bg-blue-700 text-white"
         >
           <Menu size={20} />
         </button>
@@ -78,99 +68,157 @@ export default function TaskBoard() {
         {/* Icône et nom du projet */}
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           {currentProjectId === "all" ? (
-            <div
-              className={`p-2 sm:p-2.5 rounded-xl ${
-                isDark ? "bg-blue-500/20" : "bg-blue-100"
-              }`}
-            >
-              <FolderOpen
-                size={18}
-                className={`${isDark ? "text-blue-400" : "text-blue-600"} sm:w-5 sm:h-5`}
-              />
+            <div className="p-2 sm:p-2.5 rounded-xl bg-blue-700">
+              <FolderOpen size={18} className="text-white sm:w-5 sm:h-5" />
             </div>
           ) : (
-            <div
-              className={`p-2 sm:p-2.5 rounded-xl ${
-                isDark ? "bg-slate-800" : "bg-slate-100"
-              }`}
-            >
-              <Hash
-                size={16}
-                className={`${isDark ? "text-slate-400" : "text-slate-600"} sm:w-[18px] sm:h-[18px]`}
-              />
+            <div className="p-2 sm:p-2.5 rounded-xl bg-blue-700">
+              <Hash size={16} className="text-white sm:w-[18px] sm:h-[18px]" />
             </div>
           )}
 
           <div className="flex-1 min-w-0">
-            <h1
-              className={`text-base sm:text-lg font-bold truncate ${
-                isDark ? "text-white" : "text-slate-900"
-              }`}
-            >
+            <h1 className="text-base sm:text-lg font-bold truncate text-white">
               {projectName}
             </h1>
-            <p
-              className={`text-[10px] sm:text-xs ${
-                isDark ? "text-slate-500" : "text-slate-400"
-              }`}
-            >
+            <p className="text-[10px] sm:text-xs text-blue-100">
               {stats.total} tâche{stats.total !== 1 ? "s" : ""} au total
             </p>
           </div>
         </div>
 
         {/* Badge de progression */}
-        <div
-          className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-            isDark ? "bg-slate-800 border-slate-700" : "bg-slate-100 border-slate-200"
-          } border`}
-        >
-          <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-          <span
-            className={`text-xs font-bold ${isDark ? "text-slate-300" : "text-slate-600"}`}
-          >
-            {stats.progress}%
-          </span>
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-700 border-blue-800 border">
+          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="text-xs font-bold text-white">{stats.progress}%</span>
         </div>
       </div>
 
       {/* Filtres */}
       <TaskFilters onNewTask={() => setShowNewTaskModal(true)} />
 
-      {/* Board Kanban - Scroll vertical sur mobile/tablet, grid sur desktop */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-3 md:p-4">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          {/* 
-            Mobile/Tablet: Colonnes empilées verticalement avec scroll
-            Desktop XL: Grid 3 colonnes sans scroll
-          */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4 xl:h-full">
-            <TaskColumn
-              id="todo"
-              title="À faire"
-              tasks={tasksByStatus.todo}
-              onTaskClick={setSelectedTask}
-              color="blue"
-            />
-            <TaskColumn
-              id="inProgress"
-              title="En cours"
-              tasks={tasksByStatus.inProgress}
-              onTaskClick={setSelectedTask}
-              color="amber"
-            />
-            <TaskColumn
-              id="done"
-              title="Terminées"
-              tasks={tasksByStatus.done}
-              onTaskClick={setSelectedTask}
-              color="emerald"
-            />
-          </div>
-        </DragDropContext>
+      {/* Onglets Mobile/Tablette - Cachés sur XL */}
+      <div
+        className={`xl:hidden flex gap-2 p-3 border-b ${
+          isDark ? "bg-slate-900/50 border-slate-800" : "bg-white/50 border-slate-200"
+        }`}
+      >
+        <button
+          onClick={() => setActiveTab("todo")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border transition-all ${
+            activeTab === "todo"
+              ? "bg-blue-600 text-white border-blue-500 shadow-lg"
+              : isDark
+              ? "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+              : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+          }`}
+        >
+          <Circle size={16} />
+          <span className="text-xs font-bold">À faire</span>
+          <span
+            className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+              activeTab === "todo"
+                ? "bg-white/20"
+                : isDark
+                ? "bg-slate-700"
+                : "bg-slate-200"
+            }`}
+          >
+            {stats.todo}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("inProgress")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border transition-all ${
+            activeTab === "inProgress"
+              ? "bg-amber-600 text-white border-amber-500 shadow-lg"
+              : isDark
+              ? "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+              : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+          }`}
+        >
+          <Clock size={16} />
+          <span className="text-xs font-bold">En cours</span>
+          <span
+            className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+              activeTab === "inProgress"
+                ? "bg-white/20"
+                : isDark
+                ? "bg-slate-700"
+                : "bg-slate-200"
+            }`}
+          >
+            {stats.inProgress}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("done")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border transition-all ${
+            activeTab === "done"
+              ? "bg-emerald-600 text-white border-emerald-500 shadow-lg"
+              : isDark
+              ? "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+              : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
+          }`}
+        >
+          <CheckCircle2 size={16} />
+          <span className="text-xs font-bold">Terminées</span>
+          <span
+            className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+              activeTab === "done"
+                ? "bg-white/20"
+                : isDark
+                ? "bg-slate-700"
+                : "bg-slate-200"
+            }`}
+          >
+            {stats.done}
+          </span>
+        </button>
+      </div>
+{/* Board Kanban */}
+<div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
+  <DragDropContext onDragEnd={handleDragEnd}>
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4 h-full">
+      {/* Sur mobile/tablette, affiche seulement la colonne active */}
+      {/* Sur XL, affiche les 3 colonnes */}
+      <div className={`flex flex-col h-full ${activeTab === "todo" ? "block" : "hidden xl:block"}`}>
+        <TaskColumn
+          id="todo"
+          title="À faire"
+          tasks={tasksByStatus.todo}
+          onTaskClick={setSelectedTask}
+          color="blue"
+        />
       </div>
 
-      {/* Barre de progression - Responsive */}
+      <div className={`flex flex-col h-full ${activeTab === "inProgress" ? "block" : "hidden xl:block"}`}>
+        <TaskColumn
+          id="inProgress"
+          title="En cours"
+          tasks={tasksByStatus.inProgress}
+          onTaskClick={setSelectedTask}
+          color="amber"
+        />
+      </div>
+
+      <div className={`flex flex-col h-full ${activeTab === "done" ? "block" : "hidden xl:block"}`}>
+        <TaskColumn
+          id="done"
+          title="Terminées"
+          tasks={tasksByStatus.done}
+          onTaskClick={setSelectedTask}
+          color="emerald"
+        />
+      </div>
+    </div>
+  </DragDropContext>
+</div>
+
+
+      {/* Barre de progression */}
       <div
         className={`p-3 sm:p-4 border-t ${
           isDark ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-100"
@@ -197,14 +245,12 @@ export default function TaskBoard() {
                 </span>
               </div>
 
-              <div
-                className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-blue-600 text-white shadow-sm`}
-              >
+              <div className="px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-blue-600 text-white shadow-sm">
                 {stats.progress}%
               </div>
             </div>
 
-            {/* Barre de progression Multicolore */}
+            {/* Barre de progression */}
             <div
               className={`relative h-1.5 sm:h-2 w-full rounded-full overflow-hidden ${
                 isDark ? "bg-slate-800" : "bg-slate-100"
@@ -224,23 +270,11 @@ export default function TaskBoard() {
               </div>
             </div>
 
-            {/* Stats Badges - Responsive Layout */}
+            {/* Stats Badges */}
             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-8 mt-1">
               <StatBadge label="À faire" count={stats.todo} color="blue" isDark={isDark} />
-
-              <StatBadge
-                label="En cours"
-                count={stats.inProgress}
-                color="amber"
-                isDark={isDark}
-              />
-
-              <StatBadge
-                label="Terminées"
-                count={stats.done}
-                color="emerald"
-                isDark={isDark}
-              />
+              <StatBadge label="En cours" count={stats.inProgress} color="amber" isDark={isDark} />
+              <StatBadge label="Terminées" count={stats.done} color="emerald" isDark={isDark} />
             </div>
           </div>
         </div>
@@ -263,18 +297,7 @@ export default function TaskBoard() {
 }
 
 // Composant StatBadge responsive
-function StatBadge({ label, count, color, isDark, pulse }) {
-  const colors = {
-    blue: isDark ? "bg-blue-900/50 text-blue-300" : "bg-blue-100 text-blue-700",
-    amber: isDark
-      ? "bg-amber-900/50 text-amber-300"
-      : "bg-amber-100 text-amber-700",
-    emerald: isDark
-      ? "bg-emerald-900/50 text-emerald-300"
-      : "bg-emerald-100 text-emerald-700",
-    rose: isDark ? "bg-rose-900/50 text-rose-300" : "bg-rose-100 text-rose-700",
-  };
-
+function StatBadge({ label, count, color, isDark }) {
   const dotColors = {
     blue: "bg-blue-500",
     amber: "bg-amber-500",
@@ -290,7 +313,6 @@ function StatBadge({ label, count, color, isDark, pulse }) {
           isDark ? "text-slate-500" : "text-slate-400"
         }`}
       >
-        {/* Mobile: chiffre seul, Desktop: label + chiffre */}
         <span className="hidden sm:inline">{label} </span>
         {count}
       </span>
