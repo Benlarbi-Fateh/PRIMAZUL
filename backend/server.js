@@ -9,15 +9,6 @@ const mongoose = require("mongoose");
 
 const app = express();
 const server = http.createServer(app);
-
-// ✅ Configuration CORS
-const corsOptions = {
-  origin: ["http://localhost:3000", "http://192.168.1.7:3000", process.env.FRONTEND_URL],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-};
-
 app.use(cors(corsOptions));
 
 // ✅ Limites de taille
@@ -31,9 +22,50 @@ app.use((req, res, next) => {
 });
 
 // ✅ Configuration Socket.IO
+// ✅ Configuration CORS Dynamique (Accepte tout Vercel)
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Autoriser les requêtes sans origine (Postman, Mobile apps)
+    if (!origin) return callback(null, true);
+
+    // Autoriser localhost et tout ce qui vient de Vercel (.vercel.app)
+    if (
+      origin.includes("localhost") ||
+      origin.includes("192.168.") ||
+      origin.endsWith(".vercel.app") ||
+      origin === process.env.FRONTEND_URL
+    ) {
+      callback(null, true);
+    } else {
+      console.log("🚫 CORS Bloqué:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
+app.use(cors(corsOptions));
+
+// ... (suite du code)
+
+// ✅ Configuration Socket.IO (Même logique)
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://192.168.1.7:3000", process.env.FRONTEND_URL],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (
+        origin.includes("localhost") ||
+        origin.includes("192.168.") ||
+        origin.endsWith(".vercel.app") ||
+        origin === process.env.FRONTEND_URL
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   },
@@ -73,7 +105,7 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "OK",
     message: "Backend is running",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -84,12 +116,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ============================================
 const initSocket = require("./socket/socketHandler");
 try {
-    initSocket(io);
-    io.on("connection", (socket) => {
-        console.log(`🔌 Client connecté: ${socket.id}`);
-    });
+  initSocket(io);
+  io.on("connection", (socket) => {
+    console.log(`🔌 Client connecté: ${socket.id}`);
+  });
 } catch (e) {
-    console.error("⚠️ Erreur initialisation Socket:", e.message);
+  console.error("⚠️ Erreur initialisation Socket:", e.message);
 }
 
 // ============================================
@@ -115,18 +147,20 @@ process.on("SIGINT", () => {
 // ============================================
 mongoose.connection.once("open", () => {
   console.log("✅ MongoDB connecté");
-  
+
   // On charge le contrôleur ici pour éviter les erreurs cycliques
   try {
-      const { checkScheduledMessages } = require("./controllers/messageController");
-      console.log("⏰ CRON Job activé");
-      setInterval(() => {
-        if (mongoose.connection.readyState === 1) {
-          checkScheduledMessages(io);
-        }
-      }, 30000);
+    const {
+      checkScheduledMessages,
+    } = require("./controllers/messageController");
+    console.log("⏰ CRON Job activé");
+    setInterval(() => {
+      if (mongoose.connection.readyState === 1) {
+        checkScheduledMessages(io);
+      }
+    }, 30000);
   } catch (e) {
-      console.log("⚠️ Impossible de charger le CRON job:", e.message);
+    console.log("⚠️ Impossible de charger le CRON job:", e.message);
   }
 });
 
