@@ -1299,10 +1299,7 @@ export function StatusPageContent() {
     </div>
   );
 }
-function StatusPageContent() {
-  // 👈 J'ai enlevé "export default" et changé le nom
-  // ... tout ton code inchangé ...
-}
+
 
 export default function StatusPage() {
   // 👈 J'ai ajouté ça à la fin
