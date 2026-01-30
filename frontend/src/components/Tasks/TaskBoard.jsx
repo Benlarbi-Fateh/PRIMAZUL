@@ -23,7 +23,7 @@ export default function TaskBoard() {
 
   const [selectedTask, setSelectedTask] = useState(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("todo"); // État pour les onglets mobile/tablette
+  const [activeTab, setActiveTab] = useState("todo");
 
   // Trouver le projet courant
   const currentProject = projects?.find((p) => p._id === currentProjectId);
@@ -55,7 +55,7 @@ export default function TaskBoard() {
     <div className={`flex flex-col h-full ${containerBg}`}>
       {/* Header Projet - BLEU VIBRANT */}
       <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b bg-blue-600 border-blue-700">
-        {/* Menu hamburger - visible sur mobile/tablette uniquement */}
+        {/* Menu hamburger */}
         <button
           onClick={() => {
             console.log("Ouvrir sidebar mobile");
@@ -178,45 +178,46 @@ export default function TaskBoard() {
           </span>
         </button>
       </div>
-{/* Board Kanban */}
-<div className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4">
-  <DragDropContext onDragEnd={handleDragEnd}>
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4 h-full">
-      {/* Sur mobile/tablette, affiche seulement la colonne active */}
-      {/* Sur XL, affiche les 3 colonnes */}
-      <div className={`flex flex-col h-full ${activeTab === "todo" ? "block" : "hidden xl:block"}`}>
-        <TaskColumn
-          id="todo"
-          title="À faire"
-          tasks={tasksByStatus.todo}
-          onTaskClick={setSelectedTask}
-          color="blue"
-        />
-      </div>
 
-      <div className={`flex flex-col h-full ${activeTab === "inProgress" ? "block" : "hidden xl:block"}`}>
-        <TaskColumn
-          id="inProgress"
-          title="En cours"
-          tasks={tasksByStatus.inProgress}
-          onTaskClick={setSelectedTask}
-          color="amber"
-        />
-      </div>
+      {/* Board Kanban */}
+      <div className="flex-1 min-h-0 p-2 sm:p-3 md:p-4">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="h-full grid grid-cols-1 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+            {/* Colonne À faire */}
+            <div className={`h-full w-full ${activeTab === "todo" ? "flex" : "hidden xl:flex"}`}>
+              <TaskColumn
+                id="todo"
+                title="À faire"
+                tasks={tasksByStatus.todo}
+                onTaskClick={setSelectedTask}
+                color="blue"
+              />
+            </div>
 
-      <div className={`flex flex-col h-full ${activeTab === "done" ? "block" : "hidden xl:block"}`}>
-        <TaskColumn
-          id="done"
-          title="Terminées"
-          tasks={tasksByStatus.done}
-          onTaskClick={setSelectedTask}
-          color="emerald"
-        />
-      </div>
-    </div>
-  </DragDropContext>
-</div>
+            {/* Colonne En cours */}
+            <div className={`h-full w-full ${activeTab === "inProgress" ? "flex" : "hidden xl:flex"}`}>
+              <TaskColumn
+                id="inProgress"
+                title="En cours"
+                tasks={tasksByStatus.inProgress}
+                onTaskClick={setSelectedTask}
+                color="amber"
+              />
+            </div>
 
+            {/* Colonne Terminées */}
+            <div className={`h-full w-full ${activeTab === "done" ? "flex" : "hidden xl:flex"}`}>
+              <TaskColumn
+                id="done"
+                title="Terminées"
+                tasks={tasksByStatus.done}
+                onTaskClick={setSelectedTask}
+                color="emerald"
+              />
+            </div>
+          </div>
+        </DragDropContext>
+      </div>
 
       {/* Barre de progression */}
       <div
