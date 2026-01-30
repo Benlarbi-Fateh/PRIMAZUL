@@ -5,13 +5,15 @@ const DEV_MODE = false; // Mettre à false en production
 
 // Configuration du transporteur email
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465, // 👈 Port SSL sécurisé
+  secure: true, // 👈 True pour le port 465
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
   },
   tls: {
-    rejectUnauthorized: false, // ✅ Résout l'erreur SSL
+    rejectUnauthorized: false, // 👈 Important sur Render
   },
 });
 
