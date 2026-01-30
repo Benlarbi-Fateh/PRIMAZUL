@@ -95,7 +95,7 @@ const SafeAvatar = ({ user, size = 40, className = "" }) => {
 // ============================================
 // COMPOSANT PRINCIPAL
 // ============================================
-export function StatusPageContent() {
+export default function StatusPage() {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const router = useRouter();
@@ -1297,21 +1297,5 @@ export function StatusPageContent() {
         }
       `}</style>
     </div>
-  );
-}
-// ============================================
-// EXPORT PAR DÉFAUT AVEC SUSPENSE
-// ============================================
-export default function StatusPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-black">
-          <div className="text-white">Chargement...</div>
-        </div>
-      }
-    >
-      <StatusPageContent />
-    </Suspense>
   );
 }

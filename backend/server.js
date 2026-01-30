@@ -9,6 +9,19 @@ const mongoose = require("mongoose");
 
 const app = express();
 const server = http.createServer(app);
+
+// ✅ Configuration CORS
+const corsOptions = {
+  origin: [
+    "http://localhost:3000",
+    "http://192.168.1.7:3000",
+    process.env.FRONTEND_URL,
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
 app.use(cors(corsOptions));
 
 // ✅ Limites de taille
@@ -22,54 +35,21 @@ app.use((req, res, next) => {
 });
 
 // ✅ Configuration Socket.IO
-// ✅ Configuration CORS Dynamique (Accepte tout Vercel)
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Autoriser les requêtes sans origine (Postman, Mobile apps)
-    if (!origin) return callback(null, true);
-
-    // Autoriser localhost et tout ce qui vient de Vercel (.vercel.app)
-    if (
-      origin.includes("localhost") ||
-      origin.includes("192.168.") ||
-      origin.endsWith(".vercel.app") ||
-      origin === process.env.FRONTEND_URL
-    ) {
-      callback(null, true);
-    } else {
-      console.log("🚫 CORS Bloqué:", origin);
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-};
-
-// ... (suite du code)
-
-// ✅ Configuration Socket.IO (Même logique)
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (
-        origin.includes("localhost") ||
-        origin.includes("192.168.") ||
-        origin.endsWith(".vercel.app") ||
-        origin === process.env.FRONTEND_URL
-      ) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: [
+      "http://localhost:3000",
+      "http://192.168.1.7:3000",
+      process.env.FRONTEND_URL,
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   },
   pingTimeout: 60000,
   pingInterval: 25000,
 });
+
+app.set("io", io);
 
 // Connexion BDD
 connectDB();
@@ -137,9 +117,6 @@ process.on("SIGINT", () => {
     process.exit(0);
   });
 });
-
-app.use(cors(corsOptions));
-app.set("io", io);
 
 // ============================================
 // ⏰ CRON JOB (Avec sécurité)
