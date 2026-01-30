@@ -1,9 +1,5 @@
 const nodemailer = require("nodemailer");
 
-// 🆕 MODE DÉVELOPPEMENT AUTOMATIQUE
-// Si on est en production (Render), ça vaut false. Sinon true.
-const DEV_MODE = false;
-
 // Configuration du transporteur email
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com", // ✅ On précise l'hôte explicitement
@@ -132,25 +128,6 @@ const sendVerificationEmail = async (
   type = "registration",
 ) => {
   try {
-    // 🆕 MODE DÉVELOPPEMENT : Console uniquement
-    if (DEV_MODE) {
-      console.log(
-        "\n╔══════════════════════════════════════════════════════════╗",
-      );
-      console.log("║          📧 MODE DÉVELOPPEMENT - EMAIL SIMULÉ          ║");
-      console.log(
-        "╚══════════════════════════════════════════════════════════╝",
-      );
-      console.log(`📨 Destinataire: ${email}`);
-      console.log(`👤 Nom: ${userName}`);
-      console.log(`🔐 Type: ${type}`);
-      console.log(`\n🎯 CODE DE VÉRIFICATION: ${code}`);
-      console.log(
-        "╚══════════════════════════════════════════════════════════╝\n",
-      );
-      return { success: true, messageId: "dev-mode-" + Date.now() };
-    }
-
     // MODE PRODUCTION : Envoyer vraiment l'email
     let subject;
     switch (type) {
