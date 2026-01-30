@@ -32,7 +32,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+import { BASE_URL as API_URL } from "@/lib/api";
 const REACTION_EMOJIS = ["❤️", "😂", "😮", "😢", "😡", "🔥", "👏", "👍"];
 
 // ============================================
@@ -1299,7 +1299,6 @@ export function StatusPageContent() {
     </div>
   );
 }
-
 
 export default function StatusPage() {
   // 👈 J'ai ajouté ça à la fin

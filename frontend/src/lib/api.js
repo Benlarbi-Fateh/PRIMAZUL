@@ -57,6 +57,8 @@ export const uploadFile = (formData) => {
     },
   });
 };
+export const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
 // =================== AUTH ===================
 export const register = (data) => api.post("/auth/register", data);
@@ -273,4 +275,5 @@ export const deleteSubtask = (taskId, subtaskId) =>
 
 // Stats
 export const getPersonalTasksStats = () => api.get("/personal-tasks/stats");
+
 export default api;
