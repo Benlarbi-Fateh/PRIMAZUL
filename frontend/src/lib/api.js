@@ -58,7 +58,7 @@ export const uploadFile = (formData) => {
   });
 };
 export const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5001";
 
 // =================== AUTH ===================
 export const register = (data) => api.post("/auth/register", data);
