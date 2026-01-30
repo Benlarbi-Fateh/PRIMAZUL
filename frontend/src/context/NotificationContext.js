@@ -69,6 +69,33 @@ export const NotificationProvider = ({ children }) => {
   const audioRef = useRef(null);
   const previewAudioRef = useRef(null); // ✅ NOUVEAU : Ref pour le son de prévisualisation
 
+  useEffect(() => {
+    const unlockAudio = () => {
+      // On essaie de jouer et couper tout de suite juste pour "activer" l'audio context
+      if (audioRef.current) {
+        audioRef.current.play().then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }).catch(() => {});
+      }
+      // Une fois fait, on retire les écouteurs, c'est bon pour toute la session
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    };
+
+    if (typeof window !== "undefined") {
+      document.addEventListener('click', unlockAudio);
+      document.addEventListener('keydown', unlockAudio);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('keydown', unlockAudio);
+      }
+    };
+  }, []);
+
   // Vérifier la permission au montage
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -218,8 +245,14 @@ export const NotificationProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error("❌ Erreur lecture notification:", error);
-    }
+        // 👇 MODIFICATION ICI
+        if (error.name === "NotAllowedError") {
+            // C'est normal, l'utilisateur n'a pas encore cliqué sur la page
+            console.log("🔕 Son bloqué par le navigateur (en attente d'interaction utilisateur)");
+        } else {
+            console.warn("⚠️ Erreur lecture audio:", error.message);
+        }
+      }
   }, [settings.enabled, settings.soundEnabled, settings.selectedSound, settings.volume]);
 
   const testSound = useCallback(() => {

@@ -62,6 +62,7 @@ import {
   MoreVertical,
   ArrowLeft,
 } from "lucide-react";
+import { useMute } from "@/context/MuteContext";
 
 export default function ChatPage() {
   const params = useParams();
@@ -73,6 +74,9 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const { showNotification } = useNotifications();
   const { initiateCall } = useContext(CallContext);
+
+   const { isMuted } = useMute();
+  const isMutedRef = useRef(false);
 
   const conversationId = params.id;
 
@@ -171,6 +175,14 @@ export default function ChatPage() {
       }, 2000);
     }
   };
+    useEffect(() => {
+    if (conversationId) {
+      isMutedRef.current = isMuted(conversationId);
+    }
+  }, [conversationId, isMuted]);
+
+  useSocket();
+
 
   // Cleanup : Quitter la conversation quand on quitte la page
   useEffect(() => {
@@ -363,31 +375,38 @@ export default function ChatPage() {
             }
 
             const senderId = message.sender._id || message.sender.id;
-            if (senderId !== currentUserId) {
-              console.log("📨 Message reçu d'un autre utilisateur");
+if (senderId !== currentUserId) {
+  
+  // 👇 DÉBUT DE LA MODIFICATION 👇
+  // On vérifie si la conversation est mutée via la Ref
+  if (!isMutedRef.current) { 
+      console.log("📨 Message reçu (Son autorisé)");
 
-              let notificationBody = "";
-              if (message.type === "text") {
-                notificationBody =
-                  message.content?.slice(0, 50) || "Nouveau message";
-              } else if (message.type === "image") {
-                notificationBody = "📷 Image";
-              } else if (message.type === "video") {
-                notificationBody = "🎬 Vidéo";
-              } else if (message.type === "file") {
-                notificationBody = `📎 ${message.fileName || "Fichier"}`;
-              } else if (message.type === "voice" || message.type === "audio") {
-                notificationBody = "🎤 Message vocal";
-              } else {
-                notificationBody = "Nouveau message";
-              }
+      let notificationBody = "";
+      if (message.type === "text") {
+        notificationBody = message.content?.slice(0, 50) || "Nouveau message";
+      } else if (message.type === "image") {
+        notificationBody = "📷 Image";
+      } else if (message.type === "video") {
+        notificationBody = "🎬 Vidéo";
+      } else if (message.type === "file") {
+        notificationBody = `📎 ${message.fileName || "Fichier"}`;
+      } else if (message.type === "voice" || message.type === "audio") {
+        notificationBody = "🎤 Message vocal";
+      } else {
+        notificationBody = "Nouveau message";
+      }
 
-              showNotification(message.sender?.name || "Nouveau message", {
-                body: notificationBody,
-                icon: message.sender?.profilePicture || "/default-avatar.png",
-                tag: conversationId,
-              });
-            }
+      showNotification(message.sender?.name || "Nouveau message", {
+        body: notificationBody,
+        icon: message.sender?.profilePicture || "/default-avatar.png",
+        tag: conversationId,
+      });
+  } else {
+      console.log("🔕 Notification sonore bloquée (Conversation muette)");
+  }
+  // 👆 FIN DE LA MODIFICATION 👆
+}
 
             next.sort((a, b) => {
               const da = new Date(a.createdAt || a.scheduledFor);

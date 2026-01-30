@@ -329,33 +329,41 @@ export default function ChatHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMenu]);
 
-  const toggleMute = async () => {
-    if (!conversation?._id) {
-      alert("❌ Conversation non définie");
-      return;
+  // Dans ChatHeader.jsx
+
+const toggleMute = async () => {
+  if (!conversation?._id) return;
+
+  const previousMutedState = settings.muted;
+  const newMutedState = !previousMutedState;
+
+  // 1️⃣ MISE À JOUR OPTIMISTE (Immédiate)
+  // On met à jour l'UI et le Contexte tout de suite
+  setSettings((prev) => ({ ...prev, muted: newMutedState }));
+  setConversationMuted(conversation._id, newMutedState);
+
+  try {
+    const endpoint = previousMutedState
+      ? `/message-settings/conversations/${conversation._id}/unmute`
+      : `/message-settings/conversations/${conversation._id}/mute`;
+
+    const response = await api.post(endpoint);
+
+    if (!response.data.success) {
+      throw new Error("Erreur API");
     }
 
-    try {
-      const endpoint = settings.muted
-        ? `/message-settings/conversations/${conversation._id}/unmute`
-        : `/message-settings/conversations/${conversation._id}/mute`;
-
-      const response = await api.post(endpoint);
-      const data = response.data;
-
-      if (data.success) {
-  const newMuted = !settings.muted;
-
-  setSettings((prev) => ({ ...prev, muted: newMuted }));
-  setConversationMuted(conversation._id, newMuted);
-
-  alert(newMuted ? "🔕 Notifications désactivées" : "✅ Notifications réactivées");
-}
-    } catch (err) {
-      console.error("❌ Erreur toggle mute:", err);
-      alert("Erreur lors de la modification des notifications");
-    }
-  };
+    // Succès silencieux (l'UI est déjà à jour)
+  } catch (err) {
+    console.error("❌ Erreur toggle mute:", err);
+    
+    // 2️⃣ ROLLBACK (En cas d'erreur seulement)
+    // On remet l'état précédent si le serveur a échoué
+    setSettings((prev) => ({ ...prev, muted: previousMutedState }));
+    setConversationMuted(conversation._id, previousMutedState);
+    alert("Erreur lors de la modification des notifications");
+  }
+};
 
   const toggleBlock = async () => {
     if (!contact?._id) {

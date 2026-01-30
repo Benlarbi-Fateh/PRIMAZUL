@@ -13,26 +13,32 @@ export function MuteProvider({ children }) {
   const [mutedSet, setMutedSet] = useState(() => new Set());
     const [isLoaded, setIsLoaded] = useState(false);
 
-  const refreshMuted = useCallback(async () => {
-    // 🛑 PROTECTION : Si pas d'utilisateur, on ne fait rien !
-    // Cela empêche la requête de partir avec un token invalide au démarrage
+  // Dans MuteContext.jsx
+
+const refreshMuted = useCallback(async () => {
     if (!user) {
-        setMutedSet(new Set()); // On vide la liste par sécurité
+        setMutedSet(new Set());
+        // Ne pas mettre isLoaded à true ici si pas de user
         return;
     }
 
     try {
       const res = await getMutedConversations();
       const ids = res.data?.mutedConversationIds || [];
-      setMutedSet(new Set(ids.map(String)));
+      
+      // Mise à jour atomique : on prépare le Set avant
+      const newSet = new Set(ids.map(id => id.toString())); // Force string
+      
+      setMutedSet(newSet);
+      // setIsLoaded est mis à true uniquement APRÈS le setMutedSet
+      // Même si React batch, c'est sémantiquement plus sûr.
     } catch (e) {
       console.error("❌ refreshMuted error:", e);
-      // Ici, on capture l'erreur silencieusement pour ne pas faire planter l'appli
     }
     finally {
-      setIsLoaded(true); // 👈 AJOUT IMPORTANT (Marque la fin du chargement)
+      setIsLoaded(true); 
     }
-  }, [user]); // 👈 On ajoute user comme dépendance
+}, [user]);
 
   const setConversationMuted = useCallback((conversationId, muted) => {
     if (!conversationId) return;
