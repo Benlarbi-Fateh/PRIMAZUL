@@ -1,7 +1,7 @@
 // frontend/src/app/status/page.js
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
@@ -65,7 +65,7 @@ const getAvatarUrl = (user) => {
 
   const name = user.name || user.username || user.email || "User";
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    name
+    name,
   )}&background=3b82f6&color=fff&bold=true&size=128`;
 };
 
@@ -76,7 +76,7 @@ const SafeAvatar = ({ user, size = 40, className = "" }) => {
   const [imgError, setImgError] = useState(false);
   const avatarUrl = getAvatarUrl(user);
   const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    user?.name || "User"
+    user?.name || "User",
   )}&background=3b82f6&color=fff&bold=true&size=128`;
 
   return (
@@ -169,71 +169,73 @@ export default function StatusPage() {
   }, [user, fetchStatuses]);
 
   useEffect(() => {
-  const openUserId = searchParams?.get("open");
-  const statusId = searchParams?.get("statusId");
-  
-  if (!user) return;
-  if (loading) return;
+    const openUserId = searchParams?.get("open");
+    const statusId = searchParams?.get("statusId");
 
-  console.log("🔍 Paramètres URL:", { openUserId, statusId });
+    if (!user) return;
+    if (loading) return;
 
-  // 1️⃣ Si on a cliqué sur un avatar depuis chat/sidebar
-  if (openUserId) {
-    console.log("👤 Ouverture statut pour userId:", openUserId);
-    
-    // A. Si c'est MON propre ID
-    if (openUserId === (user._id || user.id)) {
-      if (myStatuses.length > 0) {
-        console.log("✅ Ouverture de MES statuts");
+    console.log("🔍 Paramètres URL:", { openUserId, statusId });
+
+    // 1️⃣ Si on a cliqué sur un avatar depuis chat/sidebar
+    if (openUserId) {
+      console.log("👤 Ouverture statut pour userId:", openUserId);
+
+      // A. Si c'est MON propre ID
+      if (openUserId === (user._id || user.id)) {
+        if (myStatuses.length > 0) {
+          console.log("✅ Ouverture de MES statuts");
+          openViewer({ user, statuses: myStatuses });
+          setShowMobileSidebar(false);
+          return;
+        } else {
+          console.log("ℹ️ Je n'ai pas de statut");
+          // Vous pourriez ouvrir le créateur ici
+          // openCreator();
+        }
+      }
+
+      // B. Chercher dans les statuts des amis
+      const friendGroup = friendsStatuses.find(
+        (g) => g.user._id === openUserId,
+      );
+      if (friendGroup) {
+        console.log("✅ Statut d'ami trouvé, ouverture viewer");
+        openViewer(friendGroup);
+        setShowMobileSidebar(false);
+        return;
+      }
+
+      console.log("❌ Aucun statut trouvé pour cet utilisateur");
+    }
+
+    // 2️⃣ Logique existante pour statusId (pour les liens directs)
+    if (statusId) {
+      console.log("🔗 Ouverture statut spécifique:", statusId);
+
+      // Chercher dans MES statuts
+      const myIndex = myStatuses.findIndex((s) => s._id === statusId);
+      if (myIndex !== -1) {
         openViewer({ user, statuses: myStatuses });
-        setShowMobileSidebar(false);
-        return;
-      } else {
-        console.log("ℹ️ Je n'ai pas de statut");
-        // Vous pourriez ouvrir le créateur ici
-        // openCreator();
-      }
-    }
-    
-    // B. Chercher dans les statuts des amis
-    const friendGroup = friendsStatuses.find(g => g.user._id === openUserId);
-    if (friendGroup) {
-      console.log("✅ Statut d'ami trouvé, ouverture viewer");
-      openViewer(friendGroup);
-      setShowMobileSidebar(false);
-      return;
-    }
-    
-    console.log("❌ Aucun statut trouvé pour cet utilisateur");
-  }
-
-  // 2️⃣ Logique existante pour statusId (pour les liens directs)
-  if (statusId) {
-    console.log("🔗 Ouverture statut spécifique:", statusId);
-    
-    // Chercher dans MES statuts
-    const myIndex = myStatuses.findIndex((s) => s._id === statusId);
-    if (myIndex !== -1) {
-      openViewer({ user, statuses: myStatuses });
-      setCurrentIndex(myIndex);
-      setShowMobileSidebar(false);
-      return;
-    }
-
-    // Chercher dans les statuts des amis
-    for (const group of friendsStatuses) {
-      const idx = group.statuses.findIndex((s) => s._id === statusId);
-      if (idx !== -1) {
-        openViewer(group);
-        setCurrentIndex(idx);
+        setCurrentIndex(myIndex);
         setShowMobileSidebar(false);
         return;
       }
-    }
 
-    console.log("❌ Statut spécifique non trouvé");
-  }
-}, [searchParams, user, loading, myStatuses, friendsStatuses]);
+      // Chercher dans les statuts des amis
+      for (const group of friendsStatuses) {
+        const idx = group.statuses.findIndex((s) => s._id === statusId);
+        if (idx !== -1) {
+          openViewer(group);
+          setCurrentIndex(idx);
+          setShowMobileSidebar(false);
+          return;
+        }
+      }
+
+      console.log("❌ Statut spécifique non trouvé");
+    }
+  }, [searchParams, user, loading, myStatuses, friendsStatuses]);
 
   // ============================================
   // GESTION DU VIEWER
@@ -330,24 +332,24 @@ export default function StatusPage() {
   };
 
   const closeViewer = () => {
-  // Vérifier si on est arrivé depuis un clic sur avatar
-  const openUserId = searchParams?.get("open");
-  
-  if (openUserId) {
-    // Si oui, retourner en arrière (vers le chat)
-    router.back();
-  } else {
-    // Sinon, fermer normalement le viewer
-    setViewingGroup(null);
-    setCurrentIndex(0);
-    setProgress(0);
-    setShowStats(false);
-    setShowReactions(false);
-    setReplyText("");
-    setShowMobileSidebar(true);
-    fetchStatuses();
-  }
-};
+    // Vérifier si on est arrivé depuis un clic sur avatar
+    const openUserId = searchParams?.get("open");
+
+    if (openUserId) {
+      // Si oui, retourner en arrière (vers le chat)
+      router.back();
+    } else {
+      // Sinon, fermer normalement le viewer
+      setViewingGroup(null);
+      setCurrentIndex(0);
+      setProgress(0);
+      setShowStats(false);
+      setShowReactions(false);
+      setReplyText("");
+      setShowMobileSidebar(true);
+      fetchStatuses();
+    }
+  };
 
   const openViewer = (group) => {
     setViewingGroup(group);
@@ -373,7 +375,7 @@ export default function StatusPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ reaction: emoji }),
-        }
+        },
       );
 
       if (response.ok) {
@@ -398,7 +400,7 @@ export default function StatusPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ message: replyText }),
-        }
+        },
       );
 
       if (response.ok) {
@@ -430,12 +432,12 @@ export default function StatusPage() {
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (response.ok) {
         const updatedStatuses = viewingGroup.statuses.filter(
-          (s) => s._id !== currentStatus._id
+          (s) => s._id !== currentStatus._id,
         );
 
         if (updatedStatuses.length === 0) {
@@ -462,7 +464,7 @@ export default function StatusPage() {
         `${API_URL}/api/status/${currentStatus._id}/views`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (response.ok) {
@@ -526,8 +528,9 @@ export default function StatusPage() {
       createType === "video" ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
       alert(
-        `Fichier trop volumineux. Max: ${createType === "video" ? "50" : "10"
-        }MB`
+        `Fichier trop volumineux. Max: ${
+          createType === "video" ? "50" : "10"
+        }MB`,
       );
       return;
     }
@@ -590,10 +593,11 @@ export default function StatusPage() {
           {/* ✅ BOUTON RETOUR */}
           <button
             onClick={handleGoBack}
-            className={`p-2 rounded-full transition-colors ${isDark
+            className={`p-2 rounded-full transition-colors ${
+              isDark
                 ? "hover:bg-slate-800 text-slate-300"
                 : "hover:bg-gray-100 text-slate-600"
-              }`}
+            }`}
             title="Retour"
           >
             <ArrowLeft size={22} />
@@ -626,10 +630,11 @@ export default function StatusPage() {
           >
             <div className="relative flex-shrink-0">
               <div
-                className={`w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden border-2 ${myStatuses.length > 0
+                className={`w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden border-2 ${
+                  myStatuses.length > 0
                     ? "border-blue-500 p-[2px]"
                     : "border-slate-300"
-                  }`}
+                }`}
               >
                 <SafeAvatar user={user} size={56} className="w-full h-full" />
               </div>
@@ -649,8 +654,9 @@ export default function StatusPage() {
               </h3>
               <p className={`text-sm ${textSecondary} truncate`}>
                 {myStatuses.length > 0
-                  ? `${myStatuses.length} publication${myStatuses.length > 1 ? "s" : ""
-                  }`
+                  ? `${myStatuses.length} publication${
+                      myStatuses.length > 1 ? "s" : ""
+                    }`
                   : "Ajouter un statut"}
               </p>
             </div>
@@ -661,8 +667,9 @@ export default function StatusPage() {
           {/* Statuts des amis */}
           <div>
             <h4
-              className={`text-xs md:text-sm font-bold mb-3 md:mb-4 uppercase ${isDark ? "text-blue-400" : "text-blue-600"
-                }`}
+              className={`text-xs md:text-sm font-bold mb-3 md:mb-4 uppercase ${
+                isDark ? "text-blue-400" : "text-blue-600"
+              }`}
             >
               Mises à jour récentes
             </h4>
@@ -686,10 +693,11 @@ export default function StatusPage() {
                   >
                     <div className="relative flex-shrink-0">
                       <div
-                        className={`w-11 h-11 md:w-12 md:h-12 rounded-full p-[2px] ${group.hasUnviewed
+                        className={`w-11 h-11 md:w-12 md:h-12 rounded-full p-[2px] ${
+                          group.hasUnviewed
                             ? "bg-gradient-to-tr from-blue-500 to-cyan-400"
                             : "bg-slate-400"
-                          }`}
+                        }`}
                       >
                         <div className="w-full h-full rounded-full border-2 border-white dark:border-slate-900 overflow-hidden">
                           <SafeAvatar
@@ -787,10 +795,11 @@ export default function StatusPage() {
                     setMediaFile(null);
                     setMediaPreview("");
                   }}
-                  className={`flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl transition flex-1 max-w-[100px] md:max-w-none ${createType === type
+                  className={`flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl transition flex-1 max-w-[100px] md:max-w-none ${
+                    createType === type
                       ? "bg-blue-600"
                       : "bg-slate-800 hover:bg-slate-700"
-                    }`}
+                  }`}
                 >
                   <Icon size={20} className="md:w-6 md:h-6" />
                   <span className="text-xs md:text-sm">{label}</span>
@@ -1038,7 +1047,7 @@ export default function StatusPage() {
                     <div
                       className="absolute inset-0"
                       style={{
-                        background: isDark ? '#0f172a' : '#f8fafc' // Fond clair/sombre selon thème
+                        background: isDark ? "#0f172a" : "#f8fafc", // Fond clair/sombre selon thème
                       }}
                     />
 
@@ -1048,9 +1057,9 @@ export default function StatusPage() {
                         alt="Status"
                         className="object-contain max-w-[95vw] max-h-[95vh]"
                         style={{
-                          display: 'block',
+                          display: "block",
                           // Option : ombre pour mieux voir les bords
-                          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
                         }}
                       />
                     </div>
