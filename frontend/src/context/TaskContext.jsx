@@ -89,6 +89,37 @@ export function TaskProvider({ children, conversationId }) {
     }
   }, [conversationId]);
 
+  const moveTask = useCallback((taskId, source, destination) => {
+    setTasks((prev) => {
+      const updated = [...prev];
+
+      const taskIndex = updated.findIndex((t) => t._id === taskId);
+      if (taskIndex === -1) return prev;
+
+      const task = { ...updated[taskIndex] };
+      updated.splice(taskIndex, 1);
+
+      task.status = destination.droppableId;
+
+      // 🔥 IMPORTANT : on insère selon destination.index
+      const targetTasks = updated.filter(
+        (t) => t.status === destination.droppableId,
+      );
+
+      const targetIds = targetTasks.map((t) => t._id);
+
+      const insertBeforeId = targetIds[destination.index];
+      if (!insertBeforeId) {
+        updated.push(task);
+      } else {
+        const insertIndex = updated.findIndex((t) => t._id === insertBeforeId);
+        updated.splice(insertIndex, 0, task);
+      }
+
+      return updated;
+    });
+  }, []);
+
   // Charger les données au montage
   useEffect(() => {
     mountedRef.current = true;
@@ -235,21 +266,12 @@ export function TaskProvider({ children, conversationId }) {
   const createTask = useCallback(
     async (taskData) => {
       try {
-        // --- FIX: SANITIZE DATA ---
-        const payload = { ...taskData };
-
-        // Si currentProjectId est "all", on ne doit pas l'envoyer comme projectId
-        // car le backend attend un ObjectId hexadécimal.
-        if (payload.projectId === "all") {
-          delete payload.projectId; // Le backend mettra null ou undefined
-        }
-
         const res = await api.post(
           `/conversations/${conversationId}/tasks`,
-          payload, // Utiliser le payload nettoyé
+          taskData,
         );
-
         // Socket.io devrait mettre à jour automatiquement
+        // Mais on ajoute aussi manuellement au cas où
         const newTask = res.data.task;
         if (newTask) {
           setTasks((prev) => {
@@ -262,7 +284,7 @@ export function TaskProvider({ children, conversationId }) {
         console.error("❌ Erreur création:", err);
         return {
           success: false,
-          error: err.response?.data?.message || "Erreur lors de la création",
+          error: err.response?.data?.message || "Erreur",
         };
       }
     },

@@ -1,387 +1,267 @@
 "use client";
 
-import { useState } from "react";
 import { useTheme } from "@/hooks/useTheme";
 import { useTasks } from "@/context/TaskContext";
 import {
+  Check,
   Clock,
+  AlertCircle,
+  MoreHorizontal,
+  Trash2,
   MessageSquare,
-  ArrowRightLeft,
-  ChevronRight,
-  X,
-  Zap,
+  CheckCircle2,
 } from "lucide-react";
 
-export default function TaskCard({ task, onClick, isDragging, isMobileView }) {
+const priorityConfig = {
+  urgent: {
+    label: "Urgent",
+    emoji: "🔴",
+    bgLight: "bg-rose-50 text-rose-700 border-rose-100",
+    bgDark: "bg-rose-900/30 text-rose-300 border-rose-800",
+  },
+  normal: {
+    label: "Normal",
+    emoji: "🔵",
+    bgLight: "bg-blue-50 text-blue-700 border-blue-100",
+    bgDark: "bg-blue-900/30 text-blue-300 border-blue-800",
+  },
+  low: {
+    label: "Faible",
+    emoji: "🟢",
+    bgLight: "bg-emerald-50 text-emerald-700 border-emerald-100",
+    bgDark: "bg-emerald-900/30 text-emerald-300 border-emerald-800",
+  },
+};
+
+export default function TaskCard({ task, onClick, isDragging }) {
   const { isDark } = useTheme();
-  const { changeTaskStatus } = useTasks();
-  const [showMoveMenu, setShowMoveMenu] = useState(false);
+  const { changeTaskStatus, deleteTask } = useTasks();
 
   const isOverdue =
     task.dueDate &&
     new Date(task.dueDate) < new Date() &&
     task.status !== "done";
 
-  // Gestion du déplacement mobile
-  const handleMobileMove = (e, newStatus) => {
+  const priority = priorityConfig[task.priority] || priorityConfig.normal;
+
+  // Styles
+  const cardBg = isDark
+    ? `bg-slate-800/80 border-slate-700 hover:bg-slate-800 hover:border-slate-600 ${
+        isDragging ? "shadow-2xl ring-2 ring-blue-500" : ""
+      }`
+    : `bg-white border-slate-200 hover:shadow-lg hover:border-slate-300 ${
+        isDragging ? "shadow-2xl ring-2 ring-blue-500" : ""
+      }`;
+
+  const overdueBg = isDark
+    ? "!bg-rose-900/20 !border-rose-700/50"
+    : "!bg-rose-50 !border-rose-200";
+
+  const handleStatusToggle = (e) => {
     e.stopPropagation();
-    changeTaskStatus(task._id, newStatus);
-    setShowMoveMenu(false);
+    const nextStatus = {
+      todo: "inProgress",
+      inProgress: "done",
+      done: "todo",
+    };
+    changeTaskStatus(task._id, nextStatus[task.status]);
   };
 
-  // Options de déplacement avec couleurs vives
-  const statusOptions = [
-    {
-      id: "todo",
-      label: "À Faire",
-      lightGradient: "from-blue-500 to-blue-600",
-      darkGradient: "from-blue-600 to-blue-700",
-      lightBg: "from-blue-50 to-blue-100",
-      darkBg: "from-blue-950 to-blue-900",
-    },
-    {
-      id: "inProgress",
-      label: "En Cours",
-      lightGradient: "from-orange-500 to-amber-600",
-      darkGradient: "from-orange-600 to-amber-700",
-      lightBg: "from-orange-50 to-amber-100",
-      darkBg: "from-blue-950 to-blue-900",
-    },
-    {
-      id: "done",
-      label: "Terminé",
-      lightGradient: "from-emerald-500 to-teal-600",
-      darkGradient: "from-emerald-600 to-teal-700",
-      lightBg: "from-emerald-50 to-teal-100",
-      darkBg: "from-blue-950 to-blue-900",
-    },
-  ].filter((s) => s.id !== task.status);
-
-  // Badges de priorité avec couleurs vives
-  const priorityBadges = {
-    urgent: {
-      light: "from-red-500 to-rose-600 text-white ring-2 ring-red-300",
-      dark: "from-red-600 to-rose-700 text-white ring-2 ring-red-700/50",
-      icon: Zap,
-    },
-    high: {
-      light: "from-orange-500 to-amber-600 text-white ring-2 ring-orange-300",
-      dark: "from-orange-600 to-amber-700 text-white ring-2 ring-orange-700/50",
-    },
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (confirm("Supprimer cette tâche ?")) {
+      deleteTask(task._id);
+    }
   };
 
   return (
-    <>
-      <div
-        onClick={onClick}
-        className={`
-          relative p-4 rounded-2xl cursor-pointer select-none group
-          transition-all duration-200
-          ${isDragging ? "overflow-visible" : "overflow-hidden"}
-          ${
-            isDragging
-              ? isDark
-                ? "shadow-2xl ring-4 ring-blue-500/50 !z-[9999] bg-gradient-to-br from-blue-950 to-blue-900 border-2 border-blue-500/50"
-                : "shadow-2xl ring-4 ring-blue-400/50 !z-[9999] bg-gradient-to-br from-white to-blue-50 border-2 border-blue-400/50"
-              : isMobileView
-                ? isDark
-                  ? "bg-gradient-to-br from-blue-950/90 to-blue-900/80 border-2 border-blue-800/60 shadow-lg active:scale-[0.97]"
-                  : "bg-gradient-to-br from-white to-blue-50/80 border-2 border-blue-200 shadow-lg active:scale-[0.97]"
-                : isDark
-                  ? "bg-gradient-to-br from-blue-950/90 to-blue-900/80 border-2 border-blue-800/60 shadow-xl hover:shadow-2xl hover:border-blue-700 hover:-translate-y-2 hover:scale-[1.02]"
-                  : "bg-gradient-to-br from-white to-blue-50/80 border-2 border-blue-200 shadow-xl hover:shadow-2xl hover:border-blue-400 hover:-translate-y-2 hover:scale-[1.02]"
-          }
-          ${task.status === "done" ? "opacity-60" : ""}
-        `}
-        style={isDragging ? { zIndex: 9999 } : {}}
-      >
-        {/* Effet de brillance au survol - DÉSACTIVÉ pendant le drag */}
-        {!isDragging && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 pointer-events-none" />
-        )}
-
-        {/* Header: Priorité + Retard */}
-        <div className="flex justify-between items-start mb-3 relative z-10">
-          <div className="flex gap-2 flex-wrap">
-            {task.priority !== "normal" && (
-              <span
-                className={`
-                  text-[10px] font-black px-3 py-1 rounded-full uppercase
-                  bg-gradient-to-r flex items-center gap-1
-                  backdrop-blur-sm shadow-lg
-                  ${
-                    isDark
-                      ? priorityBadges[task.priority]?.dark ||
-                        priorityBadges.high.dark
-                      : priorityBadges[task.priority]?.light ||
-                        priorityBadges.high.light
-                  }
-                `}
-              >
-                {task.priority === "urgent" && (
-                  <Zap size={10} className="animate-pulse" />
-                )}
-                {task.priority}
-              </span>
-            )}
-            {isOverdue && (
-              <span className="text-[10px] font-black px-3 py-1 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white flex items-center gap-1 backdrop-blur-sm shadow-lg animate-pulse ring-2 ring-red-500/30">
-                <Clock size={10} /> Retard
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Titre */}
-        <h4
+    <div
+      onClick={onClick}
+      className={`
+        group relative p-3 sm:p-4 rounded-lg sm:rounded-xl border cursor-pointer
+        transition-all duration-200
+        ${cardBg}
+        ${task.status === "done" ? "opacity-60" : ""}
+        ${isOverdue ? overdueBg : ""}
+      `}
+    >
+      <div className="flex items-start gap-2 sm:gap-3">
+        {/* Checkbox - Responsive */}
+        <button
+          onClick={handleStatusToggle}
           className={`
-            text-sm font-bold leading-snug mb-4 relative z-10
+            mt-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex-shrink-0
+            flex items-center justify-center transition-all
             ${
               task.status === "done"
-                ? isDark
-                  ? "line-through text-blue-400/40"
-                  : "line-through text-slate-400"
+                ? "bg-emerald-500 border-emerald-500"
                 : isDark
-                  ? "text-blue-50"
-                  : "text-slate-900"
+                  ? "border-slate-600 hover:border-blue-500 hover:bg-blue-500/20"
+                  : "border-slate-300 hover:border-blue-500 hover:bg-blue-50"
             }
           `}
         >
-          {task.title}
-        </h4>
+          {task.status === "done" && (
+            <Check
+              size={10}
+              className="sm:w-3 sm:h-3 text-white"
+              strokeWidth={3}
+            />
+          )}
+        </button>
 
-        {/* Footer */}
-        <div
-          className={`
-            flex items-center justify-between pt-3 border-t-2 relative z-10
-            ${isDark ? "border-blue-800/40" : "border-blue-200/60"}
-          `}
-        >
-          <div
-            className={`flex items-center gap-3 ${
-              isDark ? "text-blue-400" : "text-blue-600"
-            }`}
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Title - Responsive font size */}
+          <h4
+            className={`
+              font-medium text-xs sm:text-sm leading-snug
+              ${task.status === "done" ? "line-through" : ""}
+              ${isDark ? "text-slate-200" : "text-slate-800"}
+            `}
           >
-            {task.dueDate && (
-              <div
+            {task.title}
+          </h4>
+
+          {/* Metadata - Responsive spacing and wrapping */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+            {/* Priorité */}
+            {task.priority === "urgent" && (
+              <span
                 className={`
-                  flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg
-                  backdrop-blur-sm transition-all
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-bold border
+                  ${isDark ? priority.bgDark : priority.bgLight}
+                `}
+              >
+                <span className="hidden xs:inline">{priority.emoji}</span>
+                <span className="hidden sm:inline">{priority.label}</span>
+                <span className="sm:hidden">Urgent</span>
+              </span>
+            )}
+
+            {/* Date d'échéance */}
+            {task.dueDate && (
+              <span
+                className={`
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-medium
                   ${
                     isOverdue
-                      ? "bg-red-500/20 text-red-600 ring-1 ring-red-500/30"
+                      ? isDark
+                        ? "bg-rose-900/50 text-rose-300"
+                        : "bg-rose-100 text-rose-600"
                       : isDark
-                        ? "bg-blue-900/40 text-blue-300 ring-1 ring-blue-700/30"
-                        : "bg-blue-100/80 text-blue-700 ring-1 ring-blue-300/50"
+                        ? "bg-slate-700 text-slate-300"
+                        : "bg-slate-100 text-slate-600"
                   }
                 `}
               >
-                <Clock size={12} strokeWidth={2.5} />
-                {new Date(task.dueDate).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "short",
-                })}
-              </div>
+                <Clock size={9} className="sm:w-[10px] sm:h-[10px]" />
+                <span className="hidden sm:inline">
+                  {new Date(task.dueDate).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+                <span className="sm:hidden">
+                  {new Date(task.dueDate).toLocaleDateString("fr-FR", {
+                    day: "numeric",
+                    month: "numeric",
+                  })}
+                </span>
+              </span>
             )}
+
+            {/* Commentaires */}
             {task.comments?.length > 0 && (
-              <div
+              <span
                 className={`
-                  flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg
-                  backdrop-blur-sm transition-all
-                  ${
-                    isDark
-                      ? "bg-blue-900/40 text-blue-300 ring-1 ring-blue-700/30"
-                      : "bg-blue-100/80 text-blue-700 ring-1 ring-blue-300/50"
-                  }
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-medium
+                  ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}
                 `}
               >
-                <MessageSquare size={12} strokeWidth={2.5} />{" "}
+                <MessageSquare size={9} className="sm:w-[10px] sm:h-[10px]" />
                 {task.comments.length}
-              </div>
+              </span>
+            )}
+
+            {/* Sous-tâches */}
+            {task.subtasks?.length > 0 && (
+              <span
+                className={`
+                  inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-md
+                  text-[9px] sm:text-[10px] font-medium
+                  ${isDark ? "bg-slate-700 text-slate-300" : "bg-slate-100 text-slate-600"}
+                `}
+              >
+                <CheckCircle2 size={9} className="sm:w-[10px] sm:h-[10px]" />
+                {task.subtasks.filter((s) => s.completed).length}/
+                {task.subtasks.length}
+              </span>
             )}
           </div>
 
-          {/* BOUTON DÉPLACER (MOBILE) */}
-          {isMobileView && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMoveMenu(true);
-              }}
-              className={`
-                px-3 py-2 rounded-xl text-white text-xs font-black flex items-center gap-1.5
-                active:scale-95 transition-all shadow-lg backdrop-blur-sm
-                bg-gradient-to-r ${
-                  isDark
-                    ? "from-blue-700 to-blue-800 ring-1 ring-blue-600/50"
-                    : "from-blue-500 to-blue-600 ring-1 ring-blue-400/50"
-                }
-              `}
-            >
-              <ArrowRightLeft size={12} strokeWidth={2.5} />
-              Déplacer
-            </button>
-          )}
-
-          {/* Avatars (Desktop) */}
-          {!isMobileView && task.assignees?.length > 0 && (
-            <div className="flex -space-x-2.5">
-              {task.assignees.slice(0, 3).map((u, i) => (
+          {/* Assignés - Responsive avatars */}
+          {task.assignees?.length > 0 && (
+            <div className="flex -space-x-1 sm:-space-x-1.5 mt-2 sm:mt-3">
+              {task.assignees.slice(0, 4).map((assignee, idx) => (
                 <div
-                  key={i}
+                  key={assignee._id || idx}
                   className={`
-                    w-7 h-7 rounded-full border-3 bg-gradient-to-br from-blue-400 to-blue-600
-                    flex items-center justify-center text-[9px] text-white font-black
-                    overflow-hidden transition-transform hover:scale-110 hover:z-10
-                    ${isDark ? "border-blue-900" : "border-white"}
-                    ring-2 ring-blue-500/20
-                  `}
-                >
-                  {u.profilePicture ? (
-                    <img
-                      src={u.profilePicture}
-                      alt={u.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    u.name[0]?.toUpperCase()
-                  )}
-                </div>
-              ))}
-              {task.assignees.length > 3 && (
-                <div
-                  className={`
-                    w-7 h-7 rounded-full border-3 flex items-center justify-center
-                    text-[9px] font-black transition-transform hover:scale-110
+                    w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center
+                    text-[8px] sm:text-[9px] font-bold
                     ${
                       isDark
-                        ? "bg-blue-800 text-blue-300 border-blue-900"
-                        : "bg-blue-200 text-blue-700 border-white"
+                        ? "bg-slate-700 border-slate-800 text-slate-300"
+                        : "bg-slate-200 border-white text-slate-600"
                     }
-                    ring-2 ring-blue-500/20
+                  `}
+                  title={assignee.name}
+                >
+                  {(assignee.name || "?")[0].toUpperCase()}
+                </div>
+              ))}
+              {task.assignees.length > 4 && (
+                <div
+                  className={`
+                    w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center
+                    text-[8px] sm:text-[9px] font-bold
+                    ${
+                      isDark
+                        ? "bg-slate-700 border-slate-800 text-slate-300"
+                        : "bg-slate-200 border-white text-slate-600"
+                    }
                   `}
                 >
-                  +{task.assignees.length - 3}
+                  +{task.assignees.length - 4}
                 </div>
               )}
             </div>
           )}
         </div>
+
+        {/* Actions - Visible sur mobile au tap, sur desktop au hover */}
+        <button
+          onClick={handleDelete}
+          className={`
+            p-1 sm:p-1.5 rounded-lg 
+            transition-all
+            ${
+              isDark
+                ? "hover:bg-slate-700 text-slate-500 hover:text-rose-400"
+                : "hover:bg-slate-100 text-slate-400 hover:text-rose-500"
+            }
+            /* Mobile: toujours visible mais discret */
+            opacity-50 active:opacity-100
+            /* Desktop: apparaît au hover */
+            sm:opacity-0 sm:group-hover:opacity-100
+          `}
+        >
+          <Trash2 size={12} className="sm:w-[14px] sm:h-[14px]" />
+        </button>
       </div>
-
-      {/* MENU DE DÉPLACEMENT MOBILE */}
-      {showMoveMenu && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-md"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMoveMenu(false);
-            }}
-          />
-
-          <div
-            className={`
-              relative w-full max-w-sm rounded-3xl shadow-2xl p-2 border-2
-              scale-100 animate-in zoom-in-95 duration-300
-              ${
-                isDark
-                  ? "bg-gradient-to-br from-blue-950 to-blue-900 border-blue-800/60"
-                  : "bg-gradient-to-br from-white to-blue-50 border-blue-300"
-              }
-            `}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header Popup */}
-            <div
-              className={`
-                flex items-center justify-between px-5 py-4 border-b-2 mb-2
-                ${isDark ? "border-blue-800/60" : "border-blue-200"}
-              `}
-            >
-              <h3
-                className={`
-                  text-base font-black flex items-center gap-2
-                  ${isDark ? "text-blue-100" : "text-blue-900"}
-                `}
-              >
-                <ArrowRightLeft size={18} />
-                Déplacer vers...
-              </h3>
-              <button
-                onClick={() => setShowMoveMenu(false)}
-                className={`
-                  p-2 rounded-xl transition-all hover:scale-110 active:scale-95
-                  ${
-                    isDark
-                      ? "bg-blue-900/50 text-blue-300 hover:bg-blue-800"
-                      : "bg-blue-100 text-blue-600 hover:bg-blue-200"
-                  }
-                `}
-              >
-                <X size={18} strokeWidth={2.5} />
-              </button>
-            </div>
-
-            {/* Liste des options */}
-            <div className="p-2 space-y-2">
-              {statusOptions.map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={(e) => handleMobileMove(e, opt.id)}
-                  className={`
-                    w-full flex items-center justify-between px-5 py-4 rounded-2xl
-                    transition-all text-left group border-2 overflow-hidden relative
-                    hover:scale-[1.02] active:scale-[0.98]
-                    ${
-                      isDark
-                        ? `bg-gradient-to-r ${opt.darkBg} border-blue-800/60 hover:border-blue-700`
-                        : `bg-gradient-to-r ${opt.lightBg} border-blue-300 hover:border-blue-400 shadow-md hover:shadow-lg`
-                    }
-                  `}
-                >
-                  {/* Effet de brillance */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-
-                  <div className="flex items-center gap-3 relative z-10">
-                    <div
-                      className={`
-                        w-3 h-3 rounded-full shadow-lg
-                        bg-gradient-to-br ${isDark ? opt.darkGradient : opt.lightGradient}
-                        ring-2 ${isDark ? "ring-blue-900" : "ring-white"}
-                      `}
-                    />
-                    <span
-                      className={`
-                        text-base font-black
-                        ${
-                          isDark
-                            ? "text-blue-100 group-hover:text-white"
-                            : "text-blue-900 group-hover:text-blue-950"
-                        }
-                      `}
-                    >
-                      {opt.label}
-                    </span>
-                  </div>
-                  <ChevronRight
-                    size={20}
-                    strokeWidth={2.5}
-                    className={`
-                      transition-all relative z-10 group-hover:translate-x-1
-                      ${
-                        isDark
-                          ? "text-blue-400 group-hover:text-blue-300"
-                          : "text-blue-500 group-hover:text-blue-700"
-                      }
-                    `}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }

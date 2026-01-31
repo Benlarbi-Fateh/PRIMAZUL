@@ -1,6 +1,10 @@
-"use client";
+// components/Tasks/ProjectSidebar.jsx
 
-import { useState } from "react";
+"use client";
+import { useContext } from "react";
+import { AuthContext } from "@/context/AuthProvider";
+
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
 import { useTasks } from "@/context/TaskContext";
@@ -8,21 +12,16 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
+  FolderOpen,
   Hash,
-  LayoutGrid,
-  FolderPlus,
-  Loader2,
-  Sparkles,
-  TrendingUp,
-  Grid3X3,
   X,
+  FolderPlus,
+  LayoutGrid,
+  Loader2,
+  Menu,
 } from "lucide-react";
 
-export default function ProjectSidebar({
-  conversationId,
-  isOpen,
-  toggleSidebar,
-}) {
+export default function ProjectSidebar({ conversationId, onClose }) {
   const router = useRouter();
   const { isDark } = useTheme();
   const {
@@ -32,505 +31,484 @@ export default function ProjectSidebar({
     createProject,
     deleteProject,
     stats,
+    loading,
   } = useTasks();
 
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { user, logout } = useContext(AuthContext);
+
+  // ✅ Force re-render when theme changes
+  const [, forceUpdate] = useState({});
+  useEffect(() => {
+    forceUpdate({});
+  }, [isDark]);
+
+  // ✅ Close mobile sidebar when project is selected
+  const handleProjectSelect = (projectId) => {
+    setCurrentProjectId(projectId);
+    setIsMobileOpen(false);
+  };
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim() || creating) return;
+
     setCreating(true);
     try {
       const result = await createProject({ name: newProjectName.trim() });
       if (result.success) {
         setNewProjectName("");
         setShowNewProjectModal(false);
+      } else {
+        alert(result.error || "Erreur lors de la création");
       }
     } finally {
       setCreating(false);
     }
   };
 
-  const sidebarClasses = `
-    fixed inset-y-0 left-0 z-40 w-80 
-    md:relative md:w-72 md:translate-x-0
-    flex flex-col border-r-2 transition-transform duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)]
-    ${
-      isDark
-        ? "bg-gradient-to-b from-slate-900 to-slate-950 border-blue-900/50"
-        : "bg-gradient-to-b from-blue-100/50 to-white border-blue-300"
+  const handleDeleteProject = async (projectId, projectName, e) => {
+    e.stopPropagation();
+    if (!confirm(`Supprimer "${projectName}" et toutes ses tâches ?`)) return;
+
+    setDeleting(projectId);
+    try {
+      await deleteProject(projectId);
+    } finally {
+      setDeleting(null);
     }
-    shadow-2xl backdrop-blur-sm
-    ${isOpen ? "translate-x-0" : "-translate-x-full"}
-  `;
+  };
+
+  // =================== STYLES DYNAMIQUES ===================
+  const sidebarBg = isDark
+    ? "bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 border-slate-800"
+    : "bg-gradient-to-b from-white via-slate-50 to-white border-slate-200";
+
+  const headerBorder = isDark ? "border-slate-800" : "border-slate-200";
+
+  const textPrimary = isDark ? "text-white" : "text-slate-900";
+  const textSecondary = isDark ? "text-slate-400" : "text-slate-600";
+  const textMuted = isDark ? "text-slate-500" : "text-slate-400";
+
+  const itemBase = isDark
+    ? "text-slate-400 hover:text-white hover:bg-slate-800/50"
+    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100";
+
+  const itemActive = isDark
+    ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
+    : "bg-blue-50 text-blue-600 border border-blue-200";
+
+  const buttonHover = isDark
+    ? "hover:bg-blue-500/20 text-blue-400"
+    : "hover:bg-blue-50 text-blue-600";
+
+  const deleteButton = isDark
+    ? "hover:bg-rose-500/20 text-slate-500 hover:text-rose-400"
+    : "hover:bg-rose-50 text-slate-400 hover:text-rose-500";
+
+  const modalBg = isDark
+    ? "bg-slate-900 border border-slate-700"
+    : "bg-white border border-slate-200";
+
+  const inputBg = isDark
+    ? "bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500"
+    : "bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500";
+
+  const buttonSecondary = isDark
+    ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+    : "bg-slate-100 text-slate-600 hover:bg-slate-200";
+
+  const iconContainerBg = isDark
+    ? "bg-gradient-to-br from-blue-600 to-indigo-700"
+    : "bg-gradient-to-br from-blue-500 to-indigo-600";
+
+  const emptyStateBg = isDark ? "text-slate-600" : "text-slate-400";
 
   return (
     <>
-      <div
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-30 md:hidden transition-opacity duration-300 ${
-          isOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+      {/* ===== BOUTON TOGGLE MOBILE (visible uniquement sur mobile) ===== */}
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        className={`fixed top-4 left-4 z-50 lg:hidden p-3 rounded-xl shadow-lg transition-all active:scale-95 ${
+          isDark
+            ? "bg-slate-800 text-white border border-slate-700"
+            : "bg-white text-slate-900 border border-slate-200"
         }`}
-        onClick={toggleSidebar}
-      />
+      >
+        <Menu size={20} />
+      </button>
 
-      <aside className={sidebarClasses}>
-        {/* Header avec dégradé bleu */}
-        <div className="p-6 pb-4 shrink-0 border-b border-inherit">
-          <button
-            onClick={() => router.push(`/chat/${conversationId}`)}
-            className={`mb-6 flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 group ${
-              isDark
-                ? "text-blue-300 hover:text-white hover:bg-blue-900/30"
-                : "text-blue-700 hover:text-blue-900 hover:bg-blue-200"
-            }`}
-          >
-            <ArrowLeft
-              size={18}
-              className="transition-transform group-hover:-translate-x-1"
-            />
-            <span className="text-sm font-bold">Retour au chat</span>
-          </button>
+      {/* ===== OVERLAY MOBILE (ferme la sidebar au clic) ===== */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl blur-md opacity-60" />
-                <div className="relative p-3 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl text-white shadow-xl shadow-blue-600/30">
-                  <Grid3X3 size={22} strokeWidth={2} />
-                </div>
-              </div>
-              <div>
-                <h1
-                  className={`font-black text-xl tracking-tight bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent ${
-                    isDark ? "" : ""
-                  }`}
-                >
-                  Workspace
-                </h1>
-                <p
-                  className={`text-xs font-bold tracking-wider ${
-                    isDark ? "text-blue-400" : "text-blue-600"
-                  }`}
-                >
-                  GESTION DE PROJETS
-                </p>
-              </div>
-            </div>
+      {/* ===== SIDEBAR ===== */}
+      <aside
+        className={`
+          ${sidebarBg}
+          
+          /* Mobile: sidebar en overlay avec animation slide */
+          fixed lg:relative
+          top-0 left-0
+          h-screen
+          w-72 sm:w-80 lg:w-64
+          
+          /* Animation slide sur mobile */
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+          
+          /* Z-index */
+          z-50 lg:z-auto
+          
+          /* Layout */
+          flex flex-col
+          border-r
+          flex-shrink-0
+        `}
+      >
+        {/* ===== HEADER - Empêcher le scroll horizontal ===== */}
+        <div className={`p-4 sm:p-5 border-b ${headerBorder} overflow-hidden`}>
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
             <button
-              onClick={() => setShowNewProjectModal(true)}
-              className={`p-2.5 rounded-xl transition-all duration-300 active:scale-95 ${
+              onClick={() => {
+                router.push(`/chat/${conversationId}`);
+                setIsMobileOpen(false);
+              }}
+              className={`group flex items-center gap-2 text-sm font-bold transition-all ${
                 isDark
-                  ? "bg-gradient-to-br from-blue-800 to-blue-900 text-blue-300 hover:from-blue-700 hover:to-blue-800 border border-blue-700/50"
-                  : "bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-600/30"
+                  ? "text-slate-400 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
-              <Plus size={20} strokeWidth={2.5} />
+              <ArrowLeft
+                size={18}
+                className="transition-transform group-hover:-translate-x-1"
+              />
+              <span className="hidden sm:inline">Retour</span>
             </button>
+
+            <button
+              onClick={() => setShowNewProjectModal(true)}
+              className={`flex items-center justify-center h-10 w-10 sm:h-11 sm:w-11 rounded-full shadow-lg shadow-blue-500/30 transition-all active:scale-90 hover:scale-110 ${
+                isDark
+                  ? "bg-blue-600 hover:bg-blue-500 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+              }`}
+              title="Nouveau projet"
+            >
+              <Plus size={22} strokeWidth={2.5} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 ${iconContainerBg}`}
+            >
+              <LayoutGrid className="text-white" size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1
+                className={`text-base sm:text-lg font-bold truncate ${textPrimary}`}
+              >
+                Projets
+              </h1>
+              <p className={`text-xs truncate ${textMuted}`}>
+                {projects.length} projet{projects.length !== 1 ? "s" : ""} au
+                total
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Liste des projets */}
-        <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-2 custom-scrollbar">
-          <div className="px-3 mb-4">
-            <div className="flex items-center justify-between">
-              <span
-                className={`text-xs font-bold uppercase tracking-widest ${
-                  isDark ? "text-blue-400" : "text-blue-700/90"
-                }`}
-              >
-                VOS PROJETS ({projects.length})
-              </span>
-              {projects.length > 0 && (
-                <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded-lg ${
-                    isDark
-                      ? "bg-blue-900/30 text-blue-400"
-                      : "bg-blue-200 text-blue-800"
-                  }`}
-                >
-                  {stats.total} tâches
-                </span>
-              )}
-            </div>
+        {/* ===== NAVIGATION - Empêcher le scroll horizontal ===== */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-1">
+          {/* Vue globale */}
+          <button
+            onClick={() => handleProjectSelect("all")}
+            className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all text-sm sm:text-base min-w-0 ${
+              currentProjectId === "all"
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
+                : itemBase
+            }`}
+          >
+            <FolderOpen size={18} className="flex-shrink-0" />
+            <span className="font-medium truncate">Tout les projets</span>
+          </button>
+
+          {/* Séparateur */}
+          <div className="py-3 sm:py-4">
+            <p
+              className={`px-3 sm:px-4 text-[10px] font-bold uppercase tracking-widest truncate ${textMuted}`}
+            >
+              Projets ({projects.length})
+            </p>
           </div>
 
-          {projects.length === 0 ? (
-            <div
-              className={`flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-3xl mx-2 mb-4 transition-all duration-300 ${
-                isDark
-                  ? "border-blue-800/50 hover:border-blue-700 bg-blue-900/20"
-                  : "border-blue-400 hover:border-blue-500 bg-gradient-to-b from-blue-50 to-white"
-              }`}
-            >
-              <div
-                className={`relative w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
-                  isDark
-                    ? "bg-gradient-to-br from-blue-900/40 to-blue-800/40"
-                    : "bg-gradient-to-br from-blue-200 to-blue-300"
-                }`}
-              >
-                <FolderPlus
-                  size={28}
-                  className={isDark ? "text-blue-400" : "text-blue-700"}
-                />
+          {/* Liste des projets */}
+          {loading ? (
+            /* Loader plus élégant avec un petit texte */
+            <div className="flex flex-col items-center justify-center py-12 animate-in fade-in duration-500">
+              <div className="relative">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500 opacity-80" />
+                <div className="absolute inset-0 w-8 h-8 rounded-full border-2 border-blue-500/20" />
               </div>
               <p
-                className={`text-sm font-bold mb-2 ${
-                  isDark ? "text-blue-300" : "text-blue-900"
-                }`}
+                className={`mt-4 text-xs font-medium tracking-wide opacity-50 ${isDark ? "text-slate-400" : "text-slate-500"}`}
               >
-                Aucun projet actif
+                Chargement de vos projets...
               </p>
-              <p
-                className={`text-xs mb-4 px-6 ${
-                  isDark ? "text-blue-400/70" : "text-blue-700/80"
-                }`}
-              >
-                Créez votre premier projet pour organiser vos tâches
-              </p>
-              <button
-                onClick={() => setShowNewProjectModal(true)}
-                className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 ${
+            </div>
+          ) : projects.length === 0 ? (
+            /* État vide sans scroll vertical */
+            <div className="px-4 py-8">
+              <div
+                className={`flex flex-col items-center justify-center p-8 rounded-3xl border-2 border-dashed transition-all ${
                   isDark
-                    ? "bg-gradient-to-r from-blue-700 to-blue-800 text-blue-100 hover:from-blue-600 hover:to-blue-700 border border-blue-600"
-                    : "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-600/30"
+                    ? "bg-slate-900/20 border-slate-800"
+                    : "bg-blue-50/30 border-blue-100"
                 }`}
               >
-                Créer un projet
-              </button>
+                <div
+                  className={`p-4 rounded-full mb-4 ${isDark ? "bg-slate-800" : "bg-white shadow-sm"}`}
+                >
+                  <FolderOpen
+                    size={32}
+                    className={isDark ? "text-slate-500" : "text-blue-400"}
+                  />
+                </div>
+
+                <h3
+                  className={`text-sm font-semibold mb-1 ${isDark ? "text-white" : "text-slate-900"}`}
+                >
+                  Aucun projet actif
+                </h3>
+                <p
+                  className={`text-xs text-center max-w-[200px] leading-relaxed mb-6 ${isDark ? "text-slate-500" : "text-slate-400"}`}
+                >
+                  Commencez à organiser vos tâches.
+                </p>
+
+                <button
+                  onClick={() => setShowNewProjectModal(true)}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-medium transition-all active:scale-95 ${
+                    isDark
+                      ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20"
+                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200"
+                  }`}
+                >
+                  <Plus size={16} />
+                  Nouveau projet
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="space-y-2 px-1">
-              {projects.map((project) => {
-                const isActive = currentProjectId === project._id;
-                return (
-                  <div key={project._id} className="group relative">
-                    {/* CHANGED: <button> to <div> to prevent nesting error */}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setCurrentProjectId(project._id);
-                        if (window.innerWidth < 768) toggleSidebar();
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-left transition-all duration-300 overflow-hidden relative cursor-pointer ${
-                        isActive
-                          ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-xl shadow-blue-600/30"
-                          : isDark
-                            ? "bg-blue-900/20 hover:bg-blue-800/30 text-blue-300 hover:text-white"
-                            : "bg-gradient-to-b from-white to-blue-50 hover:from-blue-50 hover:to-blue-100 text-blue-900 hover:text-blue-950 border border-blue-200 hover:border-blue-300 shadow-sm hover:shadow-md"
-                      }`}
-                    >
-                      {/* Effet de brillance au survol */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+            projects.map((project) => {
+              const isActive = currentProjectId === project._id;
+              const isDeleting = deleting === project._id;
 
-                      <div
-                        className={`relative p-2 rounded-lg ${
-                          isActive
-                            ? "bg-white/20"
-                            : isDark
-                              ? "bg-blue-800/30"
-                              : "bg-blue-200"
+              return (
+                <div
+                  key={project._id}
+                  className={`group flex items-center gap-1 min-w-0 ${
+                    isActive ? `rounded-xl ${itemActive}` : ""
+                  }`}
+                >
+                  <button
+                    onClick={() => handleProjectSelect(project._id)}
+                    disabled={isDeleting}
+                    className={`flex-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all text-sm sm:text-base min-w-0 ${
+                      isActive ? "" : itemBase
+                    } ${isDeleting ? "opacity-50" : ""}`}
+                  >
+                    <Hash size={16} className="flex-shrink-0" />
+                    <span className="font-medium truncate flex-1 text-left">
+                      {project.name}
+                    </span>
+                    {project.taskCount > 0 && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                          isDark
+                            ? "bg-slate-700 text-slate-300"
+                            : "bg-slate-200 text-slate-600"
                         }`}
                       >
-                        <Hash
-                          size={18}
-                          className={
-                            isActive
-                              ? "text-white"
-                              : isDark
-                                ? "text-blue-400"
-                                : "text-blue-700"
-                          }
-                          strokeWidth={2}
-                        />
-                      </div>
+                        {project.taskCount}
+                      </span>
+                    )}
+                  </button>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold truncate">
-                            {project.name}
-                          </span>
-                          {project.taskCount > 0 && (
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${
-                                isActive
-                                  ? "bg-white/20"
-                                  : isDark
-                                    ? "bg-blue-800 text-blue-300"
-                                    : "bg-blue-200 text-blue-800"
-                              }`}
-                            >
-                              {project.taskCount} tâche
-                              {project.taskCount > 1 ? "s" : ""}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Bouton Supprimer (Inner button) */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (
-                            confirm(
-                              "Supprimer ce projet et toutes ses tâches ?",
-                            )
-                          )
-                            deleteProject(project._id);
-                        }}
-                        className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${
-                          isActive
-                            ? "text-white/80 hover:text-white hover:bg-white/20"
-                            : isDark
-                              ? "text-blue-400/60 hover:text-red-400 hover:bg-red-900/20"
-                              : "text-blue-400 hover:text-red-600 hover:bg-red-50"
-                        }`}
-                      >
-                        <Trash2 size={16} strokeWidth={2} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  <button
+                    onClick={(e) =>
+                      handleDeleteProject(project._id, project.name, e)
+                    }
+                    disabled={isDeleting}
+                    className={`p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 ${deleteButton}`}
+                  >
+                    {isDeleting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                  </button>
+                </div>
+              );
+            })
           )}
         </nav>
 
-        {/* Footer Stats avec design premium */}
-        <div className="p-4 border-t border-inherit shrink-0 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent" />
-
+        {/* ===== USER FOOTER ===== */}
+        <div
+          className={`p-3 sm:p-4 mt-auto border-t ${headerBorder} bg-opacity-50 backdrop-blur-sm overflow-hidden`}
+        >
           <div
-            className={`relative p-4 rounded-2xl backdrop-blur-sm border ${
+            className={`flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-2xl transition-all min-w-0 ${
               isDark
-                ? "bg-blue-900/30 border-blue-800/50"
-                : "bg-gradient-to-b from-white to-blue-50/80 border-blue-300 shadow-lg"
+                ? "bg-slate-800/40 border border-slate-700/50"
+                : "bg-slate-50 border border-slate-100"
             }`}
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`p-2 rounded-lg ${
-                    isDark ? "bg-blue-800/30" : "bg-blue-200"
-                  }`}
-                >
-                  <TrendingUp
-                    size={18}
-                    className={isDark ? "text-blue-400" : "text-blue-700"}
-                  />
-                </div>
-                <span
-                  className={`text-sm font-bold ${
-                    isDark ? "text-blue-300" : "text-blue-900"
-                  }`}
-                >
-                  Progression globale
-                </span>
-              </div>
-              <span
-                className={`text-2xl font-black ${
+            {/* Avatar avec halo de statut */}
+            <div className="relative flex-shrink-0">
+              <div
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm shadow-inner transition-transform active:scale-95 ${
                   isDark
-                    ? "text-blue-400"
-                    : "bg-gradient-to-r from-blue-700 to-blue-900 bg-clip-text text-transparent"
+                    ? "bg-blue-600 text-white shadow-blue-900/20"
+                    : "bg-slate-900 text-white"
                 }`}
               >
-                {stats.progress}%
-              </span>
+                {user?.name?.charAt(0).toUpperCase() || "U"}
+              </div>
+              {/* Petit point vert de statut */}
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
             </div>
 
-            {/* Barre de progression élégante */}
-            <div className="mb-4">
-              <div className="flex justify-between text-xs font-bold mb-2">
-                <span
-                  className={isDark ? "text-blue-400/70" : "text-blue-700/80"}
-                >
-                  Complétion
-                </span>
-                <span className={isDark ? "text-blue-300" : "text-blue-900"}>
-                  {stats.done} / {stats.total}
-                </span>
-              </div>
-              <div
-                className={`h-2 rounded-full overflow-hidden ${
-                  isDark ? "bg-blue-800/50" : "bg-blue-200"
+            {/* User info */}
+            <div className="flex-1 min-w-0">
+              <p
+                className={`text-xs font-black uppercase tracking-wider truncate ${
+                  isDark ? "text-slate-200" : "text-slate-900"
                 }`}
               >
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 rounded-full transition-all duration-1000 ease-out shadow-lg shadow-blue-500/30"
-                  style={{ width: `${stats.progress}%` }}
-                />
-              </div>
+                {user?.name || "Utilisateur"}
+              </p>
+              <p
+                className={`text-[10px] font-medium truncate ${
+                  isDark ? "text-slate-500" : "text-slate-400"
+                }`}
+              >
+                Connecté
+              </p>
             </div>
-
-            {/* Stats détaillées */}
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div
-                className={`p-3 rounded-xl ${
-                  isDark
-                    ? "bg-blue-900/20"
-                    : "bg-gradient-to-b from-blue-100 to-blue-200"
-                }`}
-              >
-                <div
-                  className={`text-2xl font-black mb-1 ${
-                    isDark ? "text-blue-400" : "text-blue-800"
-                  }`}
-                >
-                  {stats.done}
-                </div>
-                <div
-                  className={`text-xs font-bold uppercase tracking-wider ${
-                    isDark ? "text-blue-400/70" : "text-blue-700"
-                  }`}
-                >
-                  Terminées
-                </div>
-              </div>
-              <div
-                className={`p-3 rounded-xl ${
-                  isDark
-                    ? "bg-blue-900/20"
-                    : "bg-gradient-to-b from-blue-100 to-blue-200"
-                }`}
-              >
-                <div
-                  className={`text-2xl font-black mb-1 ${
-                    isDark ? "text-cyan-400" : "text-blue-900"
-                  }`}
-                >
-                  {stats.total - stats.done}
-                </div>
-                <div
-                  className={`text-xs font-bold uppercase tracking-wider ${
-                    isDark ? "text-cyan-400/70" : "text-blue-800"
-                  }`}
-                >
-                  En cours
-                </div>
-              </div>
-            </div>
-
-            <Sparkles className="absolute -bottom-3 -right-3 text-blue-500/10 dark:text-blue-400/10 w-20 h-20 rotate-12" />
           </div>
         </div>
       </aside>
 
-      {/* Modal Création Projet amélioré */}
+      {/* ===== MODAL NOUVEAU PROJET ===== */}
       {showNewProjectModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={() => !creating && setShowNewProjectModal(false)}
+        >
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-md"
-            onClick={() => !creating && setShowNewProjectModal(false)}
-          />
-
-          <div
-            className={`relative w-full max-w-md p-8 rounded-3xl animate-in zoom-in-95 duration-300 ${
+            className={`w-full max-w-md rounded-[2rem] p-6 sm:p-8 shadow-2xl transition-all scale-in-center ${
               isDark
-                ? "bg-gradient-to-b from-blue-900/80 to-blue-950/90 border border-blue-800 shadow-2xl shadow-blue-900/30"
-                : "bg-gradient-to-b from-white to-blue-50/80 border-2 border-blue-300 shadow-2xl shadow-blue-600/20"
+                ? "bg-[#1e293b] border border-slate-700"
+                : "bg-white border border-slate-100"
             }`}
+            onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => !creating && setShowNewProjectModal(false)}
-              className={`absolute right-6 top-6 p-2 rounded-xl transition-colors ${
-                isDark
-                  ? "text-blue-400 hover:text-blue-300 hover:bg-blue-800/50"
-                  : "text-blue-600 hover:text-blue-800 hover:bg-blue-100"
-              }`}
-            >
-              <X size={20} />
-            </button>
-
-            <div className="text-center mb-2">
-              <div
-                className={`inline-flex p-3 rounded-2xl mb-4 ${
-                  isDark
-                    ? "bg-blue-800/30"
-                    : "bg-gradient-to-br from-blue-200 to-blue-300"
-                }`}
-              >
-                <FolderPlus
-                  size={28}
-                  className={isDark ? "text-blue-400" : "text-blue-700"}
-                />
-              </div>
-              <h2
-                className={`text-2xl font-black mb-2 ${
-                  isDark
-                    ? "text-white"
-                    : "bg-gradient-to-r from-blue-800 to-blue-900 bg-clip-text text-transparent"
-                }`}
-              >
-                Nouveau Projet
-              </h2>
-              <p
-                className={`text-sm ${
-                  isDark ? "text-blue-400/70" : "text-blue-700/80"
-                }`}
-              >
-                Nommez votre projet pour commencer à organiser vos tâches
-              </p>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <label
-                  className={`block text-sm font-bold mb-2 ${
-                    isDark ? "text-blue-300" : "text-blue-800"
+            {/* Header : Élégant et aéré */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div
+                  className={`p-3 rounded-2xl ${
+                    isDark ? "bg-blue-500/10" : "bg-blue-50"
                   }`}
                 >
-                  Nom du projet
-                </label>
+                  <FolderPlus
+                    size={24}
+                    strokeWidth={1.5}
+                    className={isDark ? "text-blue-400" : "text-blue-600"}
+                  />
+                </div>
+                <div>
+                  <h2
+                    className={`text-lg font-medium tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}
+                  >
+                    Nouveau projet
+                  </h2>
+                  <p
+                    className={`text-[11px] font-normal opacity-60 ${isDark ? "text-slate-400" : "text-slate-500"}`}
+                  >
+                    Créez un nouvel espace de travail
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => !creating && setShowNewProjectModal(false)}
+                className={`p-2 rounded-full transition-all ${
+                  isDark
+                    ? "hover:bg-slate-800 text-slate-500"
+                    : "hover:bg-slate-50 text-slate-400"
+                }`}
+              >
+                <X size={20} strokeWidth={1.5} />
+              </button>
+            </div>
+
+            {/* Input : Style minimaliste */}
+            <div className="space-y-6">
+              <div className="space-y-2">
                 <input
                   autoFocus
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
-                  placeholder="Ex: Refonte Application Mobile"
-                  className={`w-full px-4 py-4 rounded-xl outline-none transition-all font-bold text-lg ${
-                    isDark
-                      ? "bg-blue-900/50 border-2 border-blue-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 text-white placeholder-blue-400/50"
-                      : "bg-white border-2 border-blue-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/20 text-blue-900 placeholder-blue-500/60"
-                  }`}
+                  placeholder="Nom du projet..."
                   disabled={creating}
+                  className={`w-full px-5 py-4 rounded-2xl border transition-all outline-none text-sm font-normal ${
+                    isDark
+                      ? "bg-slate-800/50 border-slate-700 focus:border-blue-500 text-white placeholder:text-slate-600"
+                      : "bg-slate-50 border-slate-200 focus:border-blue-600 text-slate-900 placeholder:text-slate-400"
+                  }`}
                 />
               </div>
 
+              {/* Actions : Boutons équilibrés */}
               <div className="flex gap-3">
                 <button
-                  onClick={() => !creating && setShowNewProjectModal(false)}
-                  className={`flex-1 py-3.5 rounded-xl font-bold transition-all duration-300 ${
-                    isDark
-                      ? "text-blue-400 hover:text-blue-300 hover:bg-blue-800/50"
-                      : "text-blue-700 hover:text-blue-900 hover:bg-blue-200"
-                  }`}
+                  onClick={() => setShowNewProjectModal(false)}
                   disabled={creating}
+                  className={`flex-1 py-3.5 rounded-2xl text-[13px] font-medium transition-all ${
+                    isDark
+                      ? "text-slate-400 hover:bg-slate-800 hover:text-white"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
                 >
                   Annuler
                 </button>
+
                 <button
                   onClick={handleCreateProject}
                   disabled={!newProjectName.trim() || creating}
-                  className={`flex-1 py-3.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                    !newProjectName.trim() || creating
-                      ? "opacity-50 cursor-not-allowed bg-slate-200 text-slate-500"
-                      : "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-xl shadow-blue-600/30 hover:shadow-blue-600/40"
+                  className={`flex-1 py-3.5 rounded-2xl text-[13px] font-medium transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50 ${
+                    isDark
+                      ? "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-900/20"
+                      : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200"
                   }`}
                 >
                   {creating ? (
-                    <>
-                      <Loader2 className="animate-spin" size={18} />
-                      Création...
-                    </>
+                    <Loader2 size={18} className="animate-spin" />
                   ) : (
-                    <>
-                      <Plus size={18} />
-                      Créer le projet
-                    </>
+                    "Créer le projet"
                   )}
                 </button>
               </div>
@@ -538,29 +516,6 @@ export default function ProjectSidebar({
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: ${isDark
-            ? "rgba(59, 130, 246, 0.4)"
-            : "rgba(59, 130, 246, 0.5)"};
-          border-radius: 3px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: ${isDark
-            ? "rgba(59, 130, 246, 0.6)"
-            : "rgba(37, 99, 235, 0.7)"};
-        }
-      `}</style>
     </>
   );
 }

@@ -1,136 +1,115 @@
 "use client";
-
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { useTheme } from "@/hooks/useTheme";
 import TaskCard from "./TaskCard";
-import { Circle, Clock, CheckCircle2 } from "lucide-react";
 
 const columnConfig = {
   todo: {
     title: "À faire",
-    icon: Circle,
-    // Bleu vif et visible
-    lightColor: "from-blue-500 to-blue-600",
-    darkColor: "from-blue-600 to-blue-700",
-    lightBg: "from-blue-50/80 via-blue-100/40 to-white",
-    darkBg: "from-blue-950 via-blue-900/80 to-blue-950/60",
-    lightBorder: "border-blue-300/60",
-    darkBorder: "border-blue-700/40",
-    lightText: "text-blue-700",
-    darkText: "text-blue-300",
-    lightBadge: "bg-blue-100 text-blue-700 ring-1 ring-blue-300",
-    darkBadge: "bg-blue-900/60 text-blue-300 ring-1 ring-blue-700/50",
-    glowLight: "shadow-blue-500/10",
-    glowDark: "shadow-blue-500/20",
+    color: "blue",
+    dotColor: "bg-blue-500",
+    bgLight: "bg-gradient-to-b from-blue-50 to-blue-100/50",
+    bgDark: "bg-gradient-to-b from-blue-950/30 to-blue-950/10",
+    borderLight: "border-blue-200",
+    borderDark: "border-blue-900/30",
+    headerLight: "bg-blue-200/70 border-blue-300",
+    headerDark: "bg-blue-900/50 border-blue-800/50",
   },
   inProgress: {
     title: "En cours",
-    icon: Clock,
-    // Orange/Ambre vif
-    lightColor: "from-orange-500 to-amber-600",
-    darkColor: "from-orange-600 to-amber-700",
-    lightBg: "from-orange-50/80 via-amber-100/40 to-white",
-    darkBg: "from-blue-950 via-amber-900/20 to-blue-950/60",
-    lightBorder: "border-orange-300/60",
-    darkBorder: "border-amber-700/40",
-    lightText: "text-orange-700",
-    darkText: "text-amber-300",
-    lightBadge: "bg-orange-100 text-orange-700 ring-1 ring-orange-300",
-    darkBadge: "bg-amber-900/40 text-amber-300 ring-1 ring-amber-700/50",
-    glowLight: "shadow-orange-500/10",
-    glowDark: "shadow-orange-500/20",
+    color: "amber",
+    dotColor: "bg-amber-500",
+    bgLight: "bg-gradient-to-b from-amber-50 to-amber-100/50",
+    bgDark: "bg-gradient-to-b from-amber-950/30 to-amber-950/10",
+    borderLight: "border-amber-200",
+    borderDark: "border-amber-900/30",
+    headerLight: "bg-amber-200/70 border-amber-300",
+    headerDark: "bg-amber-900/50 border-amber-800/50",
   },
   done: {
     title: "Terminées",
-    icon: CheckCircle2,
-    // Vert émeraude vif
-    lightColor: "from-emerald-500 to-teal-600",
-    darkColor: "from-emerald-600 to-teal-700",
-    lightBg: "from-emerald-50/80 via-teal-100/40 to-white",
-    darkBg: "from-blue-950 via-emerald-900/20 to-blue-950/60",
-    lightBorder: "border-emerald-300/60",
-    darkBorder: "border-emerald-700/40",
-    lightText: "text-emerald-700",
-    darkText: "text-emerald-300",
-    lightBadge: "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-300",
-    darkBadge: "bg-emerald-900/40 text-emerald-300 ring-1 ring-emerald-700/50",
-    glowLight: "shadow-emerald-500/10",
-    glowDark: "shadow-emerald-500/20",
+    color: "emerald",
+    dotColor: "bg-emerald-500",
+    bgLight: "bg-gradient-to-b from-emerald-50 to-emerald-100/50",
+    bgDark: "bg-gradient-to-b from-emerald-950/30 to-emerald-950/10",
+    borderLight: "border-emerald-200",
+    borderDark: "border-emerald-900/30",
+    headerLight: "bg-emerald-200/70 border-emerald-300",
+    headerDark: "bg-emerald-900/50 border-emerald-800/50",
   },
 };
 
-export default function TaskColumn({ id, title, tasks, onTaskClick }) {
+export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
   const { isDark } = useTheme();
-  const config = columnConfig[id];
-  const Icon = config.icon;
+  const config = columnConfig[id] || { dotColor: "bg-slate-500" };
+
+  // Utiliser les couleurs du config au lieu des valeurs fixes
+  const columnBg = isDark
+    ? config.bgDark || "bg-slate-900/50"
+    : config.bgLight || "bg-slate-50";
+
+  const columnBorder = isDark
+    ? config.borderDark || "border-slate-800"
+    : config.borderLight || "border-slate-200";
+
+  const headerBg = isDark
+    ? config.headerDark || "border-slate-800"
+    : config.headerLight || "border-slate-200";
+
+  const emptyBg = isDark
+    ? "border-slate-700 text-slate-500"
+    : "border-slate-300 text-slate-400";
 
   return (
-    <div
-      className={`
-        flex flex-col h-full rounded-2xl transition-all duration-300
-        border-2 backdrop-blur-sm shadow-xl relative z-0
-        ${
-          isDark
-            ? `bg-gradient-to-b ${config.darkBg} ${config.darkBorder} ${config.glowDark}`
-            : `bg-gradient-to-b ${config.lightBg} ${config.lightBorder} ${config.glowLight}`
-        }
-      `}
-    >
-      {/* Header avec couleur vive */}
-      <div
-        className={`
-        p-4 rounded-t-2xl shrink-0
-        bg-gradient-to-r ${isDark ? config.darkColor : config.lightColor}
-        backdrop-blur-sm
-      `}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className={`
-              w-9 h-9 rounded-xl flex items-center justify-center
-              ${isDark ? "bg-white/20 backdrop-blur-sm" : "bg-white/40 backdrop-blur-sm"}
-              ring-2 ring-white/30
-            `}
-            >
-              <Icon size={18} className="text-white" strokeWidth={2.5} />
-            </div>
-            <h3 className="font-black text-sm uppercase tracking-wide text-white drop-shadow-sm">
-              {title}
-            </h3>
-          </div>
-          <span
-            className={`
-            px-3 py-1.5 rounded-xl text-xs font-black
-            ${isDark ? "bg-white/20 text-white" : "bg-white/50 text-white"}
-            backdrop-blur-sm ring-1 ring-white/30 shadow-lg
+    <Droppable droppableId={id}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          className={`
+            flex flex-col h-full w-full rounded-xl sm:rounded-2xl border-2 transition-all
+            ${columnBg}
+            ${columnBorder}
+            ${snapshot.isDraggingOver ? "ring-2 ring-blue-500/50 bg-blue-500/5" : ""}
           `}
-          >
-            {tasks.length}
-          </span>
-        </div>
-      </div>
-
-      {/* Zone Drop avec scrollbar personnalisée */}
-      <Droppable droppableId={id}>
-        {(provided, snapshot) => (
+        >
+          {/* Header - Responsive */}
           <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`
-              flex-1 overflow-y-auto px-3 py-4 space-y-3
-              transition-all duration-300 rounded-b-2xl
-              scrollbar-thin scrollbar-track-transparent
-              ${isDark ? "scrollbar-thumb-blue-700/50 hover:scrollbar-thumb-blue-600/70" : "scrollbar-thumb-blue-400/50 hover:scrollbar-thumb-blue-500/70"}
-              ${
-                snapshot.isDraggingOver
-                  ? isDark
-                    ? "bg-blue-800/30 ring-2 ring-blue-500/30 ring-inset"
-                    : "bg-blue-200/40 ring-2 ring-blue-400/40 ring-inset"
-                  : ""
-              }
-            `}
+            className={`flex items-center justify-between p-3 sm:p-4 border-b overflow-hidden rounded-t-xl sm:rounded-t-2xl ${headerBg}`}
           >
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span
+                className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`}
+              />
+              <h3
+                className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
+                  isDark ? "text-slate-200" : "text-slate-700"
+                }`}
+              >
+                {/* Mobile: titre court, Desktop: titre complet */}
+                <span className="hidden sm:inline">{title}</span>
+                <span className="sm:hidden">
+                  {id === "todo"
+                    ? "À faire"
+                    : id === "inProgress"
+                      ? "En cours"
+                      : "Faites"}
+                </span>
+              </h3>
+            </div>
+            <span
+              className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
+                isDark
+                  ? "bg-slate-800 text-slate-300"
+                  : "bg-white/80 text-slate-600"
+              }`}
+            >
+              {tasks.length}
+            </span>
+          </div>
+
+          {/* Liste des tâches - Prend toute la hauteur restante */}
+          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2 min-h-0">
             {tasks.map((task, index) => (
               <Draggable key={task._id} draggableId={task._id} index={index}>
                 {(provided, snapshot) => (
@@ -138,20 +117,12 @@ export default function TaskColumn({ id, title, tasks, onTaskClick }) {
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    style={{
-                      ...provided.draggableProps.style,
-                      // Fix pour le z-index pendant le drag
-                      ...(snapshot.isDragging && {
-                        zIndex: 9999,
-                      }),
-                    }}
-                    className={snapshot.isDragging ? "z-[9999]" : ""}
+                    style={provided.draggableProps.style}
                   >
                     <TaskCard
                       task={task}
                       onClick={() => onTaskClick(task)}
                       isDragging={snapshot.isDragging}
-                      columnColor={config}
                     />
                   </div>
                 )}
@@ -159,63 +130,28 @@ export default function TaskColumn({ id, title, tasks, onTaskClick }) {
             ))}
             {provided.placeholder}
 
-            {/* État vide avec style adapté */}
-            {tasks.length === 0 && !snapshot.isDraggingOver && (
+            {/* État vide - Responsive */}
+            {tasks.length === 0 && (
               <div
                 className={`
-                h-40 border-2 border-dashed rounded-2xl
-                flex flex-col items-center justify-center gap-3
-                transition-all duration-300
-                ${
-                  isDark
-                    ? `${config.darkBorder} bg-blue-950/20`
-                    : `${config.lightBorder} bg-white/40`
-                }
-              `}
-              >
-                <Icon
-                  size={32}
-                  className={isDark ? config.darkText : config.lightText}
-                  strokeWidth={1.5}
-                />
-                <p
-                  className={`
-                  text-sm font-bold
-                  ${isDark ? config.darkText : config.lightText}
+                  flex items-center justify-center 
+                  py-8 sm:py-12
+                  border-2 border-dashed rounded-lg sm:rounded-xl
+                  ${emptyBg}
                 `}
-                >
-                  Aucune tâche
-                </p>
-              </div>
-            )}
-
-            {/* Message de drop - uniquement si la colonne est vide OU en train de hover */}
-            {snapshot.isDraggingOver && (
-              <div
-                className={`
-                h-32 border-2 border-dashed rounded-2xl
-                flex items-center justify-center
-                animate-pulse transition-all duration-200
-                ${
-                  isDark
-                    ? "border-blue-500 bg-blue-900/30"
-                    : "border-blue-500 bg-blue-100/60"
-                }
-              `}
               >
-                <p
-                  className={`
-                  text-sm font-black uppercase tracking-wider
-                  ${isDark ? "text-blue-300" : "text-blue-700"}
-                `}
-                >
-                  Déposer ici
+                <p className="text-xs sm:text-sm font-medium text-center px-4">
+                  {/* Mobile: texte court, Desktop: texte complet */}
+                  <span className="hidden sm:inline">
+                    Déposez une tâche ici
+                  </span>
+                  <span className="sm:hidden">Vide</span>
                 </p>
               </div>
             )}
           </div>
-        )}
-      </Droppable>
-    </div>
+        </div>
+      )}
+    </Droppable>
   );
 }
