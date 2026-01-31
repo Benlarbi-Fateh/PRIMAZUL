@@ -60,6 +60,18 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
     ? "border-slate-700 text-slate-500"
     : "border-slate-300 text-slate-400";
 
+  // ✅ Compter les tâches urgentes et en retard
+  const urgentCount = tasks.filter(task => task.priority === "high" && task.status !== "done").length;
+  
+  const overdueCount = tasks.filter(task => {
+    if (!task.dueDate || task.status === "done") return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  }).length;
+
   return (
     <div
       className={`
@@ -68,12 +80,12 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
         ${columnBorder}
       `}
     >
-      {/* Header - Responsive */}
+      {/* Header - Responsive avec badges */}
       <div
         className={`flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0 ${headerBg}`}
       >
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`} />
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+          <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${config.dotColor}`} />
           <h3
             className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
               isDark ? "text-slate-200" : "text-slate-700"
@@ -86,15 +98,38 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
             </span>
           </h3>
         </div>
-        <span
-          className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
-            isDark
-              ? "bg-slate-800 text-slate-300"
-              : "bg-white/80 text-slate-600"
-          }`}
-        >
-          {tasks.length}
-        </span>
+
+        {/* Badges et compteur */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Badge URGENT */}
+          {urgentCount > 0 && (
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase bg-red-600 text-white shadow-sm">
+              {urgentCount} Urgent{urgentCount > 1 ? 's' : ''}
+            </span>
+          )}
+
+          {/* Badge EN RETARD */}
+          {overdueCount > 0 && (
+            <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase shadow-sm ${
+              isDark 
+                ? "bg-red-500/20 text-red-400 border border-red-500/30" 
+                : "bg-red-100 text-red-700 border border-red-200"
+            }`}>
+              {overdueCount} Retard
+            </span>
+          )}
+
+          {/* Compteur total */}
+          <span
+            className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold flex-shrink-0 ${
+              isDark
+                ? "bg-slate-800 text-slate-300"
+                : "bg-white/80 text-slate-600"
+            }`}
+          >
+            {tasks.length}
+          </span>
+        </div>
       </div>
 
       {/* Zone droppable avec scroll - ✅ CORRIGÉ */}
