@@ -1738,24 +1738,6 @@ export default function MessageBubble({
                     {isTranslated ? translatedText : message.content}
                   </p>
 
-                  <span
-                    className={`text-xs mt-2 flex items-center gap-1 ${
-                      isMine ? "text-blue-100 justify-end" : "text-slate-500"
-                    }`}
-                  >
-                    {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-                    {message.isScheduled && (
-                      <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-                        ⏰ Programmé
-                      </span>
-                    )}
-                    {formatTime(
-                      message.isScheduled && message.scheduledFor
-                        ? message.scheduledFor
-                        : message.createdAt,
-                    )}
-                    {renderStatus()}
-                  </span>
                 </div>
               </div>
             </div>
@@ -1977,24 +1959,6 @@ export default function MessageBubble({
                 {isTranslated ? translatedText : message.content}
               </p>
 
-              <span
-                className={`text-xs mt-2 flex items-center gap-1 ${
-                  isMine ? "text-blue-100 justify-end" : "text-slate-500"
-                }`}
-              >
-                {/* ✅ AFFICHER "Programmé" SI isScheduled = true */}
-                {message.isScheduled && (
-                  <span className="px-2 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded-full">
-                    ⏰ Programmé
-                  </span>
-                )}
-                {formatTime(
-                  message.isScheduled && message.scheduledFor
-                    ? message.scheduledFor
-                    : message.createdAt,
-                )}
-                {renderStatus()}
-              </span>
             </div>
           </div>
         </div>
