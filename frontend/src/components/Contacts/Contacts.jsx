@@ -19,7 +19,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import api from "../../lib/api";
+import api from "@/lib/api"; // Assurez-vous que le chemin est correct (alias @/)
 import { searchUsers, sendInvitation, getSentInvitations } from "@/lib/api";
 import { getSocket, onInvitationCancelled } from "@/services/socket";
 import { useTheme } from "@/hooks/useTheme";
@@ -144,28 +144,53 @@ function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
   );
 }
 
-/* ---------------- CONTACT DETAILS ---------------- */
+/* ---------------- CONTACT DETAILS (AVEC CORRECTION BIO) ---------------- */
 function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
   const { isDark } = useTheme();
   const router = useRouter();
 
-  const user = contact.user;
-  const isFav = favoriteIds.has(user._id);
+  // ✅ CORRECTION : État local pour stocker l'utilisateur complet (avec bio)
+  const [fullUser, setFullUser] = useState(contact.user);
+  const [loadingBio, setLoadingBio] = useState(true);
+
+  const isFav = favoriteIds.has(fullUser._id);
 
   // 📍 États pour les boutons d'appel
   const [isCallingAudio, setIsCallingAudio] = useState(false);
   const [isCallingVideo, setIsCallingVideo] = useState(false);
   const [isMessaging, setIsMessaging] = useState(false);
 
+  // ✅ CORRECTION : Récupérer les détails complets (dont la bio)
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      try {
+        const res = await api.get(`/profile/${contact.user._id}`);
+        if (res.data) {
+          // Si l'API renvoie { user: ... } ou directement l'objet
+          const userData = res.data.user || res.data;
+          setFullUser(userData);
+        }
+      } catch (err) {
+        console.error("Erreur chargement détails utilisateur:", err);
+      } finally {
+        setLoadingBio(false);
+      }
+    };
+
+    if (contact.user?._id) {
+      fetchUserDetails();
+    }
+  }, [contact.user._id]);
+
   // 📍 FONCTION POUR ALLER VERS LE PROFIL DU CONTACT
   const handleViewProfile = () => {
-    router.push(`/contact/${user._id}`);
+    router.push(`/contact/${fullUser._id}`);
   };
 
   // 📍 FONCTION GÉNÉRIQUE POUR OBTENIR/CRÉER LA CONVERSATION
   const getOrCreateConversation = async () => {
     const response = await api.post("/conversations/get-or-create", {
-      contactId: user._id,
+      contactId: fullUser._id,
     });
 
     if (response.data.conversation?._id) {
@@ -182,7 +207,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
 
     try {
       setLoading(true);
-      console.log(`📞 Initiation appel ${callType} avec ${user.name}...`);
+      console.log(`📞 Initiation appel ${callType} avec ${fullUser.name}...`);
 
       // 1. Obtenir ou créer la conversation
       const conversationId = await getOrCreateConversation();
@@ -210,7 +235,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
   const handleMessageClick = async () => {
     try {
       setIsMessaging(true);
-      console.log("💬 Ouverture conversation avec", user.name);
+      console.log("💬 Ouverture conversation avec", fullUser.name);
 
       const conversationId = await getOrCreateConversation();
       router.push(`/chat/${conversationId}`);
@@ -282,7 +307,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
         <div className={`rounded-3xl p-6 sm:p-8 border-2 ${cardBg} relative`}>
           {/* Bouton favori */}
           <button
-            onClick={() => toggleFavorite(user._id)}
+            onClick={() => toggleFavorite(fullUser._id)}
             className={`absolute top-6 right-6 p-3 rounded-xl z-10 ${
               isDark
                 ? "bg-blue-800/50 hover:bg-blue-700/70"
@@ -310,7 +335,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
               title="Voir le profil de ce contact"
             >
               <div className="relative">
-                <Avatar user={user} size="lg" showStatus={true} />
+                <Avatar user={fullUser} size="lg" showStatus={true} />
                 <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                   <span className="text-white font-semibold text-sm bg-black/60 px-3 py-1 rounded-full">
                     Voir profil
@@ -325,17 +350,25 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
               onClick={handleViewProfile}
               title="Voir le profil de ce contact"
             >
-              {user.name}
+              {fullUser.name}
               <ExternalLink className="w-4 h-4 opacity-50" />
             </h1>
 
-            {/* Statut */}
-            <p className={`mb-8 ${textSecondary}`}>
-              {user.bio?.trim() ? user.bio : "Aucune biographie renseignée"}
+            {/* Statut (Bio) avec chargement */}
+            <p className={`mb-8 ${textSecondary} min-h-[24px]`}>
+              {loadingBio ? (
+                <span className="animate-pulse opacity-70">
+                  Chargement de la bio...
+                </span>
+              ) : fullUser.bio?.trim() ? (
+                fullUser.bio
+              ) : (
+                "Aucune biographie renseignée"
+              )}
             </p>
           </div>
 
-          {/* ✅ ACTION BUTTONS - MAINTENANT FONCTIONNELS */}
+          {/* ✅ ACTION BUTTONS */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             {/* 📞 BOUTON APPELER */}
             <button
@@ -446,9 +479,9 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
                   </p>
                   <p
                     className={`font-bold ${textPrimary} truncate`}
-                    title={user.email}
+                    title={fullUser.email}
                   >
-                    {user.email}
+                    {fullUser.email}
                   </p>
                 </div>
               </div>
@@ -762,7 +795,7 @@ function AddContactTab({ contactIds }) {
                 Aucun utilisateur trouvé
               </p>
               <p className={`text-sm mt-2 ${textMuted}`}>
-                Essayez avec un autre nom ou email
+                Essayez avec un autre terme de recherche
               </p>
             </div>
           )}

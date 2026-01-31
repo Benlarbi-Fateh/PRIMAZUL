@@ -30,7 +30,7 @@ import {
   Phone,
   RefreshCw,
 } from "lucide-react";
-import { generateNumericUid, CALL_STATES } from "@/context/Callcontext";
+import { generateNumericUid, CALL_STATES } from "@/context/Callcontext"; // Assurez-vous du nom du fichier (CallContext vs Callcontext)
 
 const APP_ID = process.env.NEXT_PUBLIC_AGORA_APP_ID;
 
@@ -307,6 +307,9 @@ export default function VideoCall({
   );
   const [localError, setLocalError] = useState(null);
 
+  // ✅ MINUTEUR LOCAL : On utilise un état local pour garantir l'affichage
+  const [time, setTime] = useState(0);
+
   // Refs
   const clientRef = useRef(null);
   const localTracksRef = useRef({ audio: null, video: null, screen: null });
@@ -318,6 +321,28 @@ export default function VideoCall({
   const dragOffset = useRef({ x: 0, y: 0 });
   const controlsTimeoutRef = useRef(null);
   const retryCountRef = useRef(0);
+
+  // ✅ LOGIQUE DU MINUTEUR
+  useEffect(() => {
+    let interval = null;
+
+    // On synchronise avec la prop si elle est fournie et plus grande que le temps local
+    // (au cas où on revient sur la fenêtre)
+    if (callDuration > time) {
+      setTime(callDuration);
+    }
+
+    // Démarrer le compteur si l'appel est en cours
+    if (callState === "ongoing" || callState === CALL_STATES.ONGOING) {
+      interval = setInterval(() => {
+        setTime((prev) => prev + 1);
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [callState, callDuration]); // On réagit si le statut change
 
   // ============================================
   // HELPERS
@@ -375,7 +400,6 @@ export default function VideoCall({
   const cleanupTracks = useCallback(async () => {
     console.log("🧹 Nettoyage des pistes...");
 
-    // Cleanup screen track
     if (screenTrackRef.current) {
       try {
         const tracks = Array.isArray(screenTrackRef.current)
@@ -391,7 +415,6 @@ export default function VideoCall({
       screenTrackRef.current = null;
     }
 
-    // Cleanup local tracks
     for (const [key, track] of Object.entries(localTracksRef.current)) {
       if (track) {
         try {
@@ -426,16 +449,9 @@ export default function VideoCall({
   // INITIALISATION AGORA
   // ============================================
   const initializeAgora = useCallback(async () => {
-    // Éviter les doubles initialisations
-    if (initializingRef.current) {
-      console.log("⏳ Initialisation déjà en cours...");
-      return;
-    }
+    if (initializingRef.current) return;
 
-    if (!token || !channelName || !mountedRef.current) {
-      console.log("⚠️ Paramètres manquants pour initialisation");
-      return;
-    }
+    if (!token || !channelName || !mountedRef.current) return;
 
     initializingRef.current = true;
     setConnectionStatus(CONNECTION_STATES.CONNECTING);
@@ -445,9 +461,8 @@ export default function VideoCall({
       console.log("🚀 Initialisation Agora...", { channelName, uid });
 
       const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
-      AgoraRTC.setLogLevel(3); // Warning level
+      AgoraRTC.setLogLevel(3);
 
-      // Créer le client si nécessaire
       if (!clientRef.current) {
         clientRef.current = AgoraRTC.createClient({
           mode: "rtc",
@@ -457,35 +472,22 @@ export default function VideoCall({
 
       const client = clientRef.current;
 
-      // Si déjà connecté, on quitte d'abord
       if (client.connectionState === "CONNECTED") {
-        console.log("📡 Déjà connecté, déconnexion...");
         await client.leave();
         await delay(500);
       }
 
-      // Nettoyer les anciens listeners
       client.removeAllListeners();
 
-      // ============================================
-      // EVENT HANDLERS
-      // ============================================
       client.on("user-published", async (user, mediaType) => {
         if (!mountedRef.current) return;
-
         try {
-          console.log(`📥 User ${user.uid} published ${mediaType}`);
           await client.subscribe(user, mediaType);
-
           updateRemoteUsers("update", {
             uid: user.uid,
             [`${mediaType}Track`]: user[`${mediaType}Track`],
           });
-
-          if (mediaType === "audio" && speakerOn) {
-            user.audioTrack?.play();
-          }
-
+          if (mediaType === "audio" && speakerOn) user.audioTrack?.play();
           if (mediaType === "video" && !spotlightUser) {
             setSpotlightUser({ uid: user.uid });
             setLayoutMode("spotlight");
@@ -497,7 +499,6 @@ export default function VideoCall({
 
       client.on("user-unpublished", (user, mediaType) => {
         if (!mountedRef.current) return;
-        console.log(`📤 User ${user.uid} unpublished ${mediaType}`);
         updateRemoteUsers("update", {
           uid: user.uid,
           [`${mediaType}Track`]: null,
@@ -506,7 +507,6 @@ export default function VideoCall({
 
       client.on("user-left", (user) => {
         if (!mountedRef.current) return;
-        console.log(`👋 User ${user.uid} left`);
         updateRemoteUsers("remove", user);
         if (spotlightUser?.uid === user.uid) {
           setSpotlightUser(null);
@@ -514,14 +514,8 @@ export default function VideoCall({
         }
       });
 
-      client.on("connection-state-change", (curState, prevState, reason) => {
-        console.log(
-          `🔌 Connection state: ${prevState} → ${curState}`,
-          reason || "",
-        );
-
+      client.on("connection-state-change", (curState) => {
         if (!mountedRef.current) return;
-
         switch (curState) {
           case "CONNECTED":
             setConnectionStatus(CONNECTION_STATES.CONNECTED);
@@ -541,36 +535,18 @@ export default function VideoCall({
         }
       });
 
-      client.on("exception", (event) => {
-        console.error("⚠️ Agora exception:", event);
-      });
-
-      // ============================================
-      // REJOINDRE LE CHANNEL
-      // ============================================
-      console.log("📡 Connexion au channel...");
       await client.join(APP_ID, channelName, token, uid);
 
       if (!mountedRef.current) {
-        console.log("⚠️ Composant démonté pendant join");
         await cleanupClient();
         return;
       }
 
-      console.log("✅ Connecté au channel");
-
-      // Attendre que la connexion soit stable
       await delay(500);
 
-      // Vérifier l'état de connexion avant de créer les pistes
       if (client.connectionState !== "CONNECTED") {
         throw new Error("Connection lost after join");
       }
-
-      // ============================================
-      // CRÉER LES PISTES LOCALES
-      // ============================================
-      console.log("🎤 Création des pistes audio/vidéo...");
 
       let audioTrack = null;
       let videoTrack = null;
@@ -579,7 +555,6 @@ export default function VideoCall({
         audioTrack = await AgoraRTC.createMicrophoneAudioTrack({
           encoderConfig: ENCODER_CONFIG.audio,
         });
-        console.log("✅ Piste audio créée");
       } catch (e) {
         console.error("❌ Erreur création piste audio:", e);
       }
@@ -589,14 +564,12 @@ export default function VideoCall({
           videoTrack = await AgoraRTC.createCameraVideoTrack({
             encoderConfig: ENCODER_CONFIG.video,
           });
-          console.log("✅ Piste vidéo créée");
         } catch (e) {
           console.error("❌ Erreur création piste vidéo:", e);
         }
       }
 
       if (!mountedRef.current) {
-        console.log("⚠️ Composant démonté pendant création pistes");
         audioTrack?.close();
         videoTrack?.close();
         await cleanupClient();
@@ -605,30 +578,15 @@ export default function VideoCall({
 
       localTracksRef.current = { audio: audioTrack, video: videoTrack };
 
-      // ============================================
-      // PUBLIER LES PISTES
-      // ============================================
-      // Vérifier à nouveau l'état avant de publier
-      if (client.connectionState !== "CONNECTED") {
-        throw new Error("Connection lost before publish");
-      }
-
       const tracksToPublish = [audioTrack, videoTrack].filter(Boolean);
 
       if (tracksToPublish.length > 0) {
-        console.log(`📤 Publication de ${tracksToPublish.length} piste(s)...`);
-
         try {
           await client.publish(tracksToPublish);
-          console.log("✅ Pistes publiées");
         } catch (publishError) {
-          // Si erreur de publication, réessayer une fois
-          console.warn("⚠️ Erreur publication, retry...", publishError);
           await delay(1000);
-
           if (client.connectionState === "CONNECTED" && mountedRef.current) {
             await client.publish(tracksToPublish);
-            console.log("✅ Pistes publiées (retry)");
           }
         }
       }
@@ -637,27 +595,18 @@ export default function VideoCall({
         setLocalVideoReady(true);
         setConnectionStatus(CONNECTION_STATES.CONNECTED);
       }
-
-      console.log("🎉 Initialisation Agora terminée");
     } catch (error) {
       console.error("❌ Erreur initialisation Agora:", error);
-
       if (!mountedRef.current) return;
 
-      // Gestion des erreurs avec retry
       if (
         retryCountRef.current < MAX_RETRY_ATTEMPTS &&
         error.code !== "INVALID_PARAMS"
       ) {
         retryCountRef.current++;
-        console.log(
-          `🔄 Retry ${retryCountRef.current}/${MAX_RETRY_ATTEMPTS}...`,
-        );
-
         await cleanupTracks();
         await cleanupClient();
         await delay(RETRY_DELAY_MS);
-
         if (mountedRef.current) {
           initializingRef.current = false;
           initializeAgora();
@@ -681,52 +630,35 @@ export default function VideoCall({
     cleanupClient,
   ]);
 
-  // ============================================
-  // EFFECT: Initialisation
-  // ============================================
   useEffect(() => {
     mountedRef.current = true;
     initializeAgora();
-
     return () => {
-      console.log("🔚 Démontage VideoCall");
       mountedRef.current = false;
-
       const cleanup = async () => {
         await cleanupTracks();
         await cleanupClient();
       };
       cleanup();
     };
-  }, [channelName, token, uid]); // Dependencies minimales
+  }, [channelName, token, uid]);
 
-  // ============================================
-  // EFFECT: Play local video
-  // ============================================
   useEffect(() => {
     if (!localVideoReady || !localVideoRef.current) return;
-
     const playVideo = async () => {
       try {
         const track = isScreenSharing
           ? localTracksRef.current.screen
           : localTracksRef.current.video;
-
         if (track && (camOn || isScreenSharing)) {
-          await delay(100); // Petit délai pour s'assurer que le DOM est prêt
+          await delay(100);
           track.play(localVideoRef.current);
         }
-      } catch (e) {
-        console.error("Erreur lecture vidéo locale:", e);
-      }
+      } catch (e) {}
     };
-
     playVideo();
   }, [localVideoReady, camOn, isScreenSharing]);
 
-  // ============================================
-  // CONTRÔLES
-  // ============================================
   const toggleMic = useCallback(async () => {
     const audioTrack = localTracksRef.current.audio;
     if (audioTrack) {
@@ -734,17 +666,13 @@ export default function VideoCall({
         const newState = !micOn;
         await audioTrack.setEnabled(newState);
         setMicOn(newState);
-      } catch (e) {
-        console.error("Erreur toggle mic:", e);
-      }
+      } catch (e) {}
     }
   }, [micOn]);
 
   const toggleCam = useCallback(async () => {
     if (connectionStatus !== CONNECTION_STATES.CONNECTED) return;
-
     const videoTrack = localTracksRef.current.video;
-
     if (!videoTrack) {
       try {
         const AgoraRTC = (await import("agora-rtc-sdk-ng")).default;
@@ -752,25 +680,19 @@ export default function VideoCall({
           encoderConfig: ENCODER_CONFIG.video,
         });
         localTracksRef.current.video = newVideoTrack;
-
         if (clientRef.current?.connectionState === "CONNECTED") {
           await clientRef.current.publish(newVideoTrack);
         }
         setLocalVideoReady(true);
         setCamOn(true);
-      } catch (e) {
-        console.error("Erreur activation caméra:", e);
-      }
+      } catch (e) {}
       return;
     }
-
     try {
       const newState = !camOn;
       await videoTrack.setEnabled(newState);
       setCamOn(newState);
-    } catch (e) {
-      console.error("Erreur toggle cam:", e);
-    }
+    } catch (e) {}
   }, [camOn, connectionStatus]);
 
   const toggleSpeaker = useCallback(() => {
@@ -785,31 +707,26 @@ export default function VideoCall({
 
   const toggleScreenShare = useCallback(async () => {
     if (connectionStatus !== CONNECTION_STATES.CONNECTED) return;
-
     try {
       if (isScreenSharing) {
         if (screenTrackRef.current) {
           const tracks = Array.isArray(screenTrackRef.current)
             ? screenTrackRef.current
             : [screenTrackRef.current];
-
           if (clientRef.current?.connectionState === "CONNECTED") {
             await clientRef.current.unpublish(tracks);
           }
-
           tracks.forEach((t) => {
             t.stop?.();
             t.close?.();
           });
           screenTrackRef.current = null;
         }
-
         if (localTracksRef.current.video && camOn) {
           if (clientRef.current?.connectionState === "CONNECTED") {
             await clientRef.current.publish(localTracksRef.current.video);
           }
         }
-
         setIsScreenSharing(false);
         setSpotlightUser(null);
         setLayoutMode("grid");
@@ -819,33 +736,25 @@ export default function VideoCall({
           { encoderConfig: ENCODER_CONFIG.screen },
           "auto",
         );
-
         const track = Array.isArray(screenTrack) ? screenTrack[0] : screenTrack;
         track.on("track-ended", () => toggleScreenShare());
-
         screenTrackRef.current = screenTrack;
         localTracksRef.current.screen = track;
-
         if (localTracksRef.current.video) {
           if (clientRef.current?.connectionState === "CONNECTED") {
             await clientRef.current.unpublish(localTracksRef.current.video);
           }
         }
-
         if (clientRef.current?.connectionState === "CONNECTED") {
           await clientRef.current.publish(screenTrack);
         }
-
         setIsScreenSharing(true);
         setSpotlightUser({ isLocal: true });
         setLayoutMode("spotlight");
       }
-
       setLocalVideoReady(false);
       requestAnimationFrame(() => setLocalVideoReady(true));
-    } catch (e) {
-      console.error("Erreur partage écran:", e);
-    }
+    } catch (e) {}
   }, [isScreenSharing, camOn, connectionStatus]);
 
   const handleRetry = useCallback(() => {
@@ -858,9 +767,6 @@ export default function VideoCall({
     });
   }, [cleanupTracks, cleanupClient, initializeAgora]);
 
-  // ============================================
-  // DRAG & DROP
-  // ============================================
   const handleMouseDown = useCallback(
     (e) => {
       if (e.target.closest("button")) return;
@@ -901,18 +807,11 @@ export default function VideoCall({
     }
   }, [isMinimized, handleMouseMove, handleMouseUp]);
 
-  // ============================================
-  // RENDU: État de connexion
-  // ============================================
   const isConnecting =
     connectionStatus === CONNECTION_STATES.CONNECTING ||
     connectionStatus === CONNECTION_STATES.RECONNECTING;
-  const isDisconnected =
-    connectionStatus === CONNECTION_STATES.DISCONNECTED && !isConnecting;
 
-  // ============================================
-  // CALCULS (Doivent être AVANT les return conditionnels)
-  // ============================================
+  // Calculs avant les rendus conditionnels
   const totalUsers = remoteUsers.length + 1;
   const gridClass = useMemo(() => {
     if (totalUsers <= 2) return "grid-cols-1 md:grid-cols-2";
@@ -920,9 +819,6 @@ export default function VideoCall({
     return "grid-cols-2 md:grid-cols-3";
   }, [totalUsers]);
 
-  // ============================================
-  // RENDU MINIMISÉ
-  // ============================================
   if (isMinimized) {
     const displayUser = spotlightUser?.isLocal
       ? null
@@ -964,10 +860,9 @@ export default function VideoCall({
           )}
 
           <div className="absolute top-2 left-2 bg-black/60 px-2 py-0.5 rounded-full text-green-400 text-xs font-mono">
-            {formatDuration(callDuration)}
+            {formatDuration(time)}
           </div>
 
-          {/* Indicateur de reconnexion */}
           {connectionStatus === CONNECTION_STATES.RECONNECTING && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
               <RefreshCw className="text-yellow-400 animate-spin" size={24} />
@@ -1007,16 +902,12 @@ export default function VideoCall({
     );
   }
 
-  // ============================================
-  // RENDU PRINCIPAL
-  // ============================================
   return (
     <div
       className="fixed inset-0 bg-slate-950 z-[9999] flex flex-col"
       onMouseMove={resetControlsTimeout}
       onClick={resetControlsTimeout}
     >
-      {/* HEADER */}
       <header
         className={`absolute top-0 w-full p-4 flex justify-between z-30 transition-all duration-300 ${
           showControls
@@ -1046,7 +937,8 @@ export default function VideoCall({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
             </span>
             <span className="text-green-400 font-mono text-sm">
-              {formatDuration(callDuration)}
+              {/* ✅ Utilisation du temps local */}
+              {formatDuration(time)}
             </span>
           </div>
 
@@ -1090,7 +982,6 @@ export default function VideoCall({
         </div>
       </header>
 
-      {/* ZONE VIDÉO */}
       <main className="flex-1 flex overflow-hidden pt-20 pb-32 px-4 justify-center items-center">
         {layoutMode === "spotlight" && spotlightUser ? (
           <div className="flex w-full max-w-7xl h-full gap-4">
@@ -1194,7 +1085,6 @@ export default function VideoCall({
         )}
       </main>
 
-      {/* CONTRÔLES */}
       <footer
         className={`absolute bottom-0 w-full p-6 pb-8 flex justify-center items-center gap-3 md:gap-5 transition-all duration-300 ${
           showControls
@@ -1243,7 +1133,6 @@ export default function VideoCall({
         />
       </footer>
 
-      {/* MESSAGES D'ERREUR */}
       {(callError || localError) && (
         <div className="absolute top-28 left-1/2 -translate-x-1/2 bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl z-50 font-medium flex items-center gap-3">
           <span>⚠️</span>
@@ -1259,7 +1148,6 @@ export default function VideoCall({
         </div>
       )}
 
-      {/* OVERLAY DE CONNEXION - Avec bouton raccrocher */}
       {isConnecting && callState !== CALL_STATES.RINGING && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-40">
           <div className="text-center">
@@ -1284,7 +1172,6 @@ export default function VideoCall({
             )}
           </div>
 
-          {/* Bouton raccrocher pendant connexion */}
           <button
             onClick={onHangup}
             className="mt-8 p-4 bg-red-600 rounded-full text-white shadow-xl shadow-red-600/40 hover:bg-red-700 hover:scale-110 transition-all duration-200 active:scale-95"
@@ -1296,11 +1183,9 @@ export default function VideoCall({
         </div>
       )}
 
-      {/* OVERLAY RINGING - Avec bouton raccrocher visible */}
       {callState === CALL_STATES.RINGING && (
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-40">
           <div className="text-center">
-            {/* Avatar de la personne appelée */}
             {callData?.profilePicture ? (
               <div className="relative mb-6">
                 <div className="absolute inset-0 animate-pulse">
@@ -1344,7 +1229,6 @@ export default function VideoCall({
             <p className="text-slate-500 text-xs mt-1">En attente de réponse</p>
           </div>
 
-          {/* Bouton raccrocher bien visible */}
           <div className="mt-10 flex flex-col items-center">
             <button
               onClick={onHangup}
@@ -1356,7 +1240,6 @@ export default function VideoCall({
             <p className="text-slate-400 text-sm mt-3">Appuyez pour annuler</p>
           </div>
 
-          {/* Timer d'attente optionnel */}
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
             <p className="text-slate-500 text-xs">
               L&lsquo;appel s&lsquo;annulera automatiquement après 45 secondes

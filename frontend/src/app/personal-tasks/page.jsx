@@ -50,8 +50,6 @@ import {
 // ✅ Import du hook useTheme global
 import { useTheme } from "@/hooks/useTheme";
 
-
-
 // =================== CONSTANTES ===================
 const PRIORITIES = [
   { value: "low", label: "Basse", icon: "🌱", color: "emerald" },
@@ -109,13 +107,12 @@ const LIST_ICONS = [
 // =================== MAIN PAGE ===================
 export default function PersonalTasksPage() {
   const router = useRouter();
-
-  // ✅ Utilisation du hook useTheme global
   const { isDark, toggleTheme } = useTheme();
 
   // États
   const [lists, setLists] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState([]); // ✅ État pour les tâches terminées
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -125,17 +122,16 @@ export default function PersonalTasksPage() {
 
   // Filtres
   const [searchQuery, setSearchQuery] = useState("");
-  const [showCompleted, setShowCompleted] = useState(false);
 
   // Modals
   const [selectedTask, setSelectedTask] = useState(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showNewListModal, setShowNewListModal] = useState(false);
+  const [showCompletedModal, setShowCompletedModal] = useState(false); // ✅ État pour le modal tâches terminées
 
   // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // ✅ Force re-render when theme changes
   const [, forceUpdate] = useState({});
   useEffect(() => {
     forceUpdate({});
@@ -154,7 +150,7 @@ export default function PersonalTasksPage() {
   const fetchTasks = useCallback(async () => {
     try {
       let endpoint = "/personal-tasks";
-      const params = {};
+      const params = { completed: false }; // ✅ On récupère par défaut les tâches NON terminées
 
       switch (activeView) {
         case "today":
@@ -170,12 +166,7 @@ export default function PersonalTasksPage() {
           endpoint = "/personal-tasks/overdue";
           break;
         default:
-          if (selectedListId) {
-            params.listId = selectedListId;
-          }
-          if (!showCompleted) {
-            params.completed = false;
-          }
+          if (selectedListId) params.listId = selectedListId;
       }
 
       const res = await api.get(endpoint, { params });
@@ -183,7 +174,22 @@ export default function PersonalTasksPage() {
     } catch (err) {
       console.error("Erreur fetch tâches:", err);
     }
-  }, [activeView, selectedListId, showCompleted]);
+  }, [activeView, selectedListId]);
+
+  // ✅ Fonction dédiée pour récupérer les tâches terminées
+  const fetchCompletedTasks = useCallback(async () => {
+    try {
+      const res = await api.get("/personal-tasks", {
+        params: {
+          completed: true,
+          listId: selectedListId || undefined, // Filtre optionnel par liste
+        },
+      });
+      setCompletedTasks(res.data.tasks || []);
+    } catch (err) {
+      console.error("Erreur fetch tâches terminées:", err);
+    }
+  }, [selectedListId]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -206,6 +212,13 @@ export default function PersonalTasksPage() {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // ✅ Charger les tâches terminées quand on ouvre le modal
+  useEffect(() => {
+    if (showCompletedModal) {
+      fetchCompletedTasks();
+    }
+  }, [showCompletedModal, fetchCompletedTasks]);
 
   // =================== ACTIONS ===================
   const handleCreateList = async (data) => {
@@ -260,9 +273,7 @@ export default function PersonalTasksPage() {
         setTasks((prev) =>
           prev.map((t) => (t._id === taskId ? res.data.task : t)),
         );
-        if (selectedTask?._id === taskId) {
-          setSelectedTask(res.data.task);
-        }
+        if (selectedTask?._id === taskId) setSelectedTask(res.data.task);
         fetchStats();
       }
     } catch (err) {
@@ -274,6 +285,7 @@ export default function PersonalTasksPage() {
     try {
       await api.delete(`/personal-tasks/${taskId}`);
       setTasks((prev) => prev.filter((t) => t._id !== taskId));
+      setCompletedTasks((prev) => prev.filter((t) => t._id !== taskId)); // ✅ Mise à jour aussi pour les tâches terminées
       if (selectedTask?._id === taskId) setSelectedTask(null);
       fetchStats();
       fetchLists();
@@ -286,12 +298,11 @@ export default function PersonalTasksPage() {
     try {
       const res = await api.post(`/personal-tasks/${taskId}/complete`);
       if (res.data.task) {
-        if (showCompleted) {
-          setTasks((prev) =>
-            prev.map((t) => (t._id === taskId ? res.data.task : t)),
-          );
-        } else {
-          setTasks((prev) => prev.filter((t) => t._id !== taskId));
+        // ✅ On retire de la liste principale
+        setTasks((prev) => prev.filter((t) => t._id !== taskId));
+        // ✅ On ajoute potentiellement à la liste terminée si modal ouvert
+        if (showCompletedModal) {
+          setCompletedTasks((prev) => [res.data.task, ...prev]);
         }
         fetchStats();
         fetchLists();
@@ -305,9 +316,11 @@ export default function PersonalTasksPage() {
     try {
       const res = await api.post(`/personal-tasks/${taskId}/reopen`);
       if (res.data.task) {
-        setTasks((prev) =>
-          prev.map((t) => (t._id === taskId ? res.data.task : t)),
-        );
+        // ✅ On ajoute à la liste principale
+        setTasks((prev) => [res.data.task, ...prev]);
+        // ✅ On retire de la liste terminée
+        setCompletedTasks((prev) => prev.filter((t) => t._id !== taskId));
+
         fetchStats();
         fetchLists();
       }
@@ -332,7 +345,7 @@ export default function PersonalTasksPage() {
         }));
       }
     } catch (err) {
-      console.error("Erreur ajout sous-tâche:", err);
+      console.error(err);
     }
   };
 
@@ -350,7 +363,7 @@ export default function PersonalTasksPage() {
         }));
       }
     } catch (err) {
-      console.error("Erreur toggle sous-tâche:", err);
+      console.error(err);
     }
   };
 
@@ -364,17 +377,15 @@ export default function PersonalTasksPage() {
         }));
       }
     } catch (err) {
-      console.error("Erreur suppression sous-tâche:", err);
+      console.error(err);
     }
   };
 
-  // =================== FILTRAGE ===================
   const filteredTasks = tasks.filter((task) => {
     if (!searchQuery) return true;
     return task.title.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  // =================== HELPERS ===================
   const getViewTitle = () => {
     switch (activeView) {
       case "today":
@@ -394,7 +405,6 @@ export default function PersonalTasksPage() {
     }
   };
 
-  // =================== STYLES DYNAMIQUES ===================
   const styles = {
     page: isDark
       ? "bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950"
@@ -436,11 +446,9 @@ export default function PersonalTasksPage() {
       : "bg-gradient-to-br from-blue-500 to-indigo-600",
   };
 
-  // =================== LOADING ===================
   if (loading) {
     return (
       <div className={`min-h-screen ${styles.page} flex`}>
-     
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
@@ -458,12 +466,7 @@ export default function PersonalTasksPage() {
 
   return (
     <div className={`min-h-screen ${styles.page} flex`}>
-      {/* ✅ MAINSIDEBAR */}
-
-
-      {/* CONTENEUR PRINCIPAL */}
       <div className="flex-1 flex min-h-screen">
-        {/* SIDEBAR OVERLAY (Mobile) */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
@@ -471,11 +474,8 @@ export default function PersonalTasksPage() {
           />
         )}
 
-        {/* SIDEBAR DES TÂCHES */}
         <aside
-          className={`fixed lg:static inset-y-0 left-0 z-50 w-72 ${styles.sidebar} border-r flex flex-col backdrop-blur-xl transform transition-transform duration-300 ease-out ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          }`}
+          className={`fixed lg:static inset-y-0 left-0 z-50 w-72 ${styles.sidebar} border-r flex flex-col backdrop-blur-xl transform transition-transform duration-300 ease-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
         >
           {/* Header */}
           <div
@@ -489,8 +489,6 @@ export default function PersonalTasksPage() {
                 <ArrowLeft size={18} />
                 <span className="text-sm font-medium">Retour</span>
               </button>
-
-              {/* ✅ Theme Toggle avec icônes */}
               <button
                 onClick={toggleTheme}
                 className={`p-2 rounded-xl border transition-all ${styles.button}`}
@@ -503,7 +501,6 @@ export default function PersonalTasksPage() {
                 )}
               </button>
             </div>
-
             <div className="flex items-center gap-3 mt-5">
               <div
                 className={`w-12 h-12 rounded-2xl ${styles.iconContainer} flex items-center justify-center shadow-lg shadow-blue-500/30`}
@@ -535,9 +532,7 @@ export default function PersonalTasksPage() {
                       Progression
                     </span>
                   </div>
-                  <span
-                    className={`text-2xl font-black ${isDark ? "text-white" : "text-white"}`}
-                  >
+                  <span className={`text-2xl font-black text-white`}>
                     {stats.completionRate}%
                   </span>
                 </div>
@@ -572,7 +567,6 @@ export default function PersonalTasksPage() {
             >
               Vues
             </p>
-
             {[
               {
                 id: "all",
@@ -613,11 +607,7 @@ export default function PersonalTasksPage() {
                   setSelectedListId(null);
                   setSidebarOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all mb-1 group ${
-                  activeView === id && !selectedListId
-                    ? styles.cardActive
-                    : `${isDark ? "hover:bg-slate-800" : "hover:bg-slate-100"} ${styles.textMuted}`
-                }`}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all mb-1 group ${activeView === id && !selectedListId ? styles.cardActive : `${isDark ? "hover:bg-slate-800" : "hover:bg-slate-100"} ${styles.textMuted}`}`}
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -651,7 +641,6 @@ export default function PersonalTasksPage() {
                 <Plus size={16} />
               </button>
             </div>
-
             <div className="space-y-1">
               {lists.length === 0 ? (
                 <div className={`text-center py-8 ${styles.textMuted}`}>
@@ -662,11 +651,7 @@ export default function PersonalTasksPage() {
                 lists.map((list) => (
                   <div
                     key={list._id}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-                      selectedListId === list._id
-                        ? styles.cardActive
-                        : `${isDark ? "hover:bg-slate-800" : "hover:bg-slate-100"} ${styles.textMuted}`
-                    }`}
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${selectedListId === list._id ? styles.cardActive : `${isDark ? "hover:bg-slate-800" : "hover:bg-slate-100"} ${styles.textMuted}`}`}
                     onClick={() => {
                       setActiveView("list");
                       setSelectedListId(list._id);
@@ -703,7 +688,6 @@ export default function PersonalTasksPage() {
             </div>
           </div>
 
-          {/* Footer */}
           <div
             className={`p-4 border-t ${isDark ? "border-slate-800" : "border-slate-200"}`}
           >
@@ -711,29 +695,23 @@ export default function PersonalTasksPage() {
               onClick={() => setShowNewTaskModal(true)}
               className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 ${styles.buttonPrimary} rounded-xl font-semibold transition-all active:scale-[0.98]`}
             >
-              <Plus size={20} />
-              Nouvelle Tâche
+              <Plus size={20} /> Nouvelle Tâche
             </button>
           </div>
         </aside>
 
-        {/* MAIN CONTENT */}
         <main className="flex-1 flex flex-col min-w-0">
-          {/* Header */}
           <header
             className={`${styles.header} border-b backdrop-blur-xl sticky top-0 z-30`}
           >
             <div className="px-4 lg:px-6 py-4">
               <div className="flex items-center justify-between gap-4">
-                {/* Mobile menu button */}
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className={`lg:hidden p-2 rounded-xl border ${styles.button}`}
                 >
                   <Menu size={20} />
                 </button>
-
-                {/* Title */}
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="text-3xl">{viewInfo.icon}</span>
                   <div className="min-w-0">
@@ -748,10 +726,7 @@ export default function PersonalTasksPage() {
                     </p>
                   </div>
                 </div>
-
-                {/* Actions */}
                 <div className="flex items-center gap-2 lg:gap-3">
-                  {/* Search */}
                   <div
                     className={`hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl border ${styles.input} transition-all`}
                   >
@@ -765,24 +740,27 @@ export default function PersonalTasksPage() {
                     />
                   </div>
 
-                  {/* Toggle completed */}
+                  {/* ✅ BOUTON MODAL TÂCHES TERMINÉES (Modifié pour mobile) */}
                   <button
-                    onClick={() => setShowCompleted(!showCompleted)}
-                    className={`hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                      showCompleted
-                        ? isDark
-                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                          : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                        : styles.button
+                    onClick={() => setShowCompletedModal(true)}
+                    className={`flex items-center gap-2 px-3 lg:px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                      isDark
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                        : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
                     }`}
+                    title="Tâches terminées"
                   >
-                    <CheckCircle2 size={16} />
-                    <span className="hidden lg:inline">
-                      {showCompleted ? "Masquer" : "Terminées"}
+                    <CheckCircle2 size={18} />
+                    {/* Texte masqué sur mobile, visible sur tablette/desktop */}
+                    <span className="hidden sm:inline">
+                      Terminées ({stats?.completed || 0})
+                    </span>
+                    {/* Compteur seul sur mobile */}
+                    <span className="sm:hidden font-bold">
+                      {stats?.completed || 0}
                     </span>
                   </button>
 
-                  {/* New Task */}
                   <button
                     onClick={() => setShowNewTaskModal(true)}
                     className={`flex items-center gap-2 px-4 py-2.5 ${styles.buttonPrimary} rounded-xl font-semibold transition-all active:scale-[0.98]`}
@@ -795,10 +773,8 @@ export default function PersonalTasksPage() {
             </div>
           </header>
 
-          {/* Content */}
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto px-4 lg:px-6 py-6">
-              {/* Tasks */}
               <div className="space-y-3">
                 {filteredTasks.length === 0 ? (
                   <EmptyState
@@ -827,7 +803,17 @@ export default function PersonalTasksPage() {
         </main>
       </div>
 
-      {/* MODALS */}
+      {/* ✅ MODAL DES TÂCHES TERMINÉES */}
+      {showCompletedModal && (
+        <CompletedTasksModal
+          isDark={isDark}
+          onClose={() => setShowCompletedModal(false)}
+          tasks={completedTasks}
+          onReopen={handleReopenTask}
+          onDelete={handleDeleteTask}
+        />
+      )}
+
       {showNewListModal && (
         <NewListModal
           isDark={isDark}
@@ -835,7 +821,6 @@ export default function PersonalTasksPage() {
           onCreate={handleCreateList}
         />
       )}
-
       {showNewTaskModal && (
         <NewTaskModal
           isDark={isDark}
@@ -846,6 +831,7 @@ export default function PersonalTasksPage() {
         />
       )}
 
+      {/* MODAL DETAILS RESTAURÉE */}
       {selectedTask && (
         <TaskDetailModal
           isDark={isDark}
@@ -1885,6 +1871,122 @@ function TaskDetailModal({
               </button>
             )}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================== COMPLETED TASKS MODAL ===================
+function CompletedTasksModal({ isDark, onClose, tasks, onReopen, onDelete }) {
+  const [searchTerm, setSearchQuery] = useState("");
+
+  const filtered = tasks.filter((t) =>
+    t.title.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`${isDark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200"} border rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-200`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          className={`p-6 border-b flex items-center justify-between ${isDark ? "border-slate-800" : "border-slate-100"}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+              <CheckCircle2 size={24} />
+            </div>
+            <div>
+              <h2
+                className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}
+              >
+                Tâches terminées
+              </h2>
+              <p
+                className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}
+              >
+                {tasks.length} tâches archivées
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-xl ${isDark ? "hover:bg-slate-800 text-slate-400" : "hover:bg-slate-100 text-slate-500"}`}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div
+          className={`px-6 py-3 border-b ${isDark ? "border-slate-800" : "border-slate-100"}`}
+        >
+          <div
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200"}`}
+          >
+            <Search size={16} className="opacity-50" />
+            <input
+              type="text"
+              placeholder="Rechercher une tâche terminée..."
+              className="bg-transparent outline-none w-full text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          {filtered.length === 0 ? (
+            <div className="text-center py-10 opacity-50">
+              <Inbox size={40} className="mx-auto mb-2" />
+              <p>Aucune tâche terminée trouvée</p>
+            </div>
+          ) : (
+            filtered.map((task) => (
+              <div
+                key={task._id}
+                className={`flex items-center justify-between p-4 rounded-xl border opacity-75 hover:opacity-100 transition-opacity ${isDark ? "bg-slate-800/50 border-slate-700" : "bg-slate-50 border-slate-200"}`}
+              >
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onReopen(task._id)}
+                    className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 hover:bg-emerald-600 transition"
+                  >
+                    <CheckCircle2 size={14} />
+                  </button>
+                  <span
+                    className={`line-through ${isDark ? "text-slate-500" : "text-slate-400"}`}
+                  >
+                    {task.title}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onReopen(task._id)}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${isDark ? "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30" : "bg-blue-100 text-blue-600 hover:bg-blue-200"}`}
+                  >
+                    Rouvrir
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("Supprimer définitivement ?"))
+                        onDelete(task._id);
+                    }}
+                    className={`p-1.5 rounded-lg transition ${isDark ? "hover:bg-red-500/20 text-red-400" : "hover:bg-red-100 text-red-500"}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

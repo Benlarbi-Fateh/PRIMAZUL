@@ -150,12 +150,28 @@ export default function ContactProfilePage() {
   }, [contactId]);
 
   // Actions
-  const handleSendMessage = () => {
-    if (conversation) {
-      router.push(`/chat/${conversation._id}`);
-    } else {
-      // Créer une nouvelle conversation
-      router.push(`/chat/new?userId=${contactId}`);
+    const handleSendMessage = async () => {
+    try {
+      setIsMessaging(true);
+      
+      // 1. Appel API pour obtenir/créer la conversation
+      const response = await api.post("/conversations/get-or-create", {
+        contactId: fullUser._id, // Utilisez fullUser._id (ou user._id)
+      });
+
+      const conversationId = response.data.conversation?._id;
+
+      if (conversationId) {
+        // 2. Redirection vers la conversation existante ou créée
+        router.push(`/chat/${conversationId}`);
+      } else {
+        throw new Error("ID de conversation manquant");
+      }
+    } catch (error) {
+      console.error("❌ Erreur lors de l'ouverture du chat:", error);
+      alert("Impossible d'ouvrir la conversation.");
+    } finally {
+      setIsMessaging(false);
     }
   };
 
@@ -514,14 +530,7 @@ export default function ContactProfilePage() {
             {/* Actions rapides */}
             {!isBlocked && (
               <div className="flex justify-center gap-4 pb-6">
-                <button
-                  onClick={handleSendMessage}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 ${buttonPrimary}`}
-                >
-                  <Send className="w-5 h-5" />
-                  Message
-                </button>
-
+                
                 {conversation && (
                   <>
                     <button

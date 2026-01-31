@@ -232,13 +232,13 @@ export default function SettingsPage() {
       if (response.data.success) {
         // Retirer de la liste locale des archives
         setArchivedChats((prev) =>
-          prev.filter((c) => c._id !== conversationId)
+          prev.filter((c) => c._id !== conversationId),
         );
 
         // 🔄 Demander au Sidebar de rafraîchir la liste des conversations
         if (typeof window !== "undefined") {
           window.dispatchEvent(
-            new CustomEvent("refresh-sidebar-conversations")
+            new CustomEvent("refresh-sidebar-conversations"),
           );
         }
       }
@@ -258,7 +258,7 @@ export default function SettingsPage() {
       });
       if (response.data.success) {
         const filtered = response.data.users.filter(
-          (user) => !blockedUsers.some((blocked) => blocked._id === user._id)
+          (user) => !blockedUsers.some((blocked) => blocked._id === user._id),
         );
         setAvailableUsers(filtered);
       }
@@ -274,7 +274,7 @@ export default function SettingsPage() {
     const user = availableUsers.find((u) => u._id === userId);
     if (
       !confirm(
-        `Bloquer ${user?.name} ?\n\n⚠️ Il sera retiré de vos contacts et ne pourra plus vous contacter.`
+        `Bloquer ${user?.name} ?\n\n⚠️ Il sera retiré de vos contacts et ne pourra plus vous contacter.`,
       )
     ) {
       return;
@@ -300,7 +300,7 @@ export default function SettingsPage() {
   const handleUnblock = async (userId, userName) => {
     if (
       !confirm(
-        `Débloquer ${userName} ?\n\n💡 Important :\n- ${userName} ne sera PAS automatiquement rajouté à vos contacts\n- Vous devrez lui renvoyer une invitation`
+        `Débloquer ${userName} ?\n\n💡 Important :\n- ${userName} ne sera PAS automatiquement rajouté à vos contacts\n- Vous devrez lui renvoyer une invitation`,
       )
     ) {
       return;
@@ -331,7 +331,7 @@ export default function SettingsPage() {
     }
     if (oldPassword === newPassword) {
       return setMessage(
-        "❌ Le nouveau mot de passe doit être différent de l'ancien"
+        "❌ Le nouveau mot de passe doit être différent de l'ancien",
       );
     }
     try {
@@ -386,7 +386,7 @@ export default function SettingsPage() {
     }
     const myId = user?._id || user?.id;
     const other = (chat.participants || []).find(
-      (p) => p._id?.toString() !== myId?.toString()
+      (p) => p._id?.toString() !== myId?.toString(),
     );
     return other?.name || "Discussion";
   };
@@ -558,310 +558,324 @@ export default function SettingsPage() {
 
           {/* ✅ LA GRILLE QUI CONTIENT MAINTENANT TOUTES LES CARTES */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {/* NOTIFICATIONS — VERSION AVEC PRÉVISUALISATION ET SÉLECTION SÉPARÉES */}
-<div
-  className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg} lg:col-span-3`}
->
-  <div className="flex items-center gap-3 mb-6">
-    <div
-      className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
-        "orange"
-      )}`}
-    >
-      <Bell className={`w-6 h-6 ${sectionIconText("orange")}`} />
-    </div>
-    <div>
-      <h3 className={`text-xl font-bold ${textPrimary}`}>
-        Notifications & Sons
-      </h3>
-      <p className={`text-sm ${textMuted}`}>
-        Personnalisez vos alertes sonores
-      </p>
-    </div>
-  </div>
-
-  {/* Permission système */}
-  {notificationPermission !== "granted" && (
-    <div
-      className={`mb-6 p-4 rounded-2xl border-2 ${
-        isDark
-          ? "bg-orange-900/30 border-orange-700"
-          : "bg-orange-50 border-orange-300"
-      }`}
-    >
-      <p
-        className={`text-sm font-medium ${
-          isDark ? "text-orange-300" : "text-orange-700"
-        }`}
-      >
-        Activez les notifications système pour ne rien manquer
-      </p>
-      <button
-        onClick={requestPermission}
-        className={`mt-3 px-5 py-2.5 rounded-xl font-semibold text-sm ${
-          isDark
-            ? "bg-orange-600 hover:bg-orange-700 text-white"
-            : "bg-orange-500 hover:bg-orange-600 text-white"
-        }`}
-      >
-        Autoriser les notifications
-      </button>
-    </div>
-  )}
-
-  {/* Activer/désactiver global */}
-  <div className="flex items-center justify-between mb-6">
-    <div className="flex items-center gap-4">
-      <div
-        className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-          isDark ? "bg-blue-800" : "bg-blue-100"
-        }`}
-      >
-        <Bell
-          className={`w-7 h-7 ${
-            isDark ? "text-cyan-400" : "text-blue-600"
-          }`}
-        />
-      </div>
-      <div>
-        <h4 className={`font-bold ${textPrimary}`}>
-          Notifications
-        </h4>
-        <p className={`text-sm ${textMuted}`}>
-          Recevoir des alertes
-        </p>
-      </div>
-    </div>
-    <button onClick={toggleNotifications} className="relative">
-      <div
-        className={`w-16 h-8 rounded-full transition-colors ${
-          notifSettings.enabled ? "bg-cyan-500" : "bg-gray-600"
-        }`}
-      ></div>
-      <div
-        className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
-          notifSettings.enabled ? "translate-x-8" : ""
-        }`}
-      ></div>
-    </button>
-  </div>
-
-  {notifSettings.enabled && (
-    <>
-      {/* Son activé/désactivé */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-              isDark ? "bg-purple-800" : "bg-purple-100"
-            }`}
-          >
-            {notifSettings.soundEnabled ? (
-              <Volume2
-                className={`w-7 h-7 ${
-                  isDark ? "text-purple-400" : "text-purple-600"
-                }`}
-              />
-            ) : (
-              <VolumeX
-                className={`w-7 h-7 ${
-                  isDark ? "text-purple-400" : "text-purple-600"
-                }`}
-              />
-            )}
-          </div>
-          <div>
-            <h4 className={`font-bold ${textPrimary}`}>
-              Son de notification
-            </h4>
-            <p className={`text-sm ${textMuted}`}>
-              Jouer un son à chaque message
-            </p>
-          </div>
-        </div>
-        <button onClick={toggleSound} className="relative">
-          <div
-            className={`w-16 h-8 rounded-full transition-colors ${
-              notifSettings.soundEnabled
-                ? "bg-purple-500"
-                : "bg-gray-600"
-            }`}
-          ></div>
-          <div
-            className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
-              notifSettings.soundEnabled ? "translate-x-8" : ""
-            }`}
-          ></div>
-        </button>
-      </div>
-
-      {notifSettings.soundEnabled && (
-        <>
-          {/* Choix de la sonnerie */}
-          <div className="mb-6">
-            <button
-              onClick={() => setShowSoundPicker(!showSoundPicker)}
-              className={`w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${
-                isDark
-                  ? "border-blue-700 bg-blue-800/50 hover:bg-blue-800"
-                  : "border-blue-200 bg-blue-50 hover:bg-blue-100"
-              }`}
+            {/* NOTIFICATIONS — VERSION AVEC PRÉVISUALISATION ET SÉLECTION SÉPARÉES */}
+            <div
+              className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg} lg:col-span-3`}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 mb-6">
                 <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    isDark ? "bg-green-800" : "bg-green-100"
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
+                    "orange",
+                  )}`}
+                >
+                  <Bell className={`w-6 h-6 ${sectionIconText("orange")}`} />
+                </div>
+                <div>
+                  <h3 className={`text-xl font-bold ${textPrimary}`}>
+                    Notifications & Sons
+                  </h3>
+                  <p className={`text-sm ${textMuted}`}>
+                    Personnalisez vos alertes sonores
+                  </p>
+                </div>
+              </div>
+
+              {/* Permission système */}
+              {notificationPermission !== "granted" && (
+                <div
+                  className={`mb-6 p-4 rounded-2xl border-2 ${
+                    isDark
+                      ? "bg-orange-900/30 border-orange-700"
+                      : "bg-orange-50 border-orange-300"
                   }`}
                 >
-                  <Sparkles
-                    className={`w-6 h-6 ${
-                      isDark ? "text-green-400" : "text-green-600"
+                  <p
+                    className={`text-sm font-medium ${
+                      isDark ? "text-orange-300" : "text-orange-700"
                     }`}
-                  />
-                </div>
-                <div className="text-left">
-                  <p className={`font-semibold ${textPrimary}`}>
-                    Sonnerie actuelle
+                  >
+                    Activez les notifications système pour ne rien manquer
                   </p>
-                  <p className={`text-sm ${textMuted}`}>
-                    {NOTIFICATION_SOUNDS.find(
-                      (s) => s.id === notifSettings.selectedSound
-                    )?.name || "Par défaut"}
-                  </p>
+                  <button
+                    onClick={requestPermission}
+                    className={`mt-3 px-5 py-2.5 rounded-xl font-semibold text-sm ${
+                      isDark
+                        ? "bg-orange-600 hover:bg-orange-700 text-white"
+                        : "bg-orange-500 hover:bg-orange-600 text-white"
+                    }`}
+                  >
+                    Autoriser les notifications
+                  </button>
                 </div>
-              </div>
-              <ChevronDown
-                className={`w-5 h-5 transition-transform ${
-                  showSoundPicker ? "rotate-180" : ""
-                } ${textSecondary}`}
-              />
-            </button>
+              )}
 
-            {/* ✅ LISTE DES SONNERIES AVEC PRÉVISUALISATION ET SÉLECTION SÉPARÉES */}
-            {showSoundPicker && (
-              <div className="mt-3 space-y-2">
-                {/* ✅ Légende explicative */}
-                <div className={`flex items-center justify-between px-4 py-2 text-xs ${textMuted}`}>
-                  <span>💡 Cliquez pour écouter • Cliquez sur ✓ pour sélectionner</span>
-                </div>
-
-                {NOTIFICATION_SOUNDS.map((sound) => {
-                  const isSelected = notifSettings.selectedSound === sound.id;
-                  
-                  return (
-                    <div
-                      key={sound.id}
-                      className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                        isSelected
-                          ? isDark
-                            ? "border-cyan-500 bg-cyan-900/30"
-                            : "border-cyan-500 bg-cyan-50"
-                          : isDark
-                          ? "border-blue-700 bg-blue-800/50 hover:bg-blue-800"
-                          : "border-blue-200 bg-white hover:bg-blue-50"
+              {/* Activer/désactiver global */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                      isDark ? "bg-blue-800" : "bg-blue-100"
+                    }`}
+                  >
+                    <Bell
+                      className={`w-7 h-7 ${
+                        isDark ? "text-cyan-400" : "text-blue-600"
                       }`}
-                    >
-                      {/* ✅ Zone cliquable pour PRÉVISUALISER (jouer le son) */}
-                      <button
-                        onClick={() => previewSound(sound.id)}
-                        className="flex-1 flex items-center gap-3 text-left"
+                    />
+                  </div>
+                  <div>
+                    <h4 className={`font-bold ${textPrimary}`}>
+                      Notifications
+                    </h4>
+                    <p className={`text-sm ${textMuted}`}>
+                      Recevoir des alertes
+                    </p>
+                  </div>
+                </div>
+                <button onClick={toggleNotifications} className="relative">
+                  <div
+                    className={`w-16 h-8 rounded-full transition-colors ${
+                      notifSettings.enabled ? "bg-cyan-500" : "bg-gray-600"
+                    }`}
+                  ></div>
+                  <div
+                    className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                      notifSettings.enabled ? "translate-x-8" : ""
+                    }`}
+                  ></div>
+                </button>
+              </div>
+
+              {notifSettings.enabled && (
+                <>
+                  {/* Son activé/désactivé */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                          isDark ? "bg-purple-800" : "bg-purple-100"
+                        }`}
                       >
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                            isSelected
-                              ? "bg-cyan-500 text-white"
-                              : isDark
-                              ? "bg-blue-700 text-blue-300 hover:bg-blue-600"
-                              : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                        {notifSettings.soundEnabled ? (
+                          <Volume2
+                            className={`w-7 h-7 ${
+                              isDark ? "text-purple-400" : "text-purple-600"
+                            }`}
+                          />
+                        ) : (
+                          <VolumeX
+                            className={`w-7 h-7 ${
+                              isDark ? "text-purple-400" : "text-purple-600"
+                            }`}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className={`font-bold ${textPrimary}`}>
+                          Son de notification
+                        </h4>
+                        <p className={`text-sm ${textMuted}`}>
+                          Jouer un son à chaque message
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={toggleSound} className="relative">
+                      <div
+                        className={`w-16 h-8 rounded-full transition-colors ${
+                          notifSettings.soundEnabled
+                            ? "bg-purple-500"
+                            : "bg-gray-600"
+                        }`}
+                      ></div>
+                      <div
+                        className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                          notifSettings.soundEnabled ? "translate-x-8" : ""
+                        }`}
+                      ></div>
+                    </button>
+                  </div>
+
+                  {notifSettings.soundEnabled && (
+                    <>
+                      {/* Choix de la sonnerie */}
+                      <div className="mb-6">
+                        <button
+                          onClick={() => setShowSoundPicker(!showSoundPicker)}
+                          className={`w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${
+                            isDark
+                              ? "border-blue-700 bg-blue-800/50 hover:bg-blue-800"
+                              : "border-blue-200 bg-blue-50 hover:bg-blue-100"
                           }`}
                         >
-                          <Play className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span
-                            className={`font-medium block ${
-                              isSelected
-                                ? isDark
-                                  ? "text-cyan-300"
-                                  : "text-cyan-700"
-                                : textPrimary
-                            }`}
-                          >
-                            {sound.name}
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                                isDark ? "bg-green-800" : "bg-green-100"
+                              }`}
+                            >
+                              <Sparkles
+                                className={`w-6 h-6 ${
+                                  isDark ? "text-green-400" : "text-green-600"
+                                }`}
+                              />
+                            </div>
+                            <div className="text-left">
+                              <p className={`font-semibold ${textPrimary}`}>
+                                Sonnerie actuelle
+                              </p>
+                              <p className={`text-sm ${textMuted}`}>
+                                {NOTIFICATION_SOUNDS.find(
+                                  (s) => s.id === notifSettings.selectedSound,
+                                )?.name || "Par défaut"}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronDown
+                            className={`w-5 h-5 transition-transform ${
+                              showSoundPicker ? "rotate-180" : ""
+                            } ${textSecondary}`}
+                          />
+                        </button>
+
+                        {/* ✅ LISTE DES SONNERIES AVEC PRÉVISUALISATION ET SÉLECTION SÉPARÉES */}
+                        {showSoundPicker && (
+                          <div className="mt-3 space-y-2">
+                            {/* ✅ Légende explicative */}
+                            <div
+                              className={`flex items-center justify-between px-4 py-2 text-xs ${textMuted}`}
+                            >
+                              <span>
+                                💡 Cliquez pour écouter • Cliquez sur ✓ pour
+                                sélectionner
+                              </span>
+                            </div>
+
+                            {NOTIFICATION_SOUNDS.map((sound) => {
+                              const isSelected =
+                                notifSettings.selectedSound === sound.id;
+
+                              return (
+                                <div
+                                  key={sound.id}
+                                  className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
+                                    isSelected
+                                      ? isDark
+                                        ? "border-cyan-500 bg-cyan-900/30"
+                                        : "border-cyan-500 bg-cyan-50"
+                                      : isDark
+                                        ? "border-blue-700 bg-blue-800/50 hover:bg-blue-800"
+                                        : "border-blue-200 bg-white hover:bg-blue-50"
+                                  }`}
+                                >
+                                  {/* ✅ Zone cliquable pour PRÉVISUALISER (jouer le son) */}
+                                  <button
+                                    onClick={() => previewSound(sound.id)}
+                                    className="flex-1 flex items-center gap-3 text-left"
+                                  >
+                                    <div
+                                      className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+                                        isSelected
+                                          ? "bg-cyan-500 text-white"
+                                          : isDark
+                                            ? "bg-blue-700 text-blue-300 hover:bg-blue-600"
+                                            : "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                      }`}
+                                    >
+                                      <Play className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                      <span
+                                        className={`font-medium block ${
+                                          isSelected
+                                            ? isDark
+                                              ? "text-cyan-300"
+                                              : "text-cyan-700"
+                                            : textPrimary
+                                        }`}
+                                      >
+                                        {sound.name}
+                                      </span>
+                                      {isSelected && (
+                                        <span
+                                          className={`text-xs ${isDark ? "text-cyan-400" : "text-cyan-600"}`}
+                                        >
+                                          ✓ Sonnerie actuelle
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+
+                                  {/* ✅ Bouton pour SÉLECTIONNER comme sonnerie */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      changeSound(sound.id);
+                                    }}
+                                    disabled={isSelected}
+                                    className={`ml-3 w-12 h-12 rounded-xl flex items-center justify-center transition-all transform hover:scale-105 ${
+                                      isSelected
+                                        ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg cursor-default"
+                                        : isDark
+                                          ? "bg-blue-700 hover:bg-green-600 text-blue-300 hover:text-white border border-blue-600"
+                                          : "bg-blue-100 hover:bg-green-500 text-blue-600 hover:text-white border border-blue-200"
+                                    }`}
+                                    title={
+                                      isSelected
+                                        ? "Sonnerie sélectionnée"
+                                        : "Sélectionner cette sonnerie"
+                                    }
+                                  >
+                                    <Check
+                                      className={`w-5 h-5 ${isSelected ? "" : "opacity-70"}`}
+                                    />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Volume */}
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className={`font-semibold ${textPrimary}`}>
+                            Volume
                           </span>
-                          {isSelected && (
-                            <span className={`text-xs ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
-                              ✓ Sonnerie actuelle
-                            </span>
-                          )}
+                          <span className={`text-sm ${textMuted}`}>
+                            {Math.round(notifSettings.volume * 100)}%
+                          </span>
                         </div>
-                      </button>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={notifSettings.volume * 100}
+                          onChange={(e) => changeVolume(e.target.value / 100)}
+                          className="w-full h-3 rounded-full appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, #06b6d4 0%, #06b6d4 ${
+                              notifSettings.volume * 100
+                            }%, ${isDark ? "#172554" : "#e0e7ff"} ${
+                              notifSettings.volume * 100
+                            }%, ${isDark ? "#172554" : "#e0e7ff"} 100%)`,
+                          }}
+                        />
+                      </div>
 
-                      {/* ✅ Bouton pour SÉLECTIONNER comme sonnerie */}
+                      {/* Tester le son sélectionné */}
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          changeSound(sound.id);
-                        }}
-                        disabled={isSelected}
-                        className={`ml-3 w-12 h-12 rounded-xl flex items-center justify-center transition-all transform hover:scale-105 ${
-                          isSelected
-                            ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg cursor-default"
-                            : isDark
-                            ? "bg-blue-700 hover:bg-green-600 text-blue-300 hover:text-white border border-blue-600"
-                            : "bg-blue-100 hover:bg-green-500 text-blue-600 hover:text-white border border-blue-200"
-                        }`}
-                        title={isSelected ? "Sonnerie sélectionnée" : "Sélectionner cette sonnerie"}
+                        onClick={testSound}
+                        className={`w-full py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-xl flex items-center justify-center gap-3`}
                       >
-                        <Check className={`w-5 h-5 ${isSelected ? "" : "opacity-70"}`} />
+                        <Play className="w-6 h-6" />
+                        Tester le son sélectionné
                       </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Volume */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className={`font-semibold ${textPrimary}`}>
-                Volume
-              </span>
-              <span className={`text-sm ${textMuted}`}>
-                {Math.round(notifSettings.volume * 100)}%
-              </span>
+                    </>
+                  )}
+                </>
+              )}
             </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={notifSettings.volume * 100}
-              onChange={(e) => changeVolume(e.target.value / 100)}
-              className="w-full h-3 rounded-full appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, #06b6d4 0%, #06b6d4 ${
-                  notifSettings.volume * 100
-                }%, ${isDark ? "#172554" : "#e0e7ff"} ${
-                  notifSettings.volume * 100
-                }%, ${isDark ? "#172554" : "#e0e7ff"} 100%)`,
-              }}
-            />
-          </div>
-
-          {/* Tester le son sélectionné */}
-          <button
-            onClick={testSound}
-            className={`w-full py-4 rounded-2xl font-bold text-lg transition-all transform hover:scale-[1.02] bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-xl flex items-center justify-center gap-3`}
-          >
-            <Play className="w-6 h-6" />
-            Tester le son sélectionné
-          </button>
-        </>
-      )}
-    </>
-  )}
-</div>
             {/* Section Apparence */}
             <div
               className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}
@@ -869,7 +883,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 mb-5">
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
-                    "purple"
+                    "purple",
                   )}`}
                 >
                   <Moon className={`w-6 h-6 ${sectionIconText("purple")}`} />
@@ -900,38 +914,6 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {/* Section Langue */}
-            <div
-              className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}
-            >
-              <div className="flex items-center gap-3 mb-5">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
-                    "green"
-                  )}`}
-                >
-                  <Globe className={`w-6 h-6 ${sectionIconText("green")}`} />
-                </div>
-                <div>
-                  <h3 className={`text-lg font-bold ${textPrimary}`}>Langue</h3>
-                  <p className={`text-sm ${textMuted}`}>
-                    Langue de l&apos;interface
-                  </p>
-                </div>
-              </div>
-              <select
-                value={userData.language}
-                onChange={(e) =>
-                  setUserData({ ...userData, language: e.target.value })
-                }
-                className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${inputBg} ${inputText}`}
-              >
-                <option value="fr">🇫🇷 Français</option>
-                <option value="en">🇺🇸 English</option>
-                <option value="es">🇪🇸 Español</option>
-              </select>
-            </div>
-
             {/* Section Sécurité */}
             <div
               className={`rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-all transform hover:-translate-y-1 ${cardBg}`}
@@ -939,7 +921,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 mb-5">
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
-                    "pink"
+                    "pink",
                   )}`}
                 >
                   <Key className={`w-6 h-6 ${sectionIconText("pink")}`} />
@@ -971,7 +953,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 mb-5">
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
-                    "yellow"
+                    "yellow",
                   )}`}
                 >
                   <Archive className={`w-6 h-6 ${sectionIconText("yellow")}`} />
@@ -1007,7 +989,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 mb-5">
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center ${sectionIconBg(
-                    "red"
+                    "red",
                   )}`}
                 >
                   <Lock className={`w-6 h-6 ${sectionIconText("red")}`} />

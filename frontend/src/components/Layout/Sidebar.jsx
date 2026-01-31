@@ -1,10 +1,17 @@
 "use client";
 
-import { useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import Image from 'next/image';
+import {
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AuthContext } from '@/context/AuthProvider';
-import { useTheme } from '@/hooks/useTheme';
+import { AuthContext } from "@/context/AuthProvider";
+import { useTheme } from "@/hooks/useTheme";
 import api from "@/lib/api";
 import {
   addContact,
@@ -17,7 +24,7 @@ import {
   rejectInvitation,
   cancelInvitation,
   deleteConversationForUser,
-  archiveConversation, 
+  archiveConversation,
 } from "@/lib/api";
 import {
   getSocket,
@@ -68,13 +75,15 @@ export default function Sidebar({ activeConversationId }) {
   const router = useRouter();
   const currentUserId = user?._id || user?.id;
 
-
-
   const [conversations, setConversations] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [conversationsLoading, setConversationsLoading] = useState(true);
-  const isFirstLoadRef = useRef(true); 
+
+  // 🔥 Optimisation : État de chargement spécifique pour les invitations
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
+
+  const isFirstLoadRef = useRef(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
   const [menuOpen, setMenuOpen] = useState(null);
@@ -88,22 +97,22 @@ export default function Sidebar({ activeConversationId }) {
   const [statusCache, setStatusCache] = useState(new Map());
   const searchTimeoutRef = useRef(null);
   const refreshTimeoutRef = useRef(null);
-  const [conversationFilter, setConversationFilter] = useState("all"); 
+  const [conversationFilter, setConversationFilter] = useState("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const isAllMode = conversationFilter === "all" && unreadOnly === false;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
-// ✅ 2. FONCTION UTILITAIRE POUR CORRIGER LES URLS
-  const getFullUrl = (path) => {
-    if (!path || path.trim() === "") return null;
-    // Remplace les antislashs Windows par des slashs
-    let cleanPath = path.replace(/\\/g, "/");
-    // Si c'est déjà une URL complète (ex: https://google...), on ne touche pas
-    if (cleanPath.startsWith("http")) return cleanPath;
-    // Sinon on colle l'URL du serveur devant
-    return `${API_URL}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
-  };
+  // ✅ 2. FONCTION UTILITAIRE POUR CORRIGER LES URLS
+  const getFullUrl = useCallback(
+    (path) => {
+      if (!path || path.trim() === "") return null;
+      let cleanPath = path.replace(/\\/g, "/");
+      if (cleanPath.startsWith("http")) return cleanPath;
+      return `${API_URL}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+    },
+    [API_URL],
+  );
 
   const usersToDisplay = useMemo(() => {
     if (activeTab !== "contacts" || !searchTerm.trim()) {
@@ -112,53 +121,41 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
     return searchResults;
   }, [activeTab, searchTerm, searchResults]);
 
-const broadcastInvitationCount = useCallback((count) => {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent("invitations-count-changed", {
-        detail: { count },
-      })
-    );
-  }
-}, []);
+  const broadcastInvitationCount = useCallback((count) => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("invitations-count-changed", {
+          detail: { count },
+        }),
+      );
+    }
+  }, []);
 
-useEffect(() => {
-  broadcastInvitationCount(receivedInvitations.length);
-}, [receivedInvitations, broadcastInvitationCount]);
+  useEffect(() => {
+    broadcastInvitationCount(receivedInvitations.length);
+  }, [receivedInvitations, broadcastInvitationCount]);
 
   // Styles basés sur le thème
   const sidebarBg = isDark
     ? "bg-gradient-to-b from-blue-950/95 via-blue-950/90 to-blue-950/95 backdrop-blur-xl border-r border-blue-800/30"
     : "bg-white/95 backdrop-blur-xl border-r border-blue-100";
-
   const headerBg = isDark
     ? "bg-gradient-to-br from-blue-800 via-blue-900 to-blue-950 shadow-lg"
     : "bg-gradient-to-br from-blue-700 via-blue-700 to-blue-800 shadow-lg";
-
   const tabBg = isDark
     ? "bg-blue-900/70 backdrop-blur-md"
     : "bg-white/15 backdrop-blur-md";
-
   const activeTabStyle = isDark
     ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg transform scale-[1.02]"
     : "bg-white text-blue-600 shadow-lg transform scale-[1.02]";
-
   const inactiveTabStyle = isDark
     ? "text-blue-200 hover:bg-blue-800/50"
     : "text-white/90 hover:bg-white/10";
-
-  const loadingBg = isDark
-    ? "bg-gradient-to-br from-blue-900/80 to-blue-950/80 border-blue-800/30"
-    : "bg-gradient-to-br from-blue-100 to-cyan-100";
-
   const emptyStateBg = isDark
     ? "bg-gradient-to-br from-blue-900/80 to-blue-950/80 border-blue-800/30"
     : "bg-gradient-to-br from-blue-100 to-cyan-100 border-blue-200";
-
   const textPrimary = isDark ? "text-blue-50" : "text-slate-900";
   const textSecondary = isDark ? "text-blue-200" : "text-slate-600";
-  const textMuted = isDark ? "text-blue-300" : "text-slate-500";
-
   const buttonStyle = isDark
     ? "bg-gradient-to-r from-blue-500 via-cyan-500 to-cyan-400 shadow-cyan-500/40"
     : "bg-gradient-to-r from-blue-600 to-cyan-500 shadow-sky-500/40";
@@ -169,20 +166,22 @@ useEffect(() => {
         ? "bg-gradient-to-r from-blue-600 to-cyan-600 shadow-lg ring-2 ring-cyan-400 transform scale-[1.02]"
         : "bg-gradient-to-r from-blue-500 to-cyan-500 shadow-lg ring-2 ring-blue-300 transform scale-[1.02]";
     }
-    
     if (hasUnread) {
       return isDark
         ? "bg-gradient-to-r from-blue-900/80 to-blue-800/80 hover:from-blue-800 hover:to-blue-900 border-2 border-transparent hover:border-blue-700 shadow-sm hover:shadow-md"
         : "bg-white hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-md";
     }
-    
     return isDark
       ? "bg-gradient-to-r from-blue-900/60 to-blue-800/60 hover:from-blue-800/80 hover:to-blue-900/80 border-2 border-transparent hover:border-blue-700/50 shadow-sm hover:shadow-md"
       : "bg-white hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 border-2 border-transparent hover:border-blue-200 shadow-sm hover:shadow-md";
   };
 
-  const fetchInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     try {
+      if (activeTab === "invitations" && receivedInvitations.length === 0) {
+        setInvitationsLoading(true);
+      }
+
       const [received, sent] = await Promise.all([
         getReceivedInvitations(),
         getSentInvitations(),
@@ -191,147 +190,120 @@ useEffect(() => {
       setSentInvitations(sent.data.invitations || []);
     } catch (error) {
       console.error("Erreur chargement invitations:", error);
+    } finally {
+      setInvitationsLoading(false);
     }
-  };
+  }, [activeTab, receivedInvitations.length]);
 
-    const fetchConversations = useCallback(async () => {
+  const fetchConversations = useCallback(async () => {
     try {
-      // 🚀 CORRECTION : On met le loading SEULEMENT si c'est le tout premier lancement
-      // Si on rafraîchit la liste après un message, isFirstLoadRef sera false, donc pas de spinner !
       if (isFirstLoadRef.current) {
-          setConversationsLoading(true);
+        setConversationsLoading(true);
       }
-      
+
       const response = await getConversations();
       setConversations(response.data.conversations || []);
     } catch (error) {
-      console.error('Erreur lors du chargement des conversations:', error);
+      console.error("Erreur lors du chargement des conversations:", error);
     } finally {
-      // On note que le premier chargement est terminé
       isFirstLoadRef.current = false;
-      
-      // On retire les loadings
       setConversationsLoading(false);
       setLoading(false);
     }
   }, []);
 
-// 🆕 Fonction pour charger les statuts une fois
   const loadAllStatuses = useCallback(async () => {
-  try {
-    const token = localStorage.getItem("token");
-    console.log('🔍 Chargement des statuts pour sidebar...');
-   
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-   
-    if (response.ok) {
-      const data = await response.json();
-      console.log('📦 Données statuts complètes:', data);
-     
-      const statusMap = new Map();
-      const unviewedMap = new Map();
-     
-      if (data?.friendsStatuses && Array.isArray(data.friendsStatuses)) {
-        console.log(`👥 ${data.friendsStatuses.length} amis avec statuts`);
-       
-        data.friendsStatuses.forEach((group, index) => {
-          if (group.user?._id) {
-            const userId = group.user._id;
-            statusMap.set(userId, true);
-           
-            // ✅ Debug détaillé
-            console.log(`[${index}] ${group.user.name}: hasUnviewed = ${group.hasUnviewed} (${typeof group.hasUnviewed})`);
-           
-            // Assurez-vous que c'est un boolean
-            const isUnviewed = Boolean(group.hasUnviewed);
-            unviewedMap.set(userId, isUnviewed);
-          }
-        });
-      } else {
-        console.log('⚠️ Aucun friendsStatuses reçu');
-      }
-     
-      console.log(`✅ Cache: ${statusMap.size} utilisateurs`);
-      console.log('📊 Vue d\'ensemble:', Array.from(unviewedMap.entries()));
-     
-      setStatusCache(statusMap);
-      setStatusViewedCache(unviewedMap);
-    } else {
-      console.error('❌ Erreur API:', await response.text());
-    }
-  } catch (error) {
-    console.error('❌ Erreur chargement:', error);
-  }
-}, [currentUserId]);
- 
+    try {
+      const token = localStorage.getItem("token");
+      console.log("🔍 Chargement des statuts pour sidebar...");
 
-      // 👇 LE USEEFFECT DOIT ÊTRE APRÈS LA DÉFINITION DE loadAllStatuses
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const statusMap = new Map();
+        const unviewedMap = new Map();
+
+        if (data?.friendsStatuses && Array.isArray(data.friendsStatuses)) {
+          data.friendsStatuses.forEach((group) => {
+            if (group.user?._id) {
+              const userId = group.user._id;
+              statusMap.set(userId, true);
+              const isUnviewed = Boolean(group.hasUnviewed);
+              unviewedMap.set(userId, isUnviewed);
+            }
+          });
+        }
+
+        setStatusCache(statusMap);
+        setStatusViewedCache(unviewedMap);
+      } else {
+        console.error("❌ Erreur API Status");
+      }
+    } catch (error) {
+      console.error("❌ Erreur chargement status:", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
-      const loadData = async () => {
-        // 1. On charge les conversations (c'est le plus important pour l'utilisateur)
-        await fetchConversations();
-        
-        // 2. On charge le reste en arrière-plan sans bloquer l'écran
-        Promise.all([
-          fetchInvitations(),
-          loadAllStatuses() 
-        ]).catch(err => console.error("Erreur background loading:", err));
-      };
-  
-      loadData();
-      
-      const interval = setInterval(() => {
+      fetchConversations();
+      setTimeout(() => {
         fetchInvitations();
-      }, 60000);
-      
+        loadAllStatuses();
+      }, 100);
+
+      const interval = setInterval(() => {
+        if (!document.hidden) {
+          fetchInvitations();
+        }
+      }, 120000);
+
       return () => clearInterval(interval);
     }
-  }, [user, fetchConversations, loadAllStatuses]);
+  }, [user, fetchConversations, fetchInvitations, loadAllStatuses]);
 
-useEffect(() => {
-  const tab = searchParams.get("tab");
-  if (!tab) return;
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (!tab) return;
 
-  if (tab === "chats" || tab === "contacts" || tab === "invitations") {
-    setActiveTab(tab);
-
-    // même logique que dans handleTabChange
-    if (tab !== "contacts") {
-      setSearchTerm("");
-      setSearchResults([]);
-    } else {
-      fetchConversations();
+    if (tab === "chats" || tab === "contacts" || tab === "invitations") {
+      setActiveTab(tab);
+      if (tab !== "contacts") {
+        setSearchTerm("");
+        setSearchResults([]);
+      }
+      if (tab === "invitations") {
+        fetchInvitations();
+      }
     }
-  }
-}, [searchParams, fetchConversations]);
+  }, [searchParams, fetchInvitations]);
 
-// 🔔 Envoyer le nombre total de messages non lus à la MainSidebar
-useEffect(() => {
-  if (typeof window === "undefined") return;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-  // On compte seulement les conversations visibles (pas masquées / pas archivées)
-  const totalUnread = conversations
-    .filter((conv) => {
-      if (hiddenConversationIds.has(conv._id)) return false;
+    const totalUnread = conversations
+      .filter((conv) => {
+        if (hiddenConversationIds.has(conv._id)) return false;
+        const isArchivedByMe = conv.archivedBy?.some(
+          (item) => item.userId?.toString() === currentUserId?.toString(),
+        );
+        if (isArchivedByMe) return false;
+        return true;
+      })
+      .reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
 
-      const isArchivedByMe = conv.archivedBy?.some(
-        (item) => item.userId?.toString() === currentUserId?.toString()
-      );
-      if (isArchivedByMe) return false;
-
-      return true;
-    })
-    .reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
-
-  window.dispatchEvent(
-    new CustomEvent("unread-messages-count-changed", {
-      detail: { count: totalUnread },
-    })
-  );
-}, [conversations, hiddenConversationIds, currentUserId]);
+    window.dispatchEvent(
+      new CustomEvent("unread-messages-count-changed", {
+        detail: { count: totalUnread },
+      }),
+    );
+  }, [conversations, hiddenConversationIds, currentUserId]);
 
   useEffect(() => {
     if (!user) return;
@@ -342,20 +314,20 @@ useEffect(() => {
 
     const handleInvitationAccepted = ({ invitation, conversation }) => {
       setSentInvitations((prev) =>
-        prev.filter((inv) => inv._id !== invitation._id)
+        prev.filter((inv) => inv._id !== invitation._id),
       );
       setConversations((prev) => [conversation, ...prev]);
     };
 
     const handleInvitationRejected = (invitation) => {
       setSentInvitations((prev) =>
-        prev.filter((inv) => inv._id !== invitation._id)
+        prev.filter((inv) => inv._id !== invitation._id),
       );
     };
 
     const handleInvitationCancelled = (invitationId) => {
       setReceivedInvitations((prev) =>
-        prev.filter((inv) => inv._id !== invitationId)
+        prev.filter((inv) => inv._id !== invitationId),
       );
     };
 
@@ -376,22 +348,20 @@ useEffect(() => {
     requestOnlineUsers();
 
     return () => {
-      if (typeof unsubscribe === 'function') {
+      if (typeof unsubscribe === "function") {
         unsubscribe();
       }
     };
   }, [user]);
 
-    // GESTION DES SOCKETS (Mises à jour en temps réel)
   useEffect(() => {
     const socket = getSocket();
 
-    if (socket && user) {
-      // 1. Mise à jour générale (dernier message, etc.)
+    if (socket && user && currentUserId) {
       socket.on("conversation-updated", (updatedConversation) => {
         setConversations((prevConversations) => {
           const existingIndex = prevConversations.findIndex(
-            (conv) => conv._id === updatedConversation._id
+            (conv) => conv._id === updatedConversation._id,
           );
 
           if (existingIndex !== -1) {
@@ -399,13 +369,16 @@ useEffect(() => {
             newConversations[existingIndex] = {
               ...newConversations[existingIndex],
               ...updatedConversation,
-              // Si c'est moi qui ai envoyé le dernier message, je n'ai pas de non-lus
-              unreadCount: (updatedConversation.lastMessage?.sender === currentUserId) 
-                ? 0 
-                : updatedConversation.unreadCount
+              lastMessage: updatedConversation.lastMessage,
+              updatedAt: updatedConversation.updatedAt,
+              unreadCount:
+                updatedConversation.lastMessage?.sender === currentUserId ||
+                updatedConversation.lastMessage?.sender?._id === currentUserId
+                  ? 0
+                  : updatedConversation.unreadCount,
             };
             return newConversations.sort(
-              (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+              (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt),
             );
           } else {
             return [updatedConversation, ...prevConversations];
@@ -413,26 +386,59 @@ useEffect(() => {
         });
       });
 
-      // 2. ✅ C'EST ICI LA CORRECTION IMPORTANTE POUR LE "VU"
-      // Quand le backend dit "C'est lu", on met le compteur à 0
+      socket.on(
+        "message-status-updated",
+        ({ messageIds, status, conversationId }) => {
+          setConversations((prev) =>
+            prev.map((conv) => {
+              if (
+                conv._id === conversationId &&
+                conv.lastMessage &&
+                messageIds.includes(conv.lastMessage._id)
+              ) {
+                return {
+                  ...conv,
+                  lastMessage: {
+                    ...conv.lastMessage,
+                    status: status,
+                  },
+                };
+              }
+              return conv;
+            }),
+          );
+        },
+      );
+
       socket.on("conversation-read-update", ({ conversationId, userId }) => {
-        // Si c'est MOI (currentUserId) qui ai lu le message (depuis ChatPage)
         if (userId === currentUserId) {
-          console.log("👀 Sidebar: Conversation lue, reset compteur pour", conversationId);
           setConversations((prev) =>
             prev.map((conv) =>
-              conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
-            )
+              conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv,
+            ),
           );
         }
       });
 
-      // (Garde la compatibilité avec l'ancien événement au cas où)
+      socket.on("conversation-status-updated", ({ conversationId, status }) => {
+        setConversations((prev) =>
+          prev.map((conv) => {
+            if (conv._id === conversationId && conv.lastMessage) {
+              return {
+                ...conv,
+                lastMessage: { ...conv.lastMessage, status: status },
+              };
+            }
+            return conv;
+          }),
+        );
+      });
+
       socket.on("conversation-read", ({ conversationId }) => {
         setConversations((prev) =>
           prev.map((conv) =>
-            conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
-          )
+            conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv,
+          ),
         );
       });
 
@@ -452,204 +458,7 @@ useEffect(() => {
 
       return () => {
         socket.off("conversation-updated");
-        socket.off("conversation-read-update"); // N'oublie pas de nettoyer
-        socket.off("conversation-read");
-        socket.off("group-created");
-        socket.off("should-refresh-conversations");
-        clearTimeout(refreshTimeoutRef.current);
-      };
-    }
-  }, [user, currentUserId, fetchConversations]); // Ajoute currentUserId aux dépendances
-
-  useEffect(() => {
-    if (activeTab !== "contacts" || !searchTerm.trim()) {
-      return;
-    }
-
-    clearTimeout(searchTimeoutRef.current);
-
-    const performSearch = async () => {
-      try {
-        setLoading(true);
-        const response = await searchUsers(searchTerm);
-        setSearchResults(response.data.users || []);
-      } catch (error) {
-        console.error("Erreur recherche:", error);
-        setSearchResults([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    searchTimeoutRef.current = setTimeout(performSearch, 500);
-
-    return () => clearTimeout(searchTimeoutRef.current);
-  }, [searchTerm, activeTab]);
-
-  useEffect(() => {
-    const handleRefreshConversations = (event) => {
-      console.log('🔄 Rafraîchissement explicite des conversations');
-      setHiddenConversationIds(new Set());
-      fetchConversations();
-    };
-    
-    window.addEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-    
-    return () => {
-      window.removeEventListener('refresh-sidebar-conversations', handleRefreshConversations);
-    };
-  }, [fetchConversations]);
-
-  useEffect(() => {
-    const handleConversationCleared = (event) => {
-      const { conversationId } = event.detail || {};
-      
-      if (conversationId) {
-        console.log('🔄 Sidebar: Conversation vidée:', conversationId);
-        fetchConversations();
-      }
-    };
-
-    window.addEventListener('conversation-cleared', handleConversationCleared);
-
-    return () => {
-      window.removeEventListener('conversation-cleared', handleConversationCleared);
-    };
-  }, [fetchConversations]);
-
-  useEffect(() => {
-    const handleBlockStatusChanged = async () => {
-      console.log('🔄 Événement block-status-changed détecté, rafraîchissement...');
-      
-      await fetchConversations();
-      
-      if (activeTab === 'contacts' && searchTerm.trim()) {
-        try {
-          const response = await searchUsers(searchTerm);
-          setSearchResults(response.data.users || []);
-        } catch (error) {
-          console.error('Erreur rafraîchissement recherche:', error);
-        }
-      }
-    };
-
-    window.addEventListener('block-status-changed', handleBlockStatusChanged);
-    
-    return () => {
-      window.removeEventListener('block-status-changed', handleBlockStatusChanged);
-    };
-  }, [activeTab, searchTerm, fetchConversations]);
-
-  useEffect(() => {
-    if (activeTab === 'chats') {
-      fetchConversations();
-    }
-  }, [activeTab, fetchConversations]);
-
-    // GESTION DES SOCKETS (Mises à jour Sidebar en temps réel)
-  useEffect(() => {
-    const socket = getSocket();
-
-    if (socket && user && currentUserId) {
-      
-      // 1. QUAND UN NOUVEAU MESSAGE ARRIVE (ou qu'on envoie)
-      socket.on("conversation-updated", (updatedConversation) => {
-        setConversations((prevConversations) => {
-          const existingIndex = prevConversations.findIndex(
-            (conv) => conv._id === updatedConversation._id
-          );
-
-          if (existingIndex !== -1) {
-            const newConversations = [...prevConversations];
-            
-            // On fusionne les infos
-            newConversations[existingIndex] = {
-              ...newConversations[existingIndex],
-              ...updatedConversation,
-              lastMessage: updatedConversation.lastMessage, // Force la mise à jour du dernier message
-              updatedAt: updatedConversation.updatedAt,
-              // Si c'est MOI l'expéditeur du dernier message, je n'ai pas de "non-lus"
-              unreadCount: (updatedConversation.lastMessage?.sender === currentUserId || updatedConversation.lastMessage?.sender?._id === currentUserId)
-                ? 0 
-                : updatedConversation.unreadCount
-            };
-            
-            return newConversations.sort(
-              (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
-            );
-          } else {
-            // Nouvelle conversation
-            return [updatedConversation, ...prevConversations];
-          }
-        });
-      });
-
-      // 2. 🔥 C'EST ÇA QUI MANQUAIT : QUAND L'AUTRE LIT TON MESSAGE (Mise à jour des coches ✔✔)
-      socket.on("message-status-updated", ({ messageIds, status, conversationId }) => {
-        setConversations((prev) => 
-          prev.map((conv) => {
-            // On cherche la bonne conversation ET on vérifie si le lastMessage est concerné
-            if (conv._id === conversationId && conv.lastMessage && messageIds.includes(conv.lastMessage._id)) {
-              console.log("Sidebar: Mise à jour statut LastMessage ->", status);
-              return {
-                ...conv,
-                lastMessage: {
-                  ...conv.lastMessage,
-                  status: status // Ex: passe de 'sent' à 'read' (bleu)
-                }
-              };
-            }
-            return conv;
-          })
-        );
-      });
-
-      // 3. QUAND JE LIS LA CONVERSATION (Remise à zéro du compteur)
-      socket.on("conversation-read-update", ({ conversationId, userId }) => {
-        if (userId === currentUserId) {
-          setConversations((prev) =>
-            prev.map((conv) =>
-              conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
-            )
-          );
-        }
-      });
-
-      // 4. MISE À JOUR GLOBALE DU STATUT DE LA CONVERSATION
-      socket.on("conversation-status-updated", ({ conversationId, status }) => {
-         setConversations((prev) => 
-          prev.map((conv) => {
-            if (conv._id === conversationId && conv.lastMessage) {
-               return {
-                 ...conv,
-                 lastMessage: { ...conv.lastMessage, status: status }
-               };
-            }
-            return conv;
-          })
-        );
-      });
-
-      // (Le reste de tes écouteurs habituels)
-      socket.on("conversation-read", ({ conversationId }) => {
-        setConversations((prev) => prev.map((conv) => conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv));
-      });
-      
-      socket.on("group-created", (group) => {
-        setConversations((prev) => {
-          const exists = prev.some((conv) => conv._id === group._id);
-          return exists ? prev : [group, ...prev];
-        });
-      });
-
-      socket.on("should-refresh-conversations", () => {
-        clearTimeout(refreshTimeoutRef.current);
-        refreshTimeoutRef.current = setTimeout(() => { fetchConversations(); }, 300);
-      });
-
-      return () => {
-        socket.off("conversation-updated");
-        socket.off("message-status-updated"); // 🔥 Indispensable
+        socket.off("message-status-updated");
         socket.off("conversation-read-update");
         socket.off("conversation-status-updated");
         socket.off("conversation-read");
@@ -660,35 +469,35 @@ useEffect(() => {
     }
   }, [user, currentUserId, fetchConversations]);
 
-  const handleTabChange = (tab) => {
-    if (tab !== activeTab) {
-      setActiveTab(tab);
-      if (tab !== "contacts") {
-        setSearchTerm("");
-        setSearchResults([]);
-      } else {
-        fetchConversations();
+  const handleTabChange = useCallback(
+    (tab) => {
+      if (tab !== activeTab) {
+        setActiveTab(tab);
+        if (tab !== "contacts") {
+          setSearchTerm("");
+          setSearchResults([]);
+        } else {
+          fetchConversations();
+        }
       }
-    }
-  };
+    },
+    [activeTab, fetchConversations],
+  );
 
   useEffect(() => {
-  const handleSidebarChangeTab = (event) => {
-    const { tab } = event.detail || {};
-    if (!tab) return;
+    const handleSidebarChangeTab = (event) => {
+      const { tab } = event.detail || {};
+      if (!tab) return;
+      if (tab === "chats" || tab === "contacts" || tab === "invitations") {
+        handleTabChange(tab);
+      }
+    };
 
-    // on réutilise la même logique que tes boutons en haut
-    if (tab === "chats" || tab === "contacts" || tab === "invitations") {
-      handleTabChange(tab);
-    }
-  };
-
-  window.addEventListener("sidebar-change-tab", handleSidebarChangeTab);
-
-  return () => {
-    window.removeEventListener("sidebar-change-tab", handleSidebarChangeTab);
-  };
-}, [handleTabChange]);
+    window.addEventListener("sidebar-change-tab", handleSidebarChangeTab);
+    return () => {
+      window.removeEventListener("sidebar-change-tab", handleSidebarChangeTab);
+    };
+  }, [handleTabChange]);
 
   const handleSearchChange = (value) => {
     setSearchTerm(value);
@@ -701,109 +510,90 @@ useEffect(() => {
     try {
       setLoading(true);
       const response = await sendInvitation({ receiverId: userId });
-
       setSentInvitations((prev) => [response.data.invitation, ...prev]);
-
       emitInvitationSent({
         receiverId: userId,
         invitation: response.data.invitation,
       });
-
       setActiveTab("invitations");
       setInvitationTab("sent");
       setSearchTerm("");
       setSearchResults([]);
       setLoading(false);
-
       alert("✅ Invitation envoyée avec succès !");
     } catch (error) {
       console.error("Erreur envoi invitation:", error);
       setLoading(false);
       alert(
-        error.response?.data?.error || "Erreur lors de l'envoi de l'invitation"
+        error.response?.data?.error || "Erreur lors de l'envoi de l'invitation",
       );
     }
   };
 
   const handleAcceptInvitation = async (invitationId) => {
-  try {
-    setLoading(true);
-    
-    const response = await acceptInvitation(invitationId);
-    const { invitation, conversation } = response.data || {};
+    try {
+      setLoading(true);
+      const response = await acceptInvitation(invitationId);
+      const { invitation, conversation } = response.data || {};
 
-    if (!invitation || invitation.status !== 'accepted') {
-      throw new Error('Invitation non valide');
-    }
+      if (!invitation || invitation.status !== "accepted") {
+        throw new Error("Invitation non valide");
+      }
 
-    setReceivedInvitations((prev) =>
-      prev.filter((inv) => inv._id !== invitationId)
-    );
-
-    if (conversation) {
-      setConversations((prev) => {
-        const exists = prev.some((conv) => conv._id === conversation._id);
-        if (!exists) {
-          return [conversation, ...prev];
-        }
-        return prev;
-      });
-    }
-
-    if (invitation && conversation) {
-      emitInvitationAccepted({
-        senderId: invitation.sender._id,
-        invitation,
-        conversation,
-      });
-    }
-
-    setTimeout(() => {
-      fetchConversations();
-    }, 500);
-
-    setActiveTab("chats");
-    if (conversation?._id) {
-      router.push(`/chat/${conversation._id}`);
-    }
-
-    alert("✅ Invitation acceptée avec succès !");
-    
-  } catch (error) {
-    console.error("Erreur acceptation invitation:", error);
-    
-    if (error.response?.status === 409) {
-      alert("Cette invitation a déjà été acceptée ou n'est plus valable.");
-      
-      await fetchInvitations();
-      await fetchConversations();
-      
-    } else if (error.response?.data?.error?.includes("déjà ce contact")) {
-      alert("✅ Contact ajouté avec succès !");
-      
-      await fetchInvitations();
-      await fetchConversations();
-      
-    } else {
-      alert(
-        error.response?.data?.error ||
-        error.message ||
-        "Erreur lors de l'acceptation de l'invitation"
+      setReceivedInvitations((prev) =>
+        prev.filter((inv) => inv._id !== invitationId),
       );
+
+      if (conversation) {
+        setConversations((prev) => {
+          const exists = prev.some((conv) => conv._id === conversation._id);
+          if (!exists) {
+            return [conversation, ...prev];
+          }
+          return prev;
+        });
+      }
+
+      if (invitation && conversation) {
+        emitInvitationAccepted({
+          senderId: invitation.sender._id,
+          invitation,
+          conversation,
+        });
+      }
+
+      setTimeout(() => {
+        fetchConversations();
+      }, 500);
+      setActiveTab("chats");
+      if (conversation?._id) {
+        router.push(`/chat/${conversation._id}`);
+      }
+      alert("✅ Invitation acceptée avec succès !");
+    } catch (error) {
+      console.error("Erreur acceptation invitation:", error);
+      if (error.response?.status === 409) {
+        alert("Cette invitation a déjà été acceptée ou n'est plus valable.");
+        await fetchInvitations();
+        await fetchConversations();
+      } else {
+        alert(
+          error.response?.data?.error ||
+            error.message ||
+            "Erreur lors de l'acceptation de l'invitation",
+        );
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleRejectInvitation = async (invitationId, senderId) => {
     try {
       const response = await rejectInvitation(invitationId);
-
       setReceivedInvitations((prev) =>
-        prev.filter((inv) => inv._id !== invitationId)
+        prev.filter((inv) => inv._id !== invitationId),
       );
-
       emitInvitationRejected({
         senderId: senderId,
         invitation: response.data.invitation,
@@ -817,11 +607,9 @@ useEffect(() => {
   const handleCancelInvitation = async (invitationId, receiverId) => {
     try {
       await cancelInvitation(invitationId);
-
       setSentInvitations((prev) =>
-        prev.filter((inv) => inv._id !== invitationId)
+        prev.filter((inv) => inv._id !== invitationId),
       );
-
       emitInvitationCancelled({
         receiverId: receiverId,
         invitationId: invitationId,
@@ -845,101 +633,71 @@ useEffect(() => {
     return contact?.name || "Utilisateur";
   };
 
-    const getDisplayImage = (conv) => {
+  const getDisplayImage = (conv) => {
     if (conv.isGroup) {
-      // ✅ On utilise getFullUrl pour l'image de groupe
       const fullUrl = getFullUrl(conv.groupImage);
-      
       return (
         fullUrl ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          conv.groupName || "Groupe"
-        )}&background=6366f1&color=fff`
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.groupName || "Groupe")}&background=6366f1&color=fff`
       );
     }
-    
     const contact = getOtherParticipant(conv);
-
-    // ✅ On utilise aussi getFullUrl pour les photos de profil
     const profileUrl = getFullUrl(contact?.profilePicture);
-
     return profileUrl
       ? profileUrl
-      : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          contact?.name || "User"
-        )}&background=3b82f6&color=fff&bold=true`;
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || "User")}&background=3b82f6&color=fff&bold=true`;
   };
 
   const getOtherParticipant = (conv) => {
     const userId = user?._id || user?.id;
     const participant = conv.participants?.find(
-      (p) => (p._id || p.id) !== userId
+      (p) => (p._id || p.id) !== userId,
     );
-    
     return participant;
   };
 
+  // ✅ FONCTION AJOUTÉE
   const isUserOnline = (userId) => {
     if (!userId) return false;
-    const online = onlineUsers.has(userId);
-    return online;
+    return onlineUsers.has(userId.toString());
   };
 
-    const getLastMessagePreview = (conv) => {
+  const getLastMessagePreview = (conv) => {
     const userId = user?._id || user?.id;
-
-    // Est-ce que MOI j'ai vidé cette discussion ?
     const myDeletion = conv.deletedBy?.find(
-      (item) => item.userId?.toString() === userId?.toString()
+      (item) => item.userId?.toString() === userId?.toString(),
     );
 
-    // S'il n'y a aucun lastMessage pour cette conversation
-    if (!conv.lastMessage) {
-      return "Démarrer la conversation";
-    }
+    if (!conv.lastMessage) return "Démarrer la conversation";
 
-    // Si j'ai vidé la discussion, on regarde si le lastMessage est AVANT ou APRÈS la suppression
     if (myDeletion && myDeletion.deletedAt && conv.lastMessage.createdAt) {
       const deletedAt = new Date(myDeletion.deletedAt);
       const lastMsgDate = new Date(conv.lastMessage.createdAt);
-
-      // 👉 Le lastMessage est plus ancien que la suppression → on ne l'affiche pas
-      if (lastMsgDate <= deletedAt) {
-        return "Démarrer la conversation";
-      }
+      if (lastMsgDate <= deletedAt) return "Démarrer la conversation";
     }
 
     const lastMsg = conv.lastMessage;
 
-    // 🆕 GESTION DES APPELS (MODIFICATION ICI)
     if (lastMsg.type === "call") {
-      const isVideo = lastMsg.callDetails?.type === 'video';
+      const isVideo = lastMsg.callDetails?.type === "video";
       const icon = isVideo ? "📹" : "📞";
       const status = lastMsg.callDetails?.status;
       const amICaller = lastMsg.sender?._id === userId;
 
       if (status === "missed") {
-        // Si je suis l'appelant et qu'il n'y a pas eu de réponse
         if (amICaller) return `${icon} Appel sans réponse`;
-        // Si je suis le receveur et que j'ai raté l'appel
         return `${icon} Appel manqué`;
       }
-      
-      if (status === "ended") {
-        return `${icon} Appel terminé`;
-      }
-
-      // Fallback si le statut n'est pas clair (ex: appel en cours)
+      if (status === "ended") return `${icon} Appel terminé`;
       return `${icon} Appel`;
     }
 
-    // Autres types de messages
     if (lastMsg.type === "image") return "🖼️ Image";
     if (lastMsg.type === "video") return "🎬 Vidéo";
     if (lastMsg.type === "file") return `📄 ${lastMsg.fileName || "Fichier"}`;
-    if (lastMsg.type === "voice" || lastMsg.type === "audio") return "🎤 Message vocal";
+    if (lastMsg.type === "voice" || lastMsg.type === "audio")
+      return "🎤 Message vocal";
 
-    // Texte
     const preview = lastMsg.content || "";
     return preview.length > 40 ? preview.substring(0, 40) + "..." : preview;
   };
@@ -973,307 +731,248 @@ useEffect(() => {
     return null;
   };
 
-  
+  const checkContactHasUnviewedStatus = (contactId) => {
+    if (!contactId || !statusCache.has(contactId)) return false;
+    const hasUnviewed = statusViewedCache.get(contactId);
+    return hasUnviewed === true;
+  };
 
-// 🆕 Vérifier si un contact a des statuts NON VUS
-const checkContactHasUnviewedStatus = (contactId) => {
-  if (!contactId || !statusCache.has(contactId)) return false;
-  
-  const hasUnviewed = statusViewedCache.get(contactId);
-  
-  console.log(`🔍 checkContactHasUnviewedStatus(${contactId}):`, {
-    hasUnviewed: hasUnviewed,
-    expectedCircleColor: hasUnviewed ? "BLEU (non vu)" : "GRIS (vu)"
-  });
-  
-  // ✅ hasUnviewed = true → CERCLE COLORÉ (non vu)
-  // ✅ hasUnviewed = false → CERCLE GRIS (déjà vu)
-  return hasUnviewed === true;
-};
-
-
-  // 🆕 Charger les statuts au montage
-  useEffect(() => {
-    console.log('🚀 Chargement des statuts...');
-    loadAllStatuses();
-  }, [loadAllStatuses]);
-
-  // 🆕 Vérifier si un contact a un statut
   const checkContactHasStatus = (contactId) => {
     return statusCache.has(contactId);
   };
-  // 🆕 Vérifier si un contact a des statuts non vus
 
-// Fonction pour marquer un statut comme vu
-const markStatusAsViewed = (contactId) => {
-  setStatusViewedCache(prev => {
-    const next = new Map(prev);
-    next.set(contactId, true);
-    return next;
-  });
-};
-  const totalInvitations = receivedInvitations.length;
-
-const handleBlockConversationContact = async (conv) => {
-  if (conv.isGroup) return;
-
-  const contact = getOtherParticipant(conv);
-  if (!contact?._id) {
-    alert('❌ Contact non défini');
-    return;
-  }
-
-  const confirmMsg = `Êtes-vous sûr de vouloir bloquer ${contact.name} ?
-
-⚠️ Conséquences :
-- ${contact.name} sera RETIRÉ de vos contacts
-- Votre conversation sera MASQUÉE (pas supprimée)
-- Vous ne recevrez plus ses messages
-- Il ne pourra plus vous contacter`;
-
-  if (!confirm(confirmMsg)) {
-    return;
-  }
-
-  try {
-    console.log('🔒 Blocage depuis sidebar pour:', contact._id);
-
-    const response = await api.post('/message-settings/block', {
-      targetUserId: contact._id,
+  const markStatusAsViewed = (contactId) => {
+    setStatusViewedCache((prev) => {
+      const next = new Map(prev);
+      next.set(contactId, true);
+      return next;
     });
+  };
 
-    if (response.data?.success) {
-      // notifier le reste de l'app (ChatHeader, etc.)
-      window.dispatchEvent(new CustomEvent('block-status-changed'));
+  const handleBlockConversationContact = async (conv) => {
+    if (conv.isGroup) return;
+    const contact = getOtherParticipant(conv);
+    if (!contact?._id) return alert("❌ Contact non défini");
 
-      // rafraîchir la liste des conversations (la conv sera filtrée côté backend)
-      await fetchConversations();
-
-      alert(`🚫 ${contact.name} a été bloqué et retiré de vos contacts
-
-✅ Actions effectuées :
-- Contact supprimé
-- Conversation masquée
-- Messages bloqués`);
-    } else {
-      throw new Error(response.data?.message || 'Erreur inconnue');
+    if (
+      !confirm(
+        `Êtes-vous sûr de vouloir bloquer ${contact.name} ?\n\n⚠️ Conséquences :\n- ${contact.name} sera RETIRÉ de vos contacts\n- Votre conversation sera MASQUÉE (pas supprimée)\n- Vous ne recevrez plus ses messages\n- Il ne pourra plus vous contacter`,
+      )
+    ) {
+      return;
     }
-  } catch (err) {
-    console.error('❌ Erreur blocage (sidebar):', err);
-    alert(
-      '❌ Erreur lors du blocage: ' +
-        (err.response?.data?.message || err.message)
-    );
-  } finally {
-    setMenuOpen(null);
-  }
-};
 
-const visibleConversations = useMemo(
-  () =>
-    conversations.filter((conv) => {
-      // Conversations masquées (après archivage/suppression locale)
-      if (hiddenConversationIds.has(conv._id)) return false;
-
-      // Archivées par moi
-      const isArchivedByMe = conv.archivedBy?.some(
-        (item) => item.userId?.toString() === currentUserId?.toString()
+    try {
+      const response = await api.post("/message-settings/block", {
+        targetUserId: contact._id,
+      });
+      if (response.data?.success) {
+        window.dispatchEvent(new CustomEvent("block-status-changed"));
+        await fetchConversations();
+        alert(`🚫 ${contact.name} a été bloqué et retiré de vos contacts`);
+      } else {
+        throw new Error(response.data?.message || "Erreur inconnue");
+      }
+    } catch (err) {
+      console.error("❌ Erreur blocage (sidebar):", err);
+      alert(
+        "❌ Erreur lors du blocage: " +
+          (err.response?.data?.message || err.message),
       );
-      if (isArchivedByMe) return false;
+    } finally {
+      setMenuOpen(null);
+    }
+  };
 
-      // Filtre par type
-      if (conversationFilter === "private" && conv.isGroup) return false;
-      if (conversationFilter === "group" && !conv.isGroup) return false;
-      if (unreadOnly && (conv.unreadCount || 0) === 0) return false;
-
-      return true;
-    }),
-  [conversations, hiddenConversationIds, currentUserId, conversationFilter, unreadOnly]
-);
+  const visibleConversations = useMemo(
+    () =>
+      conversations.filter((conv) => {
+        if (hiddenConversationIds.has(conv._id)) return false;
+        const isArchivedByMe = conv.archivedBy?.some(
+          (item) => item.userId?.toString() === currentUserId?.toString(),
+        );
+        if (isArchivedByMe) return false;
+        if (conversationFilter === "private" && conv.isGroup) return false;
+        if (conversationFilter === "group" && !conv.isGroup) return false;
+        if (unreadOnly && (conv.unreadCount || 0) === 0) return false;
+        return true;
+      }),
+    [
+      conversations,
+      hiddenConversationIds,
+      currentUserId,
+      conversationFilter,
+      unreadOnly,
+    ],
+  );
 
   return (
-    <div className={`w-full lg:w-96 ${sidebarBg} flex flex-col h-screen shadow-xl relative`}>
-      {/* Header avec gradient bleu */}
-      {/* Header avec gradient bleu */}
-<div className={`relative overflow-hidden ${headerBg}`}>
-  <div
-    className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${
-      isDark ? "opacity-10" : "opacity-20"
-    }`}
-  ></div>
-
-  <div className="relative p-5">
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Photo de profil utilisateur */}
+    <div
+      className={`w-full lg:w-96 ${sidebarBg} flex flex-col h-screen shadow-xl relative`}
+    >
+      <div className={`relative overflow-hidden ${headerBg}`}>
         <div
-          className="relative shrink-0 cursor-pointer group"
-          onClick={() => router.push("/profile")}
-          title="Voir mon profil"
-        >
-          {user?.profilePicture && user.profilePicture.trim() !== "" ? (
-            <div
-              className={`w-15 h-15 rounded-full overflow-hidden shadow-lg ring-2 ${
-                isDark
-                  ? "ring-blue-700/50 group-hover:ring-blue-500/80"
-                  : "ring-white/50 group-hover:ring-white/80"
-              } animate-scale-in transition-all`}
-            >
-              <Image
-                src={user.profilePicture}
-                alt={user?.name || "User"}
-                width={48}
-                height={48}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    user?.name || "User"
-                  )}&background=${isDark ? "0ea5e9" : "ffffff"}&color=${
-                    isDark ? "ffffff" : "0ea5e9"
-                  }&bold=true`;
-                }}
-                unoptimized
-              />
+          className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iJ2hzbCgyMTAsIDgwJSwgNTAlKSciIHN0cm9rZS1vcGFjaXR5PSIwLjEiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] ${isDark ? "opacity-10" : "opacity-20"}`}
+        ></div>
+
+        <div className="relative p-5">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div
+                className="relative shrink-0 cursor-pointer group"
+                onClick={() => router.push("/profile")}
+                title="Voir mon profil"
+              >
+                {user?.profilePicture && user.profilePicture.trim() !== "" ? (
+                  <div
+                    className={`w-15 h-15 rounded-full overflow-hidden shadow-lg ring-2 ${isDark ? "ring-blue-700/50 group-hover:ring-blue-500/80" : "ring-white/50 group-hover:ring-white/80"} animate-scale-in transition-all`}
+                  >
+                    <Image
+                      src={user.profilePicture}
+                      alt={user?.name || "User"}
+                      width={48}
+                      height={48}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=${isDark ? "0ea5e9" : "ffffff"}&color=${isDark ? "ffffff" : "0ea5e9"}&bold=true`;
+                      }}
+                      unoptimized
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={`w-12 h-12 rounded-full ${isDark ? "bg-linear-to-br from-blue-800/50 to-blue-900/30 backdrop-blur-sm" : "bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm"} flex items-center justify-center ${isDark ? "text-cyan-100" : "text-white"} font-bold text-lg shadow-lg ring-2 ${isDark ? "ring-blue-700/50 group-hover:ring-blue-500/80" : "ring-white/50 group-hover:ring-white/80"} animate-scale-in transition-all`}
+                  >
+                    {user?.name?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                )}
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-blue-600 shadow-md"></div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h1
+                  className={`text-xl font-bold drop-shadow-lg truncate ${isDark ? "text-cyan-50" : "text-white"}`}
+                >
+                  {activeTab === "contacts"
+                    ? "Contacts"
+                    : activeTab === "invitations"
+                      ? "Invitations"
+                      : "Messages"}
+                </h1>
+                <p
+                  className={`text-xs font-medium truncate ${isDark ? "text-blue-200" : "text-blue-100"}`}
+                >
+                  {user?.name || "Utilisateur"}
+                </p>
+              </div>
             </div>
-          ) : (
-            <div
-              className={`w-12 h-12 rounded-full ${
-                isDark
-                  ? "bg-linear-to-br from-blue-800/50 to-blue-900/30 backdrop-blur-sm"
-                  : "bg-linear-to-br from-white/30 to-white/10 backdrop-blur-sm"
-              } flex items-center justify-center ${
-                isDark ? "text-cyan-100" : "text-white"
-              } font-bold text-lg shadow-lg ring-2 ${
-                isDark
-                  ? "ring-blue-700/50 group-hover:ring-blue-500/80"
-                  : "ring-white/50 group-hover:ring-white/80"
-              } animate-scale-in transition-all`}
+
+            <button
+              onClick={logout}
+              className={`p-2.5 rounded-xl transition-all transform hover:scale-110 active:scale-95 backdrop-blur-sm shrink-0 ${isDark ? "hover:bg-blue-800/30 text-cyan-100" : "hover:bg-white/20 text-white"}`}
+              title="Déconnexion"
             >
-              {user?.name?.charAt(0).toUpperCase() || "U"}
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+
+          {activeTab === "chats" && (
+            <div className={`flex gap-2 ${tabBg} p-1.5 rounded-2xl`}>
+              <button
+                title="Tous"
+                onClick={() => {
+                  setConversationFilter("all");
+                  setUnreadOnly(false);
+                }}
+                className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${conversationFilter === "all" && !unreadOnly ? activeTabStyle : inactiveTabStyle}`}
+              >
+                <MessageCircle className="w-5 h-5" />
+              </button>
+              <button
+                title="Non lus"
+                onClick={() => {
+                  setConversationFilter("all");
+                  setUnreadOnly(true);
+                }}
+                className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center relative ${
+                  // ✅ Ajout de "relative"
+                  unreadOnly ? activeTabStyle : inactiveTabStyle
+                }`}
+              >
+                <Bell className="w-5 h-5" />
+
+                {/* 🔥 BADGE COMPTEUR NON LU */}
+                {conversations.reduce(
+                  (sum, conv) => sum + (conv.unreadCount || 0),
+                  0,
+                ) > 0 && (
+                  <span className="absolute top-1.5 right-3 min-w-[14px] h-[14px] flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-0.5 border border-white dark:border-slate-900 shadow-sm animate-pulse">
+                    {conversations.reduce(
+                      (sum, conv) => sum + (conv.unreadCount || 0),
+                      0,
+                    ) > 99
+                      ? "99+"
+                      : conversations.reduce(
+                          (sum, conv) => sum + (conv.unreadCount || 0),
+                          0,
+                        )}
+                  </span>
+                )}
+              </button>
+              <button
+                title="Privés"
+                onClick={() => {
+                  setConversationFilter("private");
+                  setUnreadOnly(false);
+                }}
+                className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${conversationFilter === "private" && !unreadOnly ? activeTabStyle : inactiveTabStyle}`}
+              >
+                <User className="w-5 h-5" />
+              </button>
+              <button
+                title="Groupes"
+                onClick={() => {
+                  setConversationFilter("group");
+                  setUnreadOnly(false);
+                }}
+                className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${conversationFilter === "group" && !unreadOnly ? activeTabStyle : inactiveTabStyle}`}
+              >
+                <Users className="w-5 h-5" />
+              </button>
             </div>
           )}
-          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-cyan-400 rounded-full border-2 border-blue-600 shadow-md"></div>
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* 🔹 TITRE DYNAMIQUE SELON activeTab */}
-          <h1
-            className={`text-xl font-bold drop-shadow-lg truncate ${
-              isDark ? "text-cyan-50" : "text-white"
-            }`}
-          >
-            {activeTab === "contacts"
-              ? "Contacts"
-              : activeTab === "invitations"
-              ? "Invitations"
-              : "Messages"}
-          </h1>
-          <p
-            className={`text-xs font-medium truncate ${
-              isDark ? "text-blue-200" : "text-blue-100"
-            }`}
-          >
-            {user?.name || "Utilisateur"}
-          </p>
         </div>
       </div>
 
-      <button
-        onClick={handleLogout}
-        className={`p-2.5 rounded-xl transition-all transform hover:scale-110 active:scale-95 backdrop-blur-sm shrink-0 ${
-          isDark
-            ? "hover:bg-blue-800/30 text-cyan-100"
-            : "hover:bg-white/20 text-white"
-        }`}
-        title="Déconnexion"
-      >
-        <LogOut className="w-5 h-5" />
-      </button>
-    </div>
-
-    {activeTab === "chats" && (
-  <div className={`flex gap-2 ${tabBg} p-1.5 rounded-2xl`}>
-    {/* TOUS */}
-<button
-  title="Tous"
-  onClick={() => {
-    setConversationFilter("all");
-    setUnreadOnly(false); // ✅ IMPORTANT
-  }}
-  className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
-    conversationFilter === "all" && !unreadOnly ? activeTabStyle : inactiveTabStyle
-  }`}
->
-  <MessageCircle className="w-5 h-5" />
-</button>
-
-    {/* NON LUS */}
-<button
-  title="Non lus"
-  onClick={() => {
-    setConversationFilter("all");
-    setUnreadOnly(true); // ✅ IMPORTANT
-  }}
-  className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
-    unreadOnly ? activeTabStyle : inactiveTabStyle
-  }`}
->
-  <Bell className="w-5 h-5" />
-</button>
-
-    {/* PRIVÉS */}
-    <button
-  title="Privés"
-  onClick={() => {
-    setConversationFilter("private");
-    setUnreadOnly(false);
-  }}
-  className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
-    conversationFilter === "private" && !unreadOnly ? activeTabStyle : inactiveTabStyle
-  }`}
->
-  <User className="w-5 h-5" />
-</button>
-
-    {/* GROUPES */}
-    <button
-      title="Groupes"
-      onClick={() => {
-        setConversationFilter("group");
-        setUnreadOnly(false);
-      }}
-      className={`flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center ${
-        conversationFilter === "group" && !unreadOnly ? activeTabStyle : inactiveTabStyle
-      }`}
-    >
-      <Users className="w-5 h-5" />
-    </button>
-  </div>
-)}
-  </div>
-</div>
-
-      {/* Content Area */}
       <div className="flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-scrollbar]:hidden">
-        {(activeTab === "chats" ? conversationsLoading : loading) && activeTab !== "invitations" ? (
+        {(activeTab === "chats" ? conversationsLoading : loading) &&
+        activeTab !== "invitations" ? (
           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
             <div className="relative">
-              <div className={`animate-spin rounded-full h-16 w-16 border-4 ${isDark ? 'border-blue-800/50 border-t-cyan-400' : 'border-blue-100 border-t-blue-600'}`}></div>
-              <Sparkles className={`w-8 h-8 ${isDark ? 'text-cyan-400' : 'text-blue-600'} absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-pulse`} />
+              <div
+                className={`animate-spin rounded-full h-16 w-16 border-4 ${isDark ? "border-blue-800/50 border-t-cyan-400" : "border-blue-100 border-t-blue-600"}`}
+              ></div>
+              <Sparkles
+                className={`w-8 h-8 ${isDark ? "text-cyan-400" : "text-blue-600"} absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 animate-pulse`}
+              />
             </div>
-            <p className={`mt-6 text-sm font-semibold ${isDark ? 'text-cyan-300' : 'text-blue-600'}`}>
+            <p
+              className={`mt-6 text-sm font-semibold ${isDark ? "text-cyan-300" : "text-blue-600"}`}
+            >
               Chargement...
             </p>
           </div>
         ) : activeTab === "contacts" ? (
           <div className="animate-fade-in">
-            <Contacts></Contacts>
-            {!searchTerm.trim() ? (
-              <></>
-            ) : usersToDisplay.length === 0 ? (
+            <Contacts />
+            {usersToDisplay.length === 0 && searchTerm.trim() && (
               <div className="p-12 text-center">
-                <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 ${emptyStateBg}`}>
-                  <Users className={`w-12 h-12 ${isDark ? 'text-blue-400' : 'text-slate-400'}`} />
+                <div
+                  className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 ${emptyStateBg}`}
+                >
+                  <Users
+                    className={`w-12 h-12 ${isDark ? "text-blue-400" : "text-slate-400"}`}
+                  />
                 </div>
                 <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
                   Aucun résultat
@@ -1282,43 +981,33 @@ const visibleConversations = useMemo(
                   Essayez un autre terme de recherche
                 </p>
               </div>
-            ) : (
+            )}
+            {usersToDisplay.length > 0 && (
               <div className="p-3 space-y-2">
                 {usersToDisplay.map((contact) => (
                   <button
                     key={contact._id}
                     onClick={() => handleSendInvitation(contact._id)}
-                    className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 group border-2 border-transparent shadow-sm hover:shadow-lg transform hover:scale-[1.02] animate-slide-in-left ${
-                      isDark 
-                        ? 'bg-linear-to-r from-blue-900/80 to-blue-800/80 hover:from-blue-800 hover:to-blue-900 hover:border-blue-700' 
-                        : 'bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 hover:border-blue-200'
-                    }`}
+                    className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 group border-2 border-transparent shadow-sm hover:shadow-lg transform hover:scale-[1.02] animate-slide-in-left ${isDark ? "bg-linear-to-r from-blue-900/80 to-blue-800/80 hover:from-blue-800 hover:to-blue-900 hover:border-blue-700" : "bg-white hover:bg-linear-to-r hover:from-blue-50 hover:to-cyan-50 hover:border-blue-200"}`}
                   >
-                    {/* Remplacer tout le code de l'avatar (lignes ~500-550) par : */}
-
-
                     <div className="flex-1 text-left min-w-0">
-                      <h3 className={`font-bold truncate transition-colors ${
-                        isDark 
-                          ? 'text-cyan-100 group-hover:text-cyan-300' 
-                          : 'text-slate-800 group-hover:text-blue-600'
-                      }`}>
+                      <h3
+                        className={`font-bold truncate transition-colors ${isDark ? "text-cyan-100 group-hover:text-cyan-300" : "text-slate-800 group-hover:text-blue-600"}`}
+                      >
                         {contact.name}
                       </h3>
-                      <p className={`text-sm truncate ${isDark ? 'text-blue-300' : 'text-slate-500'}`}>
+                      <p
+                        className={`text-sm truncate ${isDark ? "text-blue-300" : "text-slate-500"}`}
+                      >
                         {contact.email}
                       </p>
                     </div>
-                    <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                      isDark 
-                        ? 'bg-blue-800 group-hover:bg-cyan-500' 
-                        : 'bg-blue-100 group-hover:bg-blue-500'
-                    }`}>
-                      <UserPlus className={`w-5 h-5 transition-colors ${
-                        isDark 
-                          ? 'text-cyan-300 group-hover:text-blue-950' 
-                          : 'text-blue-500 group-hover:text-white'
-                      }`} />
+                    <div
+                      className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDark ? "bg-blue-800 group-hover:bg-cyan-500" : "bg-blue-100 group-hover:bg-blue-500"}`}
+                    >
+                      <UserPlus
+                        className={`w-5 h-5 transition-colors ${isDark ? "text-cyan-300 group-hover:text-blue-950" : "text-blue-500 group-hover:text-white"}`}
+                      />
                     </div>
                   </button>
                 ))}
@@ -1327,41 +1016,56 @@ const visibleConversations = useMemo(
           </div>
         ) : activeTab === "invitations" ? (
           <div className="animate-fade-in">
-            <div className={`p-4 flex gap-2 sticky top-0 z-10 backdrop-blur-sm ${
-              isDark 
-                ? 'bg-linear-to-b from-blue-950/50 to-transparent' 
-                : 'bg-linear-to-b from-blue-50/50 to-transparent'
-            }`}>
+            <div
+              className={`p-4 flex gap-2 sticky top-0 z-10 backdrop-blur-sm ${isDark ? "bg-linear-to-b from-blue-950/50 to-transparent" : "bg-linear-to-b from-blue-50/50 to-transparent"}`}
+            >
               <button
                 onClick={() => setInvitationTab("received")}
-                className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${
+                className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all relative flex items-center justify-center gap-2 ${
+                  // ✅ Flex et relative ajoutés
                   invitationTab === "received"
                     ? `${buttonStyle} text-white shadow-lg transform scale-[1.02]`
-                    : `${isDark ? 'bg-linear-to-r from-blue-900/80 to-blue-800/80 text-blue-200 hover:from-blue-800 hover:to-blue-900' : 'bg-white text-slate-600 hover:bg-slate-50'} shadow-sm`
+                    : `${
+                        isDark
+                          ? "bg-linear-to-r from-blue-900/80 to-blue-800/80 text-blue-200 hover:from-blue-800 hover:to-blue-900"
+                          : "bg-white text-slate-600 hover:bg-slate-50"
+                      } shadow-sm`
                 }`}
               >
-                Reçues{" "}
-                {receivedInvitations.length > 0 &&
-                  `(${receivedInvitations.length})`}
+                <span>Reçues</span>
+
+                {/* 🔥 BADGE COMPTEUR INVITATIONS REÇUES */}
+                {receivedInvitations.length > 0 && (
+                  <span className="min-w-[20px] h-[20px] flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full px-1 shadow-md animate-bounce">
+                    {receivedInvitations.length > 99
+                      ? "99+"
+                      : receivedInvitations.length}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setInvitationTab("sent")}
-                className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${
-                  invitationTab === "sent"
-                    ? `${buttonStyle} text-white shadow-lg transform scale-[1.02]`
-                    : `${isDark ? 'bg-linear-to-r from-blue-900/80 to-blue-800/80 text-blue-200 hover:from-blue-800 hover:to-blue-900' : 'bg-white text-slate-600 hover:bg-slate-50'} shadow-sm`
-                }`}
+                className={`flex-1 py-3 px-4 rounded-xl font-bold transition-all ${invitationTab === "sent" ? `${buttonStyle} text-white shadow-lg transform scale-[1.02]` : `${isDark ? "bg-linear-to-r from-blue-900/80 to-blue-800/80 text-blue-200 hover:from-blue-800 hover:to-blue-900" : "bg-white text-slate-600 hover:bg-slate-50"} shadow-sm`}`}
               >
                 Envoyées{" "}
                 {sentInvitations.length > 0 && `(${sentInvitations.length})`}
               </button>
             </div>
-
-            {invitationTab === "received" ? (
+            {invitationsLoading ? (
+              <div className="flex justify-center py-10">
+                <div
+                  className={`animate-spin rounded-full h-10 w-10 border-4 ${isDark ? "border-blue-800/50 border-t-cyan-400" : "border-blue-100 border-t-blue-600"}`}
+                ></div>
+              </div>
+            ) : invitationTab === "received" ? (
               receivedInvitations.length === 0 ? (
                 <div className="p-12 text-center">
-                  <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 ${emptyStateBg}`}>
-                    <Bell className={`w-12 h-12 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
+                  <div
+                    className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 ${emptyStateBg}`}
+                  >
+                    <Bell
+                      className={`w-12 h-12 ${isDark ? "text-cyan-400" : "text-blue-500"}`}
+                    />
                   </div>
                   <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
                     Aucune invitation reçue
@@ -1375,33 +1079,22 @@ const visibleConversations = useMemo(
                   {receivedInvitations.map((invitation) => (
                     <div
                       key={invitation._id}
-                      className={`p-5 rounded-2xl border-2 shadow-md hover:shadow-xl transition-all animate-slide-in-left ${
-                        isDark 
-                          ? 'bg-linear-to-r from-blue-900/80 to-blue-800/80 border-blue-800' 
-                          : 'bg-white border-blue-100'
-                      }`}
+                      className={`p-5 rounded-2xl border-2 shadow-md hover:shadow-xl transition-all animate-slide-in-left ${isDark ? "bg-linear-to-r from-blue-900/80 to-blue-800/80 border-blue-800" : "bg-white border-blue-100"}`}
                     >
                       <div className="flex items-start gap-3 mb-4">
                         <div className="relative shrink-0">
-                          <div className={`w-14 h-14 rounded-full overflow-hidden ring-2 ${
-                            isDark ? 'ring-blue-800' : 'ring-blue-100'
-                          }`}>
+                          <div
+                            className={`w-14 h-14 rounded-full overflow-hidden ring-2 ${isDark ? "ring-blue-800" : "ring-blue-100"}`}
+                          >
                             <Image
                               src={
-                                invitation.sender?.profilePicture ||
-                                `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                  invitation.sender?.name || "User"
-                                )}&background=0ea5e9&color=fff&bold=true`
+                                getFullUrl(invitation.sender?.profilePicture) ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.sender?.name || "User")}&background=0ea5e9&color=fff&bold=true`
                               }
                               alt={invitation.sender?.name}
                               width={56}
                               height={56}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                  invitation.sender?.name || "User"
-                                )}&background=0ea5e9&color=fff&bold=true`;
-                              }}
                               unoptimized
                             />
                           </div>
@@ -1416,18 +1109,18 @@ const visibleConversations = useMemo(
                           <p className={`text-sm truncate ${textSecondary}`}>
                             {invitation.sender?.email}
                           </p>
-                          <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${isDark ? 'text-cyan-400' : 'text-blue-500'}`}>
+                          <p
+                            className={`text-xs mt-1 flex items-center gap-1 font-medium ${isDark ? "text-cyan-400" : "text-blue-500"}`}
+                          >
                             <Clock className="w-3 h-3" />
                             {formatMessageTime(invitation.createdAt)}
                           </p>
                         </div>
                       </div>
                       {invitation.message && (
-                        <p className={`text-sm p-3 rounded-xl mb-4 ${
-                          isDark 
-                            ? 'text-blue-200 bg-blue-900/50' 
-                            : 'text-slate-700 bg-blue-50'
-                        }`}>
+                        <p
+                          className={`text-sm p-3 rounded-xl mb-4 ${isDark ? "text-blue-200 bg-blue-900/50" : "text-slate-700 bg-blue-50"}`}
+                        >
                           {invitation.message}
                         </p>
                       )}
@@ -1443,7 +1136,7 @@ const visibleConversations = useMemo(
                           onClick={() =>
                             handleRejectInvitation(
                               invitation._id,
-                              invitation.sender?._id
+                              invitation.sender?._id,
                             )
                           }
                           className="flex-1 bg-linear-to-r from-rose-500 to-red-500 hover:from-rose-600 hover:to-red-600 text-white py-3 px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02]"
@@ -1458,8 +1151,12 @@ const visibleConversations = useMemo(
               )
             ) : sentInvitations.length === 0 ? (
               <div className="p-12 text-center">
-                <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 ${emptyStateBg}`}>
-                  <Send className={`w-12 h-12 ${isDark ? 'text-cyan-400' : 'text-slate-400'}`} />
+                <div
+                  className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 ${emptyStateBg}`}
+                >
+                  <Send
+                    className={`w-12 h-12 ${isDark ? "text-cyan-400" : "text-slate-400"}`}
+                  />
                 </div>
                 <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
                   Aucune invitation envoyée
@@ -1473,33 +1170,22 @@ const visibleConversations = useMemo(
                 {sentInvitations.map((invitation) => (
                   <div
                     key={invitation._id}
-                    className={`p-5 rounded-2xl border-2 shadow-md hover:shadow-xl transition-all animate-slide-in-left ${
-                      isDark 
-                        ? 'bg-linear-to-r from-blue-900/80 to-blue-800/80 border-blue-800' 
-                        : 'bg-white border-blue-100'
-                    }`}
+                    className={`p-5 rounded-2xl border-2 shadow-md hover:shadow-xl transition-all animate-slide-in-left ${isDark ? "bg-linear-to-r from-blue-900/80 to-blue-800/80 border-blue-800" : "bg-white border-blue-100"}`}
                   >
                     <div className="flex items-start gap-3 mb-4">
                       <div className="relative shrink-0">
-                        <div className={`w-14 h-14 rounded-full overflow-hidden ring-2 ${
-                          isDark ? 'ring-blue-800' : 'ring-blue-100'
-                        }`}>
+                        <div
+                          className={`w-14 h-14 rounded-full overflow-hidden ring-2 ${isDark ? "ring-blue-800" : "ring-blue-100"}`}
+                        >
                           <Image
                             src={
-                              invitation.receiver?.profilePicture ||
-                              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                invitation.receiver?.name || "User"
-                              )}&background=0ea5e9&color=fff&bold=true`
+                              getFullUrl(invitation.receiver?.profilePicture) ||
+                              `https://ui-avatars.com/api/?name=${encodeURIComponent(invitation.receiver?.name || "User")}&background=0ea5e9&color=fff&bold=true`
                             }
                             alt={invitation.receiver?.name}
                             width={56}
                             height={56}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                invitation.receiver?.name || "User"
-                              )}&background=0ea5e9&color=fff&bold=true`;
-                            }}
                             unoptimized
                           />
                         </div>
@@ -1514,18 +1200,18 @@ const visibleConversations = useMemo(
                         <p className={`text-sm truncate ${textSecondary}`}>
                           {invitation.receiver?.email}
                         </p>
-                        <p className={`text-xs mt-1 flex items-center gap-1 font-medium ${isDark ? 'text-cyan-400' : 'text-blue-500'}`}>
+                        <p
+                          className={`text-xs mt-1 flex items-center gap-1 font-medium ${isDark ? "text-cyan-400" : "text-blue-500"}`}
+                        >
                           <Clock className="w-3 h-3" />
                           {formatMessageTime(invitation.createdAt)}
                         </p>
                       </div>
                     </div>
                     {invitation.message && (
-                      <p className={`text-sm p-3 rounded-xl mb-4 ${
-                        isDark 
-                          ? 'text-blue-200 bg-blue-900/50' 
-                          : 'text-slate-700 bg-blue-50'
-                      }`}>
+                      <p
+                        className={`text-sm p-3 rounded-xl mb-4 ${isDark ? "text-blue-200 bg-blue-900/50" : "text-slate-700 bg-blue-50"}`}
+                      >
                         {invitation.message}
                       </p>
                     )}
@@ -1533,7 +1219,7 @@ const visibleConversations = useMemo(
                       onClick={() =>
                         handleCancelInvitation(
                           invitation._id,
-                          invitation.receiver?._id
+                          invitation.receiver?._id,
                         )
                       }
                       className="w-full bg-linear-to-r from-blue-800 to-blue-900 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02]"
@@ -1550,37 +1236,42 @@ const visibleConversations = useMemo(
           <div className="flex flex-col h-full">
             <div className="flex-1">
               {visibleConversations.length === 0 ? (
-  <div className="p-12 text-center animate-fade-in">
-    <div className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg ${emptyStateBg}`}>
-      <MessageCircle className={`w-12 h-12 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
-    </div>
-    <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
-      Aucune conversation
-    </p>
-    <p className={`text-sm mb-6 ${textSecondary}`}>
-      Commencez à discuter avec vos contacts
-    </p>
-    {isAllMode && (
-  <button
-    onClick={() => router.push("/?tab=contacts&subtab=add")}
-    className={`px-8 py-3 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl ${buttonStyle}`}
-  >
-    Rechercher des contacts
-  </button>
-)}
-  </div>
-) : (
-  <div className="p-3 space-y-2">
-    {visibleConversations.map((conv) => {
+                <div className="p-12 text-center animate-fade-in">
+                  <div
+                    className={`w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg ${emptyStateBg}`}
+                  >
+                    <MessageCircle
+                      className={`w-12 h-12 ${isDark ? "text-cyan-400" : "text-blue-500"}`}
+                    />
+                  </div>
+                  <p className={`font-bold text-lg mb-2 ${textPrimary}`}>
+                    Aucune conversation
+                  </p>
+                  <p className={`text-sm mb-6 ${textSecondary}`}>
+                    Commencez à discuter avec vos contacts
+                  </p>
+                  {isAllMode && (
+                    <button
+                      onClick={() => router.push("/?tab=contacts&subtab=add")}
+                      className={`px-8 py-3 text-white rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg hover:shadow-xl ${buttonStyle}`}
+                    >
+                      Rechercher des contacts
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 space-y-2">
+                  {visibleConversations.map((conv) => {
                     const isActive = conv._id === activeConversationId;
                     const messageStatus = getMessageStatus(conv);
                     const lastMessageTime = formatMessageTime(conv.updatedAt);
                     const unreadCount = conv.unreadCount || 0;
-
                     const displayName = getDisplayName(conv);
                     const displayImage = getDisplayImage(conv);
                     const contact = getOtherParticipant(conv);
-                    const contactHasStatus = contact ? checkContactHasStatus(contact._id) : false;
+                    const contactHasStatus = contact
+                      ? checkContactHasStatus(contact._id)
+                      : false;
 
                     return (
                       <div
@@ -1589,259 +1280,171 @@ const visibleConversations = useMemo(
                         onMouseLeave={() => setMenuOpen(null)}
                       >
                         <button
-  onClick={() => router.push(`/chat/${conv._id}`)}
-  className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${conversationCard(isActive, unreadCount > 0)}`}
->
-  <div className="relative shrink-0">
-    {/* Cercle de statut pour les conversations individuelles */}
-    {!conv.isGroup && contact && contactHasStatus && (
-  <div 
-  className="absolute -inset-1 rounded-full border-3"
-  style={{
-    borderColor: checkContactHasUnviewedStatus(contact._id) 
-      ? '#3b82f6' // Bleu pour non-vus
-      : '#9ca3af' // Vert pour vus
-  }}
-></div>
-)}
-    
-    {/* Avatar - CLICK POUR STATUT SI LE CONTACT EN A UN */}
-    <div 
-      className={`relative w-13 h-13 rounded-full overflow-hidden cursor-pointer ${
-        !conv.isGroup && contact && contactHasStatus ? "ring-2 ring-white dark:ring-slate-900" : ""
-      }`}
-      onClick={(e) => {
-       e.stopPropagation(); // 🔥 IMPORTANT : empêche l'ouverture de la conversation
-       if (!conv.isGroup && contact && contactHasStatus) {
-         markStatusAsViewed(contact._id); // 🔥 AJOUTER CETTE LIGNE
-         router.push(`/status?open=${contact._id}`)
-       }
-     }}
-    >
-      <img
-        src={displayImage}
-        alt={displayName}
-        loading="lazy" 
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            displayName
-          )}&background=0ea5e9&color=fff&bold=true`;
-        }}
-      />
-    </div>
-    
-    {/* Point vert si en ligne (et pas de story) */}
-    {!conv.isGroup && contact && !contactHasStatus && isUserOnline(contact._id) && (
-      <span className="absolute bottom-0 right-0 w-4 h-4 bg-cyan-500 border-2 border-blue-900 rounded-full shadow-md"></span>
-    )}
-    
-    {/* Pour les groupes */}
-    {conv.isGroup && (
-      <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-blue-900 rounded-full flex items-center justify-center shadow-md">
-        <Users className="w-3 h-3 text-white" />
-      </span>
-    )}
-  </div>
-
+                          onClick={() => router.push(`/chat/${conv._id}`)}
+                          className={`w-full p-4 rounded-2xl transition-all flex items-center gap-4 ${conversationCard(isActive, unreadCount > 0)}`}
+                        >
+                          <div className="relative shrink-0">
+                            {!conv.isGroup && contact && contactHasStatus && (
+                              <div
+                                className="absolute -inset-1 rounded-full border-3"
+                                style={{
+                                  borderColor: checkContactHasUnviewedStatus(
+                                    contact._id,
+                                  )
+                                    ? "#3b82f6"
+                                    : "#9ca3af",
+                                }}
+                              ></div>
+                            )}
+                            <div
+                              className={`relative w-13 h-13 rounded-full overflow-hidden cursor-pointer ${!conv.isGroup && contact && contactHasStatus ? "ring-2 ring-white dark:ring-slate-900" : ""}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (
+                                  !conv.isGroup &&
+                                  contact &&
+                                  contactHasStatus
+                                ) {
+                                  markStatusAsViewed(contact._id);
+                                  router.push(`/status?open=${contact._id}`);
+                                }
+                              }}
+                            >
+                              <img
+                                src={displayImage}
+                                alt={displayName}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0ea5e9&color=fff&bold=true`;
+                                }}
+                              />
+                            </div>
+                            {!conv.isGroup &&
+                              contact &&
+                              !contactHasStatus &&
+                              isUserOnline(contact._id) && (
+                                <span className="absolute bottom-0 right-0 w-4 h-4 bg-cyan-500 border-2 border-blue-900 rounded-full shadow-md"></span>
+                              )}
+                            {conv.isGroup && (
+                              <span className="absolute bottom-0 right-0 w-6 h-6 bg-linear-to-br from-purple-500 to-pink-500 border-2 border-blue-900 rounded-full flex items-center justify-center shadow-md">
+                                <Users className="w-3 h-3 text-white" />
+                              </span>
+                            )}
+                          </div>
                           <div className="flex-1 text-left min-w-0">
                             <div className="flex items-center justify-between mb-1 pr-8">
                               <h3
-                                className={`font-bold truncate pr-2 ${
-                                  isActive
-                                    ? "text-white"
-                                    : unreadCount > 0
-                                    ? (isDark ? "text-cyan-100" : "text-slate-800")
-                                    : (isDark ? "text-blue-200" : "text-slate-700")
-                                }`}
+                                className={`font-bold truncate pr-2 ${isActive ? "text-white" : unreadCount > 0 ? (isDark ? "text-cyan-100" : "text-slate-800") : isDark ? "text-blue-200" : "text-slate-700"}`}
                               >
                                 {displayName}
                               </h3>
                               {lastMessageTime && (
                                 <span
-                                  className={`text-xs shrink-0 font-semibold ${
-                                    isActive
-                                      ? "text-white/90"
-                                      : unreadCount > 0
-                                      ? (isDark ? "text-cyan-300" : "text-blue-600")
-                                      : (isDark ? "text-blue-300" : "text-slate-400")
-                                  }`}
+                                  className={`text-xs shrink-0 font-semibold ${isActive ? "text-white/90" : unreadCount > 0 ? (isDark ? "text-cyan-300" : "text-blue-600") : isDark ? "text-blue-300" : "text-slate-400"}`}
                                 >
                                   {lastMessageTime}
                                 </span>
                               )}
                             </div>
-
                             <div className="flex items-center gap-1.5">
                               {messageStatus && renderStatusIcon(messageStatus)}
                               <p
-                                className={`text-sm truncate ${
-                                  isActive
-                                    ? "text-white/90"
-                                    : unreadCount > 0
-                                    ? (isDark ? "font-semibold text-blue-200" : "font-semibold text-slate-700")
-                                    : (isDark ? "text-blue-300" : "text-slate-500")
-                                }`}
+                                className={`text-sm truncate ${isActive ? "text-white/90" : unreadCount > 0 ? (isDark ? "font-semibold text-blue-200" : "font-semibold text-slate-700") : isDark ? "text-blue-300" : "text-slate-500"}`}
                               >
                                 {getLastMessagePreview(conv)}
                               </p>
                             </div>
                           </div>
-
                           {unreadCount > 0 && (
-                            <span className={`shrink-0 text-white text-xs font-bold px-3 py-1.5 rounded-full min-w-6 text-center shadow-md ${
-                              isDark 
-                                ? 'bg-linear-to-r from-blue-500 to-cyan-500' 
-                                : 'bg-linear-to-r from-blue-500 to-cyan-500'
-                            }`}>
+                            <span
+                              className={`shrink-0 text-white text-xs font-bold px-3 py-1.5 rounded-full min-w-6 text-center shadow-md ${isDark ? "bg-linear-to-r from-blue-500 to-cyan-500" : "bg-linear-to-r from-blue-500 to-cyan-500"}`}
+                            >
                               {unreadCount > 99 ? "99+" : unreadCount}
                             </span>
                           )}
                         </button>
-
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setMenuOpen(
-                              menuOpen === conv._id ? null : conv._id
+                              menuOpen === conv._id ? null : conv._id,
                             );
                           }}
-                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all ${
-                            isDark 
-                              ? 'hover:bg-blue-800/50' 
-                              : 'hover:bg-blue-100'
-                          }`}
+                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl opacity-0 group-hover:opacity-100 transition-all ${isDark ? "hover:bg-blue-800/50" : "hover:bg-blue-100"}`}
                         >
-                          <MoreVertical className={`w-5 h-5 ${
-                            isDark ? 'text-cyan-300' : 'text-blue-500'
-                          }`} />
+                          <MoreVertical
+                            className={`w-5 h-5 ${isDark ? "text-cyan-300" : "text-blue-500"}`}
+                          />
                         </button>
-
                         {menuOpen === conv._id && (
-                          <div className={`absolute right-2 top-[120%] -translate-y-1/2 rounded-2xl shadow-2xl border-2 py-2 z-20 w-52 animate-scale-in ${
-                            isDark 
-                              ? 'bg-linear-to-r from-blue-900 to-blue-800 border-blue-700' 
-                              : 'bg-white border-blue-100'
-                          }`}>
+                          <div
+                            className={`absolute right-2 top-[120%] -translate-y-1/2 rounded-2xl shadow-2xl border-2 py-2 z-20 w-52 animate-scale-in ${isDark ? "bg-linear-to-r from-blue-900 to-blue-800 border-blue-700" : "bg-white border-blue-100"}`}
+                          >
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
-
-                                if (!confirm(
-                                  `Archiver cette discussion ?\n\n` +
-                                  `💡 Effets :\n` +
-                                  `- Elle disparaîtra de la liste principale des chats\n` +
-                                  `- Elle sera visible dans Paramètres > Archives\n` +
-                                  `- Vous pourrez la restaurer plus tard`
-                                )) {
+                                if (!confirm(`Archiver cette discussion ?`))
                                   return;
-                                }
-
-                                setHiddenConversationIds(prev => {
+                                setHiddenConversationIds((prev) => {
                                   const next = new Set(prev);
                                   next.add(conv._id);
                                   return next;
                                 });
                                 setMenuOpen(null);
-
                                 try {
                                   await archiveConversation(conv._id);
                                 } catch (error) {
-                                  console.error('❌ Erreur archivage:', error);
+                                  console.error("❌ Erreur archivage:", error);
                                   alert("Erreur lors de l'archivage");
                                 }
                               }}
-                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-                                isDark 
-                                  ? 'hover:bg-blue-800/50 text-blue-200' 
-                                  : 'hover:bg-blue-50 text-slate-700'
-                              }`}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${isDark ? "hover:bg-blue-800/50 text-blue-200" : "hover:bg-blue-50 text-slate-700"}`}
                             >
-                              <Archive className={`w-5 h-5 ${isDark ? 'text-cyan-400' : 'text-blue-500'}`} />
+                              <Archive
+                                className={`w-5 h-5 ${isDark ? "text-cyan-400" : "text-blue-500"}`}
+                              />
                               Archiver
                             </button>
-                            {/* 🔥 NOUVEAU : Bloquer le contact (seulement pour les 1–1) */}
-    {!conv.isGroup && (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          handleBlockConversationContact(conv);
-        }}
-        className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-          isDark
-            ? 'hover:bg-red-900/40 text-red-300 hover:text-red-200'
-            : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-        }`}
-      >
-        <Shield className="w-5 h-5" />
-        Bloquer le contact
-      </button>
-    )}
-                            <button 
-  onClick={async (e) => {
-    e.stopPropagation();
-
-    // 🔥 même message que dans ChatHeader
-    const confirmMessage = `Vider cette discussion ?
-
-⚠️ Actions :
-- Tous vos messages seront supprimés
-- La discussion restera dans votre liste (vierge)
-- L'autre personne conservera son historique
-- Les nouveaux messages apparaîtront normalement`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    try {
-      console.log('🗑️ Vidage conversation depuis sidebar:', conv._id);
-
-      // 🔥 même route que dans ChatHeader
-      const response = await api.delete(
-        `/message-settings/conversations/${conv._id}/delete`
-      );
-
-      console.log('📦 Réponse suppression (sidebar):', response.data);
-
-      if (response.data.success) {
-        // ✅ fermer le menu
-        setMenuOpen(null);
-
-        // ✅ notifier le reste de l’app (même event que dans ChatHeader)
-        window.dispatchEvent(
-          new CustomEvent('conversation-cleared', {
-            detail: { conversationId: conv._id }
-          })
-        );
-
-        // ✅ rafraîchir les conversations de la sidebar
-        await fetchConversations();
-
-        // ✅ même message que dans ChatHeader
-        alert(
-          '✅ Discussion vidée\n\n💡 La discussion reste dans votre liste. Les nouveaux messages apparaîtront normalement.'
-        );
-      } else {
-        throw new Error(response.data.message || 'Erreur inconnue');
-      }
-    } catch (error) {
-      console.error('❌ Erreur suppression (sidebar):', error);
-      alert(
-        '❌ Erreur lors du vidage: ' +
-          (error.response?.data?.message || error.message)
-      );
-    }
-  }}
-  className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${
-    isDark 
-      ? 'hover:bg-red-900/50 text-red-300 hover:text-red-200' 
-      : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-  }`}
->
-  <Trash2 className="w-5 h-5" />
-  Supprimer la discussion
-</button>
+                            {!conv.isGroup && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleBlockConversationContact(conv);
+                                }}
+                                className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${isDark ? "hover:bg-red-900/40 text-red-300 hover:text-red-200" : "hover:bg-red-50 text-red-600 hover:text-red-700"}`}
+                              >
+                                <Shield className="w-5 h-5" />
+                                Bloquer le contact
+                              </button>
+                            )}
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm(`Vider cette discussion ?`))
+                                  return;
+                                try {
+                                  await api.delete(
+                                    `/message-settings/conversations/${conv._id}/delete`,
+                                  );
+                                  setMenuOpen(null);
+                                  window.dispatchEvent(
+                                    new CustomEvent("conversation-cleared", {
+                                      detail: { conversationId: conv._id },
+                                    }),
+                                  );
+                                  await fetchConversations();
+                                  alert("✅ Discussion vidée");
+                                } catch (error) {
+                                  console.error("❌ Erreur:", error);
+                                  alert("❌ Erreur lors du vidage");
+                                }
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 font-medium transition-colors ${isDark ? "hover:bg-red-900/50 text-red-300 hover:text-red-200" : "hover:bg-red-50 text-red-600 hover:text-red-700"}`}
+                            >
+                              <Trash2 className="w-5 h-5" />
+                              Supprimer la discussion
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1850,15 +1453,10 @@ const visibleConversations = useMemo(
                 </div>
               )}
             </div>
-
             {activeTab === "chats" && (
               <button
                 onClick={() => router.push("/group/create")}
-                className={`fixed bottom-6 right-6 w-12 h-12 text-white rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center z-50 group ${
-                  isDark 
-                    ? 'bg-linear-to-br from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 hover:shadow-cyan-500/50' 
-                    : 'bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/50'
-                }`}
+                className={`fixed bottom-6 right-6 w-12 h-12 text-white rounded-full shadow-2xl transition-all transform hover:scale-110 active:scale-95 flex items-center justify-center z-50 group ${isDark ? "bg-linear-to-br from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 hover:shadow-cyan-500/50" : "bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 hover:shadow-blue-500/50"}`}
                 title="Créer un groupe"
               >
                 <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
