@@ -235,12 +235,21 @@ export function TaskProvider({ children, conversationId }) {
   const createTask = useCallback(
     async (taskData) => {
       try {
+        // --- FIX: SANITIZE DATA ---
+        const payload = { ...taskData };
+
+        // Si currentProjectId est "all", on ne doit pas l'envoyer comme projectId
+        // car le backend attend un ObjectId hexadécimal.
+        if (payload.projectId === "all") {
+          delete payload.projectId; // Le backend mettra null ou undefined
+        }
+
         const res = await api.post(
           `/conversations/${conversationId}/tasks`,
-          taskData,
+          payload, // Utiliser le payload nettoyé
         );
+
         // Socket.io devrait mettre à jour automatiquement
-        // Mais on ajoute aussi manuellement au cas où
         const newTask = res.data.task;
         if (newTask) {
           setTasks((prev) => {
@@ -253,7 +262,7 @@ export function TaskProvider({ children, conversationId }) {
         console.error("❌ Erreur création:", err);
         return {
           success: false,
-          error: err.response?.data?.message || "Erreur",
+          error: err.response?.data?.message || "Erreur lors de la création",
         };
       }
     },

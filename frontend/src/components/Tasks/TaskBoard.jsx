@@ -18,6 +18,7 @@ import {
   Clock,
   ArrowLeft,
   Plus,
+  Sparkles,
 } from "lucide-react";
 
 export default function TaskBoard({ toggleSidebar }) {
@@ -41,48 +42,78 @@ export default function TaskBoard({ toggleSidebar }) {
     await changeTaskStatus(draggableId, destination.droppableId);
   };
 
-  // Configuration Mobile (Style Blanc/Noir appliqué)
+  // Configuration Mobile avec couleurs vives
   const mobileSections = [
     {
       id: "todo",
       label: "À Faire",
       count: tasksByStatus.todo.length,
       icon: Circle,
-      color: "text-blue-600",
-      bg: "bg-white border-slate-200", // Blanc pur
+      lightGradient: "from-blue-500 to-blue-600",
+      darkGradient: "from-blue-600 to-blue-700",
     },
     {
       id: "inProgress",
       label: "En Cours",
       count: tasksByStatus.inProgress.length,
       icon: Clock,
-      color: "text-amber-600",
-      bg: "bg-white border-slate-200", // Blanc pur
+      lightGradient: "from-orange-500 to-amber-600",
+      darkGradient: "from-orange-600 to-amber-700",
     },
     {
       id: "done",
       label: "Terminées",
       count: tasksByStatus.done.length,
       icon: CheckCircle2,
-      color: "text-emerald-600",
-      bg: "bg-white border-slate-200", // Blanc pur
+      lightGradient: "from-emerald-500 to-teal-600",
+      darkGradient: "from-emerald-600 to-teal-700",
     },
   ];
 
   // État vide
   if (!currentProjectId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-white dark:bg-slate-950">
-        <div className="w-24 h-24 bg-blue-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 border border-blue-100 dark:border-slate-700">
-          <FolderPlus className="w-10 h-10 text-blue-600" />
+      <div
+        className={`
+          flex flex-col items-center justify-center h-full p-8 text-center
+          ${
+            isDark
+              ? "bg-gradient-to-br from-blue-950 via-blue-900 to-blue-950"
+              : "bg-gradient-to-br from-blue-100 via-white to-blue-50"
+          }
+        `}
+      >
+        <div className="relative mb-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full blur-2xl opacity-40 animate-pulse" />
+          <div className="relative w-28 h-28 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl shadow-blue-500/40 ring-4 ring-white/20">
+            <FolderPlus className="w-14 h-14 text-white" strokeWidth={2} />
+          </div>
         </div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+        <h2
+          className={`
+            text-2xl font-black mb-3
+            ${isDark ? "text-blue-100" : "text-slate-900"}
+          `}
+        >
           Aucun projet sélectionné
         </h2>
+        <p
+          className={`
+            text-sm mb-6 max-w-sm
+            ${isDark ? "text-blue-400" : "text-slate-600"}
+          `}
+        >
+          Sélectionnez un projet dans la barre latérale pour commencer à gérer
+          vos tâches
+        </p>
         <button
           onClick={toggleSidebar}
-          className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-colors"
+          className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-2xl font-black shadow-2xl shadow-blue-600/40 hover:shadow-blue-600/60 transition-all active:scale-95 flex items-center gap-2"
         >
+          <Sparkles
+            size={20}
+            className="group-hover:rotate-12 transition-transform"
+          />
           Choisir un projet
         </button>
       </div>
@@ -90,105 +121,155 @@ export default function TaskBoard({ toggleSidebar }) {
   }
 
   return (
-    // FOND BLANC PUR (bg-white)
-    <div className="flex flex-col h-full w-full bg-white dark:bg-slate-950">
-      {/* --- HEADER --- */}
+    <div
+      className={`
+        flex flex-col h-full w-full transition-colors duration-300
+        ${
+          isDark
+            ? "bg-gradient-to-br from-blue-950 via-blue-900 to-blue-950"
+            : "bg-gradient-to-br from-blue-50 via-white to-blue-100/50"
+        }
+      `}
+    >
+      {/* HEADER */}
       <header
-        className={`px-6 py-4 flex items-center justify-between shrink-0 border-b ${
-          isDark ? "bg-slate-900 border-slate-800" : "bg-blue border-slate-200" // Fond blanc, bordure nette
-        }`}
+        className={`
+          px-4 sm:px-6 py-4 flex items-center justify-between shrink-0
+          border-b-2 backdrop-blur-sm
+          ${
+            isDark
+              ? "bg-gradient-to-r from-blue-950/80 to-blue-900/80 border-blue-800/60"
+              : "bg-gradient-to-r from-blue-50/80 to-white/80 border-blue-200 shadow-sm"
+          }
+        `}
       >
         <div className="flex items-center gap-3">
           <button
             onClick={toggleSidebar}
-            className="md:hidden p-2 -ml-2 text-slate-900 dark:text-white hover:bg-slate-100 rounded-lg"
+            className={`
+              md:hidden p-2.5 -ml-2 rounded-xl transition-all active:scale-95
+              ${
+                isDark
+                  ? "text-white hover:bg-blue-800/50"
+                  : "text-blue-900 hover:bg-blue-100"
+              }
+            `}
           >
-            <Menu size={24} />
+            <Menu size={24} strokeWidth={2} />
           </button>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-1000 dark:text-blue-600 leading-tight">
-              {currentProject?.name|| "Selectionner un projet"}
+            <h1
+              className={`
+                text-lg sm:text-xl font-black leading-tight
+                ${isDark ? "text-blue-100" : "text-blue-900"}
+              `}
+            >
+              {currentProject?.name || "Sélectionner un projet"}
             </h1>
-            <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">
+            <p
+              className={`
+                text-[10px] sm:text-xs font-black uppercase tracking-widest
+                ${isDark ? "text-blue-400" : "text-blue-600"}
+              `}
+            >
               Workspace
             </p>
           </div>
         </div>
 
-        {/* ACTIONS HEADER (Desktop) */}
-        <div className="flex items-center gap-3">
-          {/* ✅ BOUTON CRÉER TÂCHE (Visible sur Desktop) */}
+        {/* ACTIONS HEADER */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => setShowNewTaskModal(true)}
-            className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md shadow-blue-600/20 transition-all active:scale-95"
+            className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-black shadow-xl shadow-blue-600/30 transition-all active:scale-95"
           >
-            <Plus size={18} />
+            <Plus size={18} strokeWidth={2.5} />
             <span>Nouvelle tâche</span>
           </button>
 
           {/* Switcher Vue */}
-          <div className="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+          <div
+            className={`
+              hidden md:flex p-1 rounded-xl backdrop-blur-sm
+              ${
+                isDark
+                  ? "bg-blue-900/40 ring-1 ring-blue-800/50"
+                  : "bg-blue-100 ring-1 ring-blue-200"
+              }
+            `}
+          >
             <button
               onClick={() => setViewMode("board")}
-              className={`p-2 rounded-md transition-all ${
-                viewMode === "board"
-                  ? "bg-white shadow text-blue-600"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
+              className={`
+                p-2.5 rounded-lg transition-all
+                ${
+                  viewMode === "board"
+                    ? isDark
+                      ? "bg-blue-800 shadow-lg text-blue-200 ring-1 ring-blue-700"
+                      : "bg-white shadow-md text-blue-600 ring-1 ring-blue-300"
+                    : isDark
+                      ? "text-blue-400 hover:text-blue-300 hover:bg-blue-800/50"
+                      : "text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+                }
+              `}
             >
-              <Kanban size={18} />
+              <Kanban size={18} strokeWidth={2} />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-md transition-all ${
-                viewMode === "list"
-                  ? "bg-white shadow text-blue-600"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
+              className={`
+                p-2.5 rounded-lg transition-all
+                ${
+                  viewMode === "list"
+                    ? isDark
+                      ? "bg-blue-800 shadow-lg text-blue-200 ring-1 ring-blue-700"
+                      : "bg-white shadow-md text-blue-600 ring-1 ring-blue-300"
+                    : isDark
+                      ? "text-blue-400 hover:text-blue-300 hover:bg-blue-800/50"
+                      : "text-blue-600 hover:text-blue-900 hover:bg-blue-50"
+                }
+              `}
             >
-              <LayoutList size={18} />
+              <LayoutList size={18} strokeWidth={2} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* --- FILTRES --- */}
-      <div className="shrink-0 z-10 bg-white dark:bg-slate-950">
+      {/* FILTRES */}
+      <div className="shrink-0 z-10">
         <TaskFilters onNewTask={() => setShowNewTaskModal(true)} />
       </div>
 
-      {/* --- VUE MOBILE (Cartes Dossiers) --- */}
-      <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-3 bg-white dark:bg-slate-950">
+      {/* VUE MOBILE (Cartes) */}
+      <div className="md:hidden flex-1 overflow-y-auto p-4 space-y-3">
         {mobileSections.map((section) => {
           const Icon = section.icon;
           return (
             <button
               key={section.id}
               onClick={() => setActiveMobileColumn(section.id)}
-              className={`w-full p-5 rounded-xl border flex items-center justify-between transition-transform active:scale-[0.98] ${
-                isDark
-                  ? "bg-slate-900 border-slate-800 text-white"
-                  : "bg-white border-slate-200 shadow-sm hover:border-blue-300" // Carte blanche propre
-              }`}
+              className={`
+                w-full p-5 rounded-2xl flex items-center justify-between
+                transition-all active:scale-[0.98] shadow-xl
+                bg-gradient-to-r ${
+                  isDark ? section.darkGradient : section.lightGradient
+                }
+                text-white border-2 border-white/20
+              `}
             >
               <div className="flex items-center gap-4">
-                <div
-                  className={`p-3 rounded-full ${isDark ? "bg-slate-800" : "bg-slate-50 text-slate-900"}`}
-                >
-                  <Icon size={24} className={section.color} />
+                <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm ring-2 ring-white/30">
+                  <Icon size={24} className="text-white" strokeWidth={2.5} />
                 </div>
                 <div className="text-left">
-                  <h3
-                    className={`text-lg font-bold ${isDark ? "text-white" : "text-slate-900"}`}
-                  >
-                    {section.label}
-                  </h3>
-                  <p className="text-sm font-medium text-slate-500">
-                    {section.count} tâches
+                  <h3 className="text-lg font-black">{section.label}</h3>
+                  <p className="text-sm font-bold text-white/80">
+                    {section.count} tâche{section.count > 1 ? "s" : ""}
                   </p>
                 </div>
               </div>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-sm font-black text-base ring-2 ring-white/30">
                 {section.count}
               </div>
             </button>
@@ -196,21 +277,52 @@ export default function TaskBoard({ toggleSidebar }) {
         })}
       </div>
 
-      {/* --- POPUP MOBILE (Liste détaillée) --- */}
+      {/* POPUP MOBILE */}
       {activeMobileColumn && (
-        <div className="fixed inset-0 z-50 bg-white dark:bg-slate-950 flex flex-col md:hidden animate-in slide-in-from-right duration-300">
-          <div className="px-4 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 bg-white dark:bg-slate-900">
+        <div
+          className={`
+            fixed inset-0 z-50 flex flex-col md:hidden
+            animate-in slide-in-from-right duration-300
+            ${
+              isDark
+                ? "bg-gradient-to-br from-blue-950 to-blue-900"
+                : "bg-gradient-to-br from-blue-50 to-white"
+            }
+          `}
+        >
+          <div
+            className={`
+              px-4 py-4 border-b-2 flex items-center gap-3 backdrop-blur-sm
+              ${
+                isDark
+                  ? "border-blue-800/60 bg-blue-950/80"
+                  : "border-blue-200 bg-white/80"
+              }
+            `}
+          >
             <button
               onClick={() => setActiveMobileColumn(null)}
-              className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+              className={`
+                p-2.5 -ml-2 rounded-xl transition-all active:scale-95
+                ${
+                  isDark
+                    ? "hover:bg-blue-800/50 text-white"
+                    : "hover:bg-blue-100 text-blue-900"
+                }
+              `}
             >
-              <ArrowLeft size={24} className="text-slate-900 dark:text-white" />
+              <ArrowLeft size={24} strokeWidth={2} />
             </button>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2
+              className={`
+                text-lg font-black
+                ${isDark ? "text-white" : "text-blue-900"}
+              `}
+            >
               {mobileSections.find((s) => s.id === activeMobileColumn)?.label}
             </h2>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-950">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {tasksByStatus[activeMobileColumn].map((task) => (
               <TaskCard
                 key={task._id}
@@ -220,21 +332,21 @@ export default function TaskBoard({ toggleSidebar }) {
               />
             ))}
           </div>
-          {/* Bouton Flottant (FAB) pour créer sur Mobile */}
+          {/* FAB */}
           <button
             onClick={() => setShowNewTaskModal(true)}
-            className="absolute bottom-6 right-6 w-14 h-14 bg-blue-600 rounded-full text-white shadow-xl shadow-blue-600/40 flex items-center justify-center active:scale-90 transition-transform"
+            className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full text-white shadow-2xl shadow-blue-600/50 flex items-center justify-center active:scale-90 transition-all ring-4 ring-white/20"
           >
-            <Plus size={28} />
+            <Plus size={32} strokeWidth={2.5} />
           </button>
         </div>
       )}
 
-      {/* --- VUE DESKTOP (Kanban) --- */}
-      <div className="hidden md:flex flex-1 overflow-x-auto overflow-y-hidden p-6 custom-scrollbar bg-white dark:bg-slate-950">
+      {/* VUE DESKTOP (Kanban) */}
+      <div className="hidden md:flex flex-1 overflow-x-auto overflow-y-hidden p-6 gap-6">
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="flex h-full gap-6 w-full min-w-full">
-            <div className="w-[350px] shrink-0 h-full">
+            <div className="w-[350px] lg:w-[380px] shrink-0 h-full">
               <TaskColumn
                 id="todo"
                 title="À faire"
@@ -242,7 +354,7 @@ export default function TaskBoard({ toggleSidebar }) {
                 onTaskClick={setSelectedTask}
               />
             </div>
-            <div className="w-[350px] shrink-0 h-full">
+            <div className="w-[350px] lg:w-[380px] shrink-0 h-full">
               <TaskColumn
                 id="inProgress"
                 title="En cours"
@@ -250,7 +362,7 @@ export default function TaskBoard({ toggleSidebar }) {
                 onTaskClick={setSelectedTask}
               />
             </div>
-            <div className="w-[350px] shrink-0 h-full">
+            <div className="w-[350px] lg:w-[380px] shrink-0 h-full">
               <TaskColumn
                 id="done"
                 title="Terminées"
@@ -276,6 +388,27 @@ export default function TaskBoard({ toggleSidebar }) {
           onClose={() => setSelectedTask(null)}
         />
       )}
+
+      <style jsx global>{`
+        /* Fix pour le drag and drop - carte au dessus de tout */
+        .react-beautiful-dnd-dragging {
+          z-index: 9999 !important;
+        }
+
+        /* Désactiver toutes les transitions pendant le drag pour suivre la souris */
+        .react-beautiful-dnd-dragging * {
+          transition: none !important;
+        }
+
+        /* Amélioration du curseur pendant le drag */
+        .react-beautiful-dnd-drag-handle {
+          cursor: grab !important;
+        }
+
+        .react-beautiful-dnd-drag-handle:active {
+          cursor: grabbing !important;
+        }
+      `}</style>
     </div>
   );
 }
