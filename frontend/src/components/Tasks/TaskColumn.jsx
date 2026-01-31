@@ -8,16 +8,34 @@ const columnConfig = {
     title: "À faire",
     color: "blue",
     dotColor: "bg-blue-500",
+    bgLight: "bg-gradient-to-b from-blue-50 to-blue-100/50",
+    bgDark: "bg-gradient-to-b from-blue-950/30 to-blue-950/10",
+    borderLight: "border-blue-200",
+    borderDark: "border-blue-900/30",
+    headerLight: "bg-blue-200/70 border-blue-300",
+    headerDark: "bg-blue-900/50 border-blue-800/50",
   },
   inProgress: {
     title: "En cours",
     color: "amber",
     dotColor: "bg-amber-500",
+    bgLight: "bg-gradient-to-b from-amber-50 to-amber-100/50",
+    bgDark: "bg-gradient-to-b from-amber-950/30 to-amber-950/10",
+    borderLight: "border-amber-200",
+    borderDark: "border-amber-900/30",
+    headerLight: "bg-amber-200/70 border-amber-300",
+    headerDark: "bg-amber-900/50 border-amber-800/50",
   },
   done: {
     title: "Terminées",
     color: "emerald",
     dotColor: "bg-emerald-500",
+    bgLight: "bg-gradient-to-b from-emerald-50 to-emerald-100/50",
+    bgDark: "bg-gradient-to-b from-emerald-950/30 to-emerald-950/10",
+    borderLight: "border-emerald-200",
+    borderDark: "border-emerald-900/30",
+    headerLight: "bg-emerald-200/70 border-emerald-300",
+    headerDark: "bg-emerald-900/50 border-emerald-800/50",
   },
 };
 
@@ -25,11 +43,18 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
   const { isDark } = useTheme();
   const config = columnConfig[id] || { dotColor: "bg-slate-500" };
 
+  // Utiliser les couleurs du config au lieu des valeurs fixes
   const columnBg = isDark
-    ? "bg-slate-900/50 border-slate-800"
-    : "bg-slate-50 border-slate-200";
+    ? (config.bgDark || "bg-slate-900/50")
+    : (config.bgLight || "bg-slate-50");
+    
+  const columnBorder = isDark
+    ? (config.borderDark || "border-slate-800")
+    : (config.borderLight || "border-slate-200");
 
-  const headerBg = isDark ? "border-slate-800" : "border-slate-200";
+  const headerBg = isDark 
+    ? (config.headerDark || "border-slate-800") 
+    : (config.headerLight || "border-slate-200");
 
   const emptyBg = isDark
     ? "border-slate-700 text-slate-500"
@@ -42,14 +67,15 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
           ref={provided.innerRef}
           {...provided.droppableProps}
           className={`
-            flex flex-col h-full w-full rounded-xl sm:rounded-2xl border transition-all
+            flex flex-col h-full w-full rounded-xl sm:rounded-2xl border-2 transition-all
             ${columnBg}
+            ${columnBorder}
             ${snapshot.isDraggingOver ? "ring-2 ring-blue-500/50 bg-blue-500/5" : ""}
           `}
         >
           {/* Header - Responsive */}
           <div
-            className={`flex items-center justify-between p-3 sm:p-4 border-b ${headerBg}`}
+            className={`flex items-center justify-between p-3 sm:p-4 border-b overflow-hidden rounded-t-xl sm:rounded-t-2xl ${headerBg}`}
           >
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`} />
@@ -69,7 +95,7 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
               className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
                 isDark
                   ? "bg-slate-800 text-slate-300"
-                  : "bg-slate-200 text-slate-600"
+                  : "bg-white/80 text-slate-600"
               }`}
             >
               {tasks.length}
@@ -85,7 +111,7 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={snapshot.isDragging ? "z-50" : ""}
+                    style={provided.draggableProps.style}
                   >
                     <TaskCard
                       task={task}

@@ -88,6 +88,37 @@ export function TaskProvider({ children, conversationId }) {
       console.error("❌ Erreur fetch participants:", err);
     }
   }, [conversationId]);
+  
+const moveTask = useCallback((taskId, source, destination) => {
+  setTasks(prev => {
+    const updated = [...prev];
+
+    const taskIndex = updated.findIndex(t => t._id === taskId);
+    if (taskIndex === -1) return prev;
+
+    const task = { ...updated[taskIndex] };
+    updated.splice(taskIndex, 1);
+
+    task.status = destination.droppableId;
+
+    // 🔥 IMPORTANT : on insère selon destination.index
+    const targetTasks = updated.filter(
+      t => t.status === destination.droppableId
+    );
+
+    const targetIds = targetTasks.map(t => t._id);
+
+    const insertBeforeId = targetIds[destination.index];
+    if (!insertBeforeId) {
+      updated.push(task);
+    } else {
+      const insertIndex = updated.findIndex(t => t._id === insertBeforeId);
+      updated.splice(insertIndex, 0, task);
+    }
+
+    return updated;
+  });
+}, []);
 
   // Charger les données au montage
   useEffect(() => {
