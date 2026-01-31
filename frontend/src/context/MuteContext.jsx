@@ -2,21 +2,43 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { getMutedConversations } from "@/lib/api";
+import { AuthContext } from "@/context/AuthProvider"; // 👈 IMPORT IMPORTANT
 
 const MuteContext = createContext(null);
 
 export function MuteProvider({ children }) {
+  // 1. On récupère l'utilisateur depuis l'AuthContext
+  const { user } = useContext(AuthContext); 
+  
   const [mutedSet, setMutedSet] = useState(() => new Set());
+    const [isLoaded, setIsLoaded] = useState(false);
 
-  const refreshMuted = useCallback(async () => {
+  // Dans MuteContext.jsx
+
+const refreshMuted = useCallback(async () => {
+    if (!user) {
+        setMutedSet(new Set());
+        // Ne pas mettre isLoaded à true ici si pas de user
+        return;
+    }
+
     try {
       const res = await getMutedConversations();
       const ids = res.data?.mutedConversationIds || [];
-      setMutedSet(new Set(ids.map(String)));
+      
+      // Mise à jour atomique : on prépare le Set avant
+      const newSet = new Set(ids.map(id => id.toString())); // Force string
+      
+      setMutedSet(newSet);
+      // setIsLoaded est mis à true uniquement APRÈS le setMutedSet
+      // Même si React batch, c'est sémantiquement plus sûr.
     } catch (e) {
       console.error("❌ refreshMuted error:", e);
     }
-  }, []);
+    finally {
+      setIsLoaded(true); 
+    }
+}, [user]);
 
   const setConversationMuted = useCallback((conversationId, muted) => {
     if (!conversationId) return;
@@ -38,15 +60,18 @@ export function MuteProvider({ children }) {
     [mutedSet]
   );
 
-  useEffect(() => {
-    refreshMuted();
-  }, [refreshMuted]);
+   useEffect(() => {
+    if (user) {
+        refreshMuted();
+    } else {
+        setIsLoaded(false); // 👈 AJOUT (Sécurité logout)
+    }
+  }, [refreshMuted, user]); 
 
-  const value = useMemo(
-    () => ({ mutedSet, refreshMuted, setConversationMuted, isMuted }),
-    [mutedSet, refreshMuted, setConversationMuted, isMuted]
+   const value = useMemo(
+    () => ({ mutedSet, refreshMuted, setConversationMuted, isMuted, isLoaded }), // 👈 AJOUTE isLoaded ICI
+    [mutedSet, refreshMuted, setConversationMuted, isMuted, isLoaded]            // 👈 ET ICI
   );
-
   return <MuteContext.Provider value={value}>{children}</MuteContext.Provider>;
 }
 
