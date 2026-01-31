@@ -1,6 +1,6 @@
 // controllers/contactController.js
-const Contact = require('../models/Contact');
-const User = require('../models/User');
+const Contact = require("../models/Contact");
+const User = require("../models/User");
 const mongoose = require("mongoose");
 
 // 📌 Récupérer tous les contacts d'un utilisateur
@@ -8,37 +8,38 @@ exports.getMyContacts = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const contacts = await Contact.find({ 
+    const contacts = await Contact.find({
       owner: userId,
-      isBlocked: false 
+      isBlocked: false,
     })
-      .populate('contact', 'name email profilePicture status isOnline')
-      .sort({  addedAt: -1 }); // Favoris en premier
+      .populate("contact", "name email profilePicture bio isOnline")
+      .sort({ addedAt: -1 }); // Favoris en premier
 
     res.json({
       success: true,
-      contacts: contacts.map(c => ({
+      contacts: contacts.map((c) => ({
         _id: c._id,
         user: c.contact,
         customName: c.customName,
         notes: c.notes,
         isFavorite: c.isFavorite,
-        addedAt: c.addedAt
-      }))
+        addedAt: c.addedAt,
+      })),
     });
   } catch (error) {
-    console.error('Erreur getMyContacts:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error("Erreur getMyContacts:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
-
 
 exports.addContact = async (req, res) => {
   try {
     const { owner, contact } = req.body;
 
     if (!owner || !contact)
-      return res.status(400).json({ message: "owner and contact are required" });
+      return res
+        .status(400)
+        .json({ message: "owner and contact are required" });
 
     if (owner === contact)
       return res.status(400).json({ message: "You cannot add yourself" });
@@ -64,23 +65,20 @@ exports.addContact = async (req, res) => {
       contact,
       conversation: conversationId,
       isFavorite: false,
-      isBlocked: false
+      isBlocked: false,
     });
 
     const saved = await newContact.save();
 
     res.status(201).json({
       message: "Contact added",
-      contact: saved
+      contact: saved,
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
-
-
 
 // 📌 Supprimer un contact
 exports.deleteContact = async (req, res) => {
@@ -94,11 +92,11 @@ exports.deleteContact = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Contact supprimé'
+      message: "Contact supprimé",
     });
   } catch (error) {
-    console.error('Erreur deleteContact:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error("Erreur deleteContact:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -110,17 +108,17 @@ exports.toggleFavorite = async (req, res) => {
 
     const contact = await Contact.findOne({
       owner: userId,
-      contact: contactId
+      contact: contactId,
     });
 
     if (!contact) {
-      return res.status(404).json({ error: 'Contact non trouvé' });
+      return res.status(404).json({ error: "Contact non trouvé" });
     }
 
     contact.isFavorite = !contact.isFavorite;
     await contact.save();
 
-    await contact.populate('contact', 'name email profilePicture status isOnline');
+    await contact.populate("contact", "name email profilePicture bio isOnline");
 
     res.json({
       success: true,
@@ -129,12 +127,12 @@ exports.toggleFavorite = async (req, res) => {
         user: contact.contact,
         customName: contact.customName,
         isFavorite: contact.isFavorite,
-        addedAt: contact.addedAt
-      }
+        addedAt: contact.addedAt,
+      },
     });
   } catch (error) {
-    console.error('Erreur toggleFavorite:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error("Erreur toggleFavorite:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -147,17 +145,17 @@ exports.updateCustomName = async (req, res) => {
 
     const contact = await Contact.findOne({
       owner: userId,
-      contact: contactId
+      contact: contactId,
     });
 
     if (!contact) {
-      return res.status(404).json({ error: 'Contact non trouvé' });
+      return res.status(404).json({ error: "Contact non trouvé" });
     }
 
     contact.customName = customName || null;
     await contact.save();
 
-    await contact.populate('contact', 'name email profilePicture status isOnline');
+    await contact.populate("contact", "name email profilePicture bio isOnline");
 
     res.json({
       success: true,
@@ -166,12 +164,12 @@ exports.updateCustomName = async (req, res) => {
         user: contact.contact,
         customName: contact.customName,
         isFavorite: contact.isFavorite,
-        addedAt: contact.addedAt
-      }
+        addedAt: contact.addedAt,
+      },
     });
   } catch (error) {
-    console.error('Erreur updateCustomName:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error("Erreur updateCustomName:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -183,11 +181,11 @@ exports.blockContact = async (req, res) => {
 
     const contact = await Contact.findOne({
       owner: userId,
-      contact: contactId
+      contact: contactId,
     });
 
     if (!contact) {
-      return res.status(404).json({ error: 'Contact non trouvé' });
+      return res.status(404).json({ error: "Contact non trouvé" });
     }
 
     contact.isBlocked = true;
@@ -195,10 +193,10 @@ exports.blockContact = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Contact bloqué'
+      message: "Contact bloqué",
     });
   } catch (error) {
-    console.error('Erreur blockContact:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error("Erreur blockContact:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };

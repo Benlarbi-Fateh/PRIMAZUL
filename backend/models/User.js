@@ -116,7 +116,7 @@ const userSchema = new mongoose.Schema(
     // Réinitialisation mot de passe
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
-    status: { type: String, default: "Hey there! I'm using WhatsApp" },
+    status: { type: String, default: "Hey there! I'm using Primazul" },
     isOnline: { type: Boolean, default: false },
 
     // 🔥 Champs ajoutés pour changement d’email

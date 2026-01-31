@@ -24,7 +24,6 @@ import { searchUsers, sendInvitation, getSentInvitations } from "@/lib/api";
 import { getSocket, onInvitationCancelled } from "@/services/socket";
 import { useTheme } from "@/hooks/useTheme";
 
-
 /* ---------------- AVATAR ---------------- */
 function Avatar({ user, size = "md", showStatus = true }) {
   const { isDark } = useTheme();
@@ -60,7 +59,7 @@ function Avatar({ user, size = "md", showStatus = true }) {
             className="w-full h-full object-cover"
             onError={(e) => {
               e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                user.name || "User"
+                user.name || "User",
               )}&background=${
                 isDark ? "0ea5e9" : "3b82f6"
               }&color=fff&bold=true`;
@@ -101,7 +100,7 @@ function FavoritesBar({ contacts, favoriteIds, setSelected, searchTerm }) {
   const favorites = contacts.filter(
     (c) =>
       favoriteIds.has(c.user?._id) &&
-      c.user?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      c.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   if (favorites.length === 0) return null;
@@ -296,8 +295,8 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
                 isFav
                   ? "text-yellow-400 fill-yellow-400"
                   : isDark
-                  ? "text-blue-300"
-                  : "text-blue-400"
+                    ? "text-blue-300"
+                    : "text-blue-400"
               }`}
             />
           </button>
@@ -332,7 +331,7 @@ function ContactDetails({ contact, toggleFavorite, favoriteIds, onBack }) {
 
             {/* Statut */}
             <p className={`mb-8 ${textSecondary}`}>
-              {user.status || "Aucun statut défini"}
+              {user.bio?.trim() ? user.bio : "Aucune biographie renseignée"}
             </p>
           </div>
 
@@ -598,7 +597,7 @@ function AddContactTab({ contactIds }) {
       try {
         const response = await getSentInvitations();
         const sentUserIds = (response.data.invitations || []).map(
-          (inv) => inv.receiver._id
+          (inv) => inv.receiver._id,
         );
         setSentInvitations(new Set(sentUserIds));
       } catch (error) {
@@ -873,12 +872,12 @@ export default function ContactsPage() {
         const fetchedContacts = res.data.contacts || [];
         setContacts(fetchedContacts);
         setContactIds(
-          new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean))
+          new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean)),
         );
         setFavoriteIds(
           new Set(
-            fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id)
-          )
+            fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id),
+          ),
         );
       } catch (err) {
         console.error(err);
@@ -901,12 +900,12 @@ export default function ContactsPage() {
         const fetchedContacts = res.data.contacts || [];
         setContacts(fetchedContacts);
         setContactIds(
-          new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean))
+          new Set(fetchedContacts.map((c) => c.user?._id).filter(Boolean)),
         );
         setFavoriteIds(
           new Set(
-            fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id)
-          )
+            fetchedContacts.filter((c) => c.isFavorite).map((c) => c.user._id),
+          ),
         );
       } catch (error) {
         console.error("Erreur rechargement:", error);
@@ -919,12 +918,12 @@ export default function ContactsPage() {
   }, []);
 
   useEffect(() => {
-  const tab = searchParams.get("tab");
-  if (tab === "add") {
-    setActiveTab("add");
-    setSelected(null);
-  }
-}, [searchParams]);
+    const tab = searchParams.get("tab");
+    if (tab === "add") {
+      setActiveTab("add");
+      setSelected(null);
+    }
+  }, [searchParams]);
 
   const toggleFavorite = async (userId) => {
     const wasFavorite = favoriteIds.has(userId);
@@ -1129,8 +1128,8 @@ export default function ContactsPage() {
                                     ? "bg-yellow-500/20 hover:bg-yellow-500/30"
                                     : "bg-yellow-50 hover:bg-yellow-100"
                                   : isDark
-                                  ? "bg-blue-800/50 hover:bg-blue-700/50"
-                                  : "bg-blue-50 hover:bg-blue-100"
+                                    ? "bg-blue-800/50 hover:bg-blue-700/50"
+                                    : "bg-blue-50 hover:bg-blue-100"
                               }`}
                               title={
                                 isFav
@@ -1144,8 +1143,8 @@ export default function ContactsPage() {
                                   isFav
                                     ? "text-yellow-400 fill-yellow-400"
                                     : isDark
-                                    ? "text-blue-300"
-                                    : "text-blue-400"
+                                      ? "text-blue-300"
+                                      : "text-blue-400"
                                 }`}
                               />
                             </button>
