@@ -61,49 +61,53 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
     : "border-slate-300 text-slate-400";
 
   return (
-    <Droppable droppableId={id}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.droppableProps}
-          className={`
-            flex flex-col h-full w-full rounded-xl sm:rounded-2xl border-2 transition-all
-            ${columnBg}
-            ${columnBorder}
-            ${snapshot.isDraggingOver ? "ring-2 ring-blue-500/50 bg-blue-500/5" : ""}
-          `}
-        >
-          {/* Header - Responsive */}
-          <div
-            className={`flex items-center justify-between p-3 sm:p-4 border-b overflow-hidden rounded-t-xl sm:rounded-t-2xl ${headerBg}`}
+    <div
+      className={`
+        flex flex-col h-full w-full rounded-xl sm:rounded-2xl border-2 overflow-hidden
+        ${columnBg}
+        ${columnBorder}
+      `}
+    >
+      {/* Header - Responsive */}
+      <div
+        className={`flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0 ${headerBg}`}
+      >
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`} />
+          <h3
+            className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
+              isDark ? "text-slate-200" : "text-slate-700"
+            }`}
           >
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`} />
-              <h3
-                className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
-                  isDark ? "text-slate-200" : "text-slate-700"
-                }`}
-              >
-                {/* Mobile: titre court, Desktop: titre complet */}
-                <span className="hidden sm:inline">{title}</span>
-                <span className="sm:hidden">
-                  {id === "todo" ? "À faire" : id === "inProgress" ? "En cours" : "Faites"}
-                </span>
-              </h3>
-            </div>
-            <span
-              className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
-                isDark
-                  ? "bg-slate-800 text-slate-300"
-                  : "bg-white/80 text-slate-600"
-              }`}
-            >
-              {tasks.length}
+            {/* Mobile: titre court, Desktop: titre complet */}
+            <span className="hidden sm:inline">{title}</span>
+            <span className="sm:hidden">
+              {id === "todo" ? "À faire" : id === "inProgress" ? "En cours" : "Faites"}
             </span>
-          </div>
+          </h3>
+        </div>
+        <span
+          className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
+            isDark
+              ? "bg-slate-800 text-slate-300"
+              : "bg-white/80 text-slate-600"
+          }`}
+        >
+          {tasks.length}
+        </span>
+      </div>
 
-          {/* Liste des tâches - Prend toute la hauteur restante */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2 min-h-0">
+      {/* Zone droppable avec scroll - ✅ CORRIGÉ */}
+      <Droppable droppableId={id}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`
+              flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2 min-h-0
+              ${snapshot.isDraggingOver ? "bg-blue-500/5 ring-2 ring-blue-500/50 ring-inset" : ""}
+            `}
+          >
             {tasks.map((task, index) => (
               <Draggable key={task._id} draggableId={task._id} index={index}>
                 {(provided, snapshot) => (
@@ -142,8 +146,8 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
               </div>
             )}
           </div>
-        </div>
-      )}
-    </Droppable>
+        )}
+      </Droppable>
+    </div>
   );
 }

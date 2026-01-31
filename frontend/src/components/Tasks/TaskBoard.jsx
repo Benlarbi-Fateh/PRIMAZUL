@@ -71,45 +71,68 @@ export default function TaskBoard() {
 
   return (
     <div className={`flex flex-col h-full ${containerBg}`}>
-      {/* Header Projet - BLEU VIBRANT */}
-      <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b bg-blue-600 border-blue-700">
-        {/* Menu hamburger - Sans background, direct sur le bleu */}
-        <button
-          onClick={() => setIsMobileSidebarOpen(true)}
-          className="lg:hidden p-2 rounded-lg transition-all hover:bg-blue-700/50 text-white"
-        >
-          <Menu size={20} />
-        </button>
+      {/* Header Projet - Adaptatif selon le thème */}
+<div className={`flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b ${
+  isDark 
+    ? "bg-slate-800 border-slate-700" 
+    : "bg-blue-500 border-blue-600"
+}`}>
+  {/* Menu hamburger */}
+  <button
+    onClick={() => setIsMobileSidebarOpen(true)}
+    className={`lg:hidden p-2 rounded-lg transition-all text-white ${
+      isDark 
+        ? "hover:bg-slate-700" 
+        : "hover:bg-blue-600/50"
+    }`}
+  >
+    <Menu size={20} />
+  </button>
 
-        {/* Icône et nom du projet - Hashtag caché en mobile */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-          {currentProjectId === "all" ? (
-            <div className="hidden sm:block p-2 sm:p-2.5 rounded-xl bg-blue-700">
-              <FolderOpen size={18} className="text-white sm:w-5 sm:h-5" />
-            </div>
-          ) : (
-            <div className="hidden sm:block p-2 sm:p-2.5 rounded-xl bg-blue-700">
-              <Hash size={16} className="text-white sm:w-[18px] sm:h-[18px]" />
-            </div>
-          )}
-
-          <div className="flex-1 min-w-0">
-            <h1 className="text-base sm:text-lg font-bold truncate text-white">
-              {projectName}
-            </h1>
-            <p className="text-[10px] sm:text-xs text-blue-100">
-              {stats.total} tâche{stats.total !== 1 ? "s" : ""} au total
-            </p>
-          </div>
-        </div>
-
-        {/* Badge de progression */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-700 border-blue-800 border">
-          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          <span className="text-xs font-bold text-white">{stats.progress}%</span>
-        </div>
+  {/* Icône et nom du projet - Hashtag caché en mobile */}
+  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+    {currentProjectId === "all" ? (
+      <div className={`hidden sm:block p-2 sm:p-2.5 rounded-xl ${
+        isDark 
+          ? "bg-slate-700" 
+          : "bg-blue-700"
+      }`}>
+        <FolderOpen size={18} className="text-white sm:w-5 sm:h-5" />
       </div>
+    ) : (
+      <div className={`hidden sm:block p-2 sm:p-2.5 rounded-xl ${
+        isDark 
+          ? "bg-slate-700" 
+          : "bg-blue-700"
+      }`}>
+        <Hash size={16} className="text-white sm:w-[18px] sm:h-[18px]" />
+      </div>
+    )}
 
+    <div className="flex-1 min-w-0">
+      <h1 className="text-base sm:text-lg font-bold truncate text-white">
+        {projectName}
+      </h1>
+      <p className={`text-[10px] sm:text-xs ${
+        isDark 
+          ? "text-slate-400" 
+          : "text-blue-200"
+      }`}>
+        {stats.total} tâche{stats.total !== 1 ? "s" : ""} au total
+      </p>
+    </div>
+  </div>
+
+  {/* Badge de progression */}
+  <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
+    isDark 
+      ? "bg-slate-700 border-slate-600" 
+      : "bg-blue-600 border-blue-700"
+  }`}>
+    <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+    <span className="text-xs font-bold text-white">{stats.progress}%</span>
+  </div>
+</div>
       {/* Filtres */}
       <TaskFilters onNewTask={() => setShowNewTaskModal(true)} />
 
@@ -261,33 +284,34 @@ export default function TaskBoard() {
       </div>
 
       {/* MODE DESKTOP - Board Kanban */}
-      <div className="hidden xl:block flex-1 min-h-0 p-4">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="h-full grid grid-cols-3 gap-4">
-            <TaskColumn
-              id="todo"
-              title="À faire"
-              tasks={tasksByStatus.todo}
-              onTaskClick={setSelectedTask}
-              color="blue"
-            />
-            <TaskColumn
-              id="inProgress"
-              title="En cours"
-              tasks={tasksByStatus.inProgress}
-              onTaskClick={setSelectedTask}
-              color="amber"
-            />
-            <TaskColumn
-              id="done"
-              title="Terminées"
-              tasks={tasksByStatus.done}
-              onTaskClick={setSelectedTask}
-              color="emerald"
-            />
-          </div>
-        </DragDropContext>
-      </div>
+<div className="hidden xl:block flex-1 min-h-0 p-4">
+  <DragDropContext onDragEnd={handleDragEnd}>
+    <div className="h-full grid grid-cols-3 gap-4">
+      {/* ✅ Chaque colonne aura maintenant son propre scroll */}
+      <TaskColumn
+        id="todo"
+        title="À faire"
+        tasks={tasksByStatus.todo}
+        onTaskClick={setSelectedTask}
+        color="blue"
+      />
+      <TaskColumn
+        id="inProgress"
+        title="En cours"
+        tasks={tasksByStatus.inProgress}
+        onTaskClick={setSelectedTask}
+        color="amber"
+      />
+      <TaskColumn
+        id="done"
+        title="Terminées"
+        tasks={tasksByStatus.done}
+        onTaskClick={setSelectedTask}
+        color="emerald"
+      />
+    </div>
+  </DragDropContext>
+</div>
 
       {/* Barre de progression */}
       <div
@@ -411,7 +435,7 @@ function MobileTaskList({ tasks, onTaskClick, onCheckboxClick, isDark }) {
               task.status === "done"
                 ? "bg-emerald-600 border-emerald-600"
                 : isDark
-                ? "border-slate-600 hover:border-blue-500"
+                ? "border-slate-500 hover:border-blue-400 bg-slate-700/50"
                 : "border-slate-300 hover:border-blue-500"
             }`}
           >

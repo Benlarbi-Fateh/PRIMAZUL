@@ -8,7 +8,7 @@ import { TaskProvider, useTasks } from "@/context/TaskContext";
 
 // Composants
 import MainSidebar from "@/components/Layout/MainSidebar.client";
-import ProjectSidebar from "@/components/Tasks/ProjectSidebar";
+import ProjectSidebar from "@/components/Tasks/ProjectSidebarClient";
 import TaskBoard from "@/components/Tasks/TaskBoard";
 import { Loader2, Folder, Plus, ChevronRight } from "lucide-react";
 
