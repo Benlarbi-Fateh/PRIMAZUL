@@ -1310,6 +1310,7 @@ onMessageStatusUpdated(({ messageIds, status, readByUserId }) => {
 )}
         </div>
       </div>
+      
     </ProtectedRoute>
   );
 }
