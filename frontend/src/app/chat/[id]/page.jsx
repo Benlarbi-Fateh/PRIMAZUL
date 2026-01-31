@@ -528,8 +528,46 @@ onMessageStatusUpdated(({ messageIds, status, readByUserId }) => {
       });
 
       // ... (Garde tes autres écouteurs ici : call, delete, edit, typing) ...
-      onCallMissed(({ messageId, callDetails }) => { /* ton code */ });
-      onCallEnded(({ messageId, callDetails }) => { /* ton code */ });
+            // 1. GESTION DES APPELS MANQUÉS
+      onCallMissed((data) => {
+        // "data" est généralement l'objet message complet envoyé par le backend
+        const newMessage = data.message || data; 
+        console.log("📞 Appel manqué reçu via socket:", newMessage);
+
+        // On vérifie l'ID de la conversation pour être sûr
+        const msgConvId =
+          typeof newMessage.conversationId === "object"
+            ? newMessage.conversationId._id?.toString()
+            : newMessage.conversationId?.toString();
+
+        if (msgConvId === conversationId) {
+          setMessages((prev) => {
+            // Anti-doublon : on vérifie si le message est déjà là
+            if (prev.some((m) => m._id === newMessage._id)) return prev;
+            return [...prev, newMessage];
+          });
+          setShouldAutoScroll(true);
+        }
+      });
+
+      // 2. GESTION DES APPELS TERMINÉS
+      onCallEnded((data) => {
+        const newMessage = data.message || data;
+        console.log("📞 Fin d'appel reçue via socket:", newMessage);
+
+        const msgConvId =
+          typeof newMessage.conversationId === "object"
+            ? newMessage.conversationId._id?.toString()
+            : newMessage.conversationId?.toString();
+
+        if (msgConvId === conversationId) {
+          setMessages((prev) => {
+            if (prev.some((m) => m._id === newMessage._id)) return prev;
+            return [...prev, newMessage];
+          });
+          setShouldAutoScroll(true);
+        }
+      });
       
       socket.off("message-deleted");
       socket.on("message-deleted", ({ messageId }) => {
