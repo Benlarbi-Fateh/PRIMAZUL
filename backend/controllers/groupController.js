@@ -6,7 +6,6 @@ const Message = require("../models/Message");
 exports.createGroup = async (req, res) => {
   try {
     const userId = req.user._id;
-    // ✅ Récupération de groupType
     const { groupName, participantIds, groupType } = req.body;
 
     // Validation
@@ -47,13 +46,11 @@ exports.createGroup = async (req, res) => {
       groupName: groupName.trim(),
       groupAdmin: userId,
       groupAdmins: [userId],
-      // ✅ Enregistrement du type (ou "chat" par défaut)
       groupType: groupType || "chat",
     });
 
     await group.save();
 
-    // Populate les participants
     await group.populate(
       "participants",
       "name email profilePicture isOnline lastSeen",
@@ -62,7 +59,6 @@ exports.createGroup = async (req, res) => {
 
     console.log("✅ Groupe créé:", group._id, "- Type:", groupType);
 
-    // Émettre un événement Socket pour notifier les participants
     const io = req.app.get("io");
     if (io) {
       allParticipants.forEach((participantId) => {
@@ -96,7 +92,6 @@ exports.getGroup = async (req, res) => {
       return res.status(400).json({ error: "Ceci n'est pas un groupe" });
     }
 
-    // Vérifier que l'utilisateur fait partie du groupe
     const isParticipant = group.participants.some(
       (p) => p._id.toString() === userId.toString(),
     );
@@ -429,12 +424,17 @@ exports.updateGroupName = async (req, res) => {
   }
 };
 
-// Modifier l'image du groupe
+// ✅✅✅ FONCTION CORRIGÉE - Modifier l'image du groupe
 exports.updateGroupImage = async (req, res) => {
   try {
     const userId = req.user._id;
     const { groupId } = req.params;
     const file = req.file;
+
+    console.log("📸 updateGroupImage appelé");
+    console.log("  - userId:", userId);
+    console.log("  - groupId:", groupId);
+    console.log("  - file.path original:", file?.path);
 
     if (!file) {
       return res.status(400).json({ error: "Image requise" });
@@ -456,19 +456,23 @@ exports.updateGroupImage = async (req, res) => {
       });
     }
    
+    // ✅✅✅ CORRECTION DU CHEMIN D'IMAGE
     // 1. Récupérer le chemin brut
     let imagePath = file.path;
+    
     // 2. Remplacer les antislashs Windows (\) par des slashs URL (/)
     imagePath = imagePath.replace(/\\/g, "/");
-    // 3. (Optionnel mais recommandé) Nettoyer le préfixe "public/" si présent
-    // Cela permet d'avoir une URL propre : "uploads/image.jpg" au lieu de "public/uploads/image.jpg"
+    
+    // 3. Nettoyer le préfixe "public/" si présent
     if (imagePath.startsWith("public/")) {
-        imagePath = imagePath.replace("public/", "");
+      imagePath = imagePath.replace("public/", "");
     }
+    
     // 4. Enregistrer le chemin corrigé
     group.groupImage = imagePath;
 
-    group.groupImage = file.path;
+    console.log("  - Chemin corrigé sauvegardé:", imagePath);
+
     await group.save();
     await group.populate(
       "participants",
@@ -476,6 +480,8 @@ exports.updateGroupImage = async (req, res) => {
     );
     await group.populate("groupAdmin", "name email profilePicture");
     await group.populate("groupAdmins", "name email profilePicture");
+
+    console.log("✅ Image du groupe mise à jour:", group.groupImage);
 
     const io = req.app.get("io");
     if (io) {
