@@ -911,6 +911,16 @@ export default function VideoCall({
     connectionStatus === CONNECTION_STATES.DISCONNECTED && !isConnecting;
 
   // ============================================
+  // CALCULS (Doivent être AVANT les return conditionnels)
+  // ============================================
+  const totalUsers = remoteUsers.length + 1;
+  const gridClass = useMemo(() => {
+    if (totalUsers <= 2) return "grid-cols-1 md:grid-cols-2";
+    if (totalUsers <= 4) return "grid-cols-2";
+    return "grid-cols-2 md:grid-cols-3";
+  }, [totalUsers]);
+
+  // ============================================
   // RENDU MINIMISÉ
   // ============================================
   if (isMinimized) {
@@ -1000,14 +1010,6 @@ export default function VideoCall({
   // ============================================
   // RENDU PRINCIPAL
   // ============================================
-  const totalUsers = remoteUsers.length + 1;
-  
-  const gridClass = useMemo(() => {
-    if (totalUsers <= 2) return "grid-cols-1 md:grid-cols-2";
-    if (totalUsers <= 4) return "grid-cols-2";
-    return "grid-cols-2 md:grid-cols-3";
-  }, [totalUsers]);
-
   return (
     <div
       className="fixed inset-0 bg-slate-950 z-[9999] flex flex-col"
@@ -1241,7 +1243,7 @@ export default function VideoCall({
         />
       </footer>
 
-       {/* MESSAGES D'ERREUR */}
+      {/* MESSAGES D'ERREUR */}
       {(callError || localError) && (
         <div className="absolute top-28 left-1/2 -translate-x-1/2 bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl z-50 font-medium flex items-center gap-3">
           <span>⚠️</span>
@@ -1281,7 +1283,7 @@ export default function VideoCall({
               </p>
             )}
           </div>
-          
+
           {/* Bouton raccrocher pendant connexion */}
           <button
             onClick={onHangup}
