@@ -130,10 +130,9 @@ export default function ChatPage() {
   }, [router, conversationId]);
 
   // ✅ CORRECTION: handleShowReadBy doit être ici (PAS dans loadConversation)
-  const handleShowReadBy = async (message) => {
+ const handleShowReadBy = async (message) => {
     if (!conversation?.isGroup) return;
 
-    // ✅ (optionnel) seulement si c'est MON message:
     const myId = user?._id || user?.id;
     const senderId = message.sender?._id || message.sender?.id;
     if (senderId !== myId) return;
@@ -143,7 +142,25 @@ export default function ChatPage() {
 
     try {
       const res = await getMessageReadBy(message._id);
-      setReadByUsers(res.data.readBy || []);
+      const rawList = res.data.readBy || [];
+
+      // ✅ CORRECTIF ANTI-DOUBLONS
+      // On crée une liste unique en se basant sur l'ID de l'utilisateur
+      const uniqueList = [];
+      const seenUserIds = new Set();
+
+      rawList.forEach((item) => {
+        // On récupère l'ID, qu'il soit à la racine ou dans un objet 'user'
+        const userId = item._id || item.user?._id || item.user;
+
+        // Si on n'a pas encore vu cet ID, on l'ajoute
+        if (userId && !seenUserIds.has(userId)) {
+          seenUserIds.add(userId);
+          uniqueList.push(item);
+        }
+      });
+
+      setReadByUsers(uniqueList);
     } catch (e) {
       console.error(e);
       setReadByUsers([]);
@@ -441,29 +458,35 @@ export default function ChatPage() {
       });
 
       // 2. MISE À JOUR DU STATUT (Distribué / Lu)
-      onMessageStatusUpdated(({ messageIds, status, readByUserId }) => {
+      
+onMessageStatusUpdated(({ messageIds, status, readByUserId }) => {
         console.log(`🔄 Mise à jour statut messages: ${status} par ${readByUserId}`);
         
         setMessages((prevMessages) =>
           prevMessages.map((msg) => {
             if (messageIds.includes(msg._id)) {
               
-              // Si c'est un groupe, on met à jour la liste "Vu par" en temps réel
               let updatedReadBy = msg.readBy || [];
               
-              // Si le statut passe à "Lu" et qu'on connait l'utilisateur
               if (status === 'read' && readByUserId) {
-                 // Vérifie si l'utilisateur est déjà dans la liste pour éviter doublons
+                 // ✅ CORRECTIF : Vérification stricte de l'existence
                  const alreadyInList = updatedReadBy.some(r => {
-                    const rId = r.user?._id || r.user;
+                    // On gère les différents formats possibles (objet peuplé, string, ou objet plat)
+                    const rId = r._id || r.user?._id || r.user;
                     return rId === readByUserId;
                  });
 
                  if (!alreadyInList) {
-                   // Ajout optimiste pour affichage immédiat
+                   // Ajout seulement si pas présent
                    updatedReadBy = [
                      ...updatedReadBy, 
-                     { user: { _id: readByUserId, name: '...' }, readAt: new Date() } // Le nom se mettra à jour au reload, l'important c'est le compte
+                     // On structure l'objet pour qu'il ressemble à ce que l'API renvoie
+                     { 
+                       _id: readByUserId, // ID à la racine pour faciliter le filtrage futur
+                       user: readByUserId, 
+                       name: '...', // Sera mis à jour au rechargement
+                       readAt: new Date() 
+                     } 
                    ];
                  }
               }
@@ -478,7 +501,6 @@ export default function ChatPage() {
           })
         );
       });
-
       // 3. MISE À JOUR DE LA CONVERSATION (Tout le monde a lu)
       onConversationStatusUpdated(({ conversationId: updatedConvId, status, userId }) => {
         if (updatedConvId === conversationId) {
@@ -1195,40 +1217,54 @@ export default function ChatPage() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {readByUsers.map((u, index) => (
-              <li 
-                 key={`${u._id}-${index}`} 
-    className="flex items-center gap-3 p-2.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
-  >
-                {/* Avatar */}
-                <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0 border border-gray-100 dark:border-slate-600">
-                  {u.profilePicture ? (
-                    <img src={u.profilePicture} alt={u.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm">
-                      {u.name?.charAt(0).toUpperCase() || "?"}
-                    </div>
-                  )}
-                </div>
+  {readByUsers.map((u, index) => {
+    // Sécurisation des données (gère les deux structures possibles de l'API)
+    const uniqueId = u._id || u.user?._id || u.user || `fallback-${index}`;
+    const displayName = u.name || u.user?.name || "Utilisateur inconnu";
+    const displayPic = u.profilePicture || u.user?.profilePicture;
+    
+    // Pour la date, on vérifie si elle est à la racine ou dans un sous-objet
+    // Si pas de date, on utilise la date actuelle ou null
+    const rawDate = u.readAt || new Date(); 
 
-                {/* Infos */}
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold truncate ${textPrimary}`}>
-                    {u.name || "Utilisateur inconnu"}
-                  </p>
-                  {u.readAt && (
-                    <p className="text-xs text-blue-400 dark:text-blue-300 flex items-center gap-1">
-                      <CheckCheck className="w-3 h-3" />
-                      {new Date(u.readAt).toLocaleDateString('fr-FR', {
-                        hour: '2-digit', 
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+    return (
+      <li 
+        key={uniqueId} 
+        className="flex items-center gap-3 p-2.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-xl transition-colors"
+      >
+        {/* Avatar */}
+        <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0 border border-gray-100 dark:border-slate-600">
+          {displayPic ? (
+            <img 
+              src={displayPic} 
+              alt={displayName} 
+              className="w-full h-full object-cover" 
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+
+        {/* Infos */}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-semibold truncate ${textPrimary}`}>
+            {displayName}
+          </p>
+          
+          <p className="text-xs text-blue-400 dark:text-blue-300 flex items-center gap-1">
+            <CheckCheck className="w-3 h-3" />
+            {rawDate ? new Date(rawDate).toLocaleDateString('fr-FR', {
+              hour: '2-digit', 
+              minute: '2-digit'
+            }) : ""}
+          </p>
+        </div>
+      </li>
+    );
+  })}
+</ul>
         )}
       </div>
     </div>
