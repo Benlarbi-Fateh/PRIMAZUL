@@ -800,12 +800,20 @@ export const CallProvider = ({ children }) => {
   const endCall = useCallback(async () => {
     const socket = getSocket();
     const callId = currentCallId;
+
+    // Vérifier si c'est un groupe
     const isGroupCall = callData?.isGroup || incomingCall?.isGroup;
+
     const wasRinging = callState === CALL_STATES.RINGING;
     const wasOngoing = callState === CALL_STATES.ONGOING;
     const duration = callTimer.duration;
 
-    console.log("🛑 Fin d'appel:", { callId, wasRinging, wasOngoing });
+    console.log("🛑 Fin d'appel:", {
+      callId,
+      wasRinging,
+      wasOngoing,
+      isGroupCall,
+    });
 
     // 🔇 ARRÊTER TOUS LES SONS
     callAudioManager.stopAll();
@@ -816,32 +824,48 @@ export const CallProvider = ({ children }) => {
       callTimeoutRef.current = null;
     }
 
-    // Socket
+    // Gestion Socket
     if (callId && socket) {
       if (wasRinging) {
+        // Si ça sonne encore, on annule (pour tout le monde)
         socket.emit("call-cancel", { callId });
       } else {
-        socket.emit(isGroupCall ? "call-leave" : "call-end", { callId });
+        // Si l'appel est en cours :
+        // Groupe -> "call-leave" (Juste moi qui pars)
+        // 1vs1   -> "call-end" (L'appel est fini)
+        const event = isGroupCall ? "call-leave" : "call-end";
+        socket.emit(event, { callId });
       }
     }
 
-    // API (non bloquant)
+    // Gestion API
     if (callId) {
+      // 👇 C'EST ICI LA CORRECTION IMPORTANTE
+      // Si c'est un groupe en cours, on utilise l'endpoint "leave"
+      // Sinon on utilise "end" (pour 1vs1 ou annulation)
+      const endpoint = isGroupCall && wasOngoing ? "leave" : "end";
+
       api
-        .post(`/agora/calls/${callId}/end`, {
+        .post(`/agora/calls/${callId}/${endpoint}`, {
           reason: wasRinging ? "cancelled" : "ended",
           duration: wasOngoing ? duration : 0,
         })
-        .catch(() => {});
+        .catch((err) => console.error("Erreur API fin appel:", err));
     }
 
-    // Notification et reset
+    // Notification et reset local
     if (wasOngoing) {
       callAudioManager.play("ENDED");
       const mins = Math.floor(duration / 60);
       const secs = duration % 60;
       const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-      showCallNotification("info", `Appel terminé (${durationStr})`);
+
+      // Message différent si on quitte un groupe ou si on raccroche
+      const msg = isGroupCall
+        ? "Vous avez quitté l'appel de groupe"
+        : `Appel terminé (${durationStr})`;
+      showCallNotification("info", msg);
+
       setTimeout(() => resetCallState(), 500);
     } else {
       showCallNotification("info", "Appel annulé");
