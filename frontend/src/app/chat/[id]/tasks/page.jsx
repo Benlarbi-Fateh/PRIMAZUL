@@ -12,16 +12,16 @@ export default function TasksPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    // Fond Blanc pur en mode clair, Slate-950 en sombre
-    <div className="flex h-[100dvh] overflow-hidden bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      {/* Sidebar principale (Cachée sur mobile) */}
+    // Fond avec bleu plus marqué - MODIFIÉ POUR MODE SOMBRE BLEU
+    <div className="flex h-[100dvh] overflow-hidden bg-gradient-to-br from-blue-200/30 via-blue-100/20 to-white dark:bg-gradient-to-br dark:from-blue-950 dark:via-blue-900 dark:to-blue-800 text-blue-900 dark:text-slate-100 transition-colors duration-300">
+      {/* Sidebar principale */}
       <div className="hidden md:block z-50">
         <MainSidebar />
       </div>
 
       <TaskProvider conversationId={conversationId}>
         <div className="flex flex-1 w-full overflow-hidden relative">
-          {/* Sidebar Projet (Responsive : Drawer sur mobile, fixe sur desktop) */}
+          {/* Sidebar Projet */}
           <ProjectSidebar
             conversationId={conversationId}
             isOpen={sidebarOpen}
@@ -29,8 +29,7 @@ export default function TasksPage() {
           />
 
           {/* Zone principale */}
-          <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden bg-white dark:bg-slate-950">
-            {/* On passe toggleSidebar pour le bouton menu mobile */}
+          <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
             <TaskBoard toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
           </main>
         </div>

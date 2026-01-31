@@ -15,43 +15,74 @@ export default function TaskFilters({ onNewTask }) {
     setSortOption,
   } = useTasks();
 
-  const baseInputClass =
-    "appearance-none outline-none transition-all rounded-xl text-sm font-medium";
+  const inputBaseClass = "appearance-none outline-none transition-all rounded-xl text-sm font-bold";
 
-  // Style Blanc Pur & Bordure légère
-  const lightClass =
-    "bg-white border border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 placeholder:text-slate-400 shadow-sm";
-  const darkClass =
-    "bg-slate-900 border border-slate-800 text-white focus:border-blue-500";
+  const inputLightClass = "bg-white/90 backdrop-blur-sm border-2 border-blue-300 text-blue-900 placeholder:text-blue-500/60 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/20 shadow-md focus:shadow-xl";
+  
+  const inputDarkClass = "bg-blue-950/60 backdrop-blur-sm border-2 border-blue-800/60 text-blue-100 placeholder:text-blue-400/50 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/30 shadow-lg";
 
   return (
-    <div className="p-4 flex flex-col sm:flex-row gap-3 items-center bg-slate-50 dark:bg-slate-950/50">
+    <div
+      className={`
+        px-4 py-4 flex flex-col sm:flex-row gap-3 items-center
+        border-b-2 backdrop-blur-sm
+        ${
+          isDark
+            ? "bg-gradient-to-r from-blue-950/60 to-blue-900/50 border-blue-800/60"
+            : "bg-gradient-to-r from-blue-100/60 to-white/80 border-blue-200"
+        }
+      `}
+    >
       {/* Recherche */}
-      <div className="relative flex-1 w-full sm:w-auto">
+      <div className="relative flex-1 w-full sm:w-auto group">
         <Search
           size={18}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          strokeWidth={2.5}
+          className={`
+            absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors
+            ${
+              isDark
+                ? "text-blue-400 group-focus-within:text-blue-300"
+                : "text-blue-600 group-focus-within:text-blue-700"
+            }
+          `}
         />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Rechercher..."
-          className={`w-full pl-10 pr-4 py-3 ${isDark ? darkClass : lightClass}`}
+          placeholder="Rechercher une tâche..."
+          className={`
+            w-full pl-11 pr-4 py-3.5
+            ${inputBaseClass}
+            ${isDark ? inputDarkClass : inputLightClass}
+          `}
         />
       </div>
 
       <div className="flex w-full sm:w-auto gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
-        {/* Filtre */}
-        <div className="relative shrink-0">
+        {/* Filtre Status */}
+        <div className="relative shrink-0 group">
           <Filter
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            strokeWidth={2.5}
+            className={`
+              absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors
+              ${
+                isDark
+                  ? "text-blue-400 group-focus-within:text-blue-300"
+                  : "text-blue-600 group-focus-within:text-blue-700"
+              }
+            `}
           />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className={`pl-9 pr-8 py-3 cursor-pointer ${baseInputClass} ${isDark ? darkClass : lightClass}`}
+            className={`
+              pl-9 pr-10 py-3.5 cursor-pointer
+              ${inputBaseClass}
+              ${isDark ? inputDarkClass : inputLightClass}
+            `}
           >
             <option value="all">Tout</option>
             <option value="todo">À faire</option>
@@ -61,15 +92,27 @@ export default function TaskFilters({ onNewTask }) {
         </div>
 
         {/* Tri */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 group">
           <SortAsc
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            strokeWidth={2.5}
+            className={`
+              absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors
+              ${
+                isDark
+                  ? "text-blue-400 group-focus-within:text-blue-300"
+                  : "text-blue-600 group-focus-within:text-blue-700"
+              }
+            `}
           />
           <select
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value)}
-            className={`pl-9 pr-8 py-3 cursor-pointer ${baseInputClass} ${isDark ? darkClass : lightClass}`}
+            className={`
+              pl-9 pr-10 py-3.5 cursor-pointer
+              ${inputBaseClass}
+              ${isDark ? inputDarkClass : inputLightClass}
+            `}
           >
             <option value="createdAt_desc">Récents</option>
             <option value="priority_desc">Priorité</option>
@@ -77,12 +120,18 @@ export default function TaskFilters({ onNewTask }) {
           </select>
         </div>
 
-        {/* Bouton Mobile "Nouveau" */}
+        {/* Bouton Mobile */}
         <button
           onClick={onNewTask}
-          className="sm:hidden flex items-center justify-center w-11 h-11 rounded-xl bg-blue-600 text-white shrink-0 shadow-lg shadow-blue-600/30 active:scale-95 transition-transform"
+          className={`
+            sm:hidden flex items-center justify-center w-12 h-12 rounded-xl
+            transition-all active:scale-95 shadow-xl
+            bg-gradient-to-br from-blue-600 to-blue-700
+            hover:from-blue-700 hover:to-blue-800
+            text-white ring-2 ring-blue-500/30
+          `}
         >
-          <Plus size={24} />
+          <Plus size={24} strokeWidth={2.5} />
         </button>
       </div>
     </div>
