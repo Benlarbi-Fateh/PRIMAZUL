@@ -148,16 +148,23 @@ export default function MessageBubble({
 
 
   // 2. GESTION DU CLIC (HYBRIDE PC / MOBILE)
-    // 2. GESTION DU CLIC (HYBRIDE PC / MOBILE)
   const handleInteractionClick = (e) => {
     // Si c'était un appui long mobile, on arrête tout
     if (isLongPress.current) return;
 
-
     // Sur mobile, le clic sert uniquement à TOGGLE (Ouvrir/Fermer) les options
     if (isTouchInteraction.current) {
-      e.stopPropagation(); // ⛔️ Empêche le clic de remonter au document
-      e.preventDefault();  // ⛔️ Empêche les comportements par défaut (zoom, etc.)
+      e.stopPropagation(); // ⛔️ Empêche le clic de remonter
+      e.preventDefault(); 
+
+      // ✅ LOGIQUE AJOUTÉE : Si on va ouvrir le menu, on prévient les autres de se fermer
+      if (!showMobileOptions) {
+        const event = new CustomEvent("close-other-bubbles", { 
+          detail: { id: message._id } 
+        });
+        window.dispatchEvent(event);
+      }
+
       setShowMobileOptions((prev) => !prev);
     } else {
       // Sur PC, comportement classique (Vu par)
@@ -518,6 +525,26 @@ const handleTranslate = async (targetLang) => {
     }
   }, [showMenu, showLanguageMenu]);
 
+    // ========================================
+  // 🔒 GESTION DE LA FERMETURE AUTOMATIQUE (SINGLE SELECTION)
+  // ========================================
+  useEffect(() => {
+    const handleCloseOthers = (event) => {
+      // Si l'ID du message qui vient d'être cliqué n'est pas le mien, je me ferme
+      if (event.detail.id !== message._id) {
+        setShowMobileOptions(false);
+        // On ferme aussi les sous-menus pour être propre
+        setShowMenu(false);
+        setShowLanguageMenu(false);
+      }
+    };
+
+    window.addEventListener("close-other-bubbles", handleCloseOthers);
+
+    return () => {
+      window.removeEventListener("close-other-bubbles", handleCloseOthers);
+    };
+  }, [message._id]);
 
   // ========================================
   // 📊 RENDU DU STATUT
