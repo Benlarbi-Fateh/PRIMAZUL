@@ -13,49 +13,66 @@ const activeCallsMap = new Map();
 // ============================================
 // GÉNÉRER UN TOKEN AGORA
 // ============================================
+// backend/routes/agoraRoutes.js
+
+// ... imports ...
+
 router.post("/token", auth, (req, res) => {
   try {
-    const { channelName, uid ,isGroup} = req.body;
+    const { channelName, uid, isGroup } = req.body;
+
+    // VÉRIFICATION DES VARIABLES D'ENVIRONNEMENT
     const appID = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
-    const role = RtcRole.PUBLISHER;
 
-    const expirationTimeInSeconds = 3600;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+    if (!appID || !appCertificate) {
+      console.error(
+        "❌ ERREUR: AGORA_APP_ID ou AGORA_APP_CERTIFICATE manquant dans le .env",
+      );
+      return res
+        .status(500)
+        .json({ error: "Configuration serveur incorrecte" });
+    }
 
     if (!channelName) {
       return res.status(400).json({ error: "Channel name is required" });
     }
 
-    if (!appID || !appCertificate) {
-      return res
-        .status(500)
-        .json({ error: "Agora credentials not configured" });
-    }
+    // 🔥 IMPORTANT : Convertir l'UID en Nombre Entier
+    // Le frontend envoie un UID numérique généré, il faut le respecter impérativement.
+    const uidInt = parseInt(uid, 10) || 0;
+
+    const role = RtcRole.PUBLISHER;
+    const expirationTimeInSeconds = 3600;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
     const token = RtcTokenBuilder.buildTokenWithUid(
       appID,
       appCertificate,
       channelName,
-      uid || 0,
+      uidInt, // ✅ Utilisation stricte de l'entier
       role,
-      privilegeExpiredTs
+      privilegeExpiredTs,
     );
 
-    console.log(`🎫 Token Agora généré pour channel: ${channelName}`);
+    console.log(`🎫 Token généré pour Channel: ${channelName}, UID: ${uidInt}`);
 
-    res.json({ token, channelName, uid , config: {
-        mode: 'rtc',
-        codec: 'vp8',
-        isGroup: isGroup || false
-      }});
+    res.json({
+      token,
+      channelName,
+      uid: uidInt, // On renvoie l'UID utilisé pour que le front l'utilise
+      config: {
+        mode: "rtc",
+        codec: "vp8",
+        isGroup: isGroup || false,
+      },
+    });
   } catch (error) {
     console.error("❌ Erreur génération token:", error);
     res.status(500).json({ error: "Erreur génération token" });
   }
 });
-
 // ============================================
 // INITIER UN APPEL
 // ============================================
@@ -170,7 +187,7 @@ router.post("/calls/:callId/answer", auth, async (req, res) => {
         "callDetails.status": "ongoing",
         $addToSet: { "callDetails.answeredBy": userId },
         $pull: { "callDetails.missedBy": userId },
-      }
+      },
     );
 
     res.json({ success: true, callId });
@@ -196,7 +213,7 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
       { "callDetails.callId": callId },
       {
         $addToSet: { "callDetails.declinedBy": userId },
-      }
+      },
     );
 
     // Si appel P2P, le marquer comme refusé
@@ -209,7 +226,7 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
           "callDetails.status": "missed",
           "callDetails.endedAt": new Date(),
           "callDetails.duration": 0,
-        }
+        },
       );
 
       //activeCallsMap.delete(callId);
@@ -259,7 +276,7 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
     if (existingMessage.callDetails.answeredBy.length > 0) {
       finalStatus = "ended";
       duration = Math.round(
-        (Date.now() - new Date(existingMessage.callDetails.startedAt)) / 1000
+        (Date.now() - new Date(existingMessage.callDetails.startedAt)) / 1000,
       );
     }
 
@@ -270,7 +287,7 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
         "callDetails.endedAt": new Date(),
         "callDetails.duration": duration,
       },
-      { new: true }
+      { new: true },
     );
 
     activeCallsMap.delete(callId);
@@ -285,7 +302,7 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
     }
 
     console.log(
-      `✅ Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`
+      `✅ Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`,
     );
 
     res.json({ success: true, duration, status: finalStatus });
@@ -316,7 +333,7 @@ router.post("/calls/:callId/leave", auth, async (req, res) => {
 
       // Vérifier s'il reste des participants actifs
       const remaining = Array.from(activeCall.participants.values()).filter(
-        (p) => p.status === "connected"
+        (p) => p.status === "connected",
       );
 
       // Si plus qu'un participant, terminer l'appel
@@ -331,7 +348,7 @@ router.post("/calls/:callId/leave", auth, async (req, res) => {
             "callDetails.status": "ended",
             "callDetails.endedAt": new Date(),
             "callDetails.duration": duration,
-          }
+          },
         );
 
         activeCallsMap.delete(callId);
@@ -365,7 +382,7 @@ router.get("/calls/:callId/status", auth, async (req, res) => {
         startedAt: activeCall.startedAt,
         answeredAt: activeCall.answeredAt,
         participants: Array.from(activeCall.participants.entries()).map(
-          ([id, data]) => ({ userId: id, ...data })
+          ([id, data]) => ({ userId: id, ...data }),
         ),
       });
     }

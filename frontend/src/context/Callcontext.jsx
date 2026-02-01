@@ -549,6 +549,9 @@ export const CallProvider = ({ children }) => {
   // ============================================
   // INITIER UN APPEL
   // ============================================
+  // ============================================
+  // INITIER UN APPEL
+  // ============================================
   const initiateCall = useCallback(
     async (
       conversationId,
@@ -584,9 +587,14 @@ export const CallProvider = ({ children }) => {
         setCallType(type);
         setCallError(null);
 
+        // 1. Génération d'un nom de channel UNIQUE et PROPRE
         const tempCallId = generateCallId();
-        const channel = `channel_${tempCallId}`;
+        // On nettoie le nom pour être sûr qu'il passe partout
+        const channel = `channel_${tempCallId.replace(/[^a-zA-Z0-9_]/g, "")}`;
 
+        console.log("✨ Channel généré:", channel);
+
+        // Préparation des participants
         const participantsList = Array.isArray(participants)
           ? participants
           : [participants];
@@ -594,14 +602,14 @@ export const CallProvider = ({ children }) => {
           (p._id || p.id || p).toString(),
         );
 
-        // Token Agora
+        // 2. Token Agora pour CE channel
         const { data: tokenData } = await api.post("/agora/token", {
           channelName: channel,
           uid: myUid,
           isGroup,
         });
 
-        // Créer l'appel
+        // 3. Créer l'appel en BDD
         const { data: callMessageData } = await api.post(
           "/agora/calls/initiate",
           {
@@ -616,6 +624,7 @@ export const CallProvider = ({ children }) => {
           ? groupName
           : participantsList[0]?.name || "Inconnu";
 
+        // 4. Mise à jour de l'état local (IMPORTANT : on stocke le channel)
         setCurrentCallId(callMessageData.callId);
         setChannelName(channel);
         setAgoraToken(tokenData.token);
@@ -627,11 +636,11 @@ export const CallProvider = ({ children }) => {
           conversationId,
         });
 
-        // Émettre via socket
+        // 5. Émettre via socket AVEC le channel
         socket.emit("call-initiate", {
           callId: callMessageData.callId,
           conversationId,
-          channelName: channel,
+          channelName: channel, // C'est ici que l'autre reçoit le bon nom
           callType: type,
           isGroup,
           groupName,
@@ -654,9 +663,13 @@ export const CallProvider = ({ children }) => {
           console.log("⏰ Timeout appel");
           callAudioManager.stopAll();
           showError("Pas de réponse");
+          // Si timeout, on annule proprement
+          socket.emit("call-timeout", { callId: callMessageData.callId });
         }, CALL_TIMEOUT_MS);
 
-        console.log(`✅ Appel initié: ${callMessageData.callId}`);
+        console.log(
+          `✅ Appel initié: ${callMessageData.callId} sur ${channel}`,
+        );
       } catch (error) {
         console.error("❌ Erreur initiation:", error);
         callAudioManager.stopAll();
@@ -669,21 +682,15 @@ export const CallProvider = ({ children }) => {
     },
     [user, myUid, showError, showCallNotification],
   );
-
   // ============================================
   // ACCEPTER UN APPEL
   // ============================================
+  // ============================================
+  // ACCEPTER UN APPEL (CORRIGÉ)
+  // ============================================
   const acceptCall = useCallback(async () => {
-    if (!incomingCall || !user || isProcessingRef.current) {
-      console.log("⚠️ Impossible d'accepter:", {
-        incomingCall: !!incomingCall,
-        user: !!user,
-      });
-      return;
-    }
-
+    if (!incomingCall || !user || isProcessingRef.current) return;
     isProcessingRef.current = true;
-    console.log("✅ Acceptation de l'appel...");
 
     const socket = getSocket();
     if (!socket?.connected) {
@@ -693,16 +700,15 @@ export const CallProvider = ({ children }) => {
     }
 
     try {
-      // 🔇 ARRÊTER LA SONNERIE
       console.log("🔇 Arrêt sonnerie INCOMING");
       callAudioManager.stop("INCOMING");
       hideCallNotification();
-
       setCallState(CALL_STATES.CONNECTING);
 
+      // Récupération des données depuis l'appel entrant
       const {
         callId,
-        channelName: channel,
+        channelName: incomingChannel, // 👈 C'est LUI la clé !
         callType: type,
         isGroup,
         groupName,
@@ -711,16 +717,21 @@ export const CallProvider = ({ children }) => {
         participants,
       } = incomingCall;
 
+      console.log("📞 Acceptation pour le channel:", incomingChannel);
+
+      // 1. Demander le token pour CE channel précis
       const { data: tokenData } = await api.post("/agora/token", {
-        channelName: channel,
+        channelName: incomingChannel, // Utiliser le channel reçu
         uid: myUid,
         isGroup,
       });
 
+      // 2. Notifier le backend
       await api.post(`/agora/calls/${callId}/answer`);
 
+      // 3. Mise à jour de l'état local
       setCurrentCallId(callId);
-      setChannelName(channel);
+      setChannelName(incomingChannel); // Stocker le bon channel
       setAgoraToken(tokenData.token);
       setCallType(type);
 
@@ -737,18 +748,18 @@ export const CallProvider = ({ children }) => {
       setCallState(CALL_STATES.ONGOING);
       setIncomingCall(null);
 
+      // 4. Notifier via socket que j'ai rejoint CE channel
       socket.emit("call-answer", {
         callId,
-        channelName: channel,
+        channelName: incomingChannel, // Renvoyer le même channel pour confirmation
         userId: user._id || user.id,
       });
 
-      // 🔊 SON DE CONNEXION
       callAudioManager.play("CONNECTED");
       showCallNotification("success", "Appel connecté");
       callTimer.start();
 
-      console.log(`✅ Appel ${callId} accepté`);
+      console.log(`✅ Appel ${callId} accepté sur channel ${incomingChannel}`);
     } catch (error) {
       console.error("❌ Erreur acceptation:", error);
       callAudioManager.stopAll();

@@ -9,6 +9,8 @@ const activeCallsMap = new Map();
 // ============================================
 // INITIER UN APPEL
 // ============================================
+// backend/controllers/callController.js
+
 exports.initiateCall = async (req, res) => {
   try {
     const { conversationId, callType, isGroup, participants } = req.body;
@@ -16,13 +18,29 @@ exports.initiateCall = async (req, res) => {
 
     const callId = uuidv4();
 
-    // Créer le message d'appel
-// ... début de la fonction ...
+    // ✅ CORRECTION : Définir participantsList avant de l'utiliser
+    // On s'assure que c'est un tableau d'objets correct pour le schéma Mongoose
+    const participantsList = Array.isArray(participants)
+      ? participants.map((p) => ({
+          userId: p._id || p.id || p, // Gère si on reçoit l'objet complet ou juste l'ID
+          // Si vous avez d'autres champs requis par votre schéma Message, ajoutez-les ici
+        }))
+      : [];
+
+    // Ajouter l'initiateur s'il n'y est pas
+    if (
+      !participantsList.some(
+        (p) => p.userId.toString() === initiatorId.toString(),
+      )
+    ) {
+      participantsList.push({ userId: initiatorId });
+    }
+
     const callMessage = await Message.create({
       conversationId,
       sender: initiatorId,
-      type: "call", // Ceci fonctionne maintenant grâce à l'Étape 1
-      content: "Appel " + (callType === "video" ? "vidéo" : "audio"), // Fallback pour affichage simple
+      type: "call",
+      content: "Appel " + (callType === "video" ? "vidéo" : "audio"),
       callDetails: {
         callId,
         callType: callType || "video",
@@ -30,18 +48,18 @@ exports.initiateCall = async (req, res) => {
         initiator: initiatorId,
         isGroup: isGroup || false,
         startedAt: new Date(),
-        participants: participantsList,
-        answeredBy: [], // Initialisation importante
-        missedBy: [],   // Initialisation importante
-        declinedBy: [], // Initialisation importante
+        participants: participantsList, // ✅ Maintenant c'est défini
+        answeredBy: [],
+        missedBy: [],
+        declinedBy: [],
         duration: 0,
       },
     });
-// ... fin de la fonction ...
-    await callMessage.populate("sender", "name profilePicture");
-    await callMessage.populate("callDetails.initiator", "name profilePicture");
 
-    // Stocker l'appel actif
+    // ... suite de la fonction (activeCallsMap, socket, res.json) ...
+    // (Le reste de votre code précédent était correct sur ce point)
+
+    // Pour rappel :
     activeCallsMap.set(callId, {
       messageId: callMessage._id,
       conversationId,
@@ -51,22 +69,15 @@ exports.initiateCall = async (req, res) => {
       status: "initiated",
     });
 
-    // Mettre à jour la conversation
     await Conversation.findByIdAndUpdate(conversationId, {
       lastMessage: callMessage._id,
       updatedAt: Date.now(),
     });
 
-    console.log(`📞 Appel initié: ${callId}`);
-
-    res.status(201).json({
-      success: true,
-      callId,
-      message: callMessage,
-    });
+    res.status(201).json({ success: true, callId, message: callMessage });
   } catch (error) {
     console.error("❌ Erreur initiation appel:", error);
-    res.status(500).json({ error: "Erreur serveur" });
+    res.status(500).json({ error: "Erreur serveur", details: error.message });
   }
 };
 
@@ -165,13 +176,13 @@ exports.endCall = async (req, res) => {
     // Calculer les participants qui ont manqué
     const message = await Message.findById(activeCall.messageId);
     const allParticipants = message.callDetails.participants.map((p) =>
-      p.userId.toString()
+      p.userId.toString(),
     );
     const answeredUsers = (message.callDetails.answeredBy || []).map((id) =>
-      id.toString()
+      id.toString(),
     );
     const missedUsers = allParticipants.filter(
-      (id) => !answeredUsers.includes(id)
+      (id) => !answeredUsers.includes(id),
     );
 
     // Mettre à jour le message
@@ -186,7 +197,7 @@ exports.endCall = async (req, res) => {
     activeCallsMap.delete(callId);
 
     console.log(
-      `🛑 Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`
+      `🛑 Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`,
     );
 
     res.json({
@@ -217,13 +228,13 @@ exports.leaveCall = async (req, res) => {
     if (participant) {
       participant.leftAt = new Date();
       participant.duration = Math.round(
-        (participant.leftAt - participant.joinedAt) / 1000
+        (participant.leftAt - participant.joinedAt) / 1000,
       );
     }
 
     // Si c'était le dernier participant, terminer l'appel
     const remainingParticipants = Array.from(
-      activeCall.participants.values()
+      activeCall.participants.values(),
     ).filter((p) => !p.leftAt);
 
     if (remainingParticipants.length <= 1) {
@@ -255,7 +266,7 @@ exports.getCallStatus = async (req, res) => {
           ([id, data]) => ({
             id,
             ...data,
-          })
+          }),
         ),
       });
     }
