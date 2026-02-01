@@ -82,12 +82,20 @@ export default function TaskBoard() {
 
   return (
     <div className={`flex flex-col h-full ${containerBg}`}>
-      {/* Header Projet - BLEU VIBRANT */}
-      <div className="flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b bg-blue-600 border-blue-700">
-        {/* Menu hamburger - Sans background, direct sur le bleu */}
+      {/* Header Projet - Adaptatif selon le thème */}
+      <div
+        className={`flex items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b ${
+          isDark
+            ? "bg-slate-800 border-slate-700"
+            : "bg-blue-500 border-blue-600"
+        }`}
+      >
+        {/* Menu hamburger */}
         <button
           onClick={() => setIsMobileSidebarOpen(true)}
-          className="lg:hidden p-2 rounded-lg transition-all hover:bg-blue-700/50 text-white"
+          className={`lg:hidden p-2 rounded-lg transition-all text-white ${
+            isDark ? "hover:bg-slate-700" : "hover:bg-blue-600/50"
+          }`}
         >
           <Menu size={20} />
         </button>
@@ -95,11 +103,19 @@ export default function TaskBoard() {
         {/* Icône et nom du projet - Hashtag caché en mobile */}
         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           {currentProjectId === "all" ? (
-            <div className="hidden sm:block p-2 sm:p-2.5 rounded-xl bg-blue-700">
+            <div
+              className={`hidden sm:block p-2 sm:p-2.5 rounded-xl ${
+                isDark ? "bg-slate-700" : "bg-blue-600"
+              }`}
+            >
               <FolderOpen size={18} className="text-white sm:w-5 sm:h-5" />
             </div>
           ) : (
-            <div className="hidden sm:block p-2 sm:p-2.5 rounded-xl bg-blue-700">
+            <div
+              className={`hidden sm:block p-2 sm:p-2.5 rounded-xl ${
+                isDark ? "bg-slate-700" : "bg-blue-600"
+              }`}
+            >
               <Hash size={16} className="text-white sm:w-[18px] sm:h-[18px]" />
             </div>
           )}
@@ -108,14 +124,24 @@ export default function TaskBoard() {
             <h1 className="text-base sm:text-lg font-bold truncate text-white">
               {projectName}
             </h1>
-            <p className="text-[10px] sm:text-xs text-blue-100">
+            <p
+              className={`text-[10px] sm:text-xs ${
+                isDark ? "text-slate-400" : "text-blue-100"
+              }`}
+            >
               {stats.total} tâche{stats.total !== 1 ? "s" : ""} au total
             </p>
           </div>
         </div>
 
         {/* Badge de progression */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-700 border-blue-800 border">
+        <div
+          className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
+            isDark
+              ? "bg-slate-700 border-slate-600"
+              : "bg-blue-600 border-blue-700"
+          }`}
+        >
           <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
           <span className="text-xs font-bold text-white">
             {stats.progress}%
@@ -298,6 +324,7 @@ export default function TaskBoard() {
                 tasks={tasksByStatus[activeTab]}
                 onTaskClick={setSelectedTask}
                 onCheckboxClick={setTaskForStatusChange}
+                participants={participants}
                 isDark={isDark}
               />
             </div>
@@ -443,8 +470,14 @@ export default function TaskBoard() {
   );
 }
 
-// Composant Liste des tâches mobile
-function MobileTaskList({ tasks, onTaskClick, onCheckboxClick, isDark }) {
+// ✅ Composant Liste des tâches mobile - AVEC ASSIGNÉS ET BADGE URGENT
+function MobileTaskList({
+  tasks,
+  onTaskClick,
+  onCheckboxClick,
+  participants,
+  isDark,
+}) {
   if (!tasks || tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -457,79 +490,182 @@ function MobileTaskList({ tasks, onTaskClick, onCheckboxClick, isDark }) {
     );
   }
 
+  // Fonction pour vérifier si la tâche est en retard
+  const isOverdue = (task) => {
+    if (!task.dueDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today && task.status !== "done";
+  };
+
+  // Fonction pour obtenir les assignés d'une tâche
+  const getAssignees = (task) => {
+    if (!task.assignedTo || task.assignedTo.length === 0) return [];
+    return task.assignedTo
+      .map((id) => participants?.find((p) => p._id === id))
+      .filter(Boolean);
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      {tasks.map((task) => (
-        <div
-          key={task._id}
-          className={`flex items-center gap-3 p-3 rounded-lg border ${
-            isDark
-              ? "bg-slate-800 border-slate-700"
-              : "bg-white border-slate-200"
-          }`}
-        >
-          {/* Checkbox pour changer le statut */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCheckboxClick(task);
-            }}
-            className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-              task.status === "done"
-                ? "bg-emerald-600 border-emerald-600"
+      {tasks.map((task) => {
+        const taskIsOverdue = isOverdue(task);
+        const isUrgent = task.priority === "high";
+        const assignees = getAssignees(task);
+
+        return (
+          <div
+            key={task._id}
+            className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+              taskIsOverdue
+                ? isDark
+                  ? "bg-red-950/30 border-red-900/50 ring-1 ring-red-500/30"
+                  : "bg-red-50 border-red-200 ring-1 ring-red-300/50"
                 : isDark
-                  ? "border-slate-500 hover:border-blue-400 bg-slate-700/50"
-                  : "border-slate-300 hover:border-blue-500"
+                  ? "bg-slate-800 border-slate-700"
+                  : "bg-white border-slate-200"
             }`}
           >
-            {task.status === "done" && (
-              <CheckCircle2 size={16} className="text-white" />
-            )}
-          </button>
-
-          {/* Contenu de la tâche */}
-          <button
-            onClick={() => onTaskClick(task)}
-            className="flex-1 text-left"
-          >
-            <h4
-              className={`text-sm font-semibold ${
+            {/* Checkbox pour changer le statut */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCheckboxClick(task);
+              }}
+              className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
                 task.status === "done"
-                  ? isDark
-                    ? "text-slate-500 line-through"
-                    : "text-slate-400 line-through"
-                  : isDark
-                    ? "text-white"
-                    : "text-slate-900"
+                  ? "bg-emerald-600 border-emerald-600"
+                  : taskIsOverdue
+                    ? "border-red-500 hover:border-red-600 bg-red-500/10"
+                    : isDark
+                      ? "border-slate-500 hover:border-blue-400 bg-slate-700/50"
+                      : "border-slate-300 hover:border-blue-500"
               }`}
             >
-              {task.title}
-            </h4>
-            {task.description && (
-              <p
-                className={`text-xs mt-1 line-clamp-1 ${
-                  isDark ? "text-slate-400" : "text-slate-500"
-                }`}
-              >
-                {task.description}
-              </p>
-            )}
-          </button>
+              {task.status === "done" && (
+                <CheckCircle2 size={16} className="text-white" />
+              )}
+            </button>
 
-          {/* Indicateur de priorité */}
-          {task.priority && (
-            <div
-              className={`flex-shrink-0 w-2 h-2 rounded-full ${
-                task.priority === "high"
-                  ? "bg-red-500"
-                  : task.priority === "medium"
-                    ? "bg-amber-500"
-                    : "bg-blue-500"
-              }`}
-            />
-          )}
-        </div>
-      ))}
+            {/* Contenu de la tâche */}
+            <button
+              onClick={() => onTaskClick(task)}
+              className="flex-1 text-left min-w-0"
+            >
+              {/* Titre avec badge urgent */}
+              <div className="flex items-start gap-1.5 mb-0.5">
+                <h4
+                  className={`text-sm font-semibold flex-1 ${
+                    task.status === "done"
+                      ? isDark
+                        ? "text-slate-500 line-through"
+                        : "text-slate-400 line-through"
+                      : taskIsOverdue
+                        ? isDark
+                          ? "text-red-400"
+                          : "text-red-600"
+                        : isDark
+                          ? "text-white"
+                          : "text-slate-900"
+                  }`}
+                >
+                  {task.title}
+                </h4>
+
+                {/* ✅ Badge URGENT si priorité haute */}
+                {isUrgent && task.status !== "done" && (
+                  <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-red-600 text-white shadow-sm">
+                    Urgent
+                  </span>
+                )}
+              </div>
+
+              {/* Description */}
+              {task.description && (
+                <p
+                  className={`text-xs mt-1 line-clamp-1 ${
+                    isDark ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  {task.description}
+                </p>
+              )}
+
+              {/* Footer : Date + Assignés */}
+              <div className="flex items-center gap-2 mt-2">
+                {/* Date d'échéance */}
+                {task.dueDate && (
+                  <p
+                    className={`text-[10px] font-medium flex items-center gap-1 ${
+                      taskIsOverdue
+                        ? "text-red-500"
+                        : isDark
+                          ? "text-slate-500"
+                          : "text-slate-400"
+                    }`}
+                  >
+                    <Clock size={10} />
+                    {taskIsOverdue && (
+                      <span className="font-bold">En retard •</span>
+                    )}
+                    {new Date(task.dueDate).toLocaleDateString("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </p>
+                )}
+
+                {/* ✅ Avatars des assignés */}
+                {assignees.length > 0 && (
+                  <div className="flex -space-x-1 ml-auto">
+                    {assignees.slice(0, 3).map((assignee, index) => (
+                      <div
+                        key={assignee._id}
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 shadow-sm ${
+                          isDark
+                            ? "bg-blue-600 text-white border-slate-800"
+                            : "bg-blue-600 text-white border-white"
+                        }`}
+                        style={{ zIndex: assignees.length - index }}
+                        title={assignee.name}
+                      >
+                        {assignee.name.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                    {assignees.length > 3 && (
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border-2 ${
+                          isDark
+                            ? "bg-slate-700 text-slate-300 border-slate-800"
+                            : "bg-slate-200 text-slate-600 border-white"
+                        }`}
+                        title={`+${assignees.length - 3} autres`}
+                      >
+                        +{assignees.length - 3}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </button>
+
+            {/* Indicateur de priorité visuel (point coloré) */}
+            {task.priority && task.status !== "done" && (
+              <div
+                className={`flex-shrink-0 w-2 h-2 rounded-full ${
+                  task.priority === "high"
+                    ? "bg-red-500 animate-pulse"
+                    : task.priority === "medium"
+                      ? "bg-amber-500"
+                      : "bg-blue-500"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

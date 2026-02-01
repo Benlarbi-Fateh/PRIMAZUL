@@ -60,56 +60,99 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
     ? "border-slate-700 text-slate-500"
     : "border-slate-300 text-slate-400";
 
+  // ✅ Compter les tâches urgentes et en retard
+  const urgentCount = tasks.filter(
+    (task) => task.priority === "high" && task.status !== "done",
+  ).length;
+
+  const overdueCount = tasks.filter((task) => {
+    if (!task.dueDate || task.status === "done") return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(task.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  }).length;
+
   return (
-    <Droppable droppableId={id}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.droppableProps}
-          className={`
-            flex flex-col h-full w-full rounded-xl sm:rounded-2xl border-2 transition-all
-            ${columnBg}
-            ${columnBorder}
-            ${snapshot.isDraggingOver ? "ring-2 ring-blue-500/50 bg-blue-500/5" : ""}
-          `}
-        >
-          {/* Header - Responsive */}
-          <div
-            className={`flex items-center justify-between p-3 sm:p-4 border-b overflow-hidden rounded-t-xl sm:rounded-t-2xl ${headerBg}`}
+    <div
+      className={`
+        flex flex-col h-full w-full rounded-xl sm:rounded-2xl border-2 overflow-hidden
+        ${columnBg}
+        ${columnBorder}
+      `}
+    >
+      {/* Header - Responsive avec badges */}
+      <div
+        className={`flex items-center justify-between p-3 sm:p-4 border-b flex-shrink-0 ${headerBg}`}
+      >
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+          <span
+            className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full flex-shrink-0 ${config.dotColor}`}
+          />
+          <h3
+            className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
+              isDark ? "text-slate-200" : "text-slate-700"
+            }`}
           >
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <span
-                className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${config.dotColor}`}
-              />
-              <h3
-                className={`font-bold text-xs sm:text-sm uppercase tracking-wide ${
-                  isDark ? "text-slate-200" : "text-slate-700"
-                }`}
-              >
-                {/* Mobile: titre court, Desktop: titre complet */}
-                <span className="hidden sm:inline">{title}</span>
-                <span className="sm:hidden">
-                  {id === "todo"
-                    ? "À faire"
-                    : id === "inProgress"
-                      ? "En cours"
-                      : "Faites"}
-                </span>
-              </h3>
-            </div>
+            {/* Mobile: titre court, Desktop: titre complet */}
+            <span className="hidden sm:inline">{title}</span>
+            <span className="sm:hidden">
+              {id === "todo"
+                ? "À faire"
+                : id === "inProgress"
+                  ? "En cours"
+                  : "Faites"}
+            </span>
+          </h3>
+        </div>
+
+        {/* Badges et compteur */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Badge URGENT */}
+          {urgentCount > 0 && (
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase bg-red-600 text-white shadow-sm">
+              {urgentCount} Urgent{urgentCount > 1 ? "s" : ""}
+            </span>
+          )}
+
+          {/* Badge EN RETARD */}
+          {overdueCount > 0 && (
             <span
-              className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${
+              className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase shadow-sm ${
                 isDark
-                  ? "bg-slate-800 text-slate-300"
-                  : "bg-white/80 text-slate-600"
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                  : "bg-red-100 text-red-700 border border-red-200"
               }`}
             >
-              {tasks.length}
+              {overdueCount} Retard
             </span>
-          </div>
+          )}
 
-          {/* Liste des tâches - Prend toute la hauteur restante */}
-          <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2 min-h-0">
+          {/* Compteur total */}
+          <span
+            className={`px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold flex-shrink-0 ${
+              isDark
+                ? "bg-slate-800 text-slate-300"
+                : "bg-white/80 text-slate-600"
+            }`}
+          >
+            {tasks.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Zone droppable avec scroll - ✅ CORRIGÉ */}
+      <Droppable droppableId={id}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`
+              flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5 sm:space-y-2 min-h-0
+              ${snapshot.isDraggingOver ? "bg-blue-500/5 ring-2 ring-blue-500/50 ring-inset" : ""}
+            `}
+          >
             {tasks.map((task, index) => (
               <Draggable key={task._id} draggableId={task._id} index={index}>
                 {(provided, snapshot) => (
@@ -150,8 +193,8 @@ export default function TaskColumn({ id, title, tasks, onTaskClick, color }) {
               </div>
             )}
           </div>
-        </div>
-      )}
-    </Droppable>
+        )}
+      </Droppable>
+    </div>
   );
 }
