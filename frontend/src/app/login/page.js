@@ -99,11 +99,13 @@ export default function LoginPage() {
         <div className="absolute bottom-20 -right-20 w-60 h-60 bg-indigo-500/20 rounded-full blur-3xl"></div>
 
         {/* Logo */}
-        <div className="flex flex-col items-center justify-center text-center relative z-10 mt-16">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm mb-4 border border-white/30 shadow-xl">
-            <MessageCircle className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">PrimAzul</h1>
+        <div className="flex flex-col items-center justify-center text-center relative z-10 mt-12">
+          <img
+            src="/logo.png.png"
+            alt="Logo PrimAzul"
+            className="w-24 h-24 object-contain mb-4"
+          />
+          <h1 className="text-xl font-bold text-white mb-1">PrimAzul</h1>
           <p className="text-blue-100 text-sm">Making distance disappear</p>
         </div>
 
@@ -156,11 +158,14 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-sm sm:max-w-md">
           {/* Mobile Header */}
+                    {/* Mobile Header */}
           <div className="lg:hidden text-center mb-6 sm:mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                <MessageCircle className="w-6 h-6 text-white" />
-              </div>
+              <img
+                src="/logo.png.png"
+                alt="Logo PrimAzul"
+                className="w-16 h-16 object-contain"
+              />
               <div className="text-left">
                 <h1 className="text-xl sm:text-2xl font-bold text-white">
                   PrimAzul
@@ -203,21 +208,20 @@ export default function LoginPage() {
               </div>
             ) : (
               <>
-                <div className="text-center mb-6 sm:mb-8">
-                  <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl shadow-lg shadow-cyan-500/25 mb-4">
-                    <Zap className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-                  </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-                    Content de vous revoir
-                  </h2>
-                  <p className="text-slate-400 text-sm sm:text-base">
-                    Connectez-vous à votre compte
-                  </p>
-                  <p className="text-cyan-400 text-xs mt-2 flex items-center justify-center gap-1">
-                    <Zap className="w-3 h-3" />
-                    Connexion directe si actif récemment
-                  </p>
-                </div>
+                            <div className="text-center mb-6 sm:mb-8">
+  <img 
+    src="/logo.png.png" 
+    alt="Logo PrimAzul" 
+    // J'ai ajouté 'hidden lg:block' au tout début
+    className="hidden lg:block w-20 h-20 mx-auto object-contain mb-4" 
+  />
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                Bon retour !
+              </h2>
+              <p className="text-slate-400 text-sm sm:text-base">
+                Connectez-vous à votre espace
+              </p>
+            </div>
 
                 {error && (
                   <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-xl sm:rounded-2xl text-red-400 text-sm flex items-center gap-3">
@@ -287,16 +291,16 @@ export default function LoginPage() {
                     </Link>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 hover:from-cyan-400 hover:via-blue-400 hover:to-indigo-400 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-cyan-500/25 hover:shadow-cyan-400/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
-                  >
-                    {loading ? (
-                      <div className="flex items-center justify-center gap-2 sm:gap-3">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Connexion...</span>
-                      </div>
+                                <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-500/25 hover:shadow-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2 sm:gap-3">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Connexion...</span>
+                  </div>
                     ) : (
                       <span className="flex items-center justify-center gap-2">
                         <Zap className="w-5 h-5" />

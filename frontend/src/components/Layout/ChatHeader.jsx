@@ -1361,14 +1361,6 @@ const toggleMute = async () => {
                                         />
                                       )}
                                     </div>
-                                    <p
-                                      className={`
-                    text-xs truncate
-                    ${isDark ? "text-slate-400" : "text-gray-500"}
-                  `}
-                                    >
-                                      {participant.email}
-                                    </p>
                                   </div>
 
                                   {/* ACTIONS ADMIN (inchangées) */}

@@ -6,6 +6,7 @@ import { AuthContext } from "@/context/AuthProvider";
 import api from "@/lib/api";
 import Link from "next/link";
 import VerifyCode from "@/components/Auth/VerifyCode";
+import Image from "next/image";
 import UploadProfilePicture from "@/components/Auth/UploadProfilePicture";
 import {
   Mail,
@@ -153,9 +154,11 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <div className="flex flex-col items-center justify-center text-center relative z-10 mt-12">
-          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm mb-3 border border-white/30 shadow-xl">
-            <MessageCircle className="w-7 h-7 text-white" />
-          </div>
+          <img 
+  src="/logo.png.png" 
+  alt="Logo PrimAzul" 
+  className="w-24 h-24 object-contain mb-4" 
+/>
           <h1 className="text-xl font-bold text-white mb-1">PrimAzul</h1>
           <p className="text-blue-100 text-sm">Making distance disappear</p>
         </div>
@@ -273,9 +276,11 @@ export default function RegisterPage() {
             ) : (
               <>
                 <div className="text-center mb-6 sm:mb-8">
-                  <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg shadow-purple-500/25 mb-4">
-                    <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-                  </div>
+                  <img 
+  src="/logo.png.png" 
+  alt="Logo PrimAzul" 
+  className="w-20 h-20 mx-auto object-contain mb-4" 
+/>
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
                     Rejoignez-nous
                   </h2>
@@ -398,22 +403,23 @@ export default function RegisterPage() {
                   </div>
 
                   <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 hover:from-purple-400 hover:via-indigo-400 hover:to-blue-400 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-purple-500/25 hover:shadow-purple-400/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
-                  >
-                    {loading ? (
-                      <div className="flex items-center justify-center gap-2 sm:gap-3">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Création du compte...</span>
-                      </div>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <Sparkles className="w-5 h-5" />
-                        Créer mon compte
-                      </span>
-                    )}
-                  </button>
+  type="submit"
+  disabled={loading}
+  // J'ai remplacé le gradient violet par bg-blue-600 (bleu uni)
+  className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-blue-500/25 hover:shadow-blue-400/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm sm:text-base"
+>
+  {loading ? (
+    <div className="flex items-center justify-center gap-2 sm:gap-3">
+      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      <span>Création du compte...</span>
+    </div>
+  ) : (
+    <span className="flex items-center justify-center gap-2">
+      <Sparkles className="w-5 h-5" />
+      Créer mon compte
+    </span>
+  )}
+</button>
                 </form>
 
                 <div className="mt-6 sm:mt-8 text-center">

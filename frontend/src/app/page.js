@@ -2,11 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar.jsx';
 import MobileHeader from '@/components/Layout/MobileHeader';
 import { useSocket } from '@/hooks/useSocket';
-import { MessageCircle, Send, Folder, Sparkles, Users, Shield, Zap } from 'lucide-react';
+import { Send, Folder, Sparkles, Users, Shield, Zap } from 'lucide-react';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -48,18 +49,33 @@ export default function HomePage() {
 
               <div className="text-center w-full max-w-6xl h-full flex flex-col justify-center relative z-10">
                 <div className="mb-8">
+                  
+                  {/* --- LOGO AVEC FOND TRANSPARENT --- */}
                   <div className="relative inline-block mb-6">
+                    {/* La lueur bleue derrière reste pour l'effet de style */}
                     <div className={`absolute inset-0 rounded-full blur-lg opacity-40 ${isDark ? 'bg-blue-800' : 'bg-blue-300'}`}></div>
+                    
                     <div 
-                      className="relative rounded-2xl p-5 inline-block shadow-xl border"
+                      // J'ai enlevé 'shadow-xl' et 'border' pour que ce soit vraiment propre et transparent
+                      // Si vous voulez garder le cadre mais sans la couleur, remettez 'border shadow-md'
+                      className="relative p-2 inline-block flex items-center justify-center"
                       style={{
-                        background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                        borderColor: isDark ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.1)'
+                        background: 'transparent', // <-- C'EST ICI QUE C'EST DEVENU TRANSPARENT
+                        borderColor: 'transparent' // Plus de bordure visible
                       }}
                     >
-                      <MessageCircle className="w-14 h-14 text-white" />
+                      <Image 
+                        src="/logo.png.png" 
+                        alt="Logo PrimAzul"
+                        width={100} // J'ai un peu agrandi car sans le cadre, le logo peut paraître plus petit
+                        height={100}
+                        className="w-24 h-24 object-contain drop-shadow-lg" // drop-shadow ajoute une ombre portée sur le logo lui-même
+                        priority
+                        unoptimized
+                      />
                     </div>
                   </div>
+                  {/* ---------------------------------- */}
 
                   <h2 
                     className="text-3xl lg:text-4xl xl:text-5xl font-bold mb-4"
