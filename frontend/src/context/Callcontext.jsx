@@ -13,9 +13,27 @@ import React, {
 } from "react";
 import dynamic from "next/dynamic";
 import { AuthContext } from "@/context/AuthProvider";
-import { getSocket } from "@/services/socket";
+import {
+  getSocket,
+  checkActiveCall as socketCheckActiveCall,
+  onActiveCallFound,
+  onNoActiveCall,
+  onCallAlreadyExists,
+  onCallParticipantJoined,
+  onCallParticipantLeft,
+  onCallAllDeclined,
+  onCallIncoming,
+  onCallAnswered,
+  onCallDeclined,
+  onCallCancelled,
+  onCallTimeout,
+  onCallEnded,
+  onCallMissed,
+  onCallError,
+  emitCancelCall,
+} from "@/services/socket";
 import api from "@/lib/api";
-import { Phone, PhoneOff, Video, Users, X } from "lucide-react";
+import { Phone, PhoneOff, Video, Users, X, UserPlus } from "lucide-react";
 
 const VideoCall = dynamic(() => import("@/components/Chat/VideCall"), {
   ssr: false,
@@ -40,31 +58,22 @@ export const CALL_STATES = {
   ENDED: "ended",
 };
 
-const CALL_TIMEOUT_MS = 45000;
+const GROUP_CALL_TIMEOUT_MS = 20000;
+const P2P_CALL_TIMEOUT_MS = 45000;
 
 // ============================================
-// SONS D'APPEL (Séparés des notifications)
+// SONS D'APPEL
 // ============================================
 const CALL_SOUNDS = {
-  // Son quand vous appelez (tonalité)
-  // Note : J'ai respecté votre nom de fichier "outgoning.wav"
   OUTGOING: "/Sounds/notifications/outgoning.wav",
-
-  // Son quand on vous appelle (sonnerie)
   INCOMING: "/Sounds/notifications/incomingcall.wav",
-
-  // Son quand l'appel est décroché
   CONNECTED: "/Sounds/notifications/light.mp3",
-
-  // Son quand l'appel est terminé
   ENDED: "/Sounds/notifications/conclusive.mp3",
-
-  // Son quand c'est occupé ou refusé
   BUSY: "/Sounds/notifications/default.mp3",
 };
 
 // ============================================
-// CLASSE CALL AUDIO MANAGER (Indépendant)
+// CLASSE CALL AUDIO MANAGER
 // ============================================
 class CallAudioManager {
   constructor() {
@@ -77,34 +86,19 @@ class CallAudioManager {
   init() {
     if (this.initialized || typeof window === "undefined") return;
 
-    console.log("🔊 Initialisation CallAudioManager...");
-
     Object.entries(CALL_SOUNDS).forEach(([key, src]) => {
       try {
         const audio = new Audio(src);
         audio.preload = "auto";
 
-        // Configuration selon le type
         if (key === "OUTGOING" || key === "INCOMING") {
           audio.loop = true;
         } else {
           audio.loop = false;
         }
 
-        // Volume par défaut
         audio.volume = key === "INCOMING" ? 1.0 : 0.7;
-
-        // Précharger
         audio.load();
-
-        // Log des erreurs de chargement
-        audio.addEventListener("error", (e) => {
-          console.warn(`⚠️ Erreur chargement son ${key}:`, e);
-        });
-
-        audio.addEventListener("canplaythrough", () => {
-          console.log(`✅ Son ${key} prêt`);
-        });
 
         this.sounds[key] = audio;
       } catch (e) {
@@ -113,71 +107,42 @@ class CallAudioManager {
     });
 
     this.initialized = true;
-    console.log(
-      "✅ CallAudioManager initialisé avec",
-      Object.keys(this.sounds).length,
-      "sons",
-    );
   }
 
-  // Débloquer l'audio après une interaction utilisateur
   unlock() {
     if (this.unlocked) return;
 
     Object.values(this.sounds).forEach((audio) => {
       if (audio) {
-        audio
-          .play()
-          .then(() => {
-            audio.pause();
-            audio.currentTime = 0;
-          })
-          .catch(() => {});
+        audio.play().then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }).catch(() => {});
       }
     });
 
     this.unlocked = true;
-    console.log("🔓 Audio débloqué");
   }
 
   play(soundKey) {
     if (!this.initialized) this.init();
 
     const audio = this.sounds[soundKey];
-    if (!audio) {
-      console.warn(`⚠️ Son non trouvé: ${soundKey}`);
-      return false;
-    }
+    if (!audio) return false;
 
-    // Arrêter le son en cours si c'est un son différent
     if (this.currentlyPlaying && this.currentlyPlaying !== soundKey) {
       this.stop(this.currentlyPlaying);
     }
 
     try {
       audio.currentTime = 0;
-
-      const playPromise = audio.play();
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log(`🔊 Son ${soundKey} en lecture`);
-            this.currentlyPlaying = soundKey;
-          })
-          .catch((error) => {
-            console.warn(`🔕 Son ${soundKey} bloqué:`, error.message);
-
-            // Tentative de fallback
-            setTimeout(() => {
-              audio.play().catch(() => {});
-            }, 100);
-          });
-      }
-
+      audio.play().then(() => {
+        this.currentlyPlaying = soundKey;
+      }).catch(() => {
+        setTimeout(() => audio.play().catch(() => {}), 100);
+      });
       return true;
     } catch (e) {
-      console.warn(`❌ Erreur lecture ${soundKey}:`, e);
       return false;
     }
   }
@@ -188,36 +153,19 @@ class CallAudioManager {
       try {
         audio.pause();
         audio.currentTime = 0;
-
         if (this.currentlyPlaying === soundKey) {
           this.currentlyPlaying = null;
         }
-
-        console.log(`🔇 Son ${soundKey} arrêté`);
       } catch (e) {}
     }
   }
 
   stopAll() {
-    console.log("🔇 Arrêt de tous les sons d'appel");
     Object.keys(this.sounds).forEach((key) => this.stop(key));
     this.currentlyPlaying = null;
   }
-
-  setVolume(soundKey, volume) {
-    const audio = this.sounds[soundKey];
-    if (audio) {
-      audio.volume = Math.max(0, Math.min(1, volume));
-    }
-  }
-
-  isPlaying(soundKey) {
-    const audio = this.sounds[soundKey];
-    return audio && !audio.paused;
-  }
 }
 
-// Instance singleton
 const callAudioManager = new CallAudioManager();
 
 // ============================================
@@ -280,11 +228,10 @@ const IncomingCallModal = memo(function IncomingCallModal({
   onAccept,
   onReject,
 }) {
-  const { from, isGroup, groupName, callType } = incomingCall;
+  const { from, isGroup, groupName, callType, hasActiveCall } = incomingCall;
   const displayName = isGroup ? groupName : from?.name || "Inconnu";
   const initial = displayName.charAt(0).toUpperCase();
 
-  // Débloquer l'audio quand le modal apparaît (interaction implicite)
   useEffect(() => {
     callAudioManager.unlock();
   }, []);
@@ -292,33 +239,23 @@ const IncomingCallModal = memo(function IncomingCallModal({
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md">
       <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 border border-slate-700/50 animate-scale-in">
-        {/* Avatar avec animation */}
         <div className="relative mb-6">
           <div className="absolute -inset-4">
             <div className="w-36 h-36 rounded-full border-2 border-green-500/30 animate-ping" />
           </div>
           <div className="absolute -inset-2">
-            <div
-              className="w-32 h-32 rounded-full border-2 border-green-500/50 animate-ping"
-              style={{ animationDelay: "0.5s" }}
-            />
+            <div className="w-32 h-32 rounded-full border-2 border-green-500/50 animate-ping" style={{ animationDelay: "0.5s" }} />
           </div>
 
           <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-green-500 shadow-lg shadow-green-500/30">
             {from?.profilePicture ? (
-              <img
-                src={from.profilePicture}
-                alt={displayName}
-                className="w-full h-full object-cover"
-              />
+              <img src={from.profilePicture} alt={displayName} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center">
                 {isGroup ? (
                   <Users className="w-12 h-12 text-white" />
                 ) : (
-                  <span className="text-3xl font-bold text-white">
-                    {initial}
-                  </span>
+                  <span className="text-3xl font-bold text-white">{initial}</span>
                 )}
               </div>
             )}
@@ -333,16 +270,16 @@ const IncomingCallModal = memo(function IncomingCallModal({
           </div>
         </div>
 
-        <h3 className="text-xl font-bold mb-1 text-white text-center">
-          {displayName}
-        </h3>
-        <p className="text-sm text-slate-400 mb-2">vous appelle</p>
+        <h3 className="text-xl font-bold mb-1 text-white text-center">{displayName}</h3>
+        <p className="text-sm text-slate-400 mb-2">
+          {hasActiveCall ? "vous invite à rejoindre un appel" : "vous appelle"}
+        </p>
         <p className="text-sm text-green-400 mb-8 flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
           </span>
-          Appel {callType === "video" ? "vidéo" : "audio"} entrant
+          {hasActiveCall ? "Appel en cours" : `Appel ${callType === "video" ? "vidéo" : "audio"} entrant`}
         </p>
 
         <div className="flex gap-8 w-full justify-center">
@@ -361,28 +298,12 @@ const IncomingCallModal = memo(function IncomingCallModal({
               onClick={onAccept}
               className="w-16 h-16 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-green-500/30 transition-all hover:scale-110 active:scale-95 animate-pulse"
             >
-              <Phone className="w-7 h-7" />
+              {hasActiveCall ? <UserPlus className="w-7 h-7" /> : <Phone className="w-7 h-7" />}
             </button>
-            <span className="text-xs text-slate-400">Accepter</span>
+            <span className="text-xs text-slate-400">{hasActiveCall ? "Rejoindre" : "Accepter"}</span>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0.9);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 });
@@ -402,36 +323,13 @@ const CallToast = memo(function CallToast({ notification, onClose }) {
 
   return (
     <div className="fixed top-4 right-4 z-[10000] animate-slide-in">
-      <div
-        className={`px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 min-w-[280px] border text-white ${
-          bgColors[notification.type] || bgColors.info
-        }`}
-      >
+      <div className={`px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-3 min-w-[280px] border text-white ${bgColors[notification.type] || bgColors.info}`}>
         <Phone size={20} />
         <p className="text-sm font-medium flex-1">{notification.message}</p>
-        <button
-          onClick={onClose}
-          className="p-1 hover:bg-white/20 rounded-full transition-colors"
-        >
+        <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
           <X size={16} />
         </button>
       </div>
-
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 });
@@ -454,11 +352,16 @@ export const CallProvider = ({ children }) => {
   const [callError, setCallError] = useState(null);
   const [connectionQuality, setConnectionQuality] = useState("good");
   const [callNotification, setCallNotification] = useState(null);
+  
+  // États pour appel actif
+  const [activeCallInConversation, setActiveCallInConversation] = useState(null);
+  const [currentConversationId, setCurrentConversationId] = useState(null);
 
   // Refs
   const callTimeoutRef = useRef(null);
   const isProcessingRef = useRef(false);
   const notificationTimeoutRef = useRef(null);
+  const pingIntervalRef = useRef(null);
 
   // Timer
   const callTimer = useCallTimer();
@@ -475,7 +378,6 @@ export const CallProvider = ({ children }) => {
   useEffect(() => {
     callAudioManager.init();
 
-    // Débloquer l'audio au premier clic
     const unlockHandler = () => {
       callAudioManager.unlock();
       document.removeEventListener("click", unlockHandler);
@@ -512,6 +414,24 @@ export const CallProvider = ({ children }) => {
   }, []);
 
   // ============================================
+  // VÉRIFIER APPEL ACTIF
+  // ============================================
+  const checkActiveCall = useCallback((conversationId) => {
+    if (conversationId) {
+      socketCheckActiveCall(conversationId);
+    }
+  }, []);
+
+  const setCurrentConversation = useCallback((conversationId) => {
+    setCurrentConversationId(conversationId);
+    if (conversationId) {
+      checkActiveCall(conversationId);
+    } else {
+      setActiveCallInConversation(null);
+    }
+  }, [checkActiveCall]);
+
+  // ============================================
   // HELPERS
   // ============================================
   const resetCallState = useCallback(() => {
@@ -524,6 +444,11 @@ export const CallProvider = ({ children }) => {
       callTimeoutRef.current = null;
     }
 
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+
     setInCall(false);
     setCallState(CALL_STATES.IDLE);
     setAgoraToken(null);
@@ -533,7 +458,11 @@ export const CallProvider = ({ children }) => {
     setIncomingCall(null);
     setCallError(null);
     isProcessingRef.current = false;
-  }, [callTimer]);
+
+    if (currentConversationId) {
+      checkActiveCall(currentConversationId);
+    }
+  }, [callTimer, currentConversationId, checkActiveCall]);
 
   const showError = useCallback(
     (message, autoEndCall = true) => {
@@ -547,6 +476,76 @@ export const CallProvider = ({ children }) => {
   );
 
   // ============================================
+  // PING
+  // ============================================
+  const startPing = useCallback((callId) => {
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+    }
+
+    pingIntervalRef.current = setInterval(() => {
+      api.post(`/agora/calls/${callId}/ping`).catch(() => {});
+    }, 30000);
+  }, []);
+
+  // ============================================
+  // REJOINDRE UN APPEL EXISTANT
+  // ============================================
+  const joinExistingCall = useCallback(async () => {
+    if (!activeCallInConversation || !user || isProcessingRef.current) return;
+
+    isProcessingRef.current = true;
+    
+    try {
+      setCallState(CALL_STATES.CONNECTING);
+      hideCallNotification();
+      
+      const { callId, channelName: channel, callType: type, isGroup, conversationId } = activeCallInConversation;
+      
+      const { data: tokenData } = await api.post("/agora/token", {
+        channelName: channel,
+        uid: myUid,
+        isGroup,
+      });
+
+      await api.post(`/agora/calls/${callId}/join`);
+
+      setCurrentCallId(callId);
+      setChannelName(channel);
+      setAgoraToken(tokenData.token);
+      setCallType(type);
+      setCallData({
+        isGroup,
+        name: "Appel en cours",
+        conversationId: conversationId || currentConversationId,
+      });
+
+      const socket = getSocket();
+      socket?.emit("call-join", { callId });
+
+      setInCall(true);
+      setCallState(CALL_STATES.ONGOING);
+      setActiveCallInConversation(null);
+      
+      callAudioManager.play("CONNECTED");
+      showCallNotification("success", "Vous avez rejoint l'appel");
+      callTimer.start();
+      startPing(callId);
+      
+    } catch (error) {
+      console.error("Erreur rejoindre appel:", error);
+      if (error.response?.status === 410) {
+        showCallNotification("warning", "Cet appel est terminé");
+        setActiveCallInConversation(null);
+      } else {
+        showError("Impossible de rejoindre l'appel");
+      }
+    } finally {
+      isProcessingRef.current = false;
+    }
+  }, [activeCallInConversation, user, myUid, currentConversationId, callTimer, startPing, showError, showCallNotification, hideCallNotification]);
+
+  // ============================================
   // INITIER UN APPEL
   // ============================================
   const initiateCall = useCallback(
@@ -558,19 +557,16 @@ export const CallProvider = ({ children }) => {
       groupName = "",
     ) => {
       if (!user || isProcessingRef.current) {
-        console.log("⚠️ Impossible d'initier l'appel:", {
-          user: !!user,
-          processing: isProcessingRef.current,
-        });
+        return;
+      }
+
+      // Vérifier s'il y a un appel actif
+      if (activeCallInConversation) {
+        showCallNotification("info", "Un appel est déjà en cours. Rejoignez-le !", 5000);
         return;
       }
 
       isProcessingRef.current = true;
-      console.log("📞 Initiation d'appel...", {
-        conversationId,
-        type,
-        isGroup,
-      });
 
       const socket = getSocket();
       if (!socket?.connected) {
@@ -584,40 +580,26 @@ export const CallProvider = ({ children }) => {
         setCallType(type);
         setCallError(null);
 
-        const tempCallId = generateCallId();
-        const channel = `channel_${tempCallId}`;
+        const participantsList = Array.isArray(participants) ? participants : [participants];
+        const targetUserIds = participantsList.map((p) => (p._id || p.id || p).toString());
 
-        const participantsList = Array.isArray(participants)
-          ? participants
-          : [participants];
-        const targetUserIds = participantsList.map((p) =>
-          (p._id || p.id || p).toString(),
-        );
+        const { data: callResponseData } = await api.post("/agora/calls/initiate", {
+          conversationId,
+          callType: type,
+          isGroup,
+          participants: targetUserIds,
+        });
 
-        // Token Agora
         const { data: tokenData } = await api.post("/agora/token", {
-          channelName: channel,
+          channelName: callResponseData.channelName,
           uid: myUid,
           isGroup,
         });
 
-        // Créer l'appel
-        const { data: callMessageData } = await api.post(
-          "/agora/calls/initiate",
-          {
-            conversationId,
-            callType: type,
-            isGroup,
-            participants: targetUserIds,
-          },
-        );
+        const calleeName = isGroup ? groupName : participantsList[0]?.name || "Inconnu";
 
-        const calleeName = isGroup
-          ? groupName
-          : participantsList[0]?.name || "Inconnu";
-
-        setCurrentCallId(callMessageData.callId);
-        setChannelName(channel);
+        setCurrentCallId(callResponseData.callId);
+        setChannelName(callResponseData.channelName);
         setAgoraToken(tokenData.token);
         setCallData({
           isGroup,
@@ -627,11 +609,10 @@ export const CallProvider = ({ children }) => {
           conversationId,
         });
 
-        // Émettre via socket
         socket.emit("call-initiate", {
-          callId: callMessageData.callId,
+          callId: callResponseData.callId,
           conversationId,
-          channelName: channel,
+          channelName: callResponseData.channelName,
           callType: type,
           isGroup,
           groupName,
@@ -643,47 +624,42 @@ export const CallProvider = ({ children }) => {
         setCallState(CALL_STATES.RINGING);
         setInCall(true);
 
-        // 🔊 SON POUR L'APPELANT
-        console.log("🔊 Lecture son OUTGOING...");
         callAudioManager.play("OUTGOING");
-
         showCallNotification("info", `Appel vers ${calleeName}...`);
 
-        // Timeout
+        const timeoutDuration = isGroup ? GROUP_CALL_TIMEOUT_MS : P2P_CALL_TIMEOUT_MS;
+        
         callTimeoutRef.current = setTimeout(() => {
-          console.log("⏰ Timeout appel");
           callAudioManager.stopAll();
           showError("Pas de réponse");
-        }, CALL_TIMEOUT_MS);
+        }, timeoutDuration);
 
-        console.log(`✅ Appel initié: ${callMessageData.callId}`);
       } catch (error) {
         console.error("❌ Erreur initiation:", error);
         callAudioManager.stopAll();
-        showError(
-          error.response?.data?.message || "Impossible de lancer l'appel",
-        );
+        
+        if (error.response?.status === 409) {
+          showCallNotification("warning", "Un appel est déjà en cours");
+          if (error.response.data?.canJoin) {
+            setActiveCallInConversation(error.response.data.callDetails);
+          }
+        } else {
+          showError(error.response?.data?.message || "Impossible de lancer l'appel");
+        }
       } finally {
         isProcessingRef.current = false;
       }
     },
-    [user, myUid, showError, showCallNotification],
+    [user, myUid, activeCallInConversation, showError, showCallNotification],
   );
 
   // ============================================
   // ACCEPTER UN APPEL
   // ============================================
   const acceptCall = useCallback(async () => {
-    if (!incomingCall || !user || isProcessingRef.current) {
-      console.log("⚠️ Impossible d'accepter:", {
-        incomingCall: !!incomingCall,
-        user: !!user,
-      });
-      return;
-    }
+    if (!incomingCall || !user || isProcessingRef.current) return;
 
     isProcessingRef.current = true;
-    console.log("✅ Acceptation de l'appel...");
 
     const socket = getSocket();
     if (!socket?.connected) {
@@ -693,11 +669,8 @@ export const CallProvider = ({ children }) => {
     }
 
     try {
-      // 🔇 ARRÊTER LA SONNERIE
-      console.log("🔇 Arrêt sonnerie INCOMING");
       callAudioManager.stop("INCOMING");
       hideCallNotification();
-
       setCallState(CALL_STATES.CONNECTING);
 
       const {
@@ -743,12 +716,11 @@ export const CallProvider = ({ children }) => {
         userId: user._id || user.id,
       });
 
-      // 🔊 SON DE CONNEXION
       callAudioManager.play("CONNECTED");
       showCallNotification("success", "Appel connecté");
       callTimer.start();
+      startPing(callId);
 
-      console.log(`✅ Appel ${callId} accepté`);
     } catch (error) {
       console.error("❌ Erreur acceptation:", error);
       callAudioManager.stopAll();
@@ -756,15 +728,7 @@ export const CallProvider = ({ children }) => {
     } finally {
       isProcessingRef.current = false;
     }
-  }, [
-    incomingCall,
-    user,
-    myUid,
-    callTimer,
-    showError,
-    hideCallNotification,
-    showCallNotification,
-  ]);
+  }, [incomingCall, user, myUid, callTimer, startPing, showError, hideCallNotification, showCallNotification]);
 
   // ============================================
   // REFUSER UN APPEL
@@ -772,13 +736,10 @@ export const CallProvider = ({ children }) => {
   const rejectCall = useCallback(async () => {
     if (!incomingCall) return;
 
-    console.log("❌ Refus de l'appel");
-
     const socket = getSocket();
     const callId = incomingCall.callId;
     const callerName = incomingCall.from?.name || "Inconnu";
 
-    // 🔇 ARRÊTER LA SONNERIE
     callAudioManager.stop("INCOMING");
     hideCallNotification();
 
@@ -800,22 +761,11 @@ export const CallProvider = ({ children }) => {
   const endCall = useCallback(async () => {
     const socket = getSocket();
     const callId = currentCallId;
-
-    // Vérifier si c'est un groupe
     const isGroupCall = callData?.isGroup || incomingCall?.isGroup;
-
     const wasRinging = callState === CALL_STATES.RINGING;
     const wasOngoing = callState === CALL_STATES.ONGOING;
     const duration = callTimer.duration;
 
-    console.log("🛑 Fin d'appel:", {
-      callId,
-      wasRinging,
-      wasOngoing,
-      isGroupCall,
-    });
-
-    // 🔇 ARRÊTER TOUS LES SONS
     callAudioManager.stopAll();
     callTimer.stop();
 
@@ -824,43 +774,34 @@ export const CallProvider = ({ children }) => {
       callTimeoutRef.current = null;
     }
 
-    // Gestion Socket
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
+    }
+
     if (callId && socket) {
       if (wasRinging) {
-        // Si ça sonne encore, on annule (pour tout le monde)
         socket.emit("call-cancel", { callId });
       } else {
-        // Si l'appel est en cours :
-        // Groupe -> "call-leave" (Juste moi qui pars)
-        // 1vs1   -> "call-end" (L'appel est fini)
         const event = isGroupCall ? "call-leave" : "call-end";
         socket.emit(event, { callId });
       }
     }
 
-    // Gestion API
     if (callId) {
-      // 👇 C'EST ICI LA CORRECTION IMPORTANTE
-      // Si c'est un groupe en cours, on utilise l'endpoint "leave"
-      // Sinon on utilise "end" (pour 1vs1 ou annulation)
       const endpoint = isGroupCall && wasOngoing ? "leave" : "end";
-
-      api
-        .post(`/agora/calls/${callId}/${endpoint}`, {
-          reason: wasRinging ? "cancelled" : "ended",
-          duration: wasOngoing ? duration : 0,
-        })
-        .catch((err) => console.error("Erreur API fin appel:", err));
+      api.post(`/agora/calls/${callId}/${endpoint}`, {
+        reason: wasRinging ? "cancelled" : "ended",
+        duration: wasOngoing ? duration : 0,
+      }).catch((err) => console.error("Erreur API fin appel:", err));
     }
 
-    // Notification et reset local
     if (wasOngoing) {
       callAudioManager.play("ENDED");
       const mins = Math.floor(duration / 60);
       const secs = duration % 60;
       const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 
-      // Message différent si on quitte un groupe ou si on raccroche
       const msg = isGroupCall
         ? "Vous avez quitté l'appel de groupe"
         : `Appel terminé (${durationStr})`;
@@ -871,154 +812,159 @@ export const CallProvider = ({ children }) => {
       showCallNotification("info", "Appel annulé");
       resetCallState();
     }
-  }, [
-    currentCallId,
-    callState,
-    callData,
-    incomingCall,
-    callTimer,
-    resetCallState,
-    showCallNotification,
-  ]);
+  }, [currentCallId, callState, callData, incomingCall, callTimer, resetCallState, showCallNotification]);
 
   // ============================================
   // SOCKET HANDLERS
   // ============================================
   useEffect(() => {
     const socket = getSocket();
-    if (!socket || !user) {
-      console.log("⚠️ Socket ou user non disponible pour les appels");
-      return;
-    }
+    if (!socket || !user) return;
 
-    console.log("🔌 Enregistrement des handlers d'appel");
+    // Appel actif trouvé
+    const unsubActiveFound = onActiveCallFound((data) => {
+      console.log("📞 Appel actif trouvé:", data);
+      setActiveCallInConversation(data);
+    });
 
-    const handlers = {
-      "call-incoming": (data) => {
-        console.log("📱 APPEL ENTRANT:", data);
+    // Pas d'appel actif
+    const unsubNoActive = onNoActiveCall(() => {
+      setActiveCallInConversation(null);
+    });
 
-        if (inCall) {
-          console.log("❌ Déjà en appel, refus automatique");
-          socket.emit("call-decline", { callId: data.callId, reason: "busy" });
-          showCallNotification(
-            "warning",
-            `Appel manqué de ${data.from?.name || "Inconnu"} (occupé)`,
-          );
-          return;
-        }
+    // Appel déjà existant
+    const unsubAlreadyExists = onCallAlreadyExists((data) => {
+      showCallNotification("warning", "Un appel est déjà en cours");
+      if (data.canJoin) {
+        setActiveCallInConversation(data);
+      }
+      resetCallState();
+    });
 
-        setIncomingCall(data);
-        setCallState(CALL_STATES.RINGING);
+    // Tout le monde a refusé
+    const unsubAllDeclined = onCallAllDeclined(() => {
+      callAudioManager.stopAll();
+      showCallNotification("warning", "Personne n'a répondu à l'appel");
+      setTimeout(() => resetCallState(), 2000);
+    });
 
-        // 🔊 SONNERIE POUR LE RÉCEPTEUR
-        console.log("🔊 Lecture sonnerie INCOMING");
-        callAudioManager.play("INCOMING");
-      },
+    // Participant rejoint
+    const unsubParticipantJoined = onCallParticipantJoined((data) => {
+      showCallNotification("info", `${data.userName || 'Un participant'} a rejoint l'appel`);
+    });
 
-      "call-answered": (data) => {
-        console.log("✅ APPEL RÉPONDU:", data);
+    // Appel entrant
+    const unsubIncoming = onCallIncoming((data) => {
+      console.log("📱 APPEL ENTRANT:", data);
 
-        if (callTimeoutRef.current) {
-          clearTimeout(callTimeoutRef.current);
-          callTimeoutRef.current = null;
-        }
+      if (inCall) {
+        socket.emit("call-decline", { callId: data.callId, reason: "busy" });
+        showCallNotification("warning", `Appel manqué de ${data.from?.name || "Inconnu"} (occupé)`);
+        return;
+      }
 
-        // 🔇 ARRÊTER LE SON OUTGOING
-        callAudioManager.stop("OUTGOING");
+      setIncomingCall(data);
+      setCallState(CALL_STATES.RINGING);
+      callAudioManager.play("INCOMING");
+    });
 
-        // 🔊 SON DE CONNEXION
-        callAudioManager.play("CONNECTED");
+    // Appel répondu
+    const unsubAnswered = onCallAnswered((data) => {
+      console.log("✅ APPEL RÉPONDU:", data);
 
-        hideCallNotification();
-        showCallNotification("success", "Appel connecté");
-        setCallState(CALL_STATES.ONGOING);
-        callTimer.start();
-      },
+      if (callTimeoutRef.current) {
+        clearTimeout(callTimeoutRef.current);
+        callTimeoutRef.current = null;
+      }
 
-      "call-declined": (data) => {
-        console.log("❌ APPEL REFUSÉ:", data);
+      callAudioManager.stop("OUTGOING");
+      callAudioManager.play("CONNECTED");
 
-        callAudioManager.stop("OUTGOING");
+      hideCallNotification();
+      showCallNotification("success", "Appel connecté");
+      setCallState(CALL_STATES.ONGOING);
+      callTimer.start();
+      
+      if (currentCallId) {
+        startPing(currentCallId);
+      }
+    });
 
-        if (data.reason === "busy") {
-          callAudioManager.play("BUSY");
-          showCallNotification("warning", "L'utilisateur est déjà en appel");
-        } else {
-          showCallNotification("warning", "Appel refusé");
-        }
+    // Appel refusé
+    const unsubDeclined = onCallDeclined((data) => {
+      callAudioManager.stop("OUTGOING");
 
-        setTimeout(() => resetCallState(), 2000);
-      },
+      if (data.reason === "busy") {
+        callAudioManager.play("BUSY");
+        showCallNotification("warning", "L'utilisateur est déjà en appel");
+      } else {
+        showCallNotification("warning", "Appel refusé");
+      }
 
-      "call-ended": (data) => {
-        console.log("🛑 APPEL TERMINÉ PAR L'AUTRE:", data);
+      setTimeout(() => resetCallState(), 2000);
+    });
 
-        callAudioManager.stopAll();
-        callAudioManager.play("ENDED");
-        showCallNotification("info", "Appel terminé");
-        setTimeout(() => resetCallState(), 500);
-      },
+    // Appel terminé
+    const unsubEnded = onCallEnded((data) => {
+      callAudioManager.stopAll();
+      callAudioManager.play("ENDED");
+      showCallNotification("info", "Appel terminé");
+      setTimeout(() => resetCallState(), 500);
+    });
 
-      "call-cancelled": (data) => {
-        console.log("📵 APPEL ANNULÉ:", data);
+    // Appel annulé
+    const unsubCancelled = onCallCancelled(() => {
+      callAudioManager.stopAll();
+      showCallNotification("info", "L'appelant a annulé");
+      setIncomingCall(null);
+      setCallState(CALL_STATES.IDLE);
+    });
 
-        callAudioManager.stopAll();
-        showCallNotification("info", "L'appelant a annulé");
-        setIncomingCall(null);
-        setCallState(CALL_STATES.IDLE);
-      },
-
-      "call-timeout": (data) => {
-        console.log("⏰ TIMEOUT:", data);
-        callAudioManager.stopAll();
+    // Timeout
+    const unsubTimeout = onCallTimeout((data) => {
+      callAudioManager.stopAll();
+      
+      if (data.isGroup) {
+        showCallNotification("warning", "Aucune réponse après 20 secondes");
+      } else {
         showCallNotification("warning", "Pas de réponse");
-        setTimeout(() => resetCallState(), 2000);
-      },
+      }
+      
+      setTimeout(() => resetCallState(), 2000);
+    });
 
-      "call-missed": (data) => {
-        console.log("📵 APPEL MANQUÉ:", data);
-        callAudioManager.stopAll();
-        showCallNotification(
-          "info",
-          `Appel manqué de ${data.from?.name || "Inconnu"}`,
-        );
-        setIncomingCall(null);
-        setCallState(CALL_STATES.IDLE);
-      },
+    // Appel manqué
+    const unsubMissed = onCallMissed((data) => {
+      callAudioManager.stopAll();
+      showCallNotification("info", `Appel manqué`);
+      setIncomingCall(null);
+      setCallState(CALL_STATES.IDLE);
+    });
 
-      "call-error": (data) => {
-        console.error("❌ ERREUR APPEL:", data);
-        callAudioManager.stopAll();
-        const message =
-          typeof data === "string" ? data : data?.error || "Erreur d'appel";
-        showCallNotification("error", message);
-        setTimeout(() => resetCallState(), 3000);
-      },
-
-      "call-quality": (data) => {
-        setConnectionQuality(data.quality);
-      },
-    };
-
-    // Enregistrer les handlers
-    Object.entries(handlers).forEach(([event, handler]) => {
-      socket.on(event, handler);
+    // Erreur
+    const unsubError = onCallError((data) => {
+      callAudioManager.stopAll();
+      const message = typeof data === "string" ? data : data?.error || "Erreur d'appel";
+      showCallNotification("error", message);
+      setTimeout(() => resetCallState(), 3000);
     });
 
     return () => {
-      console.log("🔌 Désenregistrement des handlers d'appel");
-      Object.entries(handlers).forEach(([event, handler]) => {
-        socket.off(event, handler);
-      });
+      unsubActiveFound?.();
+      unsubNoActive?.();
+      unsubAlreadyExists?.();
+      unsubAllDeclined?.();
+      unsubParticipantJoined?.();
+      unsubIncoming?.();
+      unsubAnswered?.();
+      unsubDeclined?.();
+      unsubEnded?.();
+      unsubCancelled?.();
+      unsubTimeout?.();
+      unsubMissed?.();
+      unsubError?.();
     };
-  }, [
-    user,
-    inCall,
-    callTimer,
-    resetCallState,
-    showCallNotification,
-    hideCallNotification,
-  ]);
+  }, [user, inCall, currentCallId, callTimer, startPing, resetCallState, showCallNotification, hideCallNotification]);
 
   // Cleanup
   useEffect(() => {
@@ -1026,8 +972,8 @@ export const CallProvider = ({ children }) => {
       callAudioManager.stopAll();
       callTimer.reset();
       if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
-      if (notificationTimeoutRef.current)
-        clearTimeout(notificationTimeoutRef.current);
+      if (notificationTimeoutRef.current) clearTimeout(notificationTimeoutRef.current);
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
     };
   }, [callTimer]);
 
@@ -1040,11 +986,15 @@ export const CallProvider = ({ children }) => {
       acceptCall,
       rejectCall,
       endCall,
+      joinExistingCall,
+      checkActiveCall,
+      setCurrentConversation,
       inCall,
       callState,
       callDuration: callTimer.duration,
       callError,
       connectionQuality,
+      activeCallInConversation,
       generateNumericUid,
       CALL_STATES,
     }),
@@ -1053,11 +1003,15 @@ export const CallProvider = ({ children }) => {
       acceptCall,
       rejectCall,
       endCall,
+      joinExistingCall,
+      checkActiveCall,
+      setCurrentConversation,
       inCall,
       callState,
       callTimer.duration,
       callError,
       connectionQuality,
+      activeCallInConversation,
     ],
   );
 
@@ -1065,13 +1019,8 @@ export const CallProvider = ({ children }) => {
     <CallContext.Provider value={contextValue}>
       {children}
 
-      {/* Toast Notification */}
-      <CallToast
-        notification={callNotification}
-        onClose={hideCallNotification}
-      />
+      <CallToast notification={callNotification} onClose={hideCallNotification} />
 
-      {/* Modal Appel Entrant */}
       {incomingCall && !inCall && (
         <IncomingCallModal
           incomingCall={incomingCall}
@@ -1080,7 +1029,6 @@ export const CallProvider = ({ children }) => {
         />
       )}
 
-      {/* Composant Appel Vidéo */}
       {inCall && agoraToken && channelName && (
         <VideoCall
           channelName={channelName}

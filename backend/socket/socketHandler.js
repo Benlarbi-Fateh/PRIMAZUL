@@ -3,10 +3,69 @@ const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { checkBlockStatusSocket } = require("./blockCheck");
 
-// Stocker les appels actifs
+// ============================================
+// STOCKAGE DES APPELS (Amélioré)
+// ============================================
 const activeCallsMap = new Map();
-const callTimeouts = new Map(); // Pour gérer les timeouts d'appel
+const conversationActiveCallsMap = new Map(); // conversationId -> callId
+const callTimeouts = new Map();
 
+// Constantes de timeout
+const GROUP_CALL_TIMEOUT_MS = 20000; // 20 secondes pour les groupes
+const P2P_CALL_TIMEOUT_MS = 45000;   // 45 secondes pour les 1v1
+
+// ============================================
+// FONCTION UTILITAIRE - Nettoyer un appel
+// ============================================
+const cleanupCall = async (callId, status, io) => {
+  const call = activeCallsMap.get(callId);
+  if (!call) return null;
+
+  // Annuler le timeout
+  const timeout = callTimeouts.get(callId);
+  if (timeout) {
+    clearTimeout(timeout);
+    callTimeouts.delete(callId);
+  }
+
+  const endedAt = Date.now();
+  const duration = call.answeredAt
+    ? Math.round((endedAt - call.answeredAt) / 1000)
+    : 0;
+
+  // Mettre à jour la base de données
+  const updatedMessage = await Message.findOneAndUpdate(
+    { "callDetails.callId": callId },
+    {
+      "callDetails.status": status,
+      "callDetails.endedAt": new Date(),
+      "callDetails.duration": duration,
+    },
+    { new: true }
+  ).populate("sender", "name profilePicture");
+
+  // Émettre la mise à jour du message
+  if (updatedMessage && io) {
+    io.to(call.conversationId).emit("receive-message", updatedMessage);
+  }
+
+  // Nettoyer les maps
+  activeCallsMap.delete(callId);
+  
+  // Supprimer le lien conversation -> appel
+  const currentCallId = conversationActiveCallsMap.get(call.conversationId);
+  if (currentCallId === callId) {
+    conversationActiveCallsMap.delete(call.conversationId);
+  }
+
+  console.log(`🧹 Appel ${callId} nettoyé - Status: ${status}, Durée: ${duration}s`);
+
+  return { duration, status, updatedMessage };
+};
+
+// ============================================
+// INIT SOCKET
+// ============================================
 const initSocket = (io) => {
   const onlineUsers = new Map();
 
@@ -150,10 +209,37 @@ const initSocket = (io) => {
     });
 
     // ============================================
-    // 📞 APPELS - VERSION CORRIGÉE
+    // 📞 APPELS - VERSION AMÉLIORÉE
     // ============================================
 
-    // Initier un appel
+    // ✅ VÉRIFIER SI UN APPEL EST ACTIF POUR UNE CONVERSATION
+    socket.on("check-active-call", async (data) => {
+      const { conversationId } = data;
+      
+      const activeCallId = conversationActiveCallsMap.get(conversationId);
+      
+      if (activeCallId) {
+        const call = activeCallsMap.get(activeCallId);
+        
+        if (call && (call.status === "ringing" || call.status === "ongoing")) {
+          socket.emit("active-call-found", {
+            callId: activeCallId,
+            channelName: call.channelName,
+            callType: call.callType,
+            isGroup: call.isGroup,
+            status: call.status,
+            participantsCount: call.participants.size,
+            initiator: call.initiator,
+            conversationId: call.conversationId,
+          });
+          return;
+        }
+      }
+      
+      socket.emit("no-active-call", { conversationId });
+    });
+
+    // ✅ INITIER UN APPEL (AMÉLIORÉ)
     socket.on("call-initiate", async (data) => {
       const {
         callId,
@@ -173,10 +259,29 @@ const initSocket = (io) => {
         return;
       }
 
+      // ✅ VÉRIFIER SI UN APPEL EST DÉJÀ EN COURS POUR CETTE CONVERSATION
+      const existingCallId = conversationActiveCallsMap.get(conversationId);
+      if (existingCallId) {
+        const existingCall = activeCallsMap.get(existingCallId);
+        
+        if (existingCall && (existingCall.status === "ringing" || existingCall.status === "ongoing")) {
+          console.log(`⚠️ Appel déjà en cours pour ${conversationId}: ${existingCallId}`);
+          
+          socket.emit("call-already-exists", {
+            existingCallId,
+            channelName: existingCall.channelName,
+            status: existingCall.status,
+            isGroup: existingCall.isGroup,
+            canJoin: existingCall.status === "ongoing",
+          });
+          return;
+        }
+      }
+
       console.log(`📞 Appel initié par ${callerId} vers:`, targetUserIds);
 
-      // Stocker l'appel actif avec les targetUserIds
-      activeCallsMap.set(callId, {
+      // Stocker l'appel actif
+      const callData = {
         callId,
         conversationId,
         channelName,
@@ -185,51 +290,50 @@ const initSocket = (io) => {
         groupName,
         initiator: callerId,
         initiatedAt: Date.now(),
-        targetUserIds: targetUserIds || [], // ✅ Stocker les destinataires
+        targetUserIds: targetUserIds || [],
         participants: new Map([
           [callerId, { joinedAt: Date.now(), status: "connected" }],
         ]),
         status: "ringing",
         answeredAt: null,
-      });
+      };
 
-      // Timeout si personne ne répond (45 secondes)
+      activeCallsMap.set(callId, callData);
+      conversationActiveCallsMap.set(conversationId, callId);
+
+      // ✅ TIMEOUT ADAPTÉ (20s groupe, 45s P2P)
+      const timeoutDuration = isGroup ? GROUP_CALL_TIMEOUT_MS : P2P_CALL_TIMEOUT_MS;
+      
+      console.log(`⏰ Timeout configuré: ${timeoutDuration / 1000}s (${isGroup ? 'groupe' : 'P2P'})`);
+
       const timeout = setTimeout(async () => {
         const call = activeCallsMap.get(callId);
         if (call && call.status === "ringing") {
-          console.log(`⏰ Timeout appel ${callId}`);
+          console.log(`⏰ Timeout appel ${callId} après ${timeoutDuration / 1000}s`);
 
-          // Mettre à jour la base de données
-          const updatedMessage = await Message.findOneAndUpdate(
-            { "callDetails.callId": callId },
-            {
-              "callDetails.status": "missed",
-              "callDetails.endedAt": new Date(),
-              "callDetails.duration": 0,
-            },
-            { new: true }
-          ).populate("sender", "name profilePicture");
-
-          // Envoyer la mise à jour à toute la room
-          if (updatedMessage) {
-            io.to(call.conversationId).emit("receive-message", updatedMessage);
-          }
+          // Nettoyer l'appel
+          await cleanupCall(callId, "missed", io);
 
           // Notifier l'initiateur
-          io.to(callerId).emit("call-timeout", { callId });
+          io.to(callerId).emit("call-timeout", { 
+            callId, 
+            isGroup,
+            reason: "no_answer",
+            timeout: timeoutDuration,
+          });
 
           // Notifier tous les destinataires
           if (call.targetUserIds) {
             call.targetUserIds.forEach((targetId) => {
-              const userIdStr = targetId.toString();
-              io.to(userIdStr).emit("call-missed", { callId, callerId });
+              io.to(targetId.toString()).emit("call-missed", { 
+                callId, 
+                callerId,
+                isGroup,
+              });
             });
           }
-
-          activeCallsMap.delete(callId);
-          callTimeouts.delete(callId);
         }
-      }, 45000);
+      }, timeoutDuration);
 
       callTimeouts.set(callId, timeout);
 
@@ -257,9 +361,87 @@ const initSocket = (io) => {
               profilePicture: callerImage,
             },
             conversationId,
+            targetUserIds,
           });
         });
       }
+    });
+
+    // ✅ REJOINDRE UN APPEL EXISTANT (NOUVEAU)
+    socket.on("call-join", async (data) => {
+      const { callId } = data;
+      const userId = socket.userId;
+      const userName = socket.userName || "Participant";
+
+      const call = activeCallsMap.get(callId);
+      
+      if (!call) {
+        socket.emit("call-error", { error: "Appel introuvable ou terminé" });
+        return;
+      }
+
+      if (call.status !== "ongoing" && call.status !== "ringing") {
+        socket.emit("call-error", { error: "Cet appel n'est plus disponible" });
+        return;
+      }
+
+      // Ajouter le participant
+      call.participants.set(userId, {
+        joinedAt: Date.now(),
+        status: "connected",
+        name: userName,
+      });
+
+      // Si c'est le premier à rejoindre, passer à "ongoing"
+      if (call.status === "ringing") {
+        call.status = "ongoing";
+        call.answeredAt = Date.now();
+        
+        // Annuler le timeout
+        const timeout = callTimeouts.get(callId);
+        if (timeout) {
+          clearTimeout(timeout);
+          callTimeouts.delete(callId);
+        }
+
+        // Mettre à jour la base
+        await Message.findOneAndUpdate(
+          { "callDetails.callId": callId },
+          {
+            "callDetails.status": "ongoing",
+            $addToSet: { "callDetails.answeredBy": userId },
+          }
+        );
+      }
+
+      // Notifier l'initiateur
+      io.to(call.initiator).emit("call-answered", {
+        callId,
+        channelName: call.channelName,
+        answeredBy: userId,
+      });
+
+      // Notifier tous les participants
+      call.participants.forEach((_, participantId) => {
+        if (participantId !== userId) {
+          io.to(participantId).emit("call-participant-joined", {
+            callId,
+            oduserId: userId,
+            userName,
+          });
+        }
+      });
+
+      // Confirmer au participant
+      socket.emit("call-joined", {
+        callId,
+        channelName: call.channelName,
+        callType: call.callType,
+        isGroup: call.isGroup,
+        participantsCount: call.participants.size,
+      });
+
+      console.log(`🔗 ${userId} a rejoint l'appel ${callId}`);
     });
 
     // Répondre à un appel
@@ -305,6 +487,19 @@ const initSocket = (io) => {
         answeredBy: userId,
       });
 
+      // Notifier les autres destinataires (pour les groupes)
+      if (call.isGroup && call.targetUserIds) {
+        call.targetUserIds.forEach((targetId) => {
+          const targetIdStr = targetId.toString();
+          if (targetIdStr !== userId && targetIdStr !== call.initiator) {
+            io.to(targetIdStr).emit("call-participant-joined", {
+              callId,
+              oduserId: userId,
+            });
+          }
+        });
+      }
+
       console.log(`✅ Appel ${callId} répondu par ${userId}`);
     });
 
@@ -324,28 +519,7 @@ const initSocket = (io) => {
 
       if (!call.isGroup) {
         // P2P: terminer l'appel complètement
-        call.status = "missed";
-
-        // Annuler le timeout
-        const timeout = callTimeouts.get(callId);
-        if (timeout) {
-          clearTimeout(timeout);
-          callTimeouts.delete(callId);
-        }
-
-        const updatedMessage = await Message.findOneAndUpdate(
-          { "callDetails.callId": callId },
-          {
-            "callDetails.status": "missed",
-            "callDetails.endedAt": new Date(),
-            "callDetails.duration": 0,
-          },
-          { new: true }
-        ).populate("sender", "name profilePicture");
-
-        if (updatedMessage) {
-          io.to(call.conversationId).emit("receive-message", updatedMessage);
-        }
+        await cleanupCall(callId, "missed", io);
 
         // Notifier l'initiateur
         io.to(call.initiator).emit("call-declined", {
@@ -360,22 +534,39 @@ const initSocket = (io) => {
           status: "missed",
         });
 
-        activeCallsMap.delete(callId);
-
         console.log(`❌ Appel P2P ${callId} refusé par ${userId}`);
       } else {
-        // GROUPE: Un seul participant refuse, les autres continuent
+        // GROUPE: Un seul participant refuse
         io.to(userId).emit("call-ended", {
           callId,
           status: "declined",
           reason: reason || "declined",
         });
 
+        // Vérifier si tout le monde a refusé
+        const message = await Message.findOne({ "callDetails.callId": callId });
+        if (message) {
+          const totalTargets = call.targetUserIds?.length || 0;
+          const declinedCount = message.callDetails.declinedBy?.length || 0;
+          const answeredCount = message.callDetails.answeredBy?.length || 0;
+
+          // Si tous ont refusé et personne n'a répondu
+          if (declinedCount >= totalTargets && answeredCount === 0) {
+            console.log(`👥 Tout le groupe a refusé l'appel ${callId}`);
+            await cleanupCall(callId, "missed", io);
+            
+            io.to(call.initiator).emit("call-all-declined", {
+              callId,
+              reason: "all_declined",
+            });
+          }
+        }
+
         console.log(`❌ Appel groupe ${callId} refusé par ${userId}`);
       }
     });
 
-    // ✅ TERMINER UN APPEL - VERSION CORRIGÉE
+    // ✅ TERMINER UN APPEL - VERSION AMÉLIORÉE
     socket.on("call-end", async (data) => {
       const { callId } = data;
       const userId = socket.userId;
@@ -386,198 +577,87 @@ const initSocket = (io) => {
         return;
       }
 
-      const endedAt = Date.now();
-      const duration = call.answeredAt
-        ? Math.round((endedAt - call.answeredAt) / 1000)
-        : 0;
-
-      // Déterminer le statut final
+      const wasRinging = call.status === "ringing";
+      const wasOngoing = call.status === "ongoing";
+      
       let finalStatus = "missed";
       if (call.answeredAt) {
         finalStatus = "ended";
       }
 
-      // Annuler le timeout si existant
-      const timeout = callTimeouts.get(callId);
-      if (timeout) {
-        clearTimeout(timeout);
-        callTimeouts.delete(callId);
-      }
-
-      // Mettre à jour le message en base
-      const updatedMessage = await Message.findOneAndUpdate(
-        { "callDetails.callId": callId },
-        {
-          "callDetails.status": finalStatus,
-          "callDetails.endedAt": new Date(),
-          "callDetails.duration": duration,
-        },
-        { new: true }
-      ).populate("sender", "name profilePicture");
-
-      // Diffuser à toute la conversation
-      if (updatedMessage) {
-        io.to(call.conversationId).emit("receive-message", updatedMessage);
-      }
-
       if (!call.isGroup) {
         // ===== APPEL P2P =====
+        await cleanupCall(callId, finalStatus, io);
 
-        // CAS 1: L'appel était en cours de sonnerie (pas encore répondu)
-        if (call.status === "ringing" && !call.answeredAt) {
-          console.log(
-            `📞 Appel ${callId} annulé par ${userId} pendant la sonnerie`
-          );
+        if (wasRinging) {
+          // Annuler la sonnerie pour le destinataire
+          if (call.targetUserIds) {
+            call.targetUserIds.forEach((targetId) => {
+              io.to(targetId.toString()).emit("call-cancelled", {
+                callId,
+                cancelledBy: userId,
+                reason: "caller_hangup",
+              });
+            });
+          }
 
           // Notifier l'initiateur
           io.to(call.initiator).emit("call-ended", {
             callId,
             duration: 0,
             status: "cancelled",
-            endedBy: userId,
           });
-
-          // ✅ IMPORTANT: Notifier TOUS les destinataires que l'appel est annulé
-          if (call.targetUserIds && call.targetUserIds.length > 0) {
-            call.targetUserIds.forEach((targetId) => {
-              const targetIdStr = targetId.toString();
-              if (targetIdStr !== call.initiator) {
-                console.log(`📵 Envoi call-cancelled à ${targetIdStr}`);
-                io.to(targetIdStr).emit("call-cancelled", {
-                  callId,
-                  cancelledBy: userId,
-                  reason: "caller_hangup",
-                });
-              }
-            });
-          } else {
-            // Fallback: chercher dans la base de données
-            const message = await Message.findOne({
-              "callDetails.callId": callId,
-            });
-            if (
-              message &&
-              message.callDetails &&
-              message.callDetails.participants
-            ) {
-              message.callDetails.participants.forEach((participant) => {
-                const participantId =
-                  participant.userId?.toString() || participant.toString();
-                if (participantId !== call.initiator) {
-                  console.log(
-                    `📵 Envoi call-cancelled (fallback) à ${participantId}`
-                  );
-                  io.to(participantId).emit("call-cancelled", {
-                    callId,
-                    cancelledBy: userId,
-                    reason: "caller_hangup",
-                  });
-                }
-              });
-            }
-          }
-        }
-        // CAS 2: L'appel était en cours (quelqu'un avait répondu)
-        else if (call.answeredAt) {
-          console.log(
-            `📞 Appel ${callId} terminé par ${userId} (était en cours)`
-          );
-
+        } else if (wasOngoing) {
           // Notifier tous les participants
           call.participants.forEach((_, participantId) => {
             io.to(participantId).emit("call-ended", {
               callId,
-              duration,
+              duration: Math.round((Date.now() - call.answeredAt) / 1000),
               status: finalStatus,
               endedBy: userId,
             });
           });
         }
-        // CAS 3: Autres cas
-        else {
-          console.log(`📞 Appel ${callId} terminé par ${userId} (cas général)`);
 
-          // Notifier l'initiateur
-          io.to(call.initiator).emit("call-ended", {
-            callId,
-            duration: 0,
-            status: finalStatus,
-            endedBy: userId,
-          });
-
-          // Notifier les autres participants
-          call.participants.forEach((_, participantId) => {
-            if (participantId !== call.initiator) {
-              io.to(participantId).emit("call-cancelled", {
-                callId,
-                cancelledBy: userId,
-                reason: "ended",
-              });
-            }
-          });
-
-          // Notifier aussi les targetUserIds qui n'ont pas encore rejoint
-          if (call.targetUserIds) {
-            call.targetUserIds.forEach((targetId) => {
-              const targetIdStr = targetId.toString();
-              if (
-                !call.participants.has(targetIdStr) &&
-                targetIdStr !== call.initiator
-              ) {
-                io.to(targetIdStr).emit("call-cancelled", {
-                  callId,
-                  cancelledBy: userId,
-                  reason: "ended",
-                });
-              }
-            });
-          }
-        }
-
-        // Supprimer l'appel actif
-        activeCallsMap.delete(callId);
+        console.log(`🛑 Appel P2P ${callId} terminé par ${userId}`);
       } else {
         // ===== APPEL GROUPE =====
-        console.log(`📞 Participant ${userId} quitte l'appel groupe ${callId}`);
-
-        // Notifier les autres participants
-        call.participants.forEach((_, participantId) => {
-          if (participantId !== userId) {
-            io.to(participantId).emit("call-participant-left", {
-              callId,
-              userId,
-            });
-          }
-        });
-
-        // Mettre à jour la BD
-        await Message.findOneAndUpdate(
-          { "callDetails.callId": callId },
-          {
-            "callDetails.status": finalStatus,
-            "callDetails.endedAt": new Date(),
-            "callDetails.duration": duration,
-          }
-        );
-
-        // Marquer comme "left" en mémoire
+        // L'utilisateur quitte mais l'appel continue si d'autres sont présents
+        
         const participant = call.participants.get(userId);
         if (participant) {
           participant.status = "left";
+          participant.leftAt = Date.now();
+          call.participants.delete(userId);
         }
 
-        // Si plus personne n'est connecté, supprimer l'appel
-        const activeParticipants = Array.from(
-          call.participants.values()
-        ).filter((p) => p.status === "connected");
+        // Notifier les autres
+        call.participants.forEach((_, participantId) => {
+          io.to(participantId).emit("call-participant-left", {
+            callId,
+            oduserId: userId,
+          });
+        });
+
+        // Compter les participants actifs
+        const activeParticipants = Array.from(call.participants.values())
+          .filter(p => p.status === "connected");
+
+        console.log(`👥 Participants restants dans ${callId}: ${activeParticipants.length}`);
+
+        // Si plus personne, terminer l'appel
         if (activeParticipants.length === 0) {
-          activeCallsMap.delete(callId);
+          await cleanupCall(callId, finalStatus, io);
+          console.log(`🛑 Appel groupe ${callId} terminé - plus de participants`);
+        } else {
+          // Notifier juste l'utilisateur qui part
+          io.to(userId).emit("call-ended", {
+            callId,
+            status: "left",
+            isGroup: true,
+          });
         }
       }
-
-      console.log(
-        `🛑 Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`
-      );
     });
 
     // Participant quitte l'appel (groupe)
@@ -592,30 +672,71 @@ const initSocket = (io) => {
       if (participant) {
         participant.leftAt = Date.now();
         participant.status = "left";
+        call.participants.delete(userId);
       }
 
       // Notifier les autres
       call.participants.forEach((_, participantId) => {
-        if (participantId !== userId) {
-          io.to(participantId).emit("call-participant-left", {
-            callId,
-            userId,
-          });
-        }
+        io.to(participantId).emit("call-participant-left", {
+          callId,
+          oduserId: userId,
+        });
       });
 
-      // Si plus qu'un participant, terminer l'appel
-      const activeParticipants = Array.from(call.participants.values()).filter(
-        (p) => p.status === "connected"
-      );
+      // Notifier l'utilisateur qui part
+      io.to(userId).emit("call-ended", {
+        callId,
+        status: "left",
+        isGroup: true,
+      });
+
+      // Si plus qu'un participant actif, terminer l'appel
+      const activeParticipants = Array.from(call.participants.values())
+        .filter(p => p.status === "connected");
 
       if (activeParticipants.length === 0) {
-        activeCallsMap.delete(callId);
-        console.log(`🛑 Appel groupe ${callId} terminé - plus de participants`);
+        const duration = call.answeredAt
+          ? Math.round((Date.now() - call.answeredAt) / 1000)
+          : 0;
+          
+        await cleanupCall(callId, "ended", io);
+        console.log(`🛑 Appel groupe ${callId} terminé - durée: ${duration}s`);
       }
     });
 
-    // Signaling ICE (pour améliorer la connexion)
+    // ✅ ANNULER UN APPEL (Appelant raccroche avant réponse)
+    socket.on("call-cancel", async (data) => {
+      const { callId } = data;
+      const userId = socket.userId;
+
+      const call = activeCallsMap.get(callId);
+      if (!call) return;
+
+      console.log(`📵 Appel ${callId} annulé par ${userId}`);
+
+      // Nettoyer
+      await cleanupCall(callId, "cancelled", io);
+
+      // Notifier tous les destinataires
+      if (call.targetUserIds) {
+        call.targetUserIds.forEach((targetId) => {
+          io.to(targetId.toString()).emit("call-cancelled", {
+            callId,
+            cancelledBy: userId,
+            reason: "caller_cancelled",
+          });
+        });
+      }
+
+      // Notifier l'initiateur
+      io.to(call.initiator).emit("call-ended", {
+        callId,
+        status: "cancelled",
+        duration: 0,
+      });
+    });
+
+    // Signaling ICE
     socket.on("ice-candidate", (data) => {
       const { callId, candidate, targetUserId } = data;
       io.to(targetUserId).emit("ice-candidate", {
@@ -728,9 +849,8 @@ const initSocket = (io) => {
     socket.on("disconnect", () => {
       if (socket.userId) {
         // Quitter tous les appels actifs
-        activeCallsMap.forEach((call, callId) => {
+        activeCallsMap.forEach(async (call, callId) => {
           if (call.participants.has(socket.userId)) {
-            // Marquer comme déconnecté
             const participant = call.participants.get(socket.userId);
             if (participant) {
               participant.status = "disconnected";
@@ -742,15 +862,17 @@ const initSocket = (io) => {
               if (participantId !== socket.userId) {
                 io.to(participantId).emit("call-participant-left", {
                   callId,
-                  userId: socket.userId,
+                  oduserId: socket.userId,
                   reason: "disconnected",
                 });
               }
             });
 
+            // Retirer le participant
+            call.participants.delete(socket.userId);
+
             // Si c'était l'initiateur et l'appel sonnait encore
             if (call.initiator === socket.userId && call.status === "ringing") {
-              // Notifier les destinataires
               if (call.targetUserIds) {
                 call.targetUserIds.forEach((targetId) => {
                   io.to(targetId.toString()).emit("call-cancelled", {
@@ -761,14 +883,15 @@ const initSocket = (io) => {
                 });
               }
 
-              // Annuler le timeout
-              const timeout = callTimeouts.get(callId);
-              if (timeout) {
-                clearTimeout(timeout);
-                callTimeouts.delete(callId);
-              }
+              await cleanupCall(callId, "cancelled", io);
+            }
 
-              activeCallsMap.delete(callId);
+            // Si plus personne dans l'appel
+            const activeParticipants = Array.from(call.participants.values())
+              .filter(p => p.status === "connected");
+            
+            if (activeParticipants.length === 0 && call.status === "ongoing") {
+              await cleanupCall(callId, "ended", io);
             }
           }
         });
@@ -787,13 +910,39 @@ const initSocket = (io) => {
     const now = Date.now();
     const TIMEOUT = 60000;
 
-    onlineUsers.forEach((data, userId) => {
+    onlineUsers.forEach((data, oduserId) => {
       if (now - data.lastSeen > TIMEOUT) {
-        onlineUsers.delete(userId);
+        onlineUsers.delete(oduserId);
         io.emit("online-users-update", Array.from(onlineUsers.keys()));
       }
     });
   }, 30000);
+
+  // ✅ Nettoyage périodique des appels expirés (sécurité supplémentaire)
+  setInterval(() => {
+    const now = Date.now();
+    
+    activeCallsMap.forEach(async (call, callId) => {
+      // Appels en sonnerie depuis trop longtemps
+      if (call.status === "ringing") {
+        const maxTimeout = call.isGroup ? GROUP_CALL_TIMEOUT_MS : P2P_CALL_TIMEOUT_MS;
+        if (now - call.initiatedAt > maxTimeout + 5000) { // +5s de marge
+          console.log(`🧹 Nettoyage forcé appel expiré: ${callId}`);
+          await cleanupCall(callId, "missed", io);
+        }
+      }
+      
+      // Appels "ongoing" sans activité depuis 5 minutes
+      if (call.status === "ongoing" && call.participants.size === 0) {
+        console.log(`🧹 Nettoyage appel vide: ${callId}`);
+        await cleanupCall(callId, "ended", io);
+      }
+    });
+  }, 60000);
 };
 
 module.exports = initSocket;
+
+// Exporter pour utilisation dans les routes
+module.exports.activeCallsMap = activeCallsMap;
+module.exports.conversationActiveCallsMap = conversationActiveCallsMap;

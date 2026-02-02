@@ -7,15 +7,125 @@ const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { v4: uuidv4 } = require("uuid");
 
-// Stocker les appels actifs en mémoire
+// ============================================
+// STOCKAGE DES APPELS ACTIFS (Amélioré)
+// ============================================
 const activeCallsMap = new Map();
+const conversationActiveCallsMap = new Map(); // conversationId -> callId
+
+// Timeouts pour le nettoyage automatique
+const callTimeoutsMap = new Map();
+
+// Constantes
+const GROUP_CALL_TIMEOUT_MS = 20000; // 20 secondes pour les appels de groupe
+const P2P_CALL_TIMEOUT_MS = 45000; // 45 secondes pour les appels 1v1
+const CALL_CLEANUP_INTERVAL_MS = 60000; // Nettoyage toutes les minutes
+
+// ============================================
+// NETTOYAGE AUTOMATIQUE DES APPELS EXPIRÉS
+// ============================================
+const cleanupExpiredCalls = async () => {
+  const now = Date.now();
+  
+  for (const [callId, callData] of activeCallsMap.entries()) {
+    // Si l'appel est toujours en état "initiated" et a dépassé le timeout
+    if (callData.status === "initiated") {
+      const timeout = callData.isGroup ? GROUP_CALL_TIMEOUT_MS : P2P_CALL_TIMEOUT_MS;
+      const elapsed = now - callData.startedAt;
+      
+      if (elapsed > timeout) {
+        console.log(`🧹 Nettoyage auto de l'appel expiré: ${callId}`);
+        await endCallInternal(callId, "no_answer", null);
+      }
+    }
+    
+    // Nettoyage des appels "ongoing" sans participants depuis plus de 5 min
+    if (callData.status === "ongoing" && callData.participants.size === 0) {
+      const inactiveDuration = now - (callData.lastActivity || callData.startedAt);
+      if (inactiveDuration > 300000) { // 5 minutes
+        console.log(`🧹 Nettoyage appel inactif: ${callId}`);
+        await endCallInternal(callId, "inactive", null);
+      }
+    }
+  }
+};
+
+// Lancer le nettoyage périodique
+setInterval(cleanupExpiredCalls, CALL_CLEANUP_INTERVAL_MS);
+
+// ============================================
+// FONCTION INTERNE POUR TERMINER UN APPEL
+// ============================================
+const endCallInternal = async (callId, reason, io) => {
+  const activeCall = activeCallsMap.get(callId);
+  if (!activeCall) return null;
+
+  // Annuler le timeout s'il existe
+  const timeout = callTimeoutsMap.get(callId);
+  if (timeout) {
+    clearTimeout(timeout);
+    callTimeoutsMap.delete(callId);
+  }
+
+  const endedAt = new Date();
+  const duration = activeCall.answeredAt 
+    ? Math.round((endedAt - activeCall.answeredAt) / 1000) 
+    : 0;
+  
+  let finalStatus = reason || "ended";
+  if (!activeCall.answeredAt && activeCall.status === "initiated") {
+    finalStatus = "missed";
+  } else if (activeCall.answeredAt) {
+    finalStatus = "ended";
+  }
+
+  try {
+    const message = await Message.findOneAndUpdate(
+      { "callDetails.callId": callId },
+      {
+        "callDetails.status": finalStatus,
+        "callDetails.endedAt": endedAt,
+        "callDetails.duration": duration,
+      },
+      { new: true }
+    );
+
+    // Nettoyer les maps
+    activeCallsMap.delete(callId);
+    
+    // Supprimer le lien conversation -> appel
+    if (activeCall.conversationId) {
+      const currentCallId = conversationActiveCallsMap.get(activeCall.conversationId.toString());
+      if (currentCallId === callId) {
+        conversationActiveCallsMap.delete(activeCall.conversationId.toString());
+      }
+    }
+
+    // Notifier via socket si disponible
+    if (io && message) {
+      io.to(activeCall.conversationId.toString()).emit("call-ended", {
+        callId,
+        duration,
+        status: finalStatus,
+        reason,
+      });
+    }
+
+    console.log(`✅ Appel ${callId} terminé - Status: ${finalStatus}, Durée: ${duration}s`);
+    
+    return { duration, status: finalStatus };
+  } catch (error) {
+    console.error("❌ Erreur endCallInternal:", error);
+    return null;
+  }
+};
 
 // ============================================
 // GÉNÉRER UN TOKEN AGORA
 // ============================================
 router.post("/token", auth, (req, res) => {
   try {
-    const { channelName, uid ,isGroup} = req.body;
+    const { channelName, uid, isGroup } = req.body;
     const appID = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
     const role = RtcRole.PUBLISHER;
@@ -29,9 +139,7 @@ router.post("/token", auth, (req, res) => {
     }
 
     if (!appID || !appCertificate) {
-      return res
-        .status(500)
-        .json({ error: "Agora credentials not configured" });
+      return res.status(500).json({ error: "Agora credentials not configured" });
     }
 
     const token = RtcTokenBuilder.buildTokenWithUid(
@@ -45,14 +153,100 @@ router.post("/token", auth, (req, res) => {
 
     console.log(`🎫 Token Agora généré pour channel: ${channelName}`);
 
-    res.json({ token, channelName, uid , config: {
+    res.json({ 
+      token, 
+      channelName, 
+      uid, 
+      config: {
         mode: 'rtc',
         codec: 'vp8',
         isGroup: isGroup || false
-      }});
+      }
+    });
   } catch (error) {
     console.error("❌ Erreur génération token:", error);
     res.status(500).json({ error: "Erreur génération token" });
+  }
+});
+
+// ============================================
+// VÉRIFIER SI UN APPEL ACTIF EXISTE POUR UNE CONVERSATION
+// ============================================
+router.get("/calls/active/:conversationId", auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    // Vérifier dans la map des appels actifs
+    const activeCallId = conversationActiveCallsMap.get(conversationId);
+    
+    if (activeCallId) {
+      const activeCall = activeCallsMap.get(activeCallId);
+      
+      if (activeCall && (activeCall.status === "initiated" || activeCall.status === "ongoing")) {
+        // Récupérer les détails du message d'appel
+        const callMessage = await Message.findOne({ "callDetails.callId": activeCallId })
+          .populate("sender", "name profilePicture")
+          .populate("callDetails.initiator", "name profilePicture");
+
+        return res.json({
+          success: true,
+          hasActiveCall: true,
+          call: {
+            callId: activeCallId,
+            channelName: activeCall.channelName,
+            callType: activeCall.callType,
+            isGroup: activeCall.isGroup,
+            status: activeCall.status,
+            startedAt: activeCall.startedAt,
+            answeredAt: activeCall.answeredAt,
+            initiator: activeCall.initiator,
+            participantsCount: activeCall.participants.size,
+            participants: Array.from(activeCall.participants.entries()).map(([id, data]) => ({
+              oduserId: id,
+              ...data
+            })),
+            message: callMessage,
+          }
+        });
+      }
+    }
+
+    // Vérifier aussi dans la base de données (au cas où le serveur a redémarré)
+    const recentCall = await Message.findOne({
+      conversationId,
+      type: "call",
+      "callDetails.status": { $in: ["initiated", "ongoing"] },
+      createdAt: { $gte: new Date(Date.now() - 300000) } // 5 dernières minutes
+    })
+    .populate("sender", "name profilePicture")
+    .populate("callDetails.initiator", "name profilePicture")
+    .sort({ createdAt: -1 });
+
+    if (recentCall) {
+      return res.json({
+        success: true,
+        hasActiveCall: true,
+        call: {
+          callId: recentCall.callDetails.callId,
+          channelName: `channel_${recentCall.callDetails.callId}`,
+          callType: recentCall.callDetails.callType,
+          isGroup: recentCall.callDetails.isGroup,
+          status: recentCall.callDetails.status,
+          startedAt: recentCall.callDetails.startedAt,
+          initiator: recentCall.callDetails.initiator,
+          message: recentCall,
+          fromDatabase: true // Indicateur que ça vient de la DB
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      hasActiveCall: false,
+    });
+  } catch (error) {
+    console.error("❌ Erreur vérification appel actif:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -70,15 +264,38 @@ router.post("/calls/initiate", auth, async (req, res) => {
       return res.status(400).json({ error: "conversationId requis" });
     }
 
+    // ✅ VÉRIFIER SI UN APPEL EST DÉJÀ EN COURS POUR CETTE CONVERSATION
+    const existingCallId = conversationActiveCallsMap.get(conversationId);
+    if (existingCallId) {
+      const existingCall = activeCallsMap.get(existingCallId);
+      
+      if (existingCall && (existingCall.status === "initiated" || existingCall.status === "ongoing")) {
+        console.log(`⚠️ Appel déjà en cours pour cette conversation: ${existingCallId}`);
+        
+        return res.status(409).json({ 
+          error: "Un appel est déjà en cours pour cette conversation",
+          activeCallId: existingCallId,
+          canJoin: existingCall.status === "ongoing",
+          callDetails: {
+            callId: existingCallId,
+            channelName: existingCall.channelName,
+            status: existingCall.status,
+            isGroup: existingCall.isGroup,
+            callType: existingCall.callType,
+          }
+        });
+      }
+    }
+
     const callId = uuidv4();
+    const channelName = `channel_${callId}`;
 
     // Préparer les participants
-    const participantsList =
-      participants?.map((p) => ({
-        userId: p._id || p.userId || p.id,
-        name: p.name,
-        profilePicture: p.profilePicture,
-      })) || [];
+    const participantsList = participants?.map((p) => ({
+      userId: p._id || p.userId || p.id,
+      name: p.name,
+      profilePicture: p.profilePicture,
+    })) || [];
 
     // Créer le message d'appel
     const callMessage = await Message.create({
@@ -103,16 +320,49 @@ router.post("/calls/initiate", auth, async (req, res) => {
     await callMessage.populate("sender", "name profilePicture");
 
     // Stocker l'appel actif
-    activeCallsMap.set(callId, {
+    const callData = {
       messageId: callMessage._id,
       conversationId,
+      channelName,
+      callType: callType || "video",
       initiator: initiatorId,
       startedAt: Date.now(),
       answeredAt: null,
       participants: new Map(),
       status: "initiated",
       isGroup: isGroup || false,
-    });
+      lastActivity: Date.now(),
+    };
+    
+    activeCallsMap.set(callId, callData);
+    conversationActiveCallsMap.set(conversationId, callId);
+
+    // ✅ CONFIGURER LE TIMEOUT AUTOMATIQUE POUR LES APPELS DE GROUPE
+    const timeoutDuration = isGroup ? GROUP_CALL_TIMEOUT_MS : P2P_CALL_TIMEOUT_MS;
+    
+    const timeoutId = setTimeout(async () => {
+      const call = activeCallsMap.get(callId);
+      
+      if (call && call.status === "initiated") {
+        console.log(`⏰ Timeout appel ${isGroup ? 'groupe' : '1v1'}: ${callId}`);
+        
+        const io = req.app.get("io");
+        await endCallInternal(callId, "no_answer", io);
+        
+        // Notifier tous les participants que l'appel a expiré
+        if (io) {
+          io.to(conversationId).emit("call-timeout", {
+            callId,
+            reason: "no_answer",
+            isGroup,
+          });
+        }
+      }
+      
+      callTimeoutsMap.delete(callId);
+    }, timeoutDuration);
+    
+    callTimeoutsMap.set(callId, timeoutId);
 
     // Mettre à jour la conversation
     await Conversation.findByIdAndUpdate(conversationId, {
@@ -126,16 +376,144 @@ router.post("/calls/initiate", auth, async (req, res) => {
       io.to(conversationId).emit("receive-message", callMessage);
     }
 
-    console.log(`✅ Appel créé: ${callId}`);
+    console.log(`✅ Appel créé: ${callId} (timeout: ${timeoutDuration/1000}s)`);
 
     res.status(201).json({
       success: true,
       callId,
+      channelName,
       message: callMessage,
+      timeout: timeoutDuration,
     });
   } catch (error) {
     console.error("❌ Erreur initiation appel:", error);
     res.status(500).json({ error: "Erreur serveur", details: error.message });
+  }
+});
+
+// ============================================
+// REJOINDRE UN APPEL EXISTANT (NOUVELLE ROUTE)
+// ============================================
+router.post("/calls/:callId/join", auth, async (req, res) => {
+  try {
+    const { callId } = req.params;
+    const userId = req.user._id || req.user.id || req.user.userId;
+    const userName = req.user.name;
+    const userProfilePicture = req.user.profilePicture;
+
+    console.log(`🔗 ${userName} rejoint l'appel ${callId}`);
+
+    const activeCall = activeCallsMap.get(callId);
+
+    if (!activeCall) {
+      // Vérifier dans la DB
+      const callMessage = await Message.findOne({ "callDetails.callId": callId });
+      
+      if (!callMessage) {
+        return res.status(404).json({ error: "Appel introuvable" });
+      }
+      
+      if (callMessage.callDetails.status === "ended" || callMessage.callDetails.status === "missed") {
+        return res.status(410).json({ error: "Cet appel est terminé" });
+      }
+
+      // Recréer l'entrée dans activeCallsMap si nécessaire
+      const reconstructedCall = {
+        messageId: callMessage._id,
+        conversationId: callMessage.conversationId,
+        channelName: `channel_${callId}`,
+        callType: callMessage.callDetails.callType,
+        initiator: callMessage.callDetails.initiator,
+        startedAt: new Date(callMessage.callDetails.startedAt).getTime(),
+        answeredAt: callMessage.callDetails.status === "ongoing" ? Date.now() : null,
+        participants: new Map(),
+        status: callMessage.callDetails.status,
+        isGroup: callMessage.callDetails.isGroup,
+        lastActivity: Date.now(),
+      };
+      
+      activeCallsMap.set(callId, reconstructedCall);
+      conversationActiveCallsMap.set(callMessage.conversationId.toString(), callId);
+    }
+
+    const call = activeCallsMap.get(callId);
+    
+    if (call.status !== "ongoing" && call.status !== "initiated") {
+      return res.status(410).json({ error: "Cet appel n'est plus disponible" });
+    }
+
+    // Ajouter le participant
+    call.participants.set(userId.toString(), {
+      oduserId: userId.toString(),
+      joinedAt: Date.now(),
+      name: userName,
+      profilePicture: userProfilePicture,
+      status: "connected",
+    });
+
+    // Mettre à jour le statut si nécessaire
+    if (call.status === "initiated") {
+      call.status = "ongoing";
+      call.answeredAt = Date.now();
+      
+      // Annuler le timeout
+      const timeout = callTimeoutsMap.get(callId);
+      if (timeout) {
+        clearTimeout(timeout);
+        callTimeoutsMap.delete(callId);
+      }
+    }
+
+    call.lastActivity = Date.now();
+
+    // Mettre à jour la DB
+    await Message.findOneAndUpdate(
+      { "callDetails.callId": callId },
+      {
+        "callDetails.status": "ongoing",
+        $addToSet: { "callDetails.answeredBy": userId },
+        $pull: { "callDetails.missedBy": userId },
+      }
+    );
+
+    // Générer un token pour ce participant
+    const appID = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+    const numericUid = Math.abs(userId.toString().split('').reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)) || 1;
+    
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appID,
+      appCertificate,
+      call.channelName,
+      numericUid,
+      RtcRole.PUBLISHER,
+      Math.floor(Date.now() / 1000) + 3600
+    );
+
+    // Notifier les autres participants
+    const io = req.app.get("io");
+    if (io) {
+      io.to(call.conversationId.toString()).emit("call-participant-joined", {
+        callId,
+        userId: userId.toString(),
+        userName,
+        userProfilePicture,
+      });
+    }
+
+    res.json({
+      success: true,
+      callId,
+      channelName: call.channelName,
+      token,
+      uid: numericUid,
+      callType: call.callType,
+      isGroup: call.isGroup,
+      participantsCount: call.participants.size,
+    });
+  } catch (error) {
+    console.error("❌ Erreur rejoindre appel:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -146,22 +524,43 @@ router.post("/calls/:callId/answer", auth, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
+    const userName = req.user.name;
 
-    console.log(`✅ Réponse appel ${callId} par ${userId}`);
+    console.log(`✅ Réponse appel ${callId} par ${userName}`);
 
     const activeCall = activeCallsMap.get(callId);
 
-    if (activeCall) {
-      activeCall.participants.set(userId.toString(), {
-        joinedAt: Date.now(),
-        status: "connected",
-      });
+    if (!activeCall) {
+      return res.status(404).json({ error: "Appel introuvable ou terminé" });
+    }
 
-      if (activeCall.status === "initiated") {
-        activeCall.status = "ongoing";
-        activeCall.answeredAt = Date.now();
+    if (activeCall.status === "ended" || activeCall.status === "missed") {
+      return res.status(410).json({ error: "Cet appel est déjà terminé" });
+    }
+
+    // Ajouter le participant
+    activeCall.participants.set(userId.toString(), {
+      oduserId: userId.toString(),
+      joinedAt: Date.now(),
+      name: userName,
+      status: "connected",
+    });
+
+    // Si c'est le premier à répondre
+    if (activeCall.status === "initiated") {
+      activeCall.status = "ongoing";
+      activeCall.answeredAt = Date.now();
+      
+      // ✅ ANNULER LE TIMEOUT
+      const timeout = callTimeoutsMap.get(callId);
+      if (timeout) {
+        clearTimeout(timeout);
+        callTimeoutsMap.delete(callId);
+        console.log(`⏰ Timeout annulé pour appel ${callId}`);
       }
     }
+
+    activeCall.lastActivity = Date.now();
 
     // Mettre à jour le message
     await Message.findOneAndUpdate(
@@ -173,7 +572,23 @@ router.post("/calls/:callId/answer", auth, async (req, res) => {
       }
     );
 
-    res.json({ success: true, callId });
+    // Notifier les autres
+    const io = req.app.get("io");
+    if (io) {
+      io.to(activeCall.conversationId.toString()).emit("call-participant-joined", {
+        callId,
+        oduserId: userId.toString(),
+        userName,
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      callId,
+      channelName: activeCall.channelName,
+      callType: activeCall.callType,
+      isGroup: activeCall.isGroup,
+    });
   } catch (error) {
     console.error("❌ Erreur réponse appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
@@ -201,18 +616,25 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
 
     // Si appel P2P, le marquer comme refusé
     if (activeCall && !activeCall.isGroup) {
-      activeCall.status = "missed";
+      const io = req.app.get("io");
+      await endCallInternal(callId, "declined", io);
+    }
 
-      await Message.findOneAndUpdate(
-        { "callDetails.callId": callId },
-        {
-          "callDetails.status": "missed",
-          "callDetails.endedAt": new Date(),
-          "callDetails.duration": 0,
+    // Pour les groupes, vérifier si tout le monde a refusé
+    if (activeCall && activeCall.isGroup) {
+      const message = await Message.findOne({ "callDetails.callId": callId });
+      
+      if (message) {
+        const totalParticipants = message.callDetails.participants.length;
+        const declinedCount = message.callDetails.declinedBy.length;
+        
+        // Si tout le monde a refusé sauf l'initiateur
+        if (declinedCount >= totalParticipants - 1 && activeCall.participants.size === 0) {
+          console.log("👥 Tout le groupe a refusé l'appel");
+          const io = req.app.get("io");
+          await endCallInternal(callId, "all_declined", io);
         }
-      );
-
-      //activeCallsMap.delete(callId);
+      }
     }
 
     res.json({ success: true });
@@ -228,6 +650,7 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
 router.post("/calls/:callId/end", auth, async (req, res) => {
   try {
     const { callId } = req.params;
+    const { reason } = req.body;
 
     console.log(`🛑 Fin appel ${callId}`);
 
@@ -239,7 +662,7 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
       return res.status(404).json({ error: "Appel introuvable" });
     }
 
-    // 🔐 PROTECTION ABSOLUE CONTRE DOUBLE FIN
+    // Protection contre double fin
     if (
       existingMessage.callDetails.status === "ended" ||
       existingMessage.callDetails.status === "missed"
@@ -252,43 +675,18 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
       });
     }
 
-    let finalStatus = "missed";
-    let duration = 0;
-
-    // ✅ LOGIQUE CORRECTE
-    if (existingMessage.callDetails.answeredBy.length > 0) {
-      finalStatus = "ended";
-      duration = Math.round(
-        (Date.now() - new Date(existingMessage.callDetails.startedAt)) / 1000
-      );
-    }
-
-    const message = await Message.findOneAndUpdate(
-      { "callDetails.callId": callId },
-      {
-        "callDetails.status": finalStatus,
-        "callDetails.endedAt": new Date(),
-        "callDetails.duration": duration,
-      },
-      { new: true }
-    );
-
-    activeCallsMap.delete(callId);
-
     const io = req.app.get("io");
-    if (io && message) {
-      io.to(message.conversationId.toString()).emit("call-ended", {
-        callId,
-        duration,
-        status: finalStatus,
+    const result = await endCallInternal(callId, reason, io);
+
+    if (result) {
+      res.json({ 
+        success: true, 
+        duration: result.duration, 
+        status: result.status 
       });
+    } else {
+      res.json({ success: true });
     }
-
-    console.log(
-      `✅ Appel ${callId} terminé - Durée: ${duration}s - Statut: ${finalStatus}`
-    );
-
-    res.json({ success: true, duration, status: finalStatus });
   } catch (error) {
     console.error("❌ Erreur fin appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
@@ -307,42 +705,70 @@ router.post("/calls/:callId/leave", auth, async (req, res) => {
 
     const activeCall = activeCallsMap.get(callId);
 
+    if (!activeCall) {
+      return res.json({ success: true, callEnded: false });
+    }
+
+    // Mettre à jour le statut du participant
+    const participant = activeCall.participants.get(userId.toString());
+    if (participant) {
+      participant.leftAt = Date.now();
+      participant.status = "left";
+      activeCall.participants.delete(userId.toString());
+    }
+
+    activeCall.lastActivity = Date.now();
+
+    // Notifier les autres
+    const io = req.app.get("io");
+    if (io) {
+      io.to(activeCall.conversationId.toString()).emit("call-participant-left", {
+        callId,
+        oduserId: userId.toString(),
+      });
+    }
+
+    // Compter les participants actifs restants
+    const remainingActive = Array.from(activeCall.participants.values())
+      .filter(p => p.status === "connected").length;
+
+    console.log(`👥 Participants restants: ${remainingActive}`);
+
+    // Si moins de 2 participants actifs pour un groupe, ou 0 pour tous
+    if (remainingActive === 0 || (!activeCall.isGroup && remainingActive < 1)) {
+      console.log("🛑 Plus assez de participants, fin de l'appel");
+      await endCallInternal(callId, "ended", io);
+      return res.json({ success: true, callEnded: true });
+    }
+
+    res.json({ success: true, callEnded: false, remainingParticipants: remainingActive });
+  } catch (error) {
+    console.error("❌ Erreur quitter appel:", error);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ============================================
+// PING POUR MAINTENIR L'APPEL ACTIF
+// ============================================
+router.post("/calls/:callId/ping", auth, async (req, res) => {
+  try {
+    const { callId } = req.params;
+    const userId = req.user._id || req.user.id || req.user.userId;
+
+    const activeCall = activeCallsMap.get(callId);
+
     if (activeCall) {
+      activeCall.lastActivity = Date.now();
+      
       const participant = activeCall.participants.get(userId.toString());
       if (participant) {
-        participant.leftAt = Date.now();
-        participant.status = "left";
-      }
-
-      // Vérifier s'il reste des participants actifs
-      const remaining = Array.from(activeCall.participants.values()).filter(
-        (p) => p.status === "connected"
-      );
-
-      // Si plus qu'un participant, terminer l'appel
-      if (remaining.length <= 1) {
-        const duration = activeCall.answeredAt
-          ? Math.round((Date.now() - activeCall.answeredAt) / 1000)
-          : 0;
-
-        await Message.findOneAndUpdate(
-          { "callDetails.callId": callId },
-          {
-            "callDetails.status": "ended",
-            "callDetails.endedAt": new Date(),
-            "callDetails.duration": duration,
-          }
-        );
-
-        activeCallsMap.delete(callId);
-
-        return res.json({ success: true, callEnded: true, duration });
+        participant.lastPing = Date.now();
       }
     }
 
-    res.json({ success: true, callEnded: false });
+    res.json({ success: true });
   } catch (error) {
-    console.error("❌ Erreur quitter appel:", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -354,7 +780,6 @@ router.get("/calls/:callId/status", auth, async (req, res) => {
   try {
     const { callId } = req.params;
 
-    // Vérifier dans les appels actifs
     const activeCall = activeCallsMap.get(callId);
 
     if (activeCall) {
@@ -362,11 +787,15 @@ router.get("/calls/:callId/status", auth, async (req, res) => {
         success: true,
         active: true,
         status: activeCall.status,
+        channelName: activeCall.channelName,
+        callType: activeCall.callType,
+        isGroup: activeCall.isGroup,
         startedAt: activeCall.startedAt,
         answeredAt: activeCall.answeredAt,
         participants: Array.from(activeCall.participants.entries()).map(
-          ([id, data]) => ({ userId: id, ...data })
+          ([id, data]) => ({ oduserId: id, ...data })
         ),
+        participantsCount: activeCall.participants.size,
       });
     }
 
@@ -399,14 +828,12 @@ router.get("/calls/history", auth, async (req, res) => {
     const userId = req.user._id || req.user.id || req.user.userId;
     const { limit = 20, page = 1 } = req.query;
 
-    // Trouver les conversations de l'utilisateur
     const conversations = await Conversation.find({
       participants: userId,
     }).select("_id");
 
     const conversationIds = conversations.map((c) => c._id);
 
-    // Récupérer les messages d'appel
     const calls = await Message.find({
       conversationId: { $in: conversationIds },
       type: "call",
@@ -436,4 +863,8 @@ router.get("/calls/history", auth, async (req, res) => {
   }
 });
 
+// Exporter les maps pour le socket handler
 module.exports = router;
+module.exports.activeCallsMap = activeCallsMap;
+module.exports.conversationActiveCallsMap = conversationActiveCallsMap;
+module.exports.endCallInternal = endCallInternal;

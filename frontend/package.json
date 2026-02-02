@@ -15,7 +15,7 @@
     "axios": "^1.13.2",
     "cloudinary": "^2.9.0",
     "date-fns": "^4.1.0",
-    "framer-motion": "^12.29.2",
+    "framer-motion": "^12.30.0",
     "lucide-react": "^0.552.0",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",

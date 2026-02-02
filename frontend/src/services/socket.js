@@ -32,6 +32,27 @@ let projectCallbacks = {
 };
 
 // ============================================
+// ✅ CALLBACKS POUR LES APPELS (NOUVEAU)
+// ============================================
+let callCallbacks = {
+  activeCallFound: [],
+  noActiveCall: [],
+  callAlreadyExists: [],
+  callJoined: [],
+  participantJoined: [],
+  participantLeft: [],
+  allDeclined: [],
+  callCancelled: [],
+  callTimeout: [],
+  callMissed: [],
+  callEnded: [],
+  callAnswered: [],
+  callDeclined: [],
+  callIncoming: [],
+  callError: [],
+};
+
+// ============================================
 // INITIALISATION DU SOCKET
 // ============================================
 
@@ -86,7 +107,8 @@ export const initSocket = (userId) => {
     }
 
     setupGlobalMessageListeners();
-    setupTaskListeners(); // ✅ IMPORTANT
+    setupTaskListeners();
+    setupCallListeners(); // ✅ NOUVEAU
   });
 
   socket.on("connection-confirmed", ({ userId, onlineUsers }) => {
@@ -112,7 +134,8 @@ export const initSocket = (userId) => {
       socket.emit("request-online-users");
     }
     setupGlobalMessageListeners();
-    setupTaskListeners(); // ✅ IMPORTANT
+    setupTaskListeners();
+    setupCallListeners(); // ✅ NOUVEAU
   });
 
   socket.on("reconnect_attempt", (attemptNumber) => {
@@ -142,7 +165,8 @@ export const initSocket = (userId) => {
   });
 
   setupGlobalMessageListeners();
-  setupTaskListeners(); // ✅ IMPORTANT
+  setupTaskListeners();
+  setupCallListeners(); // ✅ NOUVEAU
 
   return socket;
 };
@@ -291,6 +315,460 @@ export const setupTaskListeners = () => {
   });
 
   console.log("✅ Écouteurs de tâches configurés");
+};
+
+// ============================================
+// ✅ ÉCOUTEURS D'APPELS (NOUVEAU)
+// ============================================
+
+export const setupCallListeners = () => {
+  if (!socket) {
+    console.warn("⚠️ Socket non disponible pour les appels");
+    return;
+  }
+
+  // Supprimer les anciens écouteurs
+  socket.off("active-call-found");
+  socket.off("no-active-call");
+  socket.off("call-already-exists");
+  socket.off("call-joined");
+  socket.off("call-participant-joined");
+  socket.off("call-participant-left");
+  socket.off("call-all-declined");
+  socket.off("call-incoming");
+  socket.off("call-answered");
+  socket.off("call-declined");
+  socket.off("call-cancelled");
+  socket.off("call-timeout");
+  socket.off("call-missed");
+  socket.off("call-ended");
+  socket.off("call-error");
+
+  // Appel actif trouvé
+  socket.on("active-call-found", (data) => {
+    console.log("📞 [Socket] active-call-found:", data?.callId);
+    callCallbacks.activeCallFound.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback active-call-found:", error);
+      }
+    });
+  });
+
+  // Pas d'appel actif
+  socket.on("no-active-call", (data) => {
+    console.log("📞 [Socket] no-active-call:", data?.conversationId);
+    callCallbacks.noActiveCall.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback no-active-call:", error);
+      }
+    });
+  });
+
+  // Appel déjà existant
+  socket.on("call-already-exists", (data) => {
+    console.log("📞 [Socket] call-already-exists:", data?.existingCallId);
+    callCallbacks.callAlreadyExists.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-already-exists:", error);
+      }
+    });
+  });
+
+  // Rejoint un appel
+  socket.on("call-joined", (data) => {
+    console.log("📞 [Socket] call-joined:", data?.callId);
+    callCallbacks.callJoined.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-joined:", error);
+      }
+    });
+  });
+
+  // Participant rejoint
+  socket.on("call-participant-joined", (data) => {
+    console.log("📞 [Socket] call-participant-joined:", data?.oduserId);
+    callCallbacks.participantJoined.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-participant-joined:", error);
+      }
+    });
+  });
+
+  // Participant parti
+  socket.on("call-participant-left", (data) => {
+    console.log("📞 [Socket] call-participant-left:", data?.oduserId);
+    callCallbacks.participantLeft.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-participant-left:", error);
+      }
+    });
+  });
+
+  // Tout le monde a refusé (groupe)
+  socket.on("call-all-declined", (data) => {
+    console.log("📞 [Socket] call-all-declined:", data?.callId);
+    callCallbacks.allDeclined.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-all-declined:", error);
+      }
+    });
+  });
+
+  // Appel entrant
+  socket.on("call-incoming", (data) => {
+    console.log("📞 [Socket] call-incoming:", data?.callId);
+    callCallbacks.callIncoming.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-incoming:", error);
+      }
+    });
+  });
+
+  // Appel répondu
+  socket.on("call-answered", (data) => {
+    console.log("📞 [Socket] call-answered:", data?.callId);
+    callCallbacks.callAnswered.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-answered:", error);
+      }
+    });
+  });
+
+  // Appel refusé
+  socket.on("call-declined", (data) => {
+    console.log("📞 [Socket] call-declined:", data?.callId);
+    callCallbacks.callDeclined.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-declined:", error);
+      }
+    });
+  });
+
+  // Appel annulé
+  socket.on("call-cancelled", (data) => {
+    console.log("📞 [Socket] call-cancelled:", data?.callId);
+    callCallbacks.callCancelled.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-cancelled:", error);
+      }
+    });
+  });
+
+  // Timeout appel
+  socket.on("call-timeout", (data) => {
+    console.log("📞 [Socket] call-timeout:", data?.callId);
+    callCallbacks.callTimeout.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-timeout:", error);
+      }
+    });
+  });
+
+  // Appel manqué
+  socket.on("call-missed", (data) => {
+    console.log("📞 [Socket] call-missed:", data?.callId);
+    callCallbacks.callMissed.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-missed:", error);
+      }
+    });
+  });
+
+  // Appel terminé
+  socket.on("call-ended", (data) => {
+    console.log("📞 [Socket] call-ended:", data?.callId);
+    callCallbacks.callEnded.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-ended:", error);
+      }
+    });
+  });
+
+  // Erreur appel
+  socket.on("call-error", (data) => {
+    console.error("📞 [Socket] call-error:", data);
+    callCallbacks.callError.forEach((cb) => {
+      try {
+        cb(data);
+      } catch (error) {
+        console.error("❌ Erreur callback call-error:", error);
+      }
+    });
+  });
+
+  console.log("✅ Écouteurs d'appels configurés");
+};
+
+// ============================================
+// ✅ ABONNEMENTS AUX APPELS (NOUVEAU)
+// ============================================
+
+// Vérifier si un appel est actif pour une conversation
+export const checkActiveCall = (conversationId) => {
+  if (socket?.connected) {
+    console.log("📞 Vérification appel actif pour:", conversationId);
+    socket.emit("check-active-call", { conversationId });
+  }
+};
+
+// Rejoindre un appel existant
+export const emitJoinCall = (callId) => {
+  if (socket?.connected) {
+    console.log("📞 Demande de rejoindre l'appel:", callId);
+    socket.emit("call-join", { callId });
+  }
+};
+
+// Annuler un appel
+export const emitCancelCall = (callId) => {
+  if (socket?.connected) {
+    console.log("📞 Annulation de l'appel:", callId);
+    socket.emit("call-cancel", { callId });
+  }
+};
+
+// Écouter appel actif trouvé
+export const onActiveCallFound = (callback) => {
+  if (!callCallbacks.activeCallFound.includes(callback)) {
+    callCallbacks.activeCallFound.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.activeCallFound = callCallbacks.activeCallFound.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter pas d'appel actif
+export const onNoActiveCall = (callback) => {
+  if (!callCallbacks.noActiveCall.includes(callback)) {
+    callCallbacks.noActiveCall.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.noActiveCall = callCallbacks.noActiveCall.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter appel déjà existant
+export const onCallAlreadyExists = (callback) => {
+  if (!callCallbacks.callAlreadyExists.includes(callback)) {
+    callCallbacks.callAlreadyExists.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callAlreadyExists = callCallbacks.callAlreadyExists.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter confirmation de rejoindre
+export const onCallJoined = (callback) => {
+  if (!callCallbacks.callJoined.includes(callback)) {
+    callCallbacks.callJoined.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callJoined = callCallbacks.callJoined.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter participant rejoint
+export const onCallParticipantJoined = (callback) => {
+  if (!callCallbacks.participantJoined.includes(callback)) {
+    callCallbacks.participantJoined.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.participantJoined = callCallbacks.participantJoined.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter participant parti
+export const onCallParticipantLeft = (callback) => {
+  if (!callCallbacks.participantLeft.includes(callback)) {
+    callCallbacks.participantLeft.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.participantLeft = callCallbacks.participantLeft.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter tout le monde a refusé
+export const onCallAllDeclined = (callback) => {
+  if (!callCallbacks.allDeclined.includes(callback)) {
+    callCallbacks.allDeclined.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.allDeclined = callCallbacks.allDeclined.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter appel entrant
+export const onCallIncoming = (callback) => {
+  if (!callCallbacks.callIncoming.includes(callback)) {
+    callCallbacks.callIncoming.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callIncoming = callCallbacks.callIncoming.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter appel répondu
+export const onCallAnswered = (callback) => {
+  if (!callCallbacks.callAnswered.includes(callback)) {
+    callCallbacks.callAnswered.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callAnswered = callCallbacks.callAnswered.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter appel refusé
+export const onCallDeclined = (callback) => {
+  if (!callCallbacks.callDeclined.includes(callback)) {
+    callCallbacks.callDeclined.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callDeclined = callCallbacks.callDeclined.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter appel annulé
+export const onCallCancelled = (callback) => {
+  if (!callCallbacks.callCancelled.includes(callback)) {
+    callCallbacks.callCancelled.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callCancelled = callCallbacks.callCancelled.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter timeout appel
+export const onCallTimeout = (callback) => {
+  if (!callCallbacks.callTimeout.includes(callback)) {
+    callCallbacks.callTimeout.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callTimeout = callCallbacks.callTimeout.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Écouter erreur appel
+export const onCallError = (callback) => {
+  if (!callCallbacks.callError.includes(callback)) {
+    callCallbacks.callError.push(callback);
+  }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callError = callCallbacks.callError.filter(
+      (cb) => cb !== callback,
+    );
+  };
+};
+
+// Nettoyer les callbacks d'appel
+export const clearCallCallbacks = () => {
+  callCallbacks = {
+    activeCallFound: [],
+    noActiveCall: [],
+    callAlreadyExists: [],
+    callJoined: [],
+    participantJoined: [],
+    participantLeft: [],
+    allDeclined: [],
+    callCancelled: [],
+    callTimeout: [],
+    callMissed: [],
+    callEnded: [],
+    callAnswered: [],
+    callDeclined: [],
+    callIncoming: [],
+    callError: [],
+  };
 };
 
 // ============================================
@@ -758,27 +1236,35 @@ export const onReactionError = (callback) => {
 };
 
 // ============================================
-// APPELS
+// APPELS (ANCIENNE API - COMPATIBILITÉ)
 // ============================================
 
 export const onCallEnded = (callback) => {
-  if (socket) {
-    socket.off("call-ended");
-    socket.on("call-ended", (data) => {
-      console.log("📞 call-ended reçu:", data);
-      callback(data);
-    });
+  if (!callCallbacks.callEnded.includes(callback)) {
+    callCallbacks.callEnded.push(callback);
   }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callEnded = callCallbacks.callEnded.filter(
+      (cb) => cb !== callback,
+    );
+  };
 };
 
 export const onCallMissed = (callback) => {
-  if (socket) {
-    socket.off("call-missed");
-    socket.on("call-missed", (data) => {
-      console.log("📵 call-missed reçu:", data);
-      callback(data);
-    });
+  if (!callCallbacks.callMissed.includes(callback)) {
+    callCallbacks.callMissed.push(callback);
   }
+  if (socket?.connected) {
+    setupCallListeners();
+  }
+  return () => {
+    callCallbacks.callMissed = callCallbacks.callMissed.filter(
+      (cb) => cb !== callback,
+    );
+  };
 };
 
 // ============================================
@@ -795,6 +1281,7 @@ export const disconnectSocket = () => {
     onlineUsersCallbacks = [];
     globalMessageCallbacks = [];
     clearTaskCallbacks();
+    clearCallCallbacks(); // ✅ NOUVEAU
     isInitializing = false;
   }
 };
@@ -810,4 +1297,23 @@ export default {
   disconnectSocket,
   joinConversation,
   leaveConversation,
+  // Appels
+  checkActiveCall,
+  emitJoinCall,
+  emitCancelCall,
+  onActiveCallFound,
+  onNoActiveCall,
+  onCallAlreadyExists,
+  onCallJoined,
+  onCallParticipantJoined,
+  onCallParticipantLeft,
+  onCallAllDeclined,
+  onCallIncoming,
+  onCallAnswered,
+  onCallDeclined,
+  onCallCancelled,
+  onCallTimeout,
+  onCallEnded,
+  onCallMissed,
+  onCallError,
 };
