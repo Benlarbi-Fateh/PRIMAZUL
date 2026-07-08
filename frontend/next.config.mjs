@@ -2,13 +2,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isProduction = process.env.NODE_ENV === "production";
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   turbopack: {
     root: __dirname,
   },
-  reactCompiler: true,
+  reactCompiler: isProduction,
   images: {
     unoptimized: true,
     remotePatterns: [
