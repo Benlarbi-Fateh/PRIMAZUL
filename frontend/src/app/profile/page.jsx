@@ -18,7 +18,6 @@ import ProfileSkeleton from "@/components/Profile/ProfileSkeleton";
 import { ArrowLeft, Settings, Shield, Bell } from "lucide-react";
 
 export default function ProfilePage() {
-  const [isMounted, setIsMounted] = useState(false);
   const { isDark } = useTheme();
   const router = useRouter();
   const {
@@ -77,13 +76,6 @@ export default function ProfilePage() {
   useEffect(() => {
     refreshProfile();
   }, [refreshProfile]);
-
-  if (!isMounted) {
-    setIsMounted(true);
-    return null;
-  }
-
-  if (!isMounted) return null;
 
   if (isLoading || !user) {
     return <ProfileSkeleton isDark={isDark} />;
