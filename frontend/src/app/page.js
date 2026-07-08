@@ -1,19 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar.jsx';
 import MobileHeader from '@/components/Layout/MobileHeader';
-import { useSocket } from '@/hooks/useSocket';
 import { Send, Folder, Sparkles, Users, Shield, Zap } from 'lucide-react';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function HomePage() {
-  const router = useRouter();
-  useSocket();
   const { isDark } = useTheme();
 
   return (

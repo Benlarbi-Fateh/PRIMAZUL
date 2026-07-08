@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useMemo } from "react";
 import { AuthContext } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
 import {
@@ -69,14 +69,35 @@ export default function MainSidebar() {
 
   const overlayBg = isDark ? "bg-black/60" : "bg-black/50";
 
-  const menuItems = [
+  const menuItems = useMemo(() => [
     { label: "Discussions", icon: MessageCircle, href: "/?tab=chats" },
     { label: "Contacts", icon: UsersRound, href: "/?tab=contacts" },
     { label: "Invitations", icon: Bell, href: "/?tab=invitations" },
     { label: "Statuts", icon: CircleDashed, href: "/status" },
     { label: "Mes Taches", icon: ListTodo, href: "/personal-tasks" },
     { label: "Paramètres", icon: Settings, href: "/settings" },
-  ];
+  ], []);
+
+  useEffect(() => {
+    menuItems.forEach((item) => router.prefetch(item.href));
+  }, [menuItems, router]);
+
+  useEffect(() => {
+    const handleUnreadMessages = (event) => {
+      setUnreadMessages(event.detail?.count || 0);
+    };
+    const handleInvitations = (event) => {
+      setInvitationCount(event.detail?.count || 0);
+    };
+
+    window.addEventListener("unread-messages-count-changed", handleUnreadMessages);
+    window.addEventListener("invitations-count-changed", handleInvitations);
+
+    return () => {
+      window.removeEventListener("unread-messages-count-changed", handleUnreadMessages);
+      window.removeEventListener("invitations-count-changed", handleInvitations);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -136,7 +157,7 @@ export default function MainSidebar() {
     };
 
     refreshCounts();
-    const interval = setInterval(refreshCounts, 10000);
+    const interval = setInterval(refreshCounts, 60000);
 
     return () => {
       cancelled = true;

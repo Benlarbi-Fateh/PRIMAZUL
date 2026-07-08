@@ -30,7 +30,6 @@ import {
   onCallMissed,
   onCallEnded,
 } from "@/services/socket";
-import { useSocket } from "@/hooks/useSocket";
 import { useTheme } from "@/hooks/useTheme";
 
 // ✅ AJOUTS POUR LES APPELS
@@ -118,7 +117,6 @@ export default function ChatPage() {
   const [readByUsers, setReadByUsers] = useState([]);
   const [readByLoading, setReadByLoading] = useState(false);
 
-  useSocket();
 
   // 🆕 FONCTION POUR OUVRIR/FERMER LE PANNEAU DE TÂCHES
   const handleOpenTasks = useCallback(() => {
