@@ -2,10 +2,14 @@
 
 import { useState, useRef } from 'react';
 import Image from 'next/image';
-import { Camera, Upload, X, Check, User, Sparkles, ArrowRight } from 'lucide-react';
+import { Camera, Upload, X, Check, Sparkles, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 
-export default function UploadProfilePicture({ userId, userName, onComplete }) {
+export default function UploadProfilePicture({
+  userName,
+  registrationToken,
+  onComplete,
+}) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -58,13 +62,13 @@ export default function UploadProfilePicture({ userId, userName, onComplete }) {
     try {
       const formData = new FormData();
       formData.append('profilePicture', selectedImage);
-      formData.append('userId', userId);
 
       console.log('📤 Envoi de l\'image...');
 
       const response = await api.post('/auth/upload-profile-picture', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${registrationToken}`,
         }
       });
 
@@ -82,7 +86,15 @@ export default function UploadProfilePicture({ userId, userName, onComplete }) {
     setUploading(true);
     try {
       console.log('⏭️ Photo ignorée');
-      const response = await api.post('/auth/skip-profile-picture', { userId });
+      const response = await api.post(
+        '/auth/skip-profile-picture',
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${registrationToken}`,
+          },
+        },
+      );
       console.log('✅ Réponse skip:', response.data);
       onComplete(response.data.user);
     } catch (error) {

@@ -37,7 +37,7 @@ exports.getMyProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur getMyProfile:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -104,7 +104,7 @@ exports.getUserProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur getUserProfile:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -179,7 +179,7 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur updateProfile:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -211,7 +211,7 @@ exports.updatePrivacySettings = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur updatePrivacySettings:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -246,7 +246,7 @@ exports.updatePreferences = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur updatePreferences:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -285,7 +285,7 @@ exports.changePassword = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur changePassword:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -332,7 +332,7 @@ exports.searchUsers = async (req, res) => {
     console.error('❌ Erreur searchUsers:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: "Erreur serveur"
     });
   }
 };

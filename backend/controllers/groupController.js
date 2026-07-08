@@ -70,7 +70,7 @@ exports.createGroup = async (req, res) => {
     res.status(201).json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur createGroup:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -103,7 +103,7 @@ exports.getGroup = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur getGroup:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -153,7 +153,7 @@ exports.addParticipants = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur addParticipants:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -206,7 +206,7 @@ exports.leaveGroup = async (req, res) => {
     res.json({ success: true, message: "Vous avez quitté le groupe" });
   } catch (error) {
     console.error("❌ Erreur leaveGroup:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -276,7 +276,7 @@ exports.removeParticipant = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur removeParticipant:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -328,7 +328,7 @@ exports.promoteToAdmin = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur promoteToAdmin:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -371,7 +371,7 @@ exports.removeAdmin = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur removeAdmin:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -420,7 +420,7 @@ exports.updateGroupName = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur updateGroupName:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -493,6 +493,6 @@ exports.updateGroupImage = async (req, res) => {
     res.json({ success: true, group });
   } catch (error) {
     console.error("❌ Erreur updateGroupImage:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };

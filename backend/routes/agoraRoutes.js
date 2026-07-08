@@ -6,6 +6,7 @@ const auth = require("../middleware/authMiddleware");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { v4: uuidv4 } = require("uuid");
+const mongoose = require("mongoose");
 
 // ============================================
 // STOCKAGE DES APPELS ACTIFS (Amélioré)
@@ -20,6 +21,113 @@ const callTimeoutsMap = new Map();
 const GROUP_CALL_TIMEOUT_MS = 20000; // 20 secondes pour les appels de groupe
 const P2P_CALL_TIMEOUT_MS = 45000; // 45 secondes pour les appels 1v1
 const CALL_CLEANUP_INTERVAL_MS = 60000; // Nettoyage toutes les minutes
+
+const getUserId = (req) => req.user._id || req.user.id || req.user.userId;
+
+const normalizeId = (value) => value?.toString();
+
+const getAgoraConfig = () => {
+  const appID = process.env.AGORA_APP_ID;
+  const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+  if (!appID || !appCertificate) {
+    return null;
+  }
+
+  return { appID, appCertificate };
+};
+
+const getNumericUid = (userId) => {
+  const source = normalizeId(userId);
+  const hash = source
+    .split("")
+    .reduce((acc, char) => ((acc << 5) - acc + char.charCodeAt(0)) | 0, 0);
+
+  return Math.abs(hash) || 1;
+};
+
+const ensureConversationMember = async (conversationId, userId) => {
+  if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+    return null;
+  }
+
+  return Conversation.findOne({
+    _id: conversationId,
+    participants: userId,
+  });
+};
+
+const getCallForUser = async (callId, userId) => {
+  if (!callId) {
+    return null;
+  }
+
+  const activeCall = activeCallsMap.get(callId);
+  if (activeCall) {
+    const conversation = await ensureConversationMember(
+      activeCall.conversationId,
+      userId,
+    );
+
+    if (!conversation) {
+      return null;
+    }
+
+    return {
+      callId,
+      channelName: activeCall.channelName,
+      conversationId: activeCall.conversationId,
+      callType: activeCall.callType,
+      isGroup: activeCall.isGroup,
+      status: activeCall.status,
+      fromMemory: true,
+    };
+  }
+
+  const callMessage = await Message.findOne({ "callDetails.callId": callId });
+  if (!callMessage) {
+    return null;
+  }
+
+  const conversation = await ensureConversationMember(
+    callMessage.conversationId,
+    userId,
+  );
+
+  if (!conversation) {
+    return null;
+  }
+
+  return {
+    callId,
+    channelName: `channel_${callId}`,
+    conversationId: callMessage.conversationId,
+    callType: callMessage.callDetails.callType,
+    isGroup: callMessage.callDetails.isGroup,
+    status: callMessage.callDetails.status,
+    fromMemory: false,
+  };
+};
+
+const buildAgoraToken = (channelName, uid) => {
+  const config = getAgoraConfig();
+  if (!config) {
+    return null;
+  }
+
+  const expirationTimeInSeconds = 3600;
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+  return RtcTokenBuilder.buildTokenWithUid(
+    config.appID,
+    config.appCertificate,
+    channelName,
+    uid,
+    RtcRole.PUBLISHER,
+    privilegeExpiredTs,
+  );
+};
 
 // ============================================
 // NETTOYAGE AUTOMATIQUE DES APPELS EXPIRÉS
@@ -123,44 +231,44 @@ const endCallInternal = async (callId, reason, io) => {
 // ============================================
 // GÉNÉRER UN TOKEN AGORA
 // ============================================
-router.post("/token", auth, (req, res) => {
+router.post("/token", auth, async (req, res) => {
   try {
-    const { channelName, uid, isGroup } = req.body;
-    const appID = process.env.AGORA_APP_ID;
-    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
-    const role = RtcRole.PUBLISHER;
+    const { callId, uid } = req.body;
+    const userId = getUserId(req);
 
-    const expirationTimeInSeconds = 3600;
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
-
-    if (!channelName) {
-      return res.status(400).json({ error: "Channel name is required" });
+    if (!callId) {
+      return res.status(400).json({ error: "callId requis" });
     }
 
-    if (!appID || !appCertificate) {
+    const call = await getCallForUser(callId, userId);
+    if (!call) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
+
+    if (!["initiated", "ongoing"].includes(call.status)) {
+      return res.status(410).json({ error: "Cet appel est termine" });
+    }
+
+    const numericUid = Number.isInteger(Number(uid))
+      ? Number(uid)
+      : getNumericUid(userId);
+
+    const token = buildAgoraToken(call.channelName, numericUid);
+    const channelName = call.channelName;
+    if (!token) {
       return res.status(500).json({ error: "Agora credentials not configured" });
     }
-
-    const token = RtcTokenBuilder.buildTokenWithUid(
-      appID,
-      appCertificate,
-      channelName,
-      uid || 0,
-      role,
-      privilegeExpiredTs
-    );
 
     console.log(`🎫 Token Agora généré pour channel: ${channelName}`);
 
     res.json({ 
       token, 
-      channelName, 
-      uid, 
+      channelName: call.channelName,
+      uid: numericUid,
       config: {
         mode: 'rtc',
         codec: 'vp8',
-        isGroup: isGroup || false
+        isGroup: call.isGroup || false
       }
     });
   } catch (error) {
@@ -175,6 +283,12 @@ router.post("/token", auth, (req, res) => {
 router.get("/calls/active/:conversationId", auth, async (req, res) => {
   try {
     const { conversationId } = req.params;
+    const userId = getUserId(req);
+
+    const conversation = await ensureConversationMember(conversationId, userId);
+    if (!conversation) {
+      return res.status(404).json({ error: "Conversation introuvable" });
+    }
     
     // Vérifier dans la map des appels actifs
     const activeCallId = conversationActiveCallsMap.get(conversationId);
@@ -264,6 +378,15 @@ router.post("/calls/initiate", auth, async (req, res) => {
       return res.status(400).json({ error: "conversationId requis" });
     }
 
+    const conversation = await ensureConversationMember(conversationId, initiatorId);
+    if (!conversation) {
+      return res.status(404).json({ error: "Conversation introuvable" });
+    }
+
+    if (callType && !["audio", "video"].includes(callType)) {
+      return res.status(400).json({ error: "Type d'appel invalide" });
+    }
+
     // ✅ VÉRIFIER SI UN APPEL EST DÉJÀ EN COURS POUR CETTE CONVERSATION
     const existingCallId = conversationActiveCallsMap.get(conversationId);
     if (existingCallId) {
@@ -291,11 +414,27 @@ router.post("/calls/initiate", auth, async (req, res) => {
     const channelName = `channel_${callId}`;
 
     // Préparer les participants
-    const participantsList = participants?.map((p) => ({
-      userId: p._id || p.userId || p.id,
-      name: p.name,
-      profilePicture: p.profilePicture,
-    })) || [];
+    const conversationParticipantIds = new Set(
+      conversation.participants.map((participantId) => participantId.toString()),
+    );
+    const participantsList = (participants || [])
+      .map((p) => {
+        if (typeof p === "string") {
+          return { userId: p };
+        }
+
+        return {
+          userId: p?._id || p?.userId || p?.id,
+          name: p?.name,
+          profilePicture: p?.profilePicture,
+        };
+      })
+      .filter(
+        (p) =>
+          p.userId &&
+          conversationParticipantIds.has(p.userId.toString()) &&
+          p.userId.toString() !== initiatorId.toString(),
+      );
 
     // Créer le message d'appel
     const callMessage = await Message.create({
@@ -387,7 +526,7 @@ router.post("/calls/initiate", auth, async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur initiation appel:", error);
-    res.status(500).json({ error: "Erreur serveur", details: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -400,6 +539,11 @@ router.post("/calls/:callId/join", auth, async (req, res) => {
     const userId = req.user._id || req.user.id || req.user.userId;
     const userName = req.user.name;
     const userProfilePicture = req.user.profilePicture;
+
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
 
     console.log(`🔗 ${userName} rejoint l'appel ${callId}`);
 
@@ -526,6 +670,11 @@ router.post("/calls/:callId/answer", auth, async (req, res) => {
     const userId = req.user._id || req.user.id || req.user.userId;
     const userName = req.user.name;
 
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
+
     console.log(`✅ Réponse appel ${callId} par ${userName}`);
 
     const activeCall = activeCallsMap.get(callId);
@@ -603,6 +752,11 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
 
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
+
     console.log(`❌ Refus appel ${callId} par ${userId}`);
 
     const activeCall = activeCallsMap.get(callId);
@@ -651,6 +805,12 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
   try {
     const { callId } = req.params;
     const { reason } = req.body;
+    const userId = req.user._id || req.user.id || req.user.userId;
+
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
 
     console.log(`🛑 Fin appel ${callId}`);
 
@@ -700,6 +860,11 @@ router.post("/calls/:callId/leave", auth, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
+
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
 
     console.log(`👋 ${userId} quitte l'appel ${callId}`);
 
@@ -756,6 +921,11 @@ router.post("/calls/:callId/ping", auth, async (req, res) => {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
 
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
+
     const activeCall = activeCallsMap.get(callId);
 
     if (activeCall) {
@@ -779,6 +949,12 @@ router.post("/calls/:callId/ping", auth, async (req, res) => {
 router.get("/calls/:callId/status", auth, async (req, res) => {
   try {
     const { callId } = req.params;
+    const userId = req.user._id || req.user.id || req.user.userId;
+
+    const authorizedCall = await getCallForUser(callId, userId);
+    if (!authorizedCall) {
+      return res.status(404).json({ error: "Appel introuvable" });
+    }
 
     const activeCall = activeCallsMap.get(callId);
 

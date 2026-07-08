@@ -78,7 +78,7 @@ exports.getTasks = async (req, res) => {
     console.error("❌ GET TASKS ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur récupération tâches",
+      message: "Erreur récupération tâches",
     });
   }
 };
@@ -137,7 +137,7 @@ exports.createTask = async (req, res) => {
     console.error("❌ CREATE TASK ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur création tâche",
+      message: "Erreur création tâche",
     });
   }
 };
@@ -190,7 +190,7 @@ exports.updateTask = async (req, res) => {
     console.error("❌ UPDATE TASK ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur mise à jour tâche",
+      message: "Erreur mise à jour tâche",
     });
   }
 };
@@ -253,7 +253,7 @@ exports.changeStatus = async (req, res) => {
     console.error("❌ CHANGE STATUS ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur changement statut",
+      message: "Erreur changement statut",
     });
   }
 };
@@ -290,7 +290,7 @@ exports.deleteTask = async (req, res) => {
     console.error("❌ DELETE TASK ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur suppression tâche",
+      message: "Erreur suppression tâche",
     });
   }
 };
@@ -341,7 +341,7 @@ exports.addComment = async (req, res) => {
     console.error("❌ ADD COMMENT ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur ajout commentaire",
+      message: "Erreur ajout commentaire",
     });
   }
 };
@@ -375,7 +375,7 @@ exports.getProjects = async (req, res) => {
     console.error("❌ GET PROJECTS ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur récupération projets",
+      message: "Erreur récupération projets",
     });
   }
 };
@@ -410,7 +410,7 @@ exports.createProject = async (req, res) => {
     console.error("❌ CREATE PROJECT ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur création projet",
+      message: "Erreur création projet",
     });
   }
 };
@@ -446,7 +446,7 @@ exports.deleteProject = async (req, res) => {
     console.error("❌ DELETE PROJECT ERROR:", error);
     res.status(error.status || 500).json({
       success: false,
-      message: error.message || "Erreur suppression projet",
+      message: "Erreur suppression projet",
     });
   }
 };

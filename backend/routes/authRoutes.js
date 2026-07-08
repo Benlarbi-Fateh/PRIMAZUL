@@ -22,6 +22,7 @@ const {
   skipProfilePicture,
 } = require("../controllers/uploadController");
 const authMiddleware = require("../middleware/authMiddleware");
+const registrationMiddleware = require("../middleware/registrationMiddleware");
 const upload = require("../middleware/upload");
 
 const router = express.Router();
@@ -36,11 +37,12 @@ router.post("/resend-code", resendCode);
 // 🆕 ROUTES PHOTO DE PROFIL
 router.post(
   "/upload-profile-picture",
+  registrationMiddleware,
   upload.single("profilePicture"),
   uploadProfilePicture,
 );
-router.post("/skip-profile-picture", skipProfilePicture);
-router.post("/finalize-registration", finalizeRegistration);
+router.post("/skip-profile-picture", registrationMiddleware, skipProfilePicture);
+router.post("/finalize-registration", registrationMiddleware, finalizeRegistration);
 
 // 🆕 ROUTES RÉINITIALISATION MOT DE PASSE
 router.post("/forgot-password", forgotPassword);

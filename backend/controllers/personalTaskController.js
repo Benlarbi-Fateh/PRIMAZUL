@@ -39,7 +39,7 @@ exports.getLists = async (req, res) => {
     res.json({ success: true, lists: listsWithCount });
   } catch (error) {
     console.error("GET LISTS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -72,7 +72,7 @@ exports.createList = async (req, res) => {
       .json({ success: true, list: { ...list.toObject(), taskCount: 0 } });
   } catch (error) {
     console.error("CREATE LIST ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -96,7 +96,7 @@ exports.updateList = async (req, res) => {
     res.json({ success: true, list });
   } catch (error) {
     console.error("UPDATE LIST ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -127,7 +127,7 @@ exports.deleteList = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("DELETE LIST ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -157,7 +157,7 @@ exports.getTasks = async (req, res) => {
     res.json({ success: true, tasks });
   } catch (error) {
     console.error("GET TASKS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -184,7 +184,7 @@ exports.getTodayTasks = async (req, res) => {
     res.json({ success: true, tasks });
   } catch (error) {
     console.error("GET TODAY TASKS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -212,7 +212,7 @@ exports.getUpcomingTasks = async (req, res) => {
     res.json({ success: true, tasks });
   } catch (error) {
     console.error("GET UPCOMING TASKS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -233,7 +233,7 @@ exports.getStarredTasks = async (req, res) => {
     res.json({ success: true, tasks });
   } catch (error) {
     console.error("GET STARRED TASKS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -257,7 +257,7 @@ exports.getOverdueTasks = async (req, res) => {
     res.json({ success: true, tasks });
   } catch (error) {
     console.error("GET OVERDUE TASKS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -320,7 +320,7 @@ exports.createTask = async (req, res) => {
     res.status(201).json({ success: true, task: populatedTask });
   } catch (error) {
     console.error("CREATE TASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -341,7 +341,7 @@ exports.getTask = async (req, res) => {
     res.json({ success: true, task });
   } catch (error) {
     console.error("GET TASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -372,7 +372,7 @@ exports.updateTask = async (req, res) => {
     res.json({ success: true, task });
   } catch (error) {
     console.error("UPDATE TASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -391,7 +391,7 @@ exports.deleteTask = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("DELETE TASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -414,7 +414,7 @@ exports.completeTask = async (req, res) => {
     res.json({ success: true, task });
   } catch (error) {
     console.error("COMPLETE TASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -437,7 +437,7 @@ exports.reopenTask = async (req, res) => {
     res.json({ success: true, task });
   } catch (error) {
     console.error("REOPEN TASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -468,7 +468,7 @@ exports.addSubtask = async (req, res) => {
     res.status(201).json({ success: true, subtask: newSubtask });
   } catch (error) {
     console.error("ADD SUBTASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -499,7 +499,7 @@ exports.updateSubtask = async (req, res) => {
     res.json({ success: true, subtask });
   } catch (error) {
     console.error("UPDATE SUBTASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -522,7 +522,7 @@ exports.deleteSubtask = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("DELETE SUBTASK ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -568,6 +568,6 @@ exports.getStats = async (req, res) => {
     });
   } catch (error) {
     console.error("GET STATS ERROR:", error);
-    res.status(500).json({ message: "Erreur serveur", error: error.message });
+    res.status(500).json({ message: "Erreur serveur" });
   }
 };

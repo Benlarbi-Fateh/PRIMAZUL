@@ -137,10 +137,7 @@ router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
 
     // Réponse d'erreur détaillée
     res.status(500).json({ 
-      error: error.message,
-      type: error.name,
-      uploadTime: uploadTime,
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      error: "Erreur serveur", uploadTime: uploadTime
     });
   }
 });

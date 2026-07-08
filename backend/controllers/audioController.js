@@ -88,6 +88,6 @@ exports.sendVoiceMessage = async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };

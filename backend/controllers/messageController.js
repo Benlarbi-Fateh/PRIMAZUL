@@ -91,7 +91,7 @@ exports.getMessages = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Erreur getMessages:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -211,7 +211,7 @@ exports.sendMessage = async (req, res) => {
     
   } catch (error) {
     console.error('❌ Erreur sendMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -267,7 +267,7 @@ exports.markAsDelivered = async (req, res) => {
     res.json({ success: true, modifiedCount: result.modifiedCount });
   } catch (error) {
     console.error('❌ Erreur markAsDelivered:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -331,7 +331,7 @@ exports.markAsRead = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erreur markAsRead:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -368,7 +368,7 @@ exports.getMessageReadBy = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erreur getMessageReadBy:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: "Erreur serveur" });
   }
 };
 
@@ -399,7 +399,7 @@ exports.getUnreadCount = async (req, res) => {
     res.json({ success: true, unreadCounts: result });
   } catch (error) {
     console.error('❌ Erreur getUnreadCount:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -497,7 +497,7 @@ exports.deleteMessage = async (req, res) => {
     console.error('❌ Erreur deleteMessage:', error);
     res.status(500).json({ 
       success: false,
-      error: error.message 
+      error: "Erreur serveur"
     });
   }
 };
@@ -541,7 +541,7 @@ exports.deleteMessageForMe = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur deleteMessageForMe:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -604,7 +604,7 @@ exports.editMessage = async (req, res) => {
     res.json({ success: true, message });
   } catch (error) {
     console.error('❌ Erreur editMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -771,7 +771,7 @@ exports.toggleReaction = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erreur toggleReaction:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -790,7 +790,7 @@ exports.getReactions = async (req, res) => {
     res.json({ success: true, reactions: message.reactions });
   } catch (error) {
     console.error('❌ Erreur getReactions:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 // ========================================
@@ -852,7 +852,7 @@ exports.scheduleMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur scheduleMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 // ========================================
@@ -881,7 +881,7 @@ exports.getScheduledMessages = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur getScheduledMessages:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -916,7 +916,7 @@ exports.cancelScheduledMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur cancelScheduledMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -962,7 +962,7 @@ exports.updateScheduledMessage = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur updateScheduledMessage:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -1119,8 +1119,7 @@ exports.searchMessages = async (req, res) => {
     console.error('❌ Erreur searchMessages:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur',
-      error: error.message
+      message: 'Erreur serveur'
     });
   }
 };
@@ -1190,8 +1189,7 @@ exports.getMessageContext = async (req, res) => {
     console.error('❌ Erreur getMessageContext:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur',
-      error: error.message
+      message: 'Erreur serveur'
     });
   }
 };
@@ -1254,8 +1252,7 @@ exports.searchAllMessages = async (req, res) => {
     console.error('❌ Erreur searchAllMessages:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur',
-      error: error.message
+      message: 'Erreur serveur'
     });
   }
 };

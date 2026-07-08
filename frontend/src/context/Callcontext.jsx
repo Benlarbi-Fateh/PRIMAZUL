@@ -503,9 +503,8 @@ export const CallProvider = ({ children }) => {
       const { callId, channelName: channel, callType: type, isGroup, conversationId } = activeCallInConversation;
       
       const { data: tokenData } = await api.post("/agora/token", {
-        channelName: channel,
+        callId,
         uid: myUid,
-        isGroup,
       });
 
       await api.post(`/agora/calls/${callId}/join`);
@@ -591,9 +590,8 @@ export const CallProvider = ({ children }) => {
         });
 
         const { data: tokenData } = await api.post("/agora/token", {
-          channelName: callResponseData.channelName,
+          callId: callResponseData.callId,
           uid: myUid,
-          isGroup,
         });
 
         const calleeName = isGroup ? groupName : participantsList[0]?.name || "Inconnu";
@@ -685,9 +683,8 @@ export const CallProvider = ({ children }) => {
       } = incomingCall;
 
       const { data: tokenData } = await api.post("/agora/token", {
-        channelName: channel,
+        callId,
         uid: myUid,
-        isGroup,
       });
 
       await api.post(`/agora/calls/${callId}/answer`);

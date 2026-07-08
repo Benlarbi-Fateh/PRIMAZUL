@@ -132,11 +132,6 @@ export default function PersonalTasksPage() {
   // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [, forceUpdate] = useState({});
-  useEffect(() => {
-    forceUpdate({});
-  }, [isDark]);
-
   // =================== FETCH DATA ===================
   const fetchLists = useCallback(async () => {
     try {
@@ -210,13 +205,17 @@ export default function PersonalTasksPage() {
   }, [fetchLists, fetchStats]);
 
   useEffect(() => {
-    fetchTasks();
+    queueMicrotask(() => {
+      fetchTasks();
+    });
   }, [fetchTasks]);
 
   // ✅ Charger les tâches terminées quand on ouvre le modal
   useEffect(() => {
     if (showCompletedModal) {
-      fetchCompletedTasks();
+      queueMicrotask(() => {
+        fetchCompletedTasks();
+      });
     }
   }, [showCompletedModal, fetchCompletedTasks]);
 

@@ -145,7 +145,7 @@ exports.uploadProfilePicture = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      error: error.message || "Erreur lors de l'upload",
+      error: "Erreur lors de l'upload",
     });
   }
 };
@@ -153,10 +153,10 @@ exports.uploadProfilePicture = async (req, res) => {
 // Ignorer la photo de profil
 exports.skipProfilePicture = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = req.user?._id || req.user?.id;
 
     if (!userId) {
-      return res.status(400).json({ error: "userId manquant" });
+      return res.status(401).json({ error: "Utilisateur non authentifié" });
     }
 
     const user = await User.findById(userId).select("-password");
@@ -179,7 +179,7 @@ exports.skipProfilePicture = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur skip photo:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -319,6 +319,6 @@ exports.uploadFile = async (req, res) => {
       }
     }
 
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };

@@ -277,7 +277,7 @@ export default function MessageSearch({
                 ${isDark ? 'text-slate-400' : 'text-gray-500'}
               `}
             >
-              Aucun résultat pour "{searchQuery}"
+              Aucun résultat pour &quot;{searchQuery}&quot;
             </div>
           )}
 

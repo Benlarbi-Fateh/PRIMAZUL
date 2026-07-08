@@ -77,7 +77,7 @@ exports.sendInvitation = async (req, res) => {
     res.json({ success: true, invitation });
   } catch (error) {
     console.error('❌ Erreur sendInvitation:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -192,10 +192,7 @@ exports.acceptInvitation = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur acceptInvitation:', error);
-    res.status(500).json({ 
-      error: error.message,
-      details: error.toString()
-    });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -228,7 +225,7 @@ exports.rejectInvitation = async (req, res) => {
     res.json({ success: true, invitation });
   } catch (error) {
     console.error('❌ Erreur rejectInvitation:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -256,7 +253,7 @@ exports.cancelInvitation = async (req, res) => {
     res.json({ success: true, message: 'Invitation annulée' });
   } catch (error) {
     console.error('❌ Erreur cancelInvitation:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -278,7 +275,7 @@ exports.getReceivedInvitations = async (req, res) => {
     res.json({ success: true, invitations });
   } catch (error) {
     console.error('❌ Erreur getReceivedInvitations:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -300,6 +297,6 @@ exports.getSentInvitations = async (req, res) => {
     res.json({ success: true, invitations });
   } catch (error) {
     console.error('❌ Erreur getSentInvitations:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };

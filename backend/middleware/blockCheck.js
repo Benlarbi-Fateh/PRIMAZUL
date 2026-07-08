@@ -11,6 +11,10 @@ module.exports = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.purpose && decoded.purpose !== 'access') {
+      return res.status(403).json({ message: 'Token invalide pour cette route' });
+    }
+
     const user = await User.findById(decoded.userId || decoded.id);
     
     if (!user) {

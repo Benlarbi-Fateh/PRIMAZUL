@@ -106,7 +106,7 @@ try {
 
 app.use((error, req, res, next) => {
   console.error("🚨 ERREUR SERVEUR:", error);
-  res.status(500).json({ error: error.message });
+  res.status(500).json({ error: "Erreur serveur" });
 });
 
 process.on("SIGINT", () => {
@@ -144,18 +144,4 @@ const PORT = process.env.PORT || 5001;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Serveur démarré sur le port ${PORT}`);
 });
-console.log("🔍 DEBUG Variables Mailjet:");
-console.log(
-  "   MAILJET_API_KEY:",
-  process.env.MAILJET_API_KEY ? "✅ Défini" : "❌ UNDEFINED",
-);
-console.log(
-  "   MAILJET_SECRET_KEY:",
-  process.env.MAILJET_SECRET_KEY ? "✅ Défini" : "❌ UNDEFINED",
-);
-console.log(
-  "   MAILJET_SENDER_EMAIL:",
-  process.env.MAILJET_SENDER_EMAIL || "❌ UNDEFINED",
-);
-
 module.exports = { app, server, io };

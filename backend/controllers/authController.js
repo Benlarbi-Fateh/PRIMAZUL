@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken");
+const { generateRegistrationToken } = require("../utils/generateToken");
 const {
   generateVerificationCode,
   sendVerificationEmail,
@@ -69,7 +70,7 @@ exports.register = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur registration:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -116,17 +117,18 @@ exports.verifyRegistration = async (req, res) => {
       message:
         "Compte vérifié ! Vous pouvez maintenant personnaliser votre profil.",
       userId: user._id,
+      registrationToken: generateRegistrationToken(user._id),
     });
   } catch (error) {
     console.error("❌ Erreur verification:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
 // 🆕 FINALISER L'INSCRIPTION (après photo de profil)
 exports.finalizeRegistration = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = req.user?._id;
 
     const user = await User.findById(userId).select("-password");
     if (!user) {
@@ -160,7 +162,7 @@ exports.finalizeRegistration = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur finalize registration:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -194,7 +196,7 @@ exports.resendCode = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur resend code:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -275,7 +277,7 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur login:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -327,7 +329,7 @@ exports.verifyLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur verify login:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -384,7 +386,7 @@ exports.getUsers = async (req, res) => {
 
     res.json({ success: true, users });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -426,7 +428,7 @@ exports.forgotPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur forgot password:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -466,7 +468,7 @@ exports.verifyResetCode = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur verify reset code:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -505,7 +507,7 @@ exports.resetPassword = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur reset password:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -529,7 +531,7 @@ exports.updateLastLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur updateLastLogin:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 // 🚀 Envoi code pour mise à jour profil
@@ -603,7 +605,7 @@ exports.requestPasswordChangeOTP = async (req, res) => {
     return res.json({ success: true, message: "OTP envoyé à votre email" });
   } catch (error) {
     console.error("❌ Erreur requestPasswordChangeOTP:", error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: "Erreur serveur" });
   }
 };
 
@@ -713,7 +715,7 @@ exports.requestEmailChange = async (req, res) => {
     console.error("❌ Erreur requestEmailChange:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Erreur serveur",
     });
   }
 };
@@ -786,7 +788,7 @@ exports.confirmEmailChange = async (req, res) => {
     console.error("❌ Erreur confirmEmailChange:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Erreur serveur",
     });
   }
 };

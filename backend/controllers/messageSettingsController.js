@@ -104,7 +104,7 @@ if (!isParticipant) {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -233,7 +233,7 @@ exports.blockUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -326,7 +326,7 @@ exports.unblockUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -381,7 +381,7 @@ if (!targetUser) {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -424,7 +424,7 @@ exports.getBlockedUsers = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -821,7 +821,7 @@ if (!isParticipant) {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -889,7 +889,7 @@ if (!isParticipant) {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };
@@ -979,7 +979,7 @@ exports.getArchivedConversations = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erreur serveur',
-      error: err.message
+      error: "Erreur serveur"
     });
   }
 };

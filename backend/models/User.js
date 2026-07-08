@@ -116,9 +116,6 @@ const userSchema = new mongoose.Schema(
     // Réinitialisation mot de passe
     resetPasswordCode: { type: String },
     resetPasswordExpires: { type: Date },
-    status: { type: String, default: "Hey there! I'm using Primazul" },
-    isOnline: { type: Boolean, default: false },
-
     // 🔥 Champs ajoutés pour changement d’email
     pendingEmail: { type: String, default: null },
     emailVerificationCode: { type: String },
@@ -130,8 +127,6 @@ const userSchema = new mongoose.Schema(
 );
 
 // Index pour améliorer les performances
-userSchema.index({ username: 1 });
-userSchema.index({ email: 1 });
 userSchema.index({ name: "text" });
 
 module.exports = mongoose.model("User", userSchema);

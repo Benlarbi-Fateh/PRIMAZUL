@@ -39,6 +39,7 @@ export default function RegisterPage() {
   const [userId, setUserId] = useState(null);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
+  const [registrationToken, setRegistrationToken] = useState("");
 
   const { user, login: authLogin } = useContext(AuthContext);
   const router = useRouter();
@@ -103,6 +104,7 @@ export default function RegisterPage() {
         code,
       });
       if (response.data.success) {
+        setRegistrationToken(response.data.registrationToken || "");
         setShowVerification(false);
         setShowUploadPicture(true);
       }
@@ -113,9 +115,15 @@ export default function RegisterPage() {
 
   const handleProfilePictureComplete = async (userData) => {
     try {
-      const response = await api.post("/auth/finalize-registration", {
-        userId,
-      });
+      const response = await api.post(
+        "/auth/finalize-registration",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${registrationToken}`,
+          },
+        },
+      );
 
       if (response.data.token) {
         authLogin(response.data.token, {
@@ -139,6 +147,7 @@ export default function RegisterPage() {
     setUserId(null);
     setUserEmail("");
     setUserName("");
+    setRegistrationToken("");
   };
 
   return (
@@ -246,8 +255,8 @@ export default function RegisterPage() {
                   </h2>
                 </div>
                 <UploadProfilePicture
-                  userId={userId}
                   userName={userName}
+                  registrationToken={registrationToken}
                   onComplete={handleProfilePictureComplete}
                 />
               </div>

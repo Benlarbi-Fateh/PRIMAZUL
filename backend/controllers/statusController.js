@@ -90,7 +90,7 @@ exports.createStatus = async (req, res) => {
     res.status(201).json({ success: true, status });
   } catch (error) {
     console.error("❌ Erreur création statut:", error);
-    res.status(500).json({ error: "Erreur serveur", details: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
@@ -184,7 +184,7 @@ exports.getAllStatuses = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Erreur getAllStatuses:", error);
-    res.status(500).json({ error: "Erreur serveur", details: error.message });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 

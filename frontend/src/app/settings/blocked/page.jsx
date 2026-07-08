@@ -376,7 +376,7 @@ export default function BlockedContactsPage() {
         Aucun contact bloqué
       </p>
       <p className={`text-sm ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>
-        Vous n'avez bloqué aucun utilisateur
+        Vous n&apos;avez bloqué aucun utilisateur
       </p>
     </div>
   )}

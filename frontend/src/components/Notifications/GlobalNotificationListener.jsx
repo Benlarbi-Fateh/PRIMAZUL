@@ -25,7 +25,10 @@ export default function GlobalNotificationListener() {
   // Au lieu d'attendre un useEffect/useLayoutEffect, on met à jour 
   // la référence à chaque cycle de rendu. C'est plus sûr pour les callbacks.
   const stateRef = useRef({ mutedSet, isLoaded });
-  stateRef.current = { mutedSet, isLoaded };
+
+  useEffect(() => {
+    stateRef.current = { mutedSet, isLoaded };
+  }, [mutedSet, isLoaded]);
 
   const getCurrentConversationId = useCallback(() => {
     if (pathname?.startsWith("/chat/")) {
