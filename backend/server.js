@@ -10,13 +10,32 @@ const mongoose = require("mongoose");
 const app = express();
 const server = http.createServer(app);
 
+const getAllowedOrigins = () => {
+  const configuredOrigins = (
+    process.env.FRONTEND_URLS ||
+    process.env.FRONTEND_URL ||
+    ""
+  )
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  const devOrigins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.1.7:3000",
+  ];
+
+  return process.env.NODE_ENV === "production"
+    ? configuredOrigins
+    : [...new Set([...devOrigins, ...configuredOrigins])];
+};
+
+const allowedOrigins = getAllowedOrigins();
+
 // ✅ Configuration CORS
 const corsOptions = {
-  origin: [
-    "http://localhost:3000",
-    "http://192.168.1.7:3000",
-    process.env.FRONTEND_URL,
-  ],
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -37,11 +56,7 @@ app.use((req, res, next) => {
 // ✅ Configuration Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://192.168.1.7:3000",
-      process.env.FRONTEND_URL,
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   },
