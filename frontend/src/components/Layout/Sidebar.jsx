@@ -27,6 +27,10 @@ import {
   archiveConversation,
 } from "@/lib/api";
 import {
+  getCachedConversations,
+  setCachedConversations,
+} from "@/lib/conversationCache";
+import {
   getSocket,
   onShouldRefreshConversations,
   requestOnlineUsers,
@@ -195,14 +199,46 @@ export default function Sidebar({ activeConversationId }) {
     }
   }, [activeTab, receivedInvitations.length]);
 
-  const fetchConversations = useCallback(async () => {
+  const applyConversations = useCallback(
+    (nextConversations) => {
+      setConversations(nextConversations);
+      setCachedConversations(currentUserId, nextConversations);
+    },
+    [currentUserId],
+  );
+
+  const updateConversations = useCallback(
+    (updater) => {
+      setConversations((prev) => {
+        const next =
+          typeof updater === "function" ? updater(prev) : updater;
+        setCachedConversations(currentUserId, next);
+        return next;
+      });
+    },
+    [currentUserId],
+  );
+
+  const fetchConversations = useCallback(async ({ force = true } = {}) => {
     try {
+      const cached = getCachedConversations(currentUserId);
+      if (cached?.conversations?.length) {
+        applyConversations(cached.conversations);
+        setConversationsLoading(false);
+        setLoading(false);
+
+        if (!force && cached.isFresh) {
+          isFirstLoadRef.current = false;
+          return;
+        }
+      }
+
       if (isFirstLoadRef.current) {
         setConversationsLoading(true);
       }
 
       const response = await getConversations();
-      setConversations(response.data.conversations || []);
+      applyConversations(response.data.conversations || []);
     } catch (error) {
       console.error("Erreur lors du chargement des conversations:", error);
     } finally {
@@ -210,7 +246,7 @@ export default function Sidebar({ activeConversationId }) {
       setConversationsLoading(false);
       setLoading(false);
     }
-  }, []);
+  }, [applyConversations, currentUserId]);
 
   const loadAllStatuses = useCallback(async () => {
     try {
@@ -251,7 +287,7 @@ export default function Sidebar({ activeConversationId }) {
 
   useEffect(() => {
     if (user) {
-      fetchConversations();
+      fetchConversations({ force: false });
       setTimeout(() => {
         fetchInvitations();
         loadAllStatuses();
@@ -328,7 +364,7 @@ export default function Sidebar({ activeConversationId }) {
       setSentInvitations((prev) =>
         prev.filter((inv) => inv._id !== invitation._id),
       );
-      setConversations((prev) => [conversation, ...prev]);
+      updateConversations((prev) => [conversation, ...prev]);
     };
 
     const handleInvitationRejected = (invitation) => {
@@ -347,7 +383,7 @@ export default function Sidebar({ activeConversationId }) {
     onInvitationAccepted(handleInvitationAccepted);
     onInvitationRejected(handleInvitationRejected);
     onInvitationCancelled(handleInvitationCancelled);
-  }, [user]);
+  }, [user, updateConversations]);
 
   useEffect(() => {
     if (!user) return;
@@ -370,7 +406,7 @@ export default function Sidebar({ activeConversationId }) {
 
     if (socket && user && currentUserId) {
       socket.on("conversation-updated", (updatedConversation) => {
-        setConversations((prevConversations) => {
+        updateConversations((prevConversations) => {
           const existingIndex = prevConversations.findIndex(
             (conv) => conv._id === updatedConversation._id,
           );
@@ -400,7 +436,7 @@ export default function Sidebar({ activeConversationId }) {
       socket.on(
         "message-status-updated",
         ({ messageIds, status, conversationId }) => {
-          setConversations((prev) =>
+          updateConversations((prev) =>
             prev.map((conv) => {
               if (
                 conv._id === conversationId &&
@@ -423,7 +459,7 @@ export default function Sidebar({ activeConversationId }) {
 
       socket.on("conversation-read-update", ({ conversationId, userId }) => {
         if (userId === currentUserId) {
-          setConversations((prev) =>
+          updateConversations((prev) =>
             prev.map((conv) =>
               conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv,
             ),
@@ -432,7 +468,7 @@ export default function Sidebar({ activeConversationId }) {
       });
 
       socket.on("conversation-status-updated", ({ conversationId, status }) => {
-        setConversations((prev) =>
+        updateConversations((prev) =>
           prev.map((conv) => {
             if (conv._id === conversationId && conv.lastMessage) {
               return {
@@ -446,7 +482,7 @@ export default function Sidebar({ activeConversationId }) {
       });
 
       socket.on("conversation-read", ({ conversationId }) => {
-        setConversations((prev) =>
+        updateConversations((prev) =>
           prev.map((conv) =>
             conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv,
           ),
@@ -454,7 +490,7 @@ export default function Sidebar({ activeConversationId }) {
       });
 
       socket.on("group-created", (group) => {
-        setConversations((prev) => {
+        updateConversations((prev) => {
           const exists = prev.some((conv) => conv._id === group._id);
           return exists ? prev : [group, ...prev];
         });
@@ -478,7 +514,7 @@ export default function Sidebar({ activeConversationId }) {
         clearTimeout(refreshTimeoutRef.current);
       };
     }
-  }, [user, currentUserId, fetchConversations]);
+  }, [user, currentUserId, fetchConversations, updateConversations]);
 
   const handleTabChange = useCallback(
     (tab) => {
@@ -556,7 +592,7 @@ export default function Sidebar({ activeConversationId }) {
       );
 
       if (conversation) {
-        setConversations((prev) => {
+        updateConversations((prev) => {
           const exists = prev.some((conv) => conv._id === conversation._id);
           if (!exists) {
             return [conversation, ...prev];

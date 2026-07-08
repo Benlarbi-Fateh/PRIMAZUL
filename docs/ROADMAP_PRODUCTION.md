@@ -23,6 +23,7 @@ Corrections deja realisees:
 - `[FAIT]` Correction d'un `setState` pendant le rendu dans la page profil.
 - `[FAIT]` Gestion silencieuse du cas Agora `410` pour les appels deja termines.
 - `[PARTIEL]` Layout commun protege introduit avec `ProtectedMainLayout` et applique aux pages principales.
+- `[PARTIEL]` Cache memoire frontend ajoute pour les conversations de la sidebar.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -30,7 +31,7 @@ Corrections deja realisees:
 
 - `[PARTIEL]` Creer un layout commun protege pour toutes les pages connectees.
 - `[PARTIEL]` Eviter que `MainSidebar`, `Sidebar` et `ProtectedRoute` soient recrees page par page.
-- `[A FAIRE]` Ajouter un cache frontend avec React Query ou SWR.
+- `[PARTIEL]` Ajouter un cache frontend avec React Query ou SWR.
 - `[A FAIRE]` Decouper les gros composants comme `Sidebar.jsx`, `Callcontext.jsx`, `SettingsPage` et les pages tres longues.
 - `[A FAIRE]` Reduire les composants `"use client"` quand ce n'est pas necessaire.
 - `[PARTIEL]` Corriger tous les warnings hydration.
@@ -352,13 +353,20 @@ Avancement:
 
 Ajouter React Query ou SWR pour:
 
-- conversations
-- messages
-- profil
-- contacts
-- invitations
-- statuts
-- taches
+- `[PARTIEL]` conversations
+- `[A FAIRE]` messages
+- `[A FAIRE]` profil
+- `[A FAIRE]` contacts
+- `[A FAIRE]` invitations
+- `[A FAIRE]` statuts
+- `[A FAIRE]` taches
+
+Avancement:
+
+- `[FAIT]` Ajout d'un cache memoire TTL pour les conversations dans `conversationCache.js`.
+- `[FAIT]` `Sidebar.jsx` peut afficher les conversations cachees au remontage sans repartir a vide.
+- `[A FAIRE]` Remplacer ce cache leger par React Query ou SWR si on veut invalidation/retry/devtools plus complets.
+- `[A FAIRE]` Ajouter le cache messages par conversation.
 
 ### Pagination Backend
 
@@ -428,7 +436,7 @@ Ajouter:
 ### Court Terme
 
 1. `[PARTIEL]` Layout commun protege.
-2. `[A FAIRE]` Cache frontend conversations/messages.
+2. `[PARTIEL]` Cache frontend conversations/messages.
 3. `[A FAIRE]` Pagination messages.
 4. `[A FAIRE]` Refactor progressif de `Sidebar.jsx`.
 5. `[PARTIEL]` Correction hydration/theme restante.
