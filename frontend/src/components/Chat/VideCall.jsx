@@ -328,9 +328,7 @@ export default function VideoCall({
 
     // On synchronise avec la prop si elle est fournie et plus grande que le temps local
     // (au cas où on revient sur la fenêtre)
-    if (callDuration > time) {
-      setTime(callDuration);
-    }
+    setTime((prev) => (callDuration > prev ? callDuration : prev));
 
     // Démarrer le compteur si l'appel est en cours
     if (callState === "ongoing" || callState === CALL_STATES.ONGOING) {
@@ -641,7 +639,7 @@ export default function VideoCall({
       };
       cleanup();
     };
-  }, [channelName, token, uid]);
+  }, [channelName, cleanupClient, cleanupTracks, initializeAgora, token, uid]);
 
   useEffect(() => {
     if (!localVideoReady || !localVideoRef.current) return;

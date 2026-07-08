@@ -76,7 +76,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     refreshProfile();
-  }, []);
+  }, [refreshProfile]);
 
   if (!isMounted) {
     setIsMounted(true);

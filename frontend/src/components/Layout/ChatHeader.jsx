@@ -7,7 +7,7 @@ import {
   Video,
   Users,
   X,
-  Image,
+  Image as ImageIcon,
   FileText,
   Music,
   Download,
@@ -1612,7 +1612,7 @@ const toggleMute = async () => {
   `}
                     >
                       <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-md group-hover:shadow-lg group-hover:scale-110 transition-all duration-300">
-                        <Image className="w-5 h-5 text-white" />
+                        <ImageIcon className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 text-left">
                         <div
@@ -1967,7 +1967,7 @@ const toggleMute = async () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
-                        <Image className="w-6 h-6 text-white" />
+                        <ImageIcon className="w-6 h-6 text-white" />
                       </div>
                       <div>
                         <h2 className="text-2xl font-bold text-white drop-shadow-lg">
@@ -1994,7 +1994,7 @@ const toggleMute = async () => {
                     {
                       label: "Images",
                       count: mediaData?.images?.length || 0,
-                      icon: Image,
+                      icon: ImageIcon,
                     },
                     {
                       label: "Fichiers",
@@ -2202,7 +2202,7 @@ const toggleMute = async () => {
                         }
                       `}
                           >
-                            <Image
+                            <ImageIcon
                               className={`w-16 h-16 ${
                                 isDark ? "text-blue-300" : "text-blue-400"
                               }`}

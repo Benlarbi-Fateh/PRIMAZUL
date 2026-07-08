@@ -134,6 +134,7 @@ export function StatusPageContent() {
   const videoRef = useRef(null);
   const progressTimerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const handleNextRef = useRef(null);
 
   // ============================================
   // NAVIGATION RETOUR
@@ -269,7 +270,7 @@ export function StatusPageContent() {
       if (newProgress < 100) {
         progressTimerRef.current = requestAnimationFrame(updateProgress);
       } else {
-        handleNext();
+        handleNextRef.current?.();
       }
     };
 
@@ -309,6 +310,23 @@ export function StatusPageContent() {
     return () => clearTimeout(timer);
   }, [currentStatus, isMyStatus]);
 
+  const closeViewer = useCallback(() => {
+    const openUserId = searchParams?.get("open");
+
+    if (openUserId) {
+      router.back();
+    } else {
+      setViewingGroup(null);
+      setCurrentIndex(0);
+      setProgress(0);
+      setShowStats(false);
+      setShowReactions(false);
+      setReplyText("");
+      setShowMobileSidebar(true);
+      fetchStatuses();
+    }
+  }, [fetchStatuses, router, searchParams]);
+
   const handleNext = useCallback(() => {
     setReplyText("");
     setShowReactions(false);
@@ -319,7 +337,9 @@ export function StatusPageContent() {
     } else {
       closeViewer();
     }
-  }, [currentIndex, viewingGroup]);
+  }, [closeViewer, currentIndex, viewingGroup]);
+
+  handleNextRef.current = handleNext;
 
   const handlePrev = () => {
     setReplyText("");
@@ -331,25 +351,6 @@ export function StatusPageContent() {
     }
   };
 
-  const closeViewer = () => {
-    // Vérifier si on est arrivé depuis un clic sur avatar
-    const openUserId = searchParams?.get("open");
-
-    if (openUserId) {
-      // Si oui, retourner en arrière (vers le chat)
-      router.back();
-    } else {
-      // Sinon, fermer normalement le viewer
-      setViewingGroup(null);
-      setCurrentIndex(0);
-      setProgress(0);
-      setShowStats(false);
-      setShowReactions(false);
-      setReplyText("");
-      setShowMobileSidebar(true);
-      fetchStatuses();
-    }
-  };
 
   const openViewer = (group) => {
     setViewingGroup(group);

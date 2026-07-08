@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 
 export default function useBlockCheck(targetUserId) {
@@ -16,7 +16,7 @@ export default function useBlockCheck(targetUserId) {
   const isCheckingRef = useRef(false);
   const mountedRef = useRef(true);
 
-const checkBlockStatus = async (forceCheck = false) => {
+const checkBlockStatus = useCallback(async (forceCheck = false) => {
     if (!targetUserId) {
       setBlockStatus({ iBlocked: false, blockedMe: false, isBlocked: false });
       setIsBlocked(false);
@@ -79,7 +79,7 @@ if (isCheckingRef.current && !forceCheck) {
       }
       isCheckingRef.current = false;
     }
-  };
+  }, [targetUserId]);
 
  useEffect(() => {
   mountedRef.current = true;
@@ -102,7 +102,7 @@ if (isCheckingRef.current && !forceCheck) {
     mountedRef.current = false;
     window.removeEventListener('block-status-changed', handleBlockChange);
   };
-}, [targetUserId]);
+}, [checkBlockStatus, targetUserId]);
 
   return { 
    isBlocked: Boolean(isBlocked),

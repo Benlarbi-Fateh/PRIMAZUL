@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useContext, useEffect } from "react";
+import { useCallback, useState, useContext, useEffect } from "react";
 import {
   User,
   Bell,
@@ -170,28 +170,7 @@ export default function SettingsPage() {
   };
 
   // === LOGIQUE DE BLOCAGE ===
-  useEffect(() => {
-    if (showBlockedModal) {
-      fetchBlockedUsers();
-    }
-  }, [showBlockedModal]);
-
-  // === LOGIQUE D'ARCHIVAGE (NOUVEAU) ===
-  useEffect(() => {
-    if (showArchivedModal) {
-      fetchArchivedChats();
-    }
-  }, [showArchivedModal]);
-
-  useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
-      searchUsers();
-    } else {
-      setAvailableUsers([]);
-    }
-  }, [searchQuery]);
-
-  const fetchBlockedUsers = async () => {
+  const fetchBlockedUsers = useCallback(async () => {
     try {
       setLoadingBlocked(true);
       const response = await api.get("/message-settings/blocked");
@@ -203,10 +182,10 @@ export default function SettingsPage() {
     } finally {
       setLoadingBlocked(false);
     }
-  };
+  }, []);
 
   // === FONCTIONS ARCHIVAGE (NOUVEAU) ===
-  const fetchArchivedChats = async () => {
+  const fetchArchivedChats = useCallback(async () => {
     try {
       setLoadingArchived(true);
       // ✅ Utilise l'API officielle des archives
@@ -220,7 +199,7 @@ export default function SettingsPage() {
     } finally {
       setLoadingArchived(false);
     }
-  };
+  }, []);
 
   const handleUnarchive = async (conversationId) => {
     try {
@@ -250,7 +229,7 @@ export default function SettingsPage() {
     }
   };
 
-  const searchUsers = async () => {
+  const searchUsers = useCallback(async () => {
     try {
       setSearching(true);
       const response = await api.get("/profile/search", {
@@ -268,7 +247,28 @@ export default function SettingsPage() {
     } finally {
       setSearching(false);
     }
-  };
+  }, [blockedUsers, searchQuery]);
+
+  useEffect(() => {
+    if (showBlockedModal) {
+      fetchBlockedUsers();
+    }
+  }, [fetchBlockedUsers, showBlockedModal]);
+
+  // === LOGIQUE D'ARCHIVAGE (NOUVEAU) ===
+  useEffect(() => {
+    if (showArchivedModal) {
+      fetchArchivedChats();
+    }
+  }, [fetchArchivedChats, showArchivedModal]);
+
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      searchUsers();
+    } else {
+      setAvailableUsers([]);
+    }
+  }, [searchQuery, searchUsers]);
 
   const handleBlock = async (userId) => {
     const user = availableUsers.find((u) => u._id === userId);

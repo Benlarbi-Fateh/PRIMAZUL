@@ -141,7 +141,7 @@ export const NotificationProvider = ({ children }) => {
         audioRef.current = null;
       }
     };
-  }, [settings.selectedSound]);
+  }, [settings.selectedSound, settings.volume]);
 
   // Mettre à jour le volume séparément
   useEffect(() => {

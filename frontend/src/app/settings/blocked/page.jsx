@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
@@ -20,20 +20,7 @@ export default function BlockedContactsPage() {
   const [actionLoading, setActionLoading] = useState(null);
 
   // Charger les utilisateurs bloqués au démarrage
-  useEffect(() => {
-    fetchBlockedUsers();
-  }, []);
-
-  // Rechercher des utilisateurs quand la query change
-  useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
-      searchUsers();
-    } else {
-      setAvailableUsers([]);
-    }
-  }, [searchQuery]);
-
-  const fetchBlockedUsers = async () => {
+  const fetchBlockedUsers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/message-settings/blocked');
@@ -47,9 +34,9 @@ export default function BlockedContactsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const searchUsers = async () => {
+  const searchUsers = useCallback(async () => {
   try {
     setSearching(true);
     
@@ -71,7 +58,19 @@ export default function BlockedContactsPage() {
   } finally {
     setSearching(false);
   }
-};
+}, [blockedUsers, searchQuery]);
+
+  useEffect(() => {
+    fetchBlockedUsers();
+  }, [fetchBlockedUsers]);
+
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      searchUsers();
+    } else {
+      setAvailableUsers([]);
+    }
+  }, [searchQuery, searchUsers]);
 
   const handleBlock = async (userId) => {
     const user = availableUsers.find(u => u._id === userId);

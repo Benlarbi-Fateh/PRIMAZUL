@@ -1290,7 +1290,7 @@ export const disconnectSocket = () => {
 // EXPORT PAR DÉFAUT
 // ============================================
 
-export default {
+const socketService = {
   initSocket,
   getSocket,
   isSocketConnected,
@@ -1317,3 +1317,5 @@ export default {
   onCallMissed,
   onCallError,
 };
+
+export default socketService;

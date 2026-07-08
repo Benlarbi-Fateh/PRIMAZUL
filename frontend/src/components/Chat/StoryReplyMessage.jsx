@@ -1,5 +1,5 @@
 "use client";
-import { Image, Video, Type } from "lucide-react";
+import { Video, Type } from "lucide-react";
 
 // Adapter selon ton URL
 const SERVER_URL =
@@ -22,6 +22,7 @@ export default function StoryReplyMessage({ message, isMine }) {
           {storyType === "image" && (
             <img
               src={getFullUrl(storyUrl)}
+              alt="Story"
               className="w-full h-full object-cover"
             />
           )}
