@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { X, Search, UserPlus, Loader2, Check } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -147,9 +148,11 @@ export default function AddMembersModal({ groupId, existingMembers, onClose, onS
                     }`}
                   >
                     <div className="relative">
-                      <img
+                      <Image
                         src={user.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0ea5e9&color=fff`}
                         alt={user.name}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-full object-cover"
                       />
                       {isSelected && (

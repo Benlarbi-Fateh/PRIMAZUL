@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import MainSidebar from '@/components/Layout/MainSidebar.client';
 import { useTheme } from '@/hooks/useTheme';
@@ -233,9 +234,11 @@ export default function BlockedContactsPage() {
           <div className="flex items-center gap-3">
             {/* ✅ AJOUT : Photo de profil */}
             {user.profilePicture ? (
-              <img
+              <Image
                 src={user.profilePicture}
                 alt={user.name}
+                width={40}
+                height={40}
                 className="w-10 h-10 rounded-full object-cover"
                 onError={(e) => {
                   e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -313,9 +316,11 @@ export default function BlockedContactsPage() {
           <div className="flex items-center gap-3">
             {/* ✅ AJOUT : Photo de profil */}
             {user.profilePicture ? (
-              <img
+              <Image
                 src={user.profilePicture}
                 alt={user.name}
+                width={48}
+                height={48}
                 className="w-12 h-12 rounded-full object-cover"
                 onError={(e) => {
                   e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useContext, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { isSameDay } from "date-fns";
 import { AuthContext } from "@/context/AuthProvider";
 import {
@@ -1244,7 +1245,13 @@ export default function ChatPage() {
                 {/* Avatar */}
                 <div className="relative w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0 border border-gray-100 dark:border-slate-600">
                   {u.profilePicture ? (
-                    <img src={u.profilePicture} alt={u.name} className="w-full h-full object-cover" />
+                    <Image
+                      src={u.profilePicture}
+                      alt={u.name}
+                      fill
+                      sizes="40px"
+                      className="object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold text-sm">
                       {u.name?.charAt(0).toUpperCase() || "?"}

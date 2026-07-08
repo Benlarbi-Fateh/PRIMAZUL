@@ -9,6 +9,7 @@ import React, {
   useMemo,
   memo,
 } from "react";
+import Image from "next/image";
 import {
   Mic,
   MicOff,
@@ -136,11 +137,13 @@ const RemoteVideoPlayer = memo(
             <div className="relative">
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-full blur-xl" />
               {pic && !isMini ? (
-                <img
-                  src={pic}
-                  alt={name}
-                  className={`relative rounded-full object-cover border-4 border-slate-700 shadow-2xl ${
-                    isMini ? "w-12 h-12" : "w-24 h-24 sm:w-32 sm:h-32"
+                 <Image
+                   src={pic}
+                   alt={name}
+                   width={128}
+                   height={128}
+                   className={`relative rounded-full object-cover border-4 border-slate-700 shadow-2xl ${
+                     isMini ? "w-12 h-12" : "w-24 h-24 sm:w-32 sm:h-32"
                   }`}
                 />
               ) : (
@@ -918,11 +921,13 @@ export default function VideoCall({
             {callData?.isGroup ? (
               <Users size={16} className="text-blue-400" />
             ) : callData?.profilePicture ? (
-              <img
-                src={callData.profilePicture}
-                alt=""
-                className="w-6 h-6 rounded-full object-cover"
-              />
+               <Image
+                 src={callData.profilePicture}
+                 alt=""
+                 width={24}
+                 height={24}
+                 className="w-6 h-6 rounded-full object-cover"
+               />
             ) : null}
             <span className="text-white font-medium text-sm">
               {callData?.name || "Appel"}
@@ -1189,9 +1194,11 @@ export default function VideoCall({
                 <div className="absolute inset-0 animate-pulse">
                   <div className="w-32 h-32 rounded-full border-4 border-green-500/30 mx-auto" />
                 </div>
-                <img
+                <Image
                   src={callData.profilePicture}
                   alt={callData.name}
+                  width={112}
+                  height={112}
                   className="w-28 h-28 rounded-full object-cover border-4 border-green-500 shadow-lg shadow-green-500/30 mx-auto relative"
                 />
               </div>

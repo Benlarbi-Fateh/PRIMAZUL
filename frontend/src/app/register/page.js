@@ -163,9 +163,11 @@ export default function RegisterPage() {
 
         {/* Logo */}
         <div className="flex flex-col items-center justify-center text-center relative z-10 mt-12">
-          <img 
+          <Image
   src="/logo.png.png" 
-  alt="Logo PrimAzul" 
+  alt="Logo PrimAzul"
+  width={96}
+  height={96}
   className="w-24 h-24 object-contain mb-4" 
 />
           <h1 className="text-xl font-bold text-white mb-1">PrimAzul</h1>
@@ -285,9 +287,11 @@ export default function RegisterPage() {
             ) : (
               <>
                 <div className="text-center mb-6 sm:mb-8">
-                  <img 
+                  <Image
   src="/logo.png.png" 
-  alt="Logo PrimAzul" 
+  alt="Logo PrimAzul"
+  width={80}
+  height={80}
   className="w-20 h-20 mx-auto object-contain mb-4" 
 />
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">

@@ -12,6 +12,7 @@ import React, {
   memo,
 } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { AuthContext } from "@/context/AuthProvider";
 import {
   getSocket,
@@ -249,7 +250,13 @@ const IncomingCallModal = memo(function IncomingCallModal({
 
           <div className="relative w-28 h-28 rounded-full overflow-hidden border-4 border-green-500 shadow-lg shadow-green-500/30">
             {from?.profilePicture ? (
-              <img src={from.profilePicture} alt={displayName} className="w-full h-full object-cover" />
+              <Image
+                src={from.profilePicture}
+                alt={displayName}
+                fill
+                sizes="112px"
+                className="object-cover"
+              />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-green-600 to-emerald-600 flex items-center justify-center">
                 {isGroup ? (

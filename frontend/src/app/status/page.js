@@ -830,11 +830,14 @@ export function StatusPageContent() {
                             className="max-h-[40vh] md:max-h-[50vh] rounded-lg shadow-2xl w-auto max-w-full"
                           />
                         ) : (
+                          <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={mediaPreview}
                             alt="Aperçu"
                             className="max-h-[40vh] md:max-h-[50vh] rounded-lg shadow-2xl w-auto max-w-full"
                           />
+                          </>
                         )}
                         <button
                           onClick={() => {
@@ -1052,16 +1055,13 @@ export function StatusPageContent() {
                       }}
                     />
 
-                    <div className="relative z-10">
-                      <img
+                    <div className="relative z-10 w-[95vw] h-[95vh]">
+                      <Image
                         src={getMediaUrl(currentStatus.mediaUrl)}
                         alt="Status"
-                        className="object-contain max-w-[95vw] max-h-[95vh]"
-                        style={{
-                          display: "block",
-                          // Option : ombre pour mieux voir les bords
-                          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-                        }}
+                        fill
+                        sizes="95vw"
+                        className="object-contain drop-shadow-2xl"
                       />
                     </div>
 

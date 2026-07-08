@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { Video, Type } from "lucide-react";
 
 // Adapter selon ton URL
@@ -18,12 +19,14 @@ export default function StoryReplyMessage({ message, isMine }) {
     >
       {/* PREVIEW STORY */}
       <div className="flex items-center gap-3 bg-black/10 p-2 rounded-lg border-l-4 border-white/50">
-        <div className="w-10 h-14 bg-gray-300 rounded overflow-hidden flex items-center justify-center shrink-0">
+        <div className="relative w-10 h-14 bg-gray-300 rounded overflow-hidden flex items-center justify-center shrink-0">
           {storyType === "image" && (
-            <img
+            <Image
               src={getFullUrl(storyUrl)}
               alt="Story"
-              className="w-full h-full object-cover"
+              fill
+              sizes="40px"
+              className="object-cover"
             />
           )}
           {storyType === "video" && <Video className="text-gray-600 w-5 h-5" />}

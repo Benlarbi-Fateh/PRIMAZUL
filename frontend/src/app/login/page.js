@@ -6,6 +6,7 @@ import { AuthContext } from "@/context/AuthProvider";
 import api from "@/lib/api";
 import Link from "next/link";
 import VerifyCode from "@/components/Auth/VerifyCode";
+import Image from "next/image";
 import {
   Mail,
   Lock,
@@ -100,9 +101,11 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="flex flex-col items-center justify-center text-center relative z-10 mt-12">
-          <img
+          <Image
             src="/logo.png.png"
             alt="Logo PrimAzul"
+            width={96}
+            height={96}
             className="w-24 h-24 object-contain mb-4"
           />
           <h1 className="text-xl font-bold text-white mb-1">PrimAzul</h1>
@@ -161,9 +164,11 @@ export default function LoginPage() {
                     {/* Mobile Header */}
           <div className="lg:hidden text-center mb-6 sm:mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <img
+              <Image
                 src="/logo.png.png"
                 alt="Logo PrimAzul"
+                width={64}
+                height={64}
                 className="w-16 h-16 object-contain"
               />
               <div className="text-left">
@@ -209,9 +214,11 @@ export default function LoginPage() {
             ) : (
               <>
                             <div className="text-center mb-6 sm:mb-8">
-  <img 
+  <Image
     src="/logo.png.png" 
-    alt="Logo PrimAzul" 
+    alt="Logo PrimAzul"
+    width={80}
+    height={80}
     // J'ai ajouté 'hidden lg:block' au tout début
     className="hidden lg:block w-20 h-20 mx-auto object-contain mb-4" 
   />

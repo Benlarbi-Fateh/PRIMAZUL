@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import api from "@/lib/api";
 import { AuthContext } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
@@ -227,12 +228,14 @@ export default function TasksSidePanel({
               `}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                <div className="relative w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0 overflow-hidden">
                   {conversation?.groupPhoto ? (
-                    <img
+                    <Image
                       src={conversation.groupPhoto}
                       alt=""
-                      className="w-full h-full rounded-lg object-cover"
+                      fill
+                      sizes="32px"
+                      className="object-cover"
                     />
                   ) : (
                     <Users size={16} />
@@ -332,7 +335,7 @@ export default function TasksSidePanel({
                         >
                           <div
                             className={`
-                              w-9 h-9 rounded-lg flex items-center justify-center shrink-0
+                              relative w-9 h-9 rounded-lg flex items-center justify-center shrink-0 overflow-hidden
                               ${
                                 isActive
                                   ? "bg-blue-500/20"
@@ -343,10 +346,12 @@ export default function TasksSidePanel({
                             `}
                           >
                             {conv.groupPhoto ? (
-                              <img
+                              <Image
                                 src={conv.groupPhoto}
                                 alt=""
-                                className="w-full h-full rounded-lg object-cover"
+                                fill
+                                sizes="32px"
+                                className="object-cover"
                               />
                             ) : (
                               <Users

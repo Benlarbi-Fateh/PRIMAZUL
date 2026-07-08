@@ -1167,9 +1167,11 @@ const toggleMute = async () => {
                       <div className="flex items-center gap-4">
                         {/* Photo de profil */}
                         <div className="relative">
-                          <img
+                          <ImageComponent
                             src={displayImage}
                             alt={displayName}
+                            width={56}
+                            height={56}
                             className="w-14 h-14 rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
                           />
                           {contactIsOnline && !isGroup && (
@@ -1313,7 +1315,7 @@ const toggleMute = async () => {
               `}
                                 >
                                   <div className="relative">
-                                    <img
+                                    <ImageComponent
                                       src={
                                         participant.profilePicture ||
                                         `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -1321,6 +1323,8 @@ const toggleMute = async () => {
                                         )}&background=0ea5e9&color=fff`
                                       }
                                       alt={participant.name}
+                                      width={40}
+                                      height={40}
                                       className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-200"
                                       onError={(e) => {
                                         e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -1896,9 +1900,11 @@ const toggleMute = async () => {
               </div>
             </div>
             <div className="p-6 flex flex-col items-center border-b">
-              <img
+              <ImageComponent
                 src={displayImage}
                 alt={displayName}
+                width={112}
+                height={112}
                 className="w-28 h-28 rounded-2xl object-cover shadow-xl mb-4"
               />
               <h3 className="font-bold text-2xl text-gray-900">
@@ -2151,10 +2157,12 @@ const toggleMute = async () => {
                             key={img.id}
                             className="group relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer"
                           >
-                            <img
+                            <ImageComponent
                               src={img.url}
                               alt=""
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                              fill
+                              sizes="(max-width: 640px) 33vw, 160px"
+                              className="object-cover transition-transform duration-500 group-hover:scale-110"
                               onClick={() => openImage(img)}
                             />
 
@@ -2602,7 +2610,7 @@ const toggleMute = async () => {
       {/* Modal pour l'image en plein écran */}
       {selectedImage && (
         <div className="fixed inset-0 bg-black/90 z-[80] flex items-center justify-center">
-          <div className="relative max-w-4xl max-h-full">
+          <div className="relative w-[90vw] h-[90vh] max-w-4xl max-h-full">
             <button
               onClick={() => setSelectedImage(null)}
               className="absolute top-4 right-4 text-white p-2 hover:bg-white/20 rounded-full z-10"
@@ -2617,10 +2625,12 @@ const toggleMute = async () => {
             >
               <Download className="w-6 h-6" />
             </button>
-            <img
+            <ImageComponent
               src={selectedImage.url}
               alt=""
-              className="max-w-full max-h-full object-contain"
+              fill
+              sizes="90vw"
+              className="object-contain"
             />
             <div className="absolute bottom-4 left-4 text-white">
               <p className="text-sm">{selectedImage.name}</p>

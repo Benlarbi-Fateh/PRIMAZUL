@@ -1310,11 +1310,13 @@ export default function Sidebar({ activeConversationId }) {
                                 }
                               }}
                             >
-                              <img
+                              <Image
                                 src={displayImage}
                                 alt={displayName}
+                                fill
+                                sizes="40px"
                                 loading="lazy"
-                                className="w-full h-full object-cover"
+                                className="object-cover"
                                 onError={(e) => {
                                   e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0ea5e9&color=fff&bold=true`;
                                 }}
