@@ -539,11 +539,11 @@ export const CallProvider = ({ children }) => {
       startPing(callId);
       
     } catch (error) {
-      console.error("Erreur rejoindre appel:", error);
       if (error.response?.status === 410) {
         showCallNotification("warning", "Cet appel est terminé");
         setActiveCallInConversation(null);
       } else {
+        console.error("Erreur rejoindre appel:", error);
         showError("Impossible de rejoindre l'appel");
       }
     } finally {

@@ -78,7 +78,7 @@ export default function ProfilePage() {
   }, [refreshProfile]);
 
   if (isLoading || !user) {
-    return <ProfileSkeleton isDark={isDark} />;
+    return <ProfileSkeleton />;
   }
 
   const tabs = [];
