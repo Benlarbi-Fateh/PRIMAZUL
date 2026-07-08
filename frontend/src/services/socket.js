@@ -10,6 +10,14 @@ let currentUserId = null;
 let onlineUsersCache = [];
 let onlineUsersCallbacks = [];
 let isInitializing = false;
+const DEBUG_SOCKET =
+  process.env.NEXT_PUBLIC_DEBUG_SOCKET === "true" ||
+  process.env.NODE_ENV === "test";
+const debugLog = (...args) => {
+  if (DEBUG_SOCKET) {
+    console.log(...args);
+  }
+};
 
 // Callbacks pour les différents événements
 let onUpdateMessageCallback = null;
@@ -60,26 +68,26 @@ export const initSocket = (userId) => {
   if (typeof window === "undefined") return null;
 
   if (isInitializing) {
-    console.log("⏳ Initialisation déjà en cours...");
+    debugLog("⏳ Initialisation déjà en cours...");
     return socket;
   }
 
   currentUserId = userId;
 
   if (socket?.connected && currentUserId === userId) {
-    console.log("✅ Socket déjà connecté pour cet utilisateur");
+    debugLog("✅ Socket déjà connecté pour cet utilisateur");
     socket.emit("user-online", userId);
     socket.emit("request-online-users");
     return socket;
   }
 
   if (socket && !socket.connected) {
-    console.log("🔄 Socket existe mais déconnecté, reconnexion...");
+    debugLog("🔄 Socket existe mais déconnecté, reconnexion...");
     socket.connect();
     return socket;
   }
 
-  console.log("🔌 Création d'un nouveau socket pour:", userId);
+  debugLog("🔌 Création d'un nouveau socket pour:", userId);
   isInitializing = true;
 
   socket = io(SOCKET_URL, {
@@ -97,13 +105,13 @@ export const initSocket = (userId) => {
   // ============================================
 
   socket.on("connect", () => {
-    console.log("✅ Socket connecté:", socket.id);
+    debugLog("✅ Socket connecté:", socket.id);
     isInitializing = false;
 
     if (currentUserId) {
       socket.emit("user-online", currentUserId);
       socket.emit("request-online-users");
-      console.log(`👤 User ${currentUserId} rejoint sa room personnelle`);
+      debugLog(`👤 User ${currentUserId} rejoint sa room personnelle`);
     }
 
     setupGlobalMessageListeners();
@@ -112,23 +120,23 @@ export const initSocket = (userId) => {
   });
 
   socket.on("connection-confirmed", ({ userId, onlineUsers }) => {
-    console.log("✅ Connexion confirmée pour:", userId);
+    debugLog("✅ Connexion confirmée pour:", userId);
     onlineUsersCache = onlineUsers || [];
     onlineUsersCallbacks.forEach((cb) => cb(onlineUsersCache));
   });
 
   socket.on("online-users-update", (userIds) => {
-    console.log("📡 Mise à jour utilisateurs en ligne:", userIds?.length || 0);
+    debugLog("📡 Mise à jour utilisateurs en ligne:", userIds?.length || 0);
     onlineUsersCache = userIds || [];
     onlineUsersCallbacks.forEach((cb) => cb(onlineUsersCache));
   });
 
   socket.on("conversation-joined", ({ conversationId }) => {
-    console.log("✅ Conversation rejointe:", conversationId);
+    debugLog("✅ Conversation rejointe:", conversationId);
   });
 
   socket.on("reconnect", (attemptNumber) => {
-    console.log("🔄 Socket reconnecté après", attemptNumber, "tentatives");
+    debugLog("🔄 Socket reconnecté après", attemptNumber, "tentatives");
     if (currentUserId) {
       socket.emit("user-online", currentUserId);
       socket.emit("request-online-users");
@@ -139,7 +147,7 @@ export const initSocket = (userId) => {
   });
 
   socket.on("reconnect_attempt", (attemptNumber) => {
-    console.log("🔄 Tentative de reconnexion:", attemptNumber);
+    debugLog("🔄 Tentative de reconnexion:", attemptNumber);
   });
 
   socket.on("connect_error", (error) => {
@@ -148,17 +156,17 @@ export const initSocket = (userId) => {
   });
 
   socket.on("disconnect", (reason) => {
-    console.log("⚠️ Socket déconnecté:", reason);
+    debugLog("⚠️ Socket déconnecté:", reason);
     isInitializing = false;
 
     if (reason === "io server disconnect") {
-      console.log("🔄 Reconnexion forcée...");
+      debugLog("🔄 Reconnexion forcée...");
       socket.connect();
     }
   });
 
   socket.on("update-message", (updatedMessage) => {
-    console.log("📡 Message mis à jour reçu:", updatedMessage?._id);
+    debugLog("📡 Message mis à jour reçu:", updatedMessage?._id);
     if (onUpdateMessageCallback) {
       onUpdateMessageCallback(updatedMessage);
     }
@@ -182,7 +190,7 @@ const setupGlobalMessageListeners = () => {
   socket.off("new-message");
 
   socket.on("receive-message", (message) => {
-    console.log("📩 [Global] Message reçu:", message?._id);
+    debugLog("📩 [Global] Message reçu:", message?._id);
     globalMessageCallbacks.forEach((cb) => {
       try {
         cb(message);
@@ -193,7 +201,7 @@ const setupGlobalMessageListeners = () => {
   });
 
   socket.on("new-message", (message) => {
-    console.log("📩 [Global] Nouveau message:", message?._id);
+    debugLog("📩 [Global] Nouveau message:", message?._id);
     globalMessageCallbacks.forEach((cb) => {
       try {
         cb(message);
@@ -203,7 +211,7 @@ const setupGlobalMessageListeners = () => {
     });
   });
 
-  console.log("✅ Écouteurs globaux de messages configurés");
+  debugLog("✅ Écouteurs globaux de messages configurés");
 };
 
 // ============================================
@@ -227,7 +235,7 @@ export const setupTaskListeners = () => {
 
   // Tâche créée
   socket.on("task:created", (data) => {
-    console.log("📡 [Socket] task:created reçu:", data?.task?._id);
+    debugLog("📡 [Socket] task:created reçu:", data?.task?._id);
     taskCallbacks.created.forEach((cb) => {
       try {
         cb(data);
@@ -239,7 +247,7 @@ export const setupTaskListeners = () => {
 
   // Tâche mise à jour
   socket.on("task:updated", (data) => {
-    console.log("📡 [Socket] task:updated reçu:", data?.task?._id);
+    debugLog("📡 [Socket] task:updated reçu:", data?.task?._id);
     taskCallbacks.updated.forEach((cb) => {
       try {
         cb(data);
@@ -251,7 +259,7 @@ export const setupTaskListeners = () => {
 
   // Statut changé
   socket.on("task:statusChanged", (data) => {
-    console.log(
+    debugLog(
       "📡 [Socket] task:statusChanged reçu:",
       data?.task?._id,
       "→",
@@ -268,7 +276,7 @@ export const setupTaskListeners = () => {
 
   // Tâche supprimée
   socket.on("task:deleted", (data) => {
-    console.log("📡 [Socket] task:deleted reçu:", data?.taskId);
+    debugLog("📡 [Socket] task:deleted reçu:", data?.taskId);
     taskCallbacks.deleted.forEach((cb) => {
       try {
         cb(data);
@@ -280,7 +288,7 @@ export const setupTaskListeners = () => {
 
   // Commentaire ajouté
   socket.on("task:commented", (data) => {
-    console.log("📡 [Socket] task:commented reçu:", data?.taskId);
+    debugLog("📡 [Socket] task:commented reçu:", data?.taskId);
     taskCallbacks.commented.forEach((cb) => {
       try {
         cb(data);
@@ -292,7 +300,7 @@ export const setupTaskListeners = () => {
 
   // Projet créé
   socket.on("project:created", (data) => {
-    console.log("📡 [Socket] project:created reçu:", data?.project?._id);
+    debugLog("📡 [Socket] project:created reçu:", data?.project?._id);
     projectCallbacks.created.forEach((cb) => {
       try {
         cb(data);
@@ -304,7 +312,7 @@ export const setupTaskListeners = () => {
 
   // Projet supprimé
   socket.on("project:deleted", (data) => {
-    console.log("📡 [Socket] project:deleted reçu:", data?.projectId);
+    debugLog("📡 [Socket] project:deleted reçu:", data?.projectId);
     projectCallbacks.deleted.forEach((cb) => {
       try {
         cb(data);
@@ -314,7 +322,7 @@ export const setupTaskListeners = () => {
     });
   });
 
-  console.log("✅ Écouteurs de tâches configurés");
+  debugLog("✅ Écouteurs de tâches configurés");
 };
 
 // ============================================
@@ -346,7 +354,7 @@ export const setupCallListeners = () => {
 
   // Appel actif trouvé
   socket.on("active-call-found", (data) => {
-    console.log("📞 [Socket] active-call-found:", data?.callId);
+    debugLog("📞 [Socket] active-call-found:", data?.callId);
     callCallbacks.activeCallFound.forEach((cb) => {
       try {
         cb(data);
@@ -358,7 +366,7 @@ export const setupCallListeners = () => {
 
   // Pas d'appel actif
   socket.on("no-active-call", (data) => {
-    console.log("📞 [Socket] no-active-call:", data?.conversationId);
+    debugLog("📞 [Socket] no-active-call:", data?.conversationId);
     callCallbacks.noActiveCall.forEach((cb) => {
       try {
         cb(data);
@@ -370,7 +378,7 @@ export const setupCallListeners = () => {
 
   // Appel déjà existant
   socket.on("call-already-exists", (data) => {
-    console.log("📞 [Socket] call-already-exists:", data?.existingCallId);
+    debugLog("📞 [Socket] call-already-exists:", data?.existingCallId);
     callCallbacks.callAlreadyExists.forEach((cb) => {
       try {
         cb(data);
@@ -382,7 +390,7 @@ export const setupCallListeners = () => {
 
   // Rejoint un appel
   socket.on("call-joined", (data) => {
-    console.log("📞 [Socket] call-joined:", data?.callId);
+    debugLog("📞 [Socket] call-joined:", data?.callId);
     callCallbacks.callJoined.forEach((cb) => {
       try {
         cb(data);
@@ -394,7 +402,7 @@ export const setupCallListeners = () => {
 
   // Participant rejoint
   socket.on("call-participant-joined", (data) => {
-    console.log("📞 [Socket] call-participant-joined:", data?.oduserId);
+    debugLog("📞 [Socket] call-participant-joined:", data?.oduserId);
     callCallbacks.participantJoined.forEach((cb) => {
       try {
         cb(data);
@@ -406,7 +414,7 @@ export const setupCallListeners = () => {
 
   // Participant parti
   socket.on("call-participant-left", (data) => {
-    console.log("📞 [Socket] call-participant-left:", data?.oduserId);
+    debugLog("📞 [Socket] call-participant-left:", data?.oduserId);
     callCallbacks.participantLeft.forEach((cb) => {
       try {
         cb(data);
@@ -418,7 +426,7 @@ export const setupCallListeners = () => {
 
   // Tout le monde a refusé (groupe)
   socket.on("call-all-declined", (data) => {
-    console.log("📞 [Socket] call-all-declined:", data?.callId);
+    debugLog("📞 [Socket] call-all-declined:", data?.callId);
     callCallbacks.allDeclined.forEach((cb) => {
       try {
         cb(data);
@@ -430,7 +438,7 @@ export const setupCallListeners = () => {
 
   // Appel entrant
   socket.on("call-incoming", (data) => {
-    console.log("📞 [Socket] call-incoming:", data?.callId);
+    debugLog("📞 [Socket] call-incoming:", data?.callId);
     callCallbacks.callIncoming.forEach((cb) => {
       try {
         cb(data);
@@ -442,7 +450,7 @@ export const setupCallListeners = () => {
 
   // Appel répondu
   socket.on("call-answered", (data) => {
-    console.log("📞 [Socket] call-answered:", data?.callId);
+    debugLog("📞 [Socket] call-answered:", data?.callId);
     callCallbacks.callAnswered.forEach((cb) => {
       try {
         cb(data);
@@ -454,7 +462,7 @@ export const setupCallListeners = () => {
 
   // Appel refusé
   socket.on("call-declined", (data) => {
-    console.log("📞 [Socket] call-declined:", data?.callId);
+    debugLog("📞 [Socket] call-declined:", data?.callId);
     callCallbacks.callDeclined.forEach((cb) => {
       try {
         cb(data);
@@ -466,7 +474,7 @@ export const setupCallListeners = () => {
 
   // Appel annulé
   socket.on("call-cancelled", (data) => {
-    console.log("📞 [Socket] call-cancelled:", data?.callId);
+    debugLog("📞 [Socket] call-cancelled:", data?.callId);
     callCallbacks.callCancelled.forEach((cb) => {
       try {
         cb(data);
@@ -478,7 +486,7 @@ export const setupCallListeners = () => {
 
   // Timeout appel
   socket.on("call-timeout", (data) => {
-    console.log("📞 [Socket] call-timeout:", data?.callId);
+    debugLog("📞 [Socket] call-timeout:", data?.callId);
     callCallbacks.callTimeout.forEach((cb) => {
       try {
         cb(data);
@@ -490,7 +498,7 @@ export const setupCallListeners = () => {
 
   // Appel manqué
   socket.on("call-missed", (data) => {
-    console.log("📞 [Socket] call-missed:", data?.callId);
+    debugLog("📞 [Socket] call-missed:", data?.callId);
     callCallbacks.callMissed.forEach((cb) => {
       try {
         cb(data);
@@ -502,7 +510,7 @@ export const setupCallListeners = () => {
 
   // Appel terminé
   socket.on("call-ended", (data) => {
-    console.log("📞 [Socket] call-ended:", data?.callId);
+    debugLog("📞 [Socket] call-ended:", data?.callId);
     callCallbacks.callEnded.forEach((cb) => {
       try {
         cb(data);
@@ -524,7 +532,7 @@ export const setupCallListeners = () => {
     });
   });
 
-  console.log("✅ Écouteurs d'appels configurés");
+  debugLog("✅ Écouteurs d'appels configurés");
 };
 
 // ============================================
@@ -534,7 +542,7 @@ export const setupCallListeners = () => {
 // Vérifier si un appel est actif pour une conversation
 export const checkActiveCall = (conversationId) => {
   if (socket?.connected) {
-    console.log("📞 Vérification appel actif pour:", conversationId);
+    debugLog("📞 Vérification appel actif pour:", conversationId);
     socket.emit("check-active-call", { conversationId });
   }
 };
@@ -542,7 +550,7 @@ export const checkActiveCall = (conversationId) => {
 // Rejoindre un appel existant
 export const emitJoinCall = (callId) => {
   if (socket?.connected) {
-    console.log("📞 Demande de rejoindre l'appel:", callId);
+    debugLog("📞 Demande de rejoindre l'appel:", callId);
     socket.emit("call-join", { callId });
   }
 };
@@ -550,7 +558,7 @@ export const emitJoinCall = (callId) => {
 // Annuler un appel
 export const emitCancelCall = (callId) => {
   if (socket?.connected) {
-    console.log("📞 Annulation de l'appel:", callId);
+    debugLog("📞 Annulation de l'appel:", callId);
     socket.emit("call-cancel", { callId });
   }
 };
@@ -935,7 +943,7 @@ const waitForConnection = (maxAttempts = 50) => {
 export const joinConversation = (conversationId) => {
   waitForConnection()
     .then(() => {
-      console.log("📥 Rejoindre conversation:", conversationId);
+      debugLog("📥 Rejoindre conversation:", conversationId);
       socket.emit("join-conversation", conversationId);
     })
     .catch((error) => {
@@ -945,7 +953,7 @@ export const joinConversation = (conversationId) => {
 
 export const leaveConversation = (conversationId) => {
   if (socket?.connected) {
-    console.log("📤 Quitter conversation:", conversationId);
+    debugLog("📤 Quitter conversation:", conversationId);
     socket.emit("leave-conversation", conversationId);
   }
 };
@@ -971,7 +979,7 @@ export const onReceiveMessage = (callback) => {
 export const addGlobalMessageListener = (callback) => {
   if (!globalMessageCallbacks.includes(callback)) {
     globalMessageCallbacks.push(callback);
-    console.log(
+    debugLog(
       "➕ Écouteur global ajouté, total:",
       globalMessageCallbacks.length,
     );
@@ -985,7 +993,7 @@ export const addGlobalMessageListener = (callback) => {
     globalMessageCallbacks = globalMessageCallbacks.filter(
       (cb) => cb !== callback,
     );
-    console.log(
+    debugLog(
       "➖ Écouteur global retiré, total:",
       globalMessageCallbacks.length,
     );
@@ -1004,7 +1012,7 @@ export const onUpdateMessage = (callback) => {
   if (socket) {
     socket.off("update-message");
     socket.on("update-message", (updatedMessage) => {
-      console.log("📡 Message mis à jour reçu:", updatedMessage);
+      debugLog("📡 Message mis à jour reçu:", updatedMessage);
       onUpdateMessageCallback?.(updatedMessage);
     });
   }
@@ -1019,7 +1027,7 @@ export const onMessageStatusUpdated = (callback) => {
   if (socket) {
     socket.off("message-status-updated");
     socket.on("message-status-updated", (data) => {
-      console.log("📊 Statut mis à jour:", data);
+      debugLog("📊 Statut mis à jour:", data);
       callback(data);
     });
   }
@@ -1029,7 +1037,7 @@ export const onConversationStatusUpdated = (callback) => {
   if (socket) {
     socket.off("conversation-status-updated");
     socket.on("conversation-status-updated", (data) => {
-      console.log("📊 Statut conversation mis à jour:", data);
+      debugLog("📊 Statut conversation mis à jour:", data);
       callback(data);
     });
   }
@@ -1039,7 +1047,7 @@ export const onShouldRefreshConversations = (callback) => {
   if (socket) {
     socket.off("should-refresh-conversations");
     socket.on("should-refresh-conversations", () => {
-      console.log("🔄 Demande de refresh des conversations");
+      debugLog("🔄 Demande de refresh des conversations");
       callback();
     });
   }
@@ -1083,7 +1091,7 @@ export const onMessageBlocked = (callback) => {
   if (socket) {
     socket.off("message-error");
     socket.on("message-error", (errorData) => {
-      console.log("🚫 Erreur message bloqué:", errorData);
+      debugLog("🚫 Erreur message bloqué:", errorData);
       if (errorData.blocked) {
         callback(errorData);
       }
@@ -1097,7 +1105,7 @@ export const onMessageBlocked = (callback) => {
 
 export const requestOnlineUsers = () => {
   if (socket?.connected) {
-    console.log("📤 Demande de liste des utilisateurs en ligne");
+    debugLog("📤 Demande de liste des utilisateurs en ligne");
     socket.emit("request-online-users");
   }
 };
@@ -1122,7 +1130,7 @@ export const onInvitationReceived = (callback) => {
   if (socket) {
     socket.off("invitation-received");
     socket.on("invitation-received", (invitation) => {
-      console.log("📨 Nouvelle invitation reçue:", invitation);
+      debugLog("📨 Nouvelle invitation reçue:", invitation);
       callback(invitation);
     });
   }
@@ -1132,7 +1140,7 @@ export const onInvitationAccepted = (callback) => {
   if (socket) {
     socket.off("invitation-accepted-notification");
     socket.on("invitation-accepted-notification", (data) => {
-      console.log("✅ Invitation acceptée:", data);
+      debugLog("✅ Invitation acceptée:", data);
       callback(data);
     });
   }
@@ -1142,7 +1150,7 @@ export const onInvitationRejected = (callback) => {
   if (socket) {
     socket.off("invitation-rejected-notification");
     socket.on("invitation-rejected-notification", (invitation) => {
-      console.log("❌ Invitation refusée:", invitation);
+      debugLog("❌ Invitation refusée:", invitation);
       callback(invitation);
     });
   }
@@ -1152,7 +1160,7 @@ export const onInvitationCancelled = (callback) => {
   if (socket) {
     socket.off("invitation-cancelled-notification");
     socket.on("invitation-cancelled-notification", (invitationId) => {
-      console.log("🗑️ Invitation annulée:", invitationId);
+      debugLog("🗑️ Invitation annulée:", invitationId);
       callback(invitationId);
     });
   }
@@ -1161,7 +1169,7 @@ export const onInvitationCancelled = (callback) => {
 export const emitInvitationSent = (data) => {
   waitForConnection()
     .then(() => {
-      console.log("📨 Émission invitation envoyée:", data);
+      debugLog("📨 Émission invitation envoyée:", data);
       socket.emit("invitation-sent", data);
     })
     .catch((error) =>
@@ -1172,7 +1180,7 @@ export const emitInvitationSent = (data) => {
 export const emitInvitationAccepted = (data) => {
   waitForConnection()
     .then(() => {
-      console.log("✅ Émission invitation acceptée:", data);
+      debugLog("✅ Émission invitation acceptée:", data);
       socket.emit("invitation-accepted", data);
     })
     .catch((error) =>
@@ -1183,7 +1191,7 @@ export const emitInvitationAccepted = (data) => {
 export const emitInvitationRejected = (data) => {
   waitForConnection()
     .then(() => {
-      console.log("❌ Émission invitation refusée:", data);
+      debugLog("❌ Émission invitation refusée:", data);
       socket.emit("invitation-rejected", data);
     })
     .catch((error) => console.error("❌ Impossible d'émettre refus:", error));
@@ -1192,7 +1200,7 @@ export const emitInvitationRejected = (data) => {
 export const emitInvitationCancelled = (data) => {
   waitForConnection()
     .then(() => {
-      console.log("🗑️ Émission invitation annulée:", data);
+      debugLog("🗑️ Émission invitation annulée:", data);
       socket.emit("invitation-cancelled", data);
     })
     .catch((error) =>
@@ -1207,7 +1215,7 @@ export const emitInvitationCancelled = (data) => {
 export const emitToggleReaction = (data) => {
   waitForConnection()
     .then(() => {
-      console.log("😊 Émission toggle-reaction:", data);
+      debugLog("😊 Émission toggle-reaction:", data);
       socket.emit("toggle-reaction", data);
     })
     .catch((error) =>
@@ -1219,7 +1227,7 @@ export const onReactionUpdated = (callback) => {
   if (socket) {
     socket.off("reaction-updated");
     socket.on("reaction-updated", (data) => {
-      console.log("😊 Réaction mise à jour:", data);
+      debugLog("😊 Réaction mise à jour:", data);
       callback(data);
     });
   }
@@ -1273,7 +1281,7 @@ export const onCallMissed = (callback) => {
 
 export const disconnectSocket = () => {
   if (socket) {
-    console.log("🔌 Déconnexion du socket");
+    debugLog("🔌 Déconnexion du socket");
     socket.disconnect();
     socket = null;
     currentUserId = null;

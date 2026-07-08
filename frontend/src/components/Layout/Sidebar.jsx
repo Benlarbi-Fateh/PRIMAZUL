@@ -215,7 +215,6 @@ export default function Sidebar({ activeConversationId }) {
   const loadAllStatuses = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      console.log("🔍 Chargement des statuts pour sidebar...");
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"}/api/status`,
@@ -354,7 +353,6 @@ export default function Sidebar({ activeConversationId }) {
     if (!user) return;
 
     const unsubscribe = onOnlineUsersUpdate((userIds) => {
-      console.log("📡 Sidebar - Mise à jour utilisateurs en ligne:", userIds);
       setOnlineUsers(new Set(userIds));
     });
 
