@@ -1,22 +1,20 @@
 'use client';
 
 import Image from 'next/image';
-import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Sidebar from '@/components/Layout/Sidebar.jsx';
 import MobileHeader from '@/components/Layout/MobileHeader';
 import { Send, Folder, Sparkles, Users, Shield, Zap } from 'lucide-react';
-import MainSidebar from '@/components/Layout/MainSidebar.client';
+import ProtectedMainLayout from '@/components/Layout/ProtectedMainLayout';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function HomePage() {
   const { isDark } = useTheme();
 
   return (
-    <ProtectedRoute>
-      <div className={`flex min-h-screen ${isDark ? 'bg-slate-900' : 'bg-linear-to-b from-sky-50 to-slate-50'}`}>
-        <MainSidebar />
-        
-        <div className="flex-1 flex">
+    <ProtectedMainLayout
+      className={`flex min-h-screen ${isDark ? 'bg-slate-900' : 'bg-linear-to-b from-sky-50 to-slate-50'}`}
+      contentClassName="flex-1 flex"
+    >
           <div className="w-full lg:w-96">
             <Sidebar />
           </div>
@@ -206,8 +204,6 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </ProtectedRoute>
+    </ProtectedMainLayout>
   );
 }

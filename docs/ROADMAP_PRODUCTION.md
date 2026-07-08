@@ -4,19 +4,39 @@ Objectif: transformer PrimAzul d'une application qui fonctionne en une applicati
 
 Le but prioritaire n'est pas d'ajouter beaucoup de fonctionnalites tout de suite. Le plus important est de rendre les fonctionnalites actuelles solides: navigation fluide, backend stable, securite, cache, pagination, monitoring et architecture temps reel scalable.
 
+## Statut Des Corrections
+
+Legende:
+
+- `[FAIT]` corrige ou mis en place.
+- `[PARTIEL]` commence, mais pas encore termine a 100%.
+- `[A FAIRE]` pas encore traite.
+
+Corrections deja realisees:
+
+- `[FAIT]` Roadmap production documentee dans ce fichier.
+- `[FAIT]` CORS backend rendu configurable avec `FRONTEND_URLS` / `FRONTEND_URL`.
+- `[FAIT]` Indexes MongoDB elargis et script d'indexes lance sur Atlas.
+- `[FAIT]` Logs Socket.IO frontend rendus desactivables avec `NEXT_PUBLIC_DEBUG_SOCKET`.
+- `[FAIT]` Navigation chat amelioree avec un layout persistant pour `/chat`.
+- `[FAIT]` Prechargement de routes/conversations principales cote frontend.
+- `[FAIT]` Correction d'un `setState` pendant le rendu dans la page profil.
+- `[FAIT]` Gestion silencieuse du cas Agora `410` pour les appels deja termines.
+- `[PARTIEL]` Layout commun protege introduit avec `ProtectedMainLayout` et applique aux pages principales.
+
 ## 1. Gros Chantiers Pour Une App Production
 
 ### Architecture Frontend
 
-- Creer un layout commun protege pour toutes les pages connectees.
-- Eviter que `MainSidebar`, `Sidebar` et `ProtectedRoute` soient recrees page par page.
-- Ajouter un cache frontend avec React Query ou SWR.
-- Decouper les gros composants comme `Sidebar.jsx`, `Callcontext.jsx`, `SettingsPage` et les pages tres longues.
-- Reduire les composants `"use client"` quand ce n'est pas necessaire.
-- Corriger tous les warnings hydration.
-- Ameliorer la navigation mobile et desktop.
-- Ajouter des loading states propres, rapides et coherents.
-- Ajouter des error boundaries par zone: chat, appels, profil, settings.
+- `[PARTIEL]` Creer un layout commun protege pour toutes les pages connectees.
+- `[PARTIEL]` Eviter que `MainSidebar`, `Sidebar` et `ProtectedRoute` soient recrees page par page.
+- `[A FAIRE]` Ajouter un cache frontend avec React Query ou SWR.
+- `[A FAIRE]` Decouper les gros composants comme `Sidebar.jsx`, `Callcontext.jsx`, `SettingsPage` et les pages tres longues.
+- `[A FAIRE]` Reduire les composants `"use client"` quand ce n'est pas necessaire.
+- `[PARTIEL]` Corriger tous les warnings hydration.
+- `[PARTIEL]` Ameliorer la navigation mobile et desktop.
+- `[A FAIRE]` Ajouter des loading states propres, rapides et coherents.
+- `[A FAIRE]` Ajouter des error boundaries par zone: chat, appels, profil, settings.
 
 ### Backend Et API
 
@@ -31,7 +51,7 @@ Le but prioritaire n'est pas d'ajouter beaucoup de fonctionnalites tout de suite
 
 ### Base De Donnees MongoDB
 
-- Verifier les indexes avec `explain()`.
+- `[PARTIEL]` Verifier les indexes avec `explain()`.
 - Paginer les messages correctement.
 - Eviter les requetes N+1 dans conversations/messages.
 - Nettoyer les anciennes donnees temporaires: appels expires, statuts expires, fichiers orphelins.
@@ -75,7 +95,7 @@ Le but prioritaire n'est pas d'ajouter beaucoup de fonctionnalites tout de suite
 - Ajouter deconnexion de tous les appareils.
 - Proteger tous les uploads.
 - Valider type, taille et extension des fichiers.
-- Ajouter CORS strict.
+- `[FAIT]` Ajouter CORS strict.
 - Ajouter Helmet.
 - Ajouter rate limiting global et par action sensible.
 - Ajouter logs de securite.
@@ -314,9 +334,19 @@ A faire:
 
 ### Layout Commun Protege
 
+Statut: `[PARTIEL]`
+
 Priorite tres elevee.
 
 Actuellement plusieurs pages recrent leurs sidebars/layouts. Il faut un layout unique pour les pages connectees afin de rendre la navigation plus fluide et reduire la duplication.
+
+Avancement:
+
+- `[FAIT]` Creation du composant `ProtectedMainLayout`.
+- `[FAIT]` Application a `/`, `/chat`, `/settings`, `/settings/blocked` et `/status`.
+- `[FAIT]` Suppression d'un double `MainSidebar` dans `/chat/[id]/tasks`.
+- `[A FAIRE]` Transformer cette approche en vrais route groups Next.js pour persister le layout entre toutes les pages connectees.
+- `[A FAIRE]` Integrer proprement les pages restantes comme `group/create`, `profile`, `contact/[id]` et `personal-tasks` selon leur UX.
 
 ### Cache Frontend
 
@@ -397,12 +427,12 @@ Ajouter:
 
 ### Court Terme
 
-1. Layout commun protege.
-2. Cache frontend conversations/messages.
-3. Pagination messages.
-4. Refactor progressif de `Sidebar.jsx`.
-5. Correction hydration/theme restante.
-6. Rate limiting auth/OTP/uploads.
+1. `[PARTIEL]` Layout commun protege.
+2. `[A FAIRE]` Cache frontend conversations/messages.
+3. `[A FAIRE]` Pagination messages.
+4. `[A FAIRE]` Refactor progressif de `Sidebar.jsx`.
+5. `[PARTIEL]` Correction hydration/theme restante.
+6. `[A FAIRE]` Rate limiting auth/OTP/uploads.
 
 ### Moyen Terme
 
@@ -438,4 +468,3 @@ PrimAzul commence a etre pret pour plusieurs milliers d'utilisateurs quand:
 - le backend a des logs structures;
 - MongoDB a des backups automatiques;
 - les pages connectees partagent un layout stable.
-

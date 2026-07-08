@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { useTheme } from "@/hooks/useTheme";
-import MainSidebar from "@/components/Layout/MainSidebar.client";
+import ProtectedMainLayout from "@/components/Layout/ProtectedMainLayout";
 import Image from "next/image";
 import {
   Plus,
@@ -570,9 +570,10 @@ export function StatusPageContent() {
   if (!user) return null;
 
   return (
-    <div className={`flex h-screen ${bgMain}`}>
-      <MainSidebar />
-
+    <ProtectedMainLayout
+      className={`flex h-screen ${bgMain}`}
+      contentClassName="flex flex-1 min-w-0"
+    >
       {/* ============================================ */}
       {/* SIDEBAR LISTE DES STATUTS */}
       {/* ============================================ */}
@@ -1297,7 +1298,7 @@ export function StatusPageContent() {
           animation: slide-up 0.3s ease-out;
         }
       `}</style>
-    </div>
+    </ProtectedMainLayout>
   );
 }
 

@@ -44,7 +44,7 @@ import api, {
 } from "@/lib/api";
 
 // ✅ 1. IMPORTER LA SIDEBAR
-import MainSidebar from "@/components/Layout/MainSidebar.client";
+import ProtectedMainLayout from "@/components/Layout/ProtectedMainLayout";
 
 export default function SettingsPage() {
   const { user, logout } = useContext(AuthContext);
@@ -428,10 +428,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className={`flex h-screen ${pageBg}`}>
-      <MainSidebar />
-
-      <div className="flex-1 overflow-y-auto relative w-full">
+    <ProtectedMainLayout
+      className={`flex h-screen ${pageBg}`}
+      contentClassName="flex-1 overflow-y-auto relative w-full"
+    >
         {!isDark && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
@@ -1043,7 +1043,6 @@ export default function SettingsPage() {
             Vos paramètres sont synchronisés sur tous vos appareils
           </p>
         </div>
-      </div>
 
       {/* Modal Changement Mot de Passe */}
       {showModal && (
@@ -1493,6 +1492,6 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-    </div>
+    </ProtectedMainLayout>
   );
 }

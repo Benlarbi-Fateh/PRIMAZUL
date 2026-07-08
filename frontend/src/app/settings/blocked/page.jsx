@@ -3,8 +3,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import ProtectedRoute from '@/components/Auth/ProtectedRoute';
-import MainSidebar from '@/components/Layout/MainSidebar.client';
+import ProtectedMainLayout from '@/components/Layout/ProtectedMainLayout';
 import { useTheme } from '@/hooks/useTheme';
 import { Search, UserX, ArrowLeft, Shield, AlertCircle, Loader, Unlock } from 'lucide-react';
 import api from '@/lib/api';
@@ -149,11 +148,10 @@ export default function BlockedContactsPage() {
 };
 
   return (
-    <ProtectedRoute>
-      <div className={`flex min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gradient-to-b from-sky-50 to-slate-50'}`}>
-        <MainSidebar />
-        
-        <div className="flex-1 flex flex-col">
+    <ProtectedMainLayout
+      className={`flex min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gradient-to-b from-sky-50 to-slate-50'}`}
+      contentClassName="flex-1 flex flex-col"
+    >
           {/* Header */}
           <div className={`border-b ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className="max-w-4xl mx-auto px-4 py-4">
@@ -388,8 +386,6 @@ export default function BlockedContactsPage() {
 
             </div>
           </div>
-        </div>
-      </div>
-    </ProtectedRoute>
+    </ProtectedMainLayout>
   );
 }

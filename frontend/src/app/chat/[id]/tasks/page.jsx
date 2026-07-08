@@ -7,7 +7,6 @@ import { useTheme } from "@/hooks/useTheme";
 import { TaskProvider, useTasks } from "@/context/TaskContext";
 
 // Composants
-import MainSidebar from "@/components/Layout/MainSidebar.client";
 import ProjectSidebar from "@/components/Tasks/ProjectSidebarClient";
 import TaskBoard from "@/components/Tasks/TaskBoard";
 import { Loader2, Folder, Plus, ChevronRight } from "lucide-react";
@@ -168,10 +167,8 @@ export default function TasksPage() {
   const { id: conversationId } = useParams();
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-1 h-full overflow-hidden">
       {/* MainSidebar global */}
-      <MainSidebar />
-
       {/* Provider des tâches */}
       <TaskProvider conversationId={conversationId}>
         {/* Sidebar des projets */}
