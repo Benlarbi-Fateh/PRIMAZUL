@@ -39,9 +39,6 @@ import CallMessage from "@/components/Chat/CallMessage";
 import StoryReplyMessage from "@/components/Chat/StoryReplyMessage";
 import { useNotifications } from "@/context/NotificationContext";
 
-import ProtectedRoute from "@/components/Auth/ProtectedRoute";
-import MainSidebar from "@/components/Layout/MainSidebar.client";
-import Sidebar from "@/components/Layout/Sidebar";
 import MobileHeader from "@/components/Layout/MobileHeader";
 import ChatHeader from "@/components/Layout/ChatHeader";
 import MessageBubble, { DateSeparator } from "@/components/Chat/MessageBubble";
@@ -200,10 +197,6 @@ export default function ChatPage() {
       isMutedRef.current = isMuted(conversationId);
     }
   }, [conversationId, isMuted]);
-
-  useSocket();
-
-
   // Cleanup : Quitter la conversation quand on quitte la page
   useEffect(() => {
     return () => {
@@ -895,9 +888,8 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <ProtectedRoute>
         <div
-          className={`flex h-screen items-center justify-center ${loadingBg}`}
+          className={`flex h-full items-center justify-center ${loadingBg}`}
         >
           <div className="text-center animate-fade-in">
             <div className="relative inline-block">
@@ -942,14 +934,12 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
-      </ProtectedRoute>
     );
   }
 
   if (!conversation || (!conversation.isGroup && !contact)) {
     return (
-      <ProtectedRoute>
-        <div className={`flex h-screen items-center justify-center ${errorBg}`}>
+        <div className={`flex h-full items-center justify-center ${errorBg}`}>
           <div
             className={`text-center max-w-md animate-fade-in p-8 rounded-3xl ${cardStyle} border`}
           >
@@ -978,20 +968,12 @@ export default function ChatPage() {
             </button>
           </div>
         </div>
-      </ProtectedRoute>
     );
   }
 
   return (
-    <ProtectedRoute>
-      <div className={`flex h-screen ${pageBg}`}>
-        <MainSidebar />
-
-        <div className="flex flex-1">
-          <div className="hidden lg:block">
-            <Sidebar activeConversationId={conversationId} />
-          </div>
-
+      <div className={`flex h-full min-h-0 ${pageBg}`}>
+        <div className="flex flex-1 min-w-0 min-h-0">
           {/* 🆕 CONTENEUR PRINCIPAL AVEC PANNEAU DE TÂCHES */}
           <div className="flex-1 flex flex-col relative">
             <div className="lg:hidden">
@@ -1284,6 +1266,5 @@ export default function ChatPage() {
 )}
         </div>
       </div>
-    </ProtectedRoute>
   );
 }
