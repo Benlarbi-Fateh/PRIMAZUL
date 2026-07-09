@@ -27,6 +27,7 @@ Corrections deja realisees:
 - `[PARTIEL]` Pagination initiale des messages ajoutee avec chargement limite aux derniers messages.
 - `[PARTIEL]` Rate limiting en memoire ajoute sur auth, OTP et reset password.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` commence avec extraction du hook `useSidebarConversations`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useOnlineUsers`.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -286,6 +287,7 @@ Le composant `Sidebar.jsx` fait trop de choses:
 A faire:
 
 - `[FAIT]` Extraire `useSidebarConversations` pour conversations/cache/chargement.
+- `[FAIT]` Extraire `useOnlineUsers` pour la presence en ligne.
 - Extraire `useInvitations`.
 - Extraire `useOnlineUsers`.
 - Extraire `ConversationList`.

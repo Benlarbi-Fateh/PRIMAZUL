@@ -29,7 +29,6 @@ import { useSidebarConversations } from "@/hooks/useSidebarConversations";
 import {
   getSocket,
   onShouldRefreshConversations,
-  requestOnlineUsers,
   onInvitationReceived,
   onInvitationAccepted,
   onInvitationRejected,
@@ -38,7 +37,6 @@ import {
   emitInvitationAccepted,
   emitInvitationRejected,
   emitInvitationCancelled,
-  onOnlineUsersUpdate,
 } from "@/services/socket";
 import {
   LogOut,
@@ -67,6 +65,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import Contacts from "../Contacts/Contacts";
+import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 
 export default function Sidebar({ activeConversationId }) {
   const { user, logout } = useContext(AuthContext);
@@ -83,7 +82,7 @@ export default function Sidebar({ activeConversationId }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
   const [menuOpen, setMenuOpen] = useState(null);
-  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const { isUserOnline } = useOnlineUsers(Boolean(user));
 
   const [receivedInvitations, setReceivedInvitations] = useState([]);
   const [sentInvitations, setSentInvitations] = useState([]);
@@ -334,22 +333,6 @@ export default function Sidebar({ activeConversationId }) {
     onInvitationRejected(handleInvitationRejected);
     onInvitationCancelled(handleInvitationCancelled);
   }, [user, updateConversations]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const unsubscribe = onOnlineUsersUpdate((userIds) => {
-      setOnlineUsers(new Set(userIds));
-    });
-
-    requestOnlineUsers();
-
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
-  }, [user]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -654,11 +637,6 @@ export default function Sidebar({ activeConversationId }) {
   };
 
   // ✅ FONCTION AJOUTÉE
-  const isUserOnline = (userId) => {
-    if (!userId) return false;
-    return onlineUsers.has(userId.toString());
-  };
-
   const getLastMessagePreview = (conv) => {
     const userId = user?._id || user?.id;
     const myDeletion = conv.deletedBy?.find(
