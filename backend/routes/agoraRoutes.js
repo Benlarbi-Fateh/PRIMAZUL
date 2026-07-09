@@ -9,6 +9,17 @@ const {
   agoraCallActionRateLimit,
   agoraCallPingRateLimit,
 } = require("../middleware/actionRateLimits");
+const {
+  validateObjectIdParam,
+  validateUuidParam,
+  validateObjectIdBody,
+  validateUuidBody,
+  validateOptionalEnumBody,
+  validateOptionalBooleanBody,
+  validateOptionalArrayBody,
+  validateOptionalIntegerBody,
+  validatePositiveIntegerQuery,
+} = require("../middleware/requestValidators");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { v4: uuidv4 } = require("uuid");
@@ -237,7 +248,13 @@ const endCallInternal = async (callId, reason, io) => {
 // ============================================
 // GÉNÉRER UN TOKEN AGORA
 // ============================================
-router.post("/token", auth, agoraTokenRateLimit, async (req, res) => {
+router.post(
+  "/token",
+  auth,
+  agoraTokenRateLimit,
+  validateUuidBody("callId"),
+  validateOptionalIntegerBody({ fieldName: "uid", min: 1, max: 2147483647 }),
+  async (req, res) => {
   try {
     const { callId, uid } = req.body;
     const userId = getUserId(req);
@@ -286,7 +303,7 @@ router.post("/token", auth, agoraTokenRateLimit, async (req, res) => {
 // ============================================
 // VÉRIFIER SI UN APPEL ACTIF EXISTE POUR UNE CONVERSATION
 // ============================================
-router.get("/calls/active/:conversationId", auth, async (req, res) => {
+router.get("/calls/active/:conversationId", auth, validateObjectIdParam("conversationId"), async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = getUserId(req);
@@ -373,7 +390,15 @@ router.get("/calls/active/:conversationId", auth, async (req, res) => {
 // ============================================
 // INITIER UN APPEL
 // ============================================
-router.post("/calls/initiate", auth, agoraCallInitiateRateLimit, async (req, res) => {
+router.post(
+  "/calls/initiate",
+  auth,
+  agoraCallInitiateRateLimit,
+  validateObjectIdBody("conversationId"),
+  validateOptionalEnumBody("callType", ["audio", "video"]),
+  validateOptionalBooleanBody("isGroup"),
+  validateOptionalArrayBody("participants", { maxLength: 100 }),
+  async (req, res) => {
   try {
     const { conversationId, callType, isGroup, participants } = req.body;
     const initiatorId = req.user._id || req.user.id || req.user.userId;
@@ -539,7 +564,7 @@ router.post("/calls/initiate", auth, agoraCallInitiateRateLimit, async (req, res
 // ============================================
 // REJOINDRE UN APPEL EXISTANT (NOUVELLE ROUTE)
 // ============================================
-router.post("/calls/:callId/join", auth, agoraCallActionRateLimit, async (req, res) => {
+router.post("/calls/:callId/join", auth, agoraCallActionRateLimit, validateUuidParam("callId"), async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -670,7 +695,7 @@ router.post("/calls/:callId/join", auth, agoraCallActionRateLimit, async (req, r
 // ============================================
 // RÉPONDRE À UN APPEL
 // ============================================
-router.post("/calls/:callId/answer", auth, agoraCallActionRateLimit, async (req, res) => {
+router.post("/calls/:callId/answer", auth, agoraCallActionRateLimit, validateUuidParam("callId"), async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -753,7 +778,7 @@ router.post("/calls/:callId/answer", auth, agoraCallActionRateLimit, async (req,
 // ============================================
 // REFUSER UN APPEL
 // ============================================
-router.post("/calls/:callId/decline", auth, agoraCallActionRateLimit, async (req, res) => {
+router.post("/calls/:callId/decline", auth, agoraCallActionRateLimit, validateUuidParam("callId"), async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -807,7 +832,21 @@ router.post("/calls/:callId/decline", auth, agoraCallActionRateLimit, async (req
 // ============================================
 // TERMINER UN APPEL
 // ============================================
-router.post("/calls/:callId/end", auth, agoraCallActionRateLimit, async (req, res) => {
+router.post(
+  "/calls/:callId/end",
+  auth,
+  agoraCallActionRateLimit,
+  validateUuidParam("callId"),
+  validateOptionalEnumBody("reason", [
+    "ended",
+    "cancelled",
+    "declined",
+    "no_answer",
+    "all_declined",
+    "inactive",
+    "busy",
+  ]),
+  async (req, res) => {
   try {
     const { callId } = req.params;
     const { reason } = req.body;
@@ -862,7 +901,7 @@ router.post("/calls/:callId/end", auth, agoraCallActionRateLimit, async (req, re
 // ============================================
 // QUITTER UN APPEL (pour les appels de groupe)
 // ============================================
-router.post("/calls/:callId/leave", auth, agoraCallActionRateLimit, async (req, res) => {
+router.post("/calls/:callId/leave", auth, agoraCallActionRateLimit, validateUuidParam("callId"), async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -922,7 +961,7 @@ router.post("/calls/:callId/leave", auth, agoraCallActionRateLimit, async (req, 
 // ============================================
 // PING POUR MAINTENIR L'APPEL ACTIF
 // ============================================
-router.post("/calls/:callId/ping", auth, agoraCallPingRateLimit, async (req, res) => {
+router.post("/calls/:callId/ping", auth, agoraCallPingRateLimit, validateUuidParam("callId"), async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -952,7 +991,7 @@ router.post("/calls/:callId/ping", auth, agoraCallPingRateLimit, async (req, res
 // ============================================
 // OBTENIR LE STATUT D'UN APPEL
 // ============================================
-router.get("/calls/:callId/status", auth, async (req, res) => {
+router.get("/calls/:callId/status", auth, validateUuidParam("callId"), async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -1005,7 +1044,12 @@ router.get("/calls/:callId/status", auth, async (req, res) => {
 // ============================================
 // OBTENIR L'HISTORIQUE DES APPELS
 // ============================================
-router.get("/calls/history", auth, async (req, res) => {
+router.get(
+  "/calls/history",
+  auth,
+  validatePositiveIntegerQuery({ queryParam: "limit", min: 1, max: 100 }),
+  validatePositiveIntegerQuery({ queryParam: "page", min: 1, max: 1000 }),
+  async (req, res) => {
   try {
     const userId = req.user._id || req.user.id || req.user.userId;
     const { limit = 20, page = 1 } = req.query;

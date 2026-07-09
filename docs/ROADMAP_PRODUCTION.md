@@ -44,6 +44,7 @@ Corrections deja realisees:
 - `[FAIT]` Rate limiting ajoute sur uploads et appels Agora.
 - `[FAIT]` Helmet et compression HTTP ajoutes au backend.
 - `[PARTIEL]` Validation API ajoutee sur params/query des routes messages.
+- `[PARTIEL]` Validation API ajoutee sur params/body/query des routes Agora.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -439,6 +440,7 @@ Avancement:
 
 - `[FAIT]` Ajout de `requestValidators.js` pour valider ObjectId, pagination et recherche.
 - `[FAIT]` Application aux routes messages: `conversationId`, `messageId`, `limit`, `before`, `contextSize` et `query`.
+- `[FAIT]` Application aux routes Agora: `callId`, `conversationId`, `uid`, `callType`, `isGroup`, `participants`, `reason`, `limit` et `page`.
 
 ### Rate Limiting
 
