@@ -43,6 +43,12 @@ const passwordResetRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 8,
 });
+const userSearchRateLimit = rateLimit({
+  scope: "user-search",
+  windowMs: 60 * 1000,
+  max: 30,
+  message: "Trop de recherches. Reessayez dans un instant.",
+});
 
 // 🆕 ROUTES PUBLIQUES - DOUBLE AUTHENTIFICATION
 router.post("/register", authRateLimit, register);
@@ -70,7 +76,7 @@ router.post("/reset-password", passwordResetRateLimit, resetPassword);
 router.put("/update-last-login", authMiddleware, updateLastLogin);
 
 // ROUTES PROTÉGÉES
-router.get("/search", authMiddleware, searchUsers);
+router.get("/search", authMiddleware, userSearchRateLimit, searchUsers);
 router.get("/users", authMiddleware, getUsers);
 
 // 🆕 ROUTES POUR LA GESTION DU CHANGEMENT DE MOT DE PASS
