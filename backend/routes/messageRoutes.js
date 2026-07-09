@@ -3,6 +3,12 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const checkBlockStatus = require('../middleware/blockCheck');
 const rateLimit = require('../middleware/rateLimiter');
+const {
+  validateObjectIdParam,
+  validatePaginationQuery,
+  validateSearchQuery,
+  validatePositiveIntegerQuery,
+} = require('../middleware/requestValidators');
 
 const { 
   getMessages, 
@@ -42,8 +48,15 @@ const messageSearchRateLimit = rateLimit({
 });
 
 // Recherche de messages
-router.get('/search/:conversationId', authMiddleware, messageSearchRateLimit, searchMessages);
-router.get('/read-by/:messageId', authMiddleware, getMessageReadBy);
+router.get(
+  '/search/:conversationId',
+  authMiddleware,
+  messageSearchRateLimit,
+  validateObjectIdParam('conversationId'),
+  validateSearchQuery({ maxLength: 100 }),
+  searchMessages,
+);
+router.get('/read-by/:messageId', authMiddleware, validateObjectIdParam('messageId'), getMessageReadBy);
 
 // Routes pour les statuts
 router.post('/mark-delivered', authMiddleware, markAsDelivered);
@@ -51,26 +64,38 @@ router.post('/mark-read', authMiddleware, markAsRead);
 router.get('/unread/count', authMiddleware, getUnreadCount);
 
 // Routes pour modification/suppression
-router.delete('/:messageId', authMiddleware, deleteMessage);
-router.delete('/:messageId/for-me', authMiddleware, deleteMessageForMe);
-router.put('/:messageId', authMiddleware, editMessage);
-router.post('/:messageId/translate', authMiddleware, translateMessage);
+router.delete('/:messageId', authMiddleware, validateObjectIdParam('messageId'), deleteMessage);
+router.delete('/:messageId/for-me', authMiddleware, validateObjectIdParam('messageId'), deleteMessageForMe);
+router.put('/:messageId', authMiddleware, validateObjectIdParam('messageId'), editMessage);
+router.post('/:messageId/translate', authMiddleware, validateObjectIdParam('messageId'), translateMessage);
 
 // 🆕 ROUTES POUR LES RÉACTIONS
-router.post('/:messageId/reactions', authMiddleware, toggleReaction);
-router.get('/:messageId/reactions', authMiddleware, getReactions);
+router.post('/:messageId/reactions', authMiddleware, validateObjectIdParam('messageId'), toggleReaction);
+router.get('/:messageId/reactions', authMiddleware, validateObjectIdParam('messageId'), getReactions);
 
 // 🆕 ROUTES POUR LA PROGRAMMATION
 router.post('/schedule', authMiddleware, scheduleMessage);
 router.get('/scheduled/list', authMiddleware, getScheduledMessages);
-router.delete('/scheduled/:messageId', authMiddleware, cancelScheduledMessage);
-router.put('/scheduled/:messageId', authMiddleware, updateScheduledMessage);
+router.delete('/scheduled/:messageId', authMiddleware, validateObjectIdParam('messageId'), cancelScheduledMessage);
+router.put('/scheduled/:messageId', authMiddleware, validateObjectIdParam('messageId'), updateScheduledMessage);
 
 // Obtenir le contexte d'un message (messages avant/après)
-router.get('/context/:messageId', authMiddleware, getMessageContext);
+router.get(
+  '/context/:messageId',
+  authMiddleware,
+  validateObjectIdParam('messageId'),
+  validatePositiveIntegerQuery({ queryParam: 'contextSize', min: 1, max: 50 }),
+  getMessageContext,
+);
 
 // Recherche globale dans toutes les conversations
-router.get('/search-all/global', authMiddleware, messageSearchRateLimit, searchAllMessages);
+router.get(
+  '/search-all/global',
+  authMiddleware,
+  messageSearchRateLimit,
+  validateSearchQuery({ maxLength: 100 }),
+  searchAllMessages,
+);
 
 // Route typing
 router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
@@ -90,7 +115,13 @@ router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
 });
 
 // Routes de base
-router.get('/:conversationId', authMiddleware, getMessages);
+router.get(
+  '/:conversationId',
+  authMiddleware,
+  validateObjectIdParam('conversationId'),
+  validatePaginationQuery({ maxLimit: 100 }),
+  getMessages,
+);
 router.post('/', authMiddleware, messageSendRateLimit, checkBlockStatus, sendMessage);
 
 module.exports = router;
