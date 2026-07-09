@@ -28,6 +28,15 @@ Corrections deja realisees:
 - `[PARTIEL]` Rate limiting en memoire ajoute sur auth, OTP et reset password.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` commence avec extraction du hook `useSidebarConversations`.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useOnlineUsers`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useInvitations`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du composant `InvitationList`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du composant `ConversationList`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du composant `SidebarTabs`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du composant `ContactSearchResults`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useSidebarStatuses`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useConversationActions`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useContactSearch`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useConversationDisplay`.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -288,11 +297,15 @@ A faire:
 
 - `[FAIT]` Extraire `useSidebarConversations` pour conversations/cache/chargement.
 - `[FAIT]` Extraire `useOnlineUsers` pour la presence en ligne.
-- Extraire `useInvitations`.
-- Extraire `useOnlineUsers`.
-- Extraire `ConversationList`.
-- Extraire `InvitationList`.
-- Extraire `SidebarTabs`.
+- `[FAIT]` Extraire `useInvitations` pour chargement/actions/evenements socket des invitations.
+- `[FAIT]` Extraire `ConversationList`.
+- `[FAIT]` Extraire `InvitationList`.
+- `[FAIT]` Extraire `SidebarTabs`.
+- `[FAIT]` Extraire `ContactSearchResults`.
+- `[FAIT]` Extraire `useSidebarStatuses`.
+- `[FAIT]` Extraire `useConversationActions`.
+- `[FAIT]` Extraire `useContactSearch`.
+- `[FAIT]` Extraire `useConversationDisplay`.
 - Garder `Sidebar.jsx` comme composant assembleur simple.
 
 ### Appels Audio Et Video
