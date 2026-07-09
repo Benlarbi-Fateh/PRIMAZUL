@@ -30,6 +30,8 @@ import { useSidebarStatuses } from "@/hooks/useSidebarStatuses";
 import { useConversationActions } from "@/hooks/useConversationActions";
 import { useContactSearch } from "@/hooks/useContactSearch";
 import { useConversationDisplay } from "@/hooks/useConversationDisplay";
+import { useSidebarPrefetch } from "@/hooks/useSidebarPrefetch";
+import { useUnreadMessagesCount } from "@/hooks/useUnreadMessagesCount";
 
 export default function Sidebar({ activeConversationId }) {
   const { user, logout } = useContext(AuthContext);
@@ -112,6 +114,12 @@ export default function Sidebar({ activeConversationId }) {
     getMessageStatus,
     renderStatusIcon,
   } = useConversationDisplay({ getFullUrl, isDark, user });
+  useSidebarPrefetch(router, conversations);
+  useUnreadMessagesCount({
+    conversations,
+    currentUserId,
+    hiddenConversationIds,
+  });
 
   // Styles basés sur le thème
   const sidebarBg = isDark
@@ -157,19 +165,6 @@ export default function Sidebar({ activeConversationId }) {
   }, [user, fetchConversations, fetchInvitations, loadAllStatuses]);
 
   useEffect(() => {
-    router.prefetch("/profile");
-    router.prefetch("/group/create");
-    router.prefetch("/status");
-    router.prefetch("/settings");
-  }, [router]);
-
-  useEffect(() => {
-    conversations.slice(0, 30).forEach((conv) => {
-      router.prefetch(`/chat/${conv._id}`);
-    });
-  }, [conversations, router]);
-
-  useEffect(() => {
     const tab = searchParams.get("tab");
     if (!tab) return;
 
@@ -187,27 +182,6 @@ export default function Sidebar({ activeConversationId }) {
       return () => window.clearTimeout(timeoutId);
     }
   }, [searchParams, fetchInvitations, resetSearch]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const totalUnread = conversations
-      .filter((conv) => {
-        if (hiddenConversationIds.has(conv._id)) return false;
-        const isArchivedByMe = conv.archivedBy?.some(
-          (item) => item.userId?.toString() === currentUserId?.toString(),
-        );
-        if (isArchivedByMe) return false;
-        return true;
-      })
-      .reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
-
-    window.dispatchEvent(
-      new CustomEvent("unread-messages-count-changed", {
-        detail: { count: totalUnread },
-      }),
-    );
-  }, [conversations, hiddenConversationIds, currentUserId]);
 
   useEffect(() => {
     const socket = getSocket();
