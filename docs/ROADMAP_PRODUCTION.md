@@ -37,6 +37,7 @@ Corrections deja realisees:
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useConversationActions`.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useContactSearch`.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useConversationDisplay`.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du composant `SidebarHeader`.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -306,6 +307,7 @@ A faire:
 - `[FAIT]` Extraire `useConversationActions`.
 - `[FAIT]` Extraire `useContactSearch`.
 - `[FAIT]` Extraire `useConversationDisplay`.
+- `[FAIT]` Extraire `SidebarHeader`.
 - Garder `Sidebar.jsx` comme composant assembleur simple.
 
 ### Appels Audio Et Video
