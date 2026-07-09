@@ -90,6 +90,9 @@ export default function ChatPage() {
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [olderMessagesCursor, setOlderMessagesCursor] = useState(null);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [typingUsers, setTypingUsers] = useState([]);
   const [contactId, setContactId] = useState(null);
 
@@ -235,6 +238,8 @@ export default function ChatPage() {
         const messagesResponse = await getMessages(conversationId, { limit: 50 });
         const loadedMessages = messagesResponse.data.messages || [];
         setMessages(loadedMessages);
+        setHasOlderMessages(Boolean(messagesResponse.data.pagination?.hasMore));
+        setOlderMessagesCursor(messagesResponse.data.pagination?.nextCursor || null);
 
         setLoading(false);
 
@@ -290,6 +295,45 @@ export default function ChatPage() {
       isMarkingAsReadRef.current = false;
     };
   }, [conversationId, user]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!conversationId || !olderMessagesCursor || loadingOlderMessages) return;
+
+    const container = messagesContainerRef.current;
+    const previousScrollHeight = container?.scrollHeight || 0;
+
+    try {
+      setLoadingOlderMessages(true);
+      const response = await getMessages(conversationId, {
+        limit: 50,
+        before: olderMessagesCursor,
+      });
+
+      const olderMessages = response.data.messages || [];
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((message) => message._id));
+        const uniqueOlderMessages = olderMessages.filter(
+          (message) => !existingIds.has(message._id),
+        );
+        return [...uniqueOlderMessages, ...prev];
+      });
+      setHasOlderMessages(Boolean(response.data.pagination?.hasMore));
+      setOlderMessagesCursor(response.data.pagination?.nextCursor || null);
+
+      requestAnimationFrame(() => {
+        if (!container) return;
+        container.scrollTop = container.scrollHeight - previousScrollHeight;
+      });
+    } catch (error) {
+      console.error("Erreur chargement anciens messages:", error);
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  }, [
+    conversationId,
+    olderMessagesCursor,
+    loadingOlderMessages,
+  ]);
 
   // Détecter le paramètre d'appel et lancer automatiquement
   useEffect(() => {
@@ -1073,6 +1117,24 @@ export default function ChatPage() {
                 </div>
               ) : (
                 <>
+                  {hasOlderMessages && (
+                    <div className="flex justify-center pb-2">
+                      <button
+                        onClick={loadOlderMessages}
+                        disabled={loadingOlderMessages}
+                        className={`px-4 py-2 rounded-full text-xs font-semibold transition-all border ${
+                          isDark
+                            ? "bg-slate-800/80 border-slate-700 text-slate-200 hover:bg-slate-700"
+                            : "bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50"
+                        } disabled:opacity-60`}
+                      >
+                        {loadingOlderMessages
+                          ? "Chargement..."
+                          : "Charger les messages precedents"}
+                      </button>
+                    </div>
+                  )}
+
                   {messages.map((message, index) => {
                     const userId = user?._id || user?.id;
                     const prevMessage = messages[index - 1];

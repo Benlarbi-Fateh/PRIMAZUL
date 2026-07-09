@@ -384,8 +384,9 @@ Avancement:
 
 - `[FAIT]` `GET /messages/:conversationId` accepte `limit`.
 - `[FAIT]` Le chargement initial du chat demande les 50 derniers messages.
-- `[A FAIRE]` Ajouter le chargement des messages plus anciens avec `before`.
-- `[A FAIRE]` Ajouter une UI "charger plus" ou chargement automatique au scroll haut.
+- `[FAIT]` Ajouter le chargement des messages plus anciens avec `before`.
+- `[FAIT]` Ajouter une UI "charger plus" pour les anciens messages.
+- `[A FAIRE]` Remplacer le bouton par un chargement automatique au scroll haut si l'UX le demande.
 
 ### Socket.IO Scalable
 

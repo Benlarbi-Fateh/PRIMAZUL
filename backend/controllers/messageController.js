@@ -30,6 +30,11 @@ exports.getMessages = async (req, res) => {
     const { conversationId } = req.params;
     const userId = req.user.id || req.user._id;
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const beforeDate = req.query.before ? new Date(req.query.before) : null;
+    const beforeFilter =
+      beforeDate && !Number.isNaN(beforeDate.getTime())
+        ? { $lt: beforeDate }
+        : null;
 
     console.log('📥 getMessages appelé:', { conversationId, userId });
 
@@ -55,7 +60,9 @@ exports.getMessages = async (req, res) => {
   messages = await Message.find({
     conversationId,
     deletedFor: { $ne: userId },
-    createdAt: { $gt: deletionDate },
+    createdAt: beforeFilter
+      ? { $gt: deletionDate, ...beforeFilter }
+      : { $gt: deletionDate },
 
     // ✅ IMPORTANT : on n'affiche PAS les messages programmés non envoyés
     $or: [
@@ -74,6 +81,7 @@ exports.getMessages = async (req, res) => {
   messages = await Message.find({
     conversationId,
     deletedFor: { $ne: userId },
+    ...(beforeFilter ? { createdAt: beforeFilter } : {}),
 
     // ✅ IMPORTANT : on n'affiche PAS les messages programmés non envoyés
     $or: [
