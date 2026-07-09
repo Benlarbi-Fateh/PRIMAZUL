@@ -3,6 +3,8 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
+const helmet = require("helmet");
+const compression = require("compression");
 const connectDB = require("./config/db");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -42,6 +44,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(compression());
 
 // ✅ Limites de taille
 app.use(express.json({ limit: "10mb" }));

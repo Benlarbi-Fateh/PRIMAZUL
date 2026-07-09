@@ -42,6 +42,7 @@ Corrections deja realisees:
 - `[FAIT]` Rate limiting ajoute sur l'envoi de messages et la recherche messages.
 - `[FAIT]` Rate limiting ajoute sur invitations et recherche utilisateurs.
 - `[FAIT]` Rate limiting ajoute sur uploads et appels Agora.
+- `[FAIT]` Helmet et compression HTTP ajoutes au backend.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -63,7 +64,7 @@ Corrections deja realisees:
 - Ajouter une validation stricte avec Zod, Joi ou express-validator.
 - Ajouter de la pagination partout: messages, conversations, contacts, statuts, taches, notifications.
 - `[PARTIEL]` Ajouter du rate limiting sur login, register, OTP, messages, uploads, invitations et appels.
-- Ajouter compression HTTP.
+- `[FAIT]` Ajouter compression HTTP.
 - Ajouter un cache serveur pour certaines donnees frequentes.
 - Ameliorer les erreurs API: codes propres, messages propres, logs internes separes.
 - Ajouter des tests backend sur auth, messages, invitations, appels et uploads.
@@ -115,7 +116,7 @@ Corrections deja realisees:
 - Proteger tous les uploads.
 - Valider type, taille et extension des fichiers.
 - `[FAIT]` Ajouter CORS strict.
-- Ajouter Helmet.
+- `[FAIT]` Ajouter Helmet.
 - `[PARTIEL]` Ajouter rate limiting global et par action sensible.
 - Ajouter logs de securite.
 - Verifier toutes les routes privees et permissions.
