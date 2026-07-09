@@ -141,8 +141,8 @@ export const cancelInvitation = (invitationId) =>
   api.delete(`/invitations/${invitationId}/cancel`);
 
 // =================== MESSAGES ===================
-export const getMessages = (conversationId) =>
-  api.get(`/messages/${conversationId}`);
+export const getMessages = (conversationId, params = {}) =>
+  api.get(`/messages/${conversationId}`, { params });
 export const sendMessage = (data) => api.post("/messages", data);
 export const deleteMessage = (messageId) =>
   api.delete(`/messages/${messageId}`); // Supprimer pour tous

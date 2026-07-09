@@ -232,7 +232,7 @@ export default function ChatPage() {
           if (otherParticipant) setContactId(otherParticipant._id);
         }
 
-        const messagesResponse = await getMessages(conversationId);
+        const messagesResponse = await getMessages(conversationId, { limit: 50 });
         const loadedMessages = messagesResponse.data.messages || [];
         setMessages(loadedMessages);
 

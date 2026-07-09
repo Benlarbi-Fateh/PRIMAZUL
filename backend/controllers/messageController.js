@@ -29,6 +29,7 @@ exports.getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id || req.user._id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
 
     console.log('📥 getMessages appelé:', { conversationId, userId });
 
@@ -65,7 +66,8 @@ exports.getMessages = async (req, res) => {
     .populate('sender', 'name profilePicture')
     .populate('reactions.userId', 'name profilePicture')
     .populate('replyToSender', 'name profilePicture')
-    .sort({ createdAt: 1 });
+    .sort({ createdAt: -1 })
+    .limit(limit + 1);
 
 } else {
 
@@ -82,12 +84,25 @@ exports.getMessages = async (req, res) => {
     .populate('sender', 'name profilePicture')
     .populate('reactions.userId', 'name profilePicture')
     .populate('replyToSender', 'name profilePicture')
-    .sort({ createdAt: 1 });
+    .sort({ createdAt: -1 })
+    .limit(limit + 1);
 }
 
     console.log(`📊 ${messages.length} messages visibles pour ${userId}`);
 
-    res.json({ success: true, messages });
+    const hasMore = messages.length > limit;
+    messages = messages.slice(0, limit).reverse();
+    const nextCursor = hasMore ? messages[0]?.createdAt : null;
+
+    res.json({
+      success: true,
+      messages,
+      pagination: {
+        limit,
+        hasMore,
+        nextCursor,
+      },
+    });
     
   } catch (error) {
     console.error('❌ Erreur getMessages:', error);

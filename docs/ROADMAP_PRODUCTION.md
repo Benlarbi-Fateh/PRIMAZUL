@@ -24,6 +24,7 @@ Corrections deja realisees:
 - `[FAIT]` Gestion silencieuse du cas Agora `410` pour les appels deja termines.
 - `[PARTIEL]` Layout commun protege introduit avec `ProtectedMainLayout` et applique aux pages principales.
 - `[PARTIEL]` Cache memoire frontend ajoute pour les conversations de la sidebar.
+- `[PARTIEL]` Pagination initiale des messages ajoutee avec chargement limite aux derniers messages.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -53,7 +54,7 @@ Corrections deja realisees:
 ### Base De Donnees MongoDB
 
 - `[PARTIEL]` Verifier les indexes avec `explain()`.
-- Paginer les messages correctement.
+- `[PARTIEL]` Paginer les messages correctement.
 - Eviter les requetes N+1 dans conversations/messages.
 - Nettoyer les anciennes donnees temporaires: appels expires, statuts expires, fichiers orphelins.
 - Ajouter une strategie d'archivage ou TTL quand c'est pertinent.
@@ -372,12 +373,19 @@ Avancement:
 
 Obligatoire pour plusieurs milliers d'utilisateurs:
 
-- messages
+- `[PARTIEL]` messages
 - conversations
 - contacts
 - notifications
 - statuts
 - taches
+
+Avancement:
+
+- `[FAIT]` `GET /messages/:conversationId` accepte `limit`.
+- `[FAIT]` Le chargement initial du chat demande les 50 derniers messages.
+- `[A FAIRE]` Ajouter le chargement des messages plus anciens avec `before`.
+- `[A FAIRE]` Ajouter une UI "charger plus" ou chargement automatique au scroll haut.
 
 ### Socket.IO Scalable
 
@@ -437,7 +445,7 @@ Ajouter:
 
 1. `[PARTIEL]` Layout commun protege.
 2. `[PARTIEL]` Cache frontend conversations/messages.
-3. `[A FAIRE]` Pagination messages.
+3. `[PARTIEL]` Pagination messages.
 4. `[A FAIRE]` Refactor progressif de `Sidebar.jsx`.
 5. `[PARTIEL]` Correction hydration/theme restante.
 6. `[A FAIRE]` Rate limiting auth/OTP/uploads.
