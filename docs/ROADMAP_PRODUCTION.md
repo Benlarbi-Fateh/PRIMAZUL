@@ -39,6 +39,7 @@ Corrections deja realisees:
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du hook `useConversationDisplay`.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction du composant `SidebarHeader`.
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction de `useSidebarPrefetch` et `useUnreadMessagesCount`.
+- `[FAIT]` Rate limiting ajoute sur l'envoi de messages et la recherche messages.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -447,8 +448,9 @@ Avancement:
 - `[FAIT]` Ajout d'un middleware `rateLimiter.js` en memoire.
 - `[FAIT]` Application sur register/login, verification OTP, resend code et reset password.
 - `[FAIT]` Application sur changement mot de passe/email avec OTP.
+- `[FAIT]` Application sur envoi de messages et recherche messages.
 - `[A FAIRE]` Remplacer ou completer par Redis pour multi-instance en production.
-- `[A FAIRE]` Ajouter rate limiting pour messages, upload, invitations, appels et recherche.
+- `[PARTIEL]` Ajouter rate limiting pour upload, invitations, appels et autres recherches.
 
 ### Tests
 

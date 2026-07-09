@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const checkBlockStatus = require('../middleware/blockCheck');
+const rateLimit = require('../middleware/rateLimiter');
 
 const { 
   getMessages, 
@@ -26,8 +27,22 @@ const {
   getMessageReadBy
 } = require('../controllers/messageController');
 
+const messageSendRateLimit = rateLimit({
+  scope: 'message-send',
+  windowMs: 60 * 1000,
+  max: 60,
+  message: 'Trop de messages envoyes. Reessayez dans un instant.',
+});
+
+const messageSearchRateLimit = rateLimit({
+  scope: 'message-search',
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Trop de recherches. Reessayez dans un instant.',
+});
+
 // Recherche de messages
-router.get('/search/:conversationId', authMiddleware, searchMessages);
+router.get('/search/:conversationId', authMiddleware, messageSearchRateLimit, searchMessages);
 router.get('/read-by/:messageId', authMiddleware, getMessageReadBy);
 
 // Routes pour les statuts
@@ -55,7 +70,7 @@ router.put('/scheduled/:messageId', authMiddleware, updateScheduledMessage);
 router.get('/context/:messageId', authMiddleware, getMessageContext);
 
 // Recherche globale dans toutes les conversations
-router.get('/search-all/global', authMiddleware, searchAllMessages);
+router.get('/search-all/global', authMiddleware, messageSearchRateLimit, searchAllMessages);
 
 // Route typing
 router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
@@ -76,6 +91,6 @@ router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
 
 // Routes de base
 router.get('/:conversationId', authMiddleware, getMessages);
-router.post('/', authMiddleware, checkBlockStatus, sendMessage);
+router.post('/', authMiddleware, messageSendRateLimit, checkBlockStatus, sendMessage);
 
 module.exports = router;
