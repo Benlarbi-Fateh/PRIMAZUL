@@ -999,17 +999,50 @@ const checkScheduledMessages = async (io) => {
   try {
     const now = new Date();
 
+    // Phase 1 (perf): ne pas populate ici. On claim sur des IDs, et on populate seulement après.
     const messagesToSend = await Message.find({
       isScheduled: true,
       isSent: false,
       scheduledFor: { $lte: now }
-    }).populate('conversationId');
+    }).select('_id conversationId sender content type fileUrl fileName fileSize scheduledFor').lean();
+
 
     if (!messagesToSend.length) return;
 
     console.log(`⏰ ${messagesToSend.length} messages programmés à envoyer`);
 
-    for (const sched of messagesToSend) {
+    // Anti-double-send: claim atomique
+    // (si plusieurs instances backend tournent, une seule claim gagne)
+    const claimId = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const schedIds = messagesToSend.map(m => m._id);
+
+
+    await Message.updateMany(
+      {
+        _id: { $in: schedIds },
+        isScheduled: true,
+        isSent: false,
+        scheduledFor: { $lte: now },
+        scheduledClaimId: null
+      },
+
+      {
+        $set: {
+          scheduledClaimId: claimId,
+          scheduledClaimAt: new Date()
+        }
+      }
+    );
+
+    const claimed = await Message.find({
+      _id: { $in: schedIds },
+      scheduledClaimId: claimId
+    }).populate('conversationId').lean();
+
+    if (!claimed.length) return;
+
+    for (const sched of claimed) {
       const sendDate = new Date();
 
       // 1) créer un vrai message "normal"
@@ -1032,7 +1065,7 @@ const checkScheduledMessages = async (io) => {
         isSent: true
       });
 
-      // 2) supprimer l'ancien message programmé (ou le marquer envoyé)
+      // 2) supprimer l'ancien message programmé
       await Message.findByIdAndDelete(sched._id);
 
       // 3) update conversation
@@ -1049,7 +1082,7 @@ const checkScheduledMessages = async (io) => {
       if (io) {
         io.to(sched.conversationId._id.toString()).emit('receive-message', populatedReal);
 
-        // sidebar refresh
+        // sidebar refresh (inchangé)
         sched.conversationId.participants.forEach((p) => {
           io.to(p.toString()).emit('should-refresh-conversations');
         });

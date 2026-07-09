@@ -88,6 +88,9 @@ const messageSchema = new mongoose.Schema({
     default: null
   },
   isSent: { type: Boolean, default: true },
+  // Anti-double-send pour le scheduler (lock/claim)
+  scheduledClaimId: { type: String, default: null },
+  scheduledClaimAt: { type: Date, default: null },
   
   // Réponse à un message
   replyTo: {
@@ -149,5 +152,8 @@ messageSchema.index({ 'reactions.userId': 1 });
 messageSchema.index({ conversationId: 1, createdAt: -1 });
 messageSchema.index({ deletedFor: 1 });
 messageSchema.index({ 'storyReply.statusId': 1 }); // utile pour updateMany
+
+// Index anti-double-send scheduler
+messageSchema.index({ isScheduled: 1, isSent: 1, scheduledFor: 1, scheduledClaimId: 1 });
 
 module.exports = mongoose.model('Message', messageSchema);

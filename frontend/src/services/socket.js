@@ -1057,15 +1057,15 @@ export const onShouldRefreshConversations = (callback) => {
 // TYPING
 // ============================================
 
-export const emitTyping = (conversationId, recipientId) => {
+export const emitTyping = (conversationId, userId) => {
   if (socket?.connected) {
-    socket.emit("typing", { conversationId, recipientId });
+    socket.emit("typing", { conversationId, userId });
   }
 };
 
-export const emitStopTyping = (conversationId, recipientId) => {
+export const emitStopTyping = (conversationId, userId) => {
   if (socket?.connected) {
-    socket.emit("stop-typing", { conversationId, recipientId });
+    socket.emit("stop-typing", { conversationId, userId });
   }
 };
 

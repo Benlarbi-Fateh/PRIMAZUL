@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const checkBlockStatus = require('../middleware/blockCheck');
-const messageController = require('../controllers/messageController');
 
 const { 
   getMessages, 
@@ -27,12 +26,9 @@ const {
   getMessageReadBy
 } = require('../controllers/messageController');
 
-// 🔍 Recherche de messages
-router.get('/search/:conversationId', authMiddleware, messageController.searchMessages);
+// Recherche de messages
+router.get('/search/:conversationId', authMiddleware, searchMessages);
 router.get('/read-by/:messageId', authMiddleware, getMessageReadBy);
-// Routes de base
-router.get('/:conversationId', authMiddleware, getMessages);
-router.post('/', authMiddleware, checkBlockStatus, sendMessage);
 
 // Routes pour les statuts
 router.post('/mark-delivered', authMiddleware, markAsDelivered);
@@ -55,10 +51,6 @@ router.get('/scheduled/list', authMiddleware, getScheduledMessages);
 router.delete('/scheduled/:messageId', authMiddleware, cancelScheduledMessage);
 router.put('/scheduled/:messageId', authMiddleware, updateScheduledMessage);
 
-// 🆕 ROUTES DE RECHERCHE
-// Rechercher dans une conversation spécifique
-router.get('/search/:conversationId', authMiddleware, searchMessages);
-
 // Obtenir le contexte d'un message (messages avant/après)
 router.get('/context/:messageId', authMiddleware, getMessageContext);
 
@@ -68,17 +60,22 @@ router.get('/search-all/global', authMiddleware, searchAllMessages);
 // Route typing
 router.post('/typing', authMiddleware, checkBlockStatus, (req, res) => {
   const { conversationId, isTyping } = req.body;
+  const typing = typeof isTyping === 'boolean' ? isTyping : true;
   
   const io = req.app.get('io');
   if (io) {
     io.to(conversationId).emit('user-typing', {
       userId: req.user.id || req.user._id,
-      isTyping: isTyping || true,
+      isTyping: typing,
       conversationId
     });
   }
   
-  return res.json({ success: true, typing: isTyping || true });
+  return res.json({ success: true, typing });
 });
+
+// Routes de base
+router.get('/:conversationId', authMiddleware, getMessages);
+router.post('/', authMiddleware, checkBlockStatus, sendMessage);
 
 module.exports = router;
