@@ -25,6 +25,8 @@ Corrections deja realisees:
 - `[PARTIEL]` Layout commun protege introduit avec `ProtectedMainLayout` et applique aux pages principales.
 - `[PARTIEL]` Cache memoire frontend ajoute pour les conversations de la sidebar.
 - `[PARTIEL]` Pagination initiale des messages ajoutee avec chargement limite aux derniers messages.
+- `[PARTIEL]` Rate limiting en memoire ajoute sur auth, OTP et reset password.
+- `[PARTIEL]` Refactor de `Sidebar.jsx` commence avec extraction du hook `useSidebarConversations`.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -33,7 +35,7 @@ Corrections deja realisees:
 - `[PARTIEL]` Creer un layout commun protege pour toutes les pages connectees.
 - `[PARTIEL]` Eviter que `MainSidebar`, `Sidebar` et `ProtectedRoute` soient recrees page par page.
 - `[PARTIEL]` Ajouter un cache frontend avec React Query ou SWR.
-- `[A FAIRE]` Decouper les gros composants comme `Sidebar.jsx`, `Callcontext.jsx`, `SettingsPage` et les pages tres longues.
+- `[PARTIEL]` Decouper les gros composants comme `Sidebar.jsx`, `Callcontext.jsx`, `SettingsPage` et les pages tres longues.
 - `[A FAIRE]` Reduire les composants `"use client"` quand ce n'est pas necessaire.
 - `[PARTIEL]` Corriger tous les warnings hydration.
 - `[PARTIEL]` Ameliorer la navigation mobile et desktop.
@@ -45,7 +47,7 @@ Corrections deja realisees:
 - Separarer clairement routes, controllers, services, validators et acces database.
 - Ajouter une validation stricte avec Zod, Joi ou express-validator.
 - Ajouter de la pagination partout: messages, conversations, contacts, statuts, taches, notifications.
-- Ajouter du rate limiting sur login, register, OTP, messages, uploads, invitations et appels.
+- `[PARTIEL]` Ajouter du rate limiting sur login, register, OTP, messages, uploads, invitations et appels.
 - Ajouter compression HTTP.
 - Ajouter un cache serveur pour certaines donnees frequentes.
 - Ameliorer les erreurs API: codes propres, messages propres, logs internes separes.
@@ -99,7 +101,7 @@ Corrections deja realisees:
 - Valider type, taille et extension des fichiers.
 - `[FAIT]` Ajouter CORS strict.
 - Ajouter Helmet.
-- Ajouter rate limiting global et par action sensible.
+- `[PARTIEL]` Ajouter rate limiting global et par action sensible.
 - Ajouter logs de securite.
 - Verifier toutes les routes privees et permissions.
 
@@ -268,6 +270,8 @@ Corrections deja realisees:
 
 ### Sidebar
 
+Statut: `[PARTIEL]`
+
 Le composant `Sidebar.jsx` fait trop de choses:
 
 - conversations
@@ -281,7 +285,7 @@ Le composant `Sidebar.jsx` fait trop de choses:
 
 A faire:
 
-- Extraire `useConversations`.
+- `[FAIT]` Extraire `useSidebarConversations` pour conversations/cache/chargement.
 - Extraire `useInvitations`.
 - Extraire `useOnlineUsers`.
 - Extraire `ConversationList`.
@@ -410,13 +414,21 @@ Ajouter validation stricte sur:
 
 Obligatoire sur:
 
-- auth
-- OTP
+- `[FAIT]` auth
+- `[FAIT]` OTP
 - messages
 - upload
 - invitations
 - appels
 - recherche
+
+Avancement:
+
+- `[FAIT]` Ajout d'un middleware `rateLimiter.js` en memoire.
+- `[FAIT]` Application sur register/login, verification OTP, resend code et reset password.
+- `[FAIT]` Application sur changement mot de passe/email avec OTP.
+- `[A FAIRE]` Remplacer ou completer par Redis pour multi-instance en production.
+- `[A FAIRE]` Ajouter rate limiting pour messages, upload, invitations, appels et recherche.
 
 ### Tests
 
@@ -447,9 +459,9 @@ Ajouter:
 1. `[PARTIEL]` Layout commun protege.
 2. `[PARTIEL]` Cache frontend conversations/messages.
 3. `[PARTIEL]` Pagination messages.
-4. `[A FAIRE]` Refactor progressif de `Sidebar.jsx`.
+4. `[PARTIEL]` Refactor progressif de `Sidebar.jsx`.
 5. `[PARTIEL]` Correction hydration/theme restante.
-6. `[A FAIRE]` Rate limiting auth/OTP/uploads.
+6. `[PARTIEL]` Rate limiting auth/OTP/uploads.
 
 ### Moyen Terme
 

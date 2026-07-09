@@ -15,7 +15,6 @@ import { useTheme } from "@/hooks/useTheme";
 import api from "@/lib/api";
 import {
   addContact,
-  getConversations,
   searchUsers,
   sendInvitation,
   getReceivedInvitations,
@@ -26,10 +25,7 @@ import {
   deleteConversationForUser,
   archiveConversation,
 } from "@/lib/api";
-import {
-  getCachedConversations,
-  setCachedConversations,
-} from "@/lib/conversationCache";
+import { useSidebarConversations } from "@/hooks/useSidebarConversations";
 import {
   getSocket,
   onShouldRefreshConversations,
@@ -79,15 +75,11 @@ export default function Sidebar({ activeConversationId }) {
   const router = useRouter();
   const currentUserId = user?._id || user?.id;
 
-  const [conversations, setConversations] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [conversationsLoading, setConversationsLoading] = useState(true);
 
   // 🔥 Optimisation : État de chargement spécifique pour les invitations
   const [invitationsLoading, setInvitationsLoading] = useState(false);
 
-  const isFirstLoadRef = useRef(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("chats");
   const [menuOpen, setMenuOpen] = useState(null);
@@ -104,6 +96,13 @@ export default function Sidebar({ activeConversationId }) {
   const [conversationFilter, setConversationFilter] = useState("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const isAllMode = conversationFilter === "all" && unreadOnly === false;
+  const {
+    conversations,
+    conversationsLoading,
+    initialLoading,
+    fetchConversations,
+    updateConversations,
+  } = useSidebarConversations(currentUserId);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
@@ -198,55 +197,6 @@ export default function Sidebar({ activeConversationId }) {
       setInvitationsLoading(false);
     }
   }, [activeTab, receivedInvitations.length]);
-
-  const applyConversations = useCallback(
-    (nextConversations) => {
-      setConversations(nextConversations);
-      setCachedConversations(currentUserId, nextConversations);
-    },
-    [currentUserId],
-  );
-
-  const updateConversations = useCallback(
-    (updater) => {
-      setConversations((prev) => {
-        const next =
-          typeof updater === "function" ? updater(prev) : updater;
-        setCachedConversations(currentUserId, next);
-        return next;
-      });
-    },
-    [currentUserId],
-  );
-
-  const fetchConversations = useCallback(async ({ force = true } = {}) => {
-    try {
-      const cached = getCachedConversations(currentUserId);
-      if (cached?.conversations?.length) {
-        applyConversations(cached.conversations);
-        setConversationsLoading(false);
-        setLoading(false);
-
-        if (!force && cached.isFresh) {
-          isFirstLoadRef.current = false;
-          return;
-        }
-      }
-
-      if (isFirstLoadRef.current) {
-        setConversationsLoading(true);
-      }
-
-      const response = await getConversations();
-      applyConversations(response.data.conversations || []);
-    } catch (error) {
-      console.error("Erreur lors du chargement des conversations:", error);
-    } finally {
-      isFirstLoadRef.current = false;
-      setConversationsLoading(false);
-      setLoading(false);
-    }
-  }, [applyConversations, currentUserId]);
 
   const loadAllStatuses = useCallback(async () => {
     try {
@@ -555,7 +505,7 @@ export default function Sidebar({ activeConversationId }) {
 
   const handleSendInvitation = async (userId) => {
     try {
-      setLoading(true);
+      setInvitationsLoading(true);
       const response = await sendInvitation({ receiverId: userId });
       setSentInvitations((prev) => [response.data.invitation, ...prev]);
       emitInvitationSent({
@@ -566,11 +516,11 @@ export default function Sidebar({ activeConversationId }) {
       setInvitationTab("sent");
       setSearchTerm("");
       setSearchResults([]);
-      setLoading(false);
+      setInvitationsLoading(false);
       alert("✅ Invitation envoyée avec succès !");
     } catch (error) {
       console.error("Erreur envoi invitation:", error);
-      setLoading(false);
+      setInvitationsLoading(false);
       alert(
         error.response?.data?.error || "Erreur lors de l'envoi de l'invitation",
       );
@@ -579,7 +529,7 @@ export default function Sidebar({ activeConversationId }) {
 
   const handleAcceptInvitation = async (invitationId) => {
     try {
-      setLoading(true);
+      setInvitationsLoading(true);
       const response = await acceptInvitation(invitationId);
       const { invitation, conversation } = response.data || {};
 
@@ -631,7 +581,7 @@ export default function Sidebar({ activeConversationId }) {
         );
       }
     } finally {
-      setLoading(false);
+      setInvitationsLoading(false);
     }
   };
 
@@ -992,7 +942,7 @@ export default function Sidebar({ activeConversationId }) {
       </div>
 
       <div className="flex-1 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-scrollbar]:hidden">
-        {(activeTab === "chats" ? conversationsLoading : loading) &&
+        {(activeTab === "chats" ? conversationsLoading : initialLoading) &&
         activeTab !== "invitations" ? (
           <div className="flex flex-col items-center justify-center py-20 animate-fade-in">
             <div className="relative">
