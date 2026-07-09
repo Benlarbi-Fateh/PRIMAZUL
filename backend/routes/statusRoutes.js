@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const statusController = require("../controllers/statusController");
 const auth = require("../middleware/authMiddleware");
+const { uploadRateLimit } = require("../middleware/actionRateLimits");
 const multer = require("multer");
 
 // ✅ CHANGEMENT : Utilisation de memoryStorage pour Cloudinary
@@ -23,7 +24,7 @@ const upload = multer({
 
 // Routes
 router.get("/", auth, statusController.getAllStatuses);
-router.post("/", auth, upload.single("media"), statusController.createStatus);
+router.post("/", auth, uploadRateLimit, upload.single("media"), statusController.createStatus);
 router.post("/:id/view", auth, statusController.markAsViewed);
 router.post("/:id/react", auth, statusController.reactToStatus);
 router.post("/:id/reply", auth, statusController.replyToStatus);

@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const authMiddleware = require('../middleware/authMiddleware');
+const { uploadRateLimit } = require('../middleware/actionRateLimits');
 const fs = require('fs');
 const path = require('path');
 
@@ -30,7 +31,7 @@ const upload = multer({
 });
 
 // Route POST pour upload
-router.post('/', authMiddleware, upload.single('file'), async (req, res) => {
+router.post('/', authMiddleware, uploadRateLimit, upload.single('file'), async (req, res) => {
   const startTime = Date.now();
   
   try {

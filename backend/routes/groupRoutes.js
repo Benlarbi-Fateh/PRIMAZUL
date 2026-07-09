@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/upload');
 const authMiddleware = require('../middleware/authMiddleware');
+const { uploadRateLimit } = require('../middleware/actionRateLimits');
 const {
   createGroup,
   getGroup,
@@ -24,7 +25,7 @@ router.post('/remove-participant', authMiddleware, removeParticipant);
 router.post('/promote-admin', authMiddleware, promoteToAdmin);
 router.post('/remove-admin', authMiddleware, removeAdmin);
 router.put('/update-name', authMiddleware, updateGroupName);
-router.put('/:groupId/update-image', authMiddleware, upload.single('groupImage'), updateGroupImage);
+router.put('/:groupId/update-image', authMiddleware, uploadRateLimit, upload.single('groupImage'), updateGroupImage);
 
 
 module.exports = router;

@@ -25,6 +25,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const registrationMiddleware = require("../middleware/registrationMiddleware");
 const upload = require("../middleware/upload");
 const rateLimit = require("../middleware/rateLimiter");
+const { uploadRateLimit } = require("../middleware/actionRateLimits");
 
 const router = express.Router();
 
@@ -61,6 +62,7 @@ router.post("/resend-code", otpRateLimit, resendCode);
 router.post(
   "/upload-profile-picture",
   registrationMiddleware,
+  uploadRateLimit,
   upload.single("profilePicture"),
   uploadProfilePicture,
 );

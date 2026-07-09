@@ -3,6 +3,7 @@ const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload");
+const { uploadRateLimit } = require("../middleware/actionRateLimits");
 const userController = require("../Controllers/userController");
 
 const User = require("../models/User");
@@ -24,6 +25,7 @@ router.get("/profile", authMiddleware, userController.getUserProfile);
 router.post(
   "/uploadProfilePicture",
   authMiddleware,
+  uploadRateLimit,
   upload.single("file"),
   (req, res) => {
     if (!req.file) {

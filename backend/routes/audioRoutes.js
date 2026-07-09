@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const authMiddleware = require('../middleware/authMiddleware');
+const { uploadRateLimit } = require('../middleware/actionRateLimits');
 const { sendVoiceMessage } = require('../controllers/audioController');
 
 const router = express.Router();
@@ -31,6 +32,6 @@ const upload = multer({
 });
 
 // 🎤 Route pour envoyer un message vocal
-router.post('/', authMiddleware, upload.single('audio'), sendVoiceMessage);
+router.post('/', authMiddleware, uploadRateLimit, upload.single('audio'), sendVoiceMessage);
 
 module.exports = router;

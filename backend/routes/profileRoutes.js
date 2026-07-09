@@ -12,6 +12,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 const { uploadProfilePicture } = require('../controllers/uploadController');
 const rateLimit = require('../middleware/rateLimiter');
+const { uploadRateLimit } = require('../middleware/actionRateLimits');
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ router.get('/:userId', getUserProfile);
 router.put('/update', updateProfile);
 
 // 🖼️ Photo de profil
-router.put('/picture', upload.single('profilePicture'), uploadProfilePicture);
+router.put('/picture', uploadRateLimit, upload.single('profilePicture'), uploadProfilePicture);
 
 // 🔐 Confidentialité
 router.put('/privacy', updatePrivacySettings);

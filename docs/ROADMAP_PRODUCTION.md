@@ -41,6 +41,7 @@ Corrections deja realisees:
 - `[PARTIEL]` Refactor de `Sidebar.jsx` continue avec extraction de `useSidebarPrefetch` et `useUnreadMessagesCount`.
 - `[FAIT]` Rate limiting ajoute sur l'envoi de messages et la recherche messages.
 - `[FAIT]` Rate limiting ajoute sur invitations et recherche utilisateurs.
+- `[FAIT]` Rate limiting ajoute sur uploads et appels Agora.
 
 ## 1. Gros Chantiers Pour Une App Production
 
@@ -451,8 +452,9 @@ Avancement:
 - `[FAIT]` Application sur changement mot de passe/email avec OTP.
 - `[FAIT]` Application sur envoi de messages et recherche messages.
 - `[FAIT]` Application sur invitations et recherche utilisateurs.
+- `[FAIT]` Application sur uploads et appels Agora.
 - `[A FAIRE]` Remplacer ou completer par Redis pour multi-instance en production.
-- `[PARTIEL]` Ajouter rate limiting pour upload, appels et autres actions sensibles.
+- `[PARTIEL]` Ajouter rate limiting pour autres actions sensibles.
 
 ### Tests
 

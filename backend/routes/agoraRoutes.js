@@ -3,6 +3,12 @@ const express = require("express");
 const router = express.Router();
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
 const auth = require("../middleware/authMiddleware");
+const {
+  agoraTokenRateLimit,
+  agoraCallInitiateRateLimit,
+  agoraCallActionRateLimit,
+  agoraCallPingRateLimit,
+} = require("../middleware/actionRateLimits");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const { v4: uuidv4 } = require("uuid");
@@ -231,7 +237,7 @@ const endCallInternal = async (callId, reason, io) => {
 // ============================================
 // GÉNÉRER UN TOKEN AGORA
 // ============================================
-router.post("/token", auth, async (req, res) => {
+router.post("/token", auth, agoraTokenRateLimit, async (req, res) => {
   try {
     const { callId, uid } = req.body;
     const userId = getUserId(req);
@@ -367,7 +373,7 @@ router.get("/calls/active/:conversationId", auth, async (req, res) => {
 // ============================================
 // INITIER UN APPEL
 // ============================================
-router.post("/calls/initiate", auth, async (req, res) => {
+router.post("/calls/initiate", auth, agoraCallInitiateRateLimit, async (req, res) => {
   try {
     const { conversationId, callType, isGroup, participants } = req.body;
     const initiatorId = req.user._id || req.user.id || req.user.userId;
@@ -533,7 +539,7 @@ router.post("/calls/initiate", auth, async (req, res) => {
 // ============================================
 // REJOINDRE UN APPEL EXISTANT (NOUVELLE ROUTE)
 // ============================================
-router.post("/calls/:callId/join", auth, async (req, res) => {
+router.post("/calls/:callId/join", auth, agoraCallActionRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -664,7 +670,7 @@ router.post("/calls/:callId/join", auth, async (req, res) => {
 // ============================================
 // RÉPONDRE À UN APPEL
 // ============================================
-router.post("/calls/:callId/answer", auth, async (req, res) => {
+router.post("/calls/:callId/answer", auth, agoraCallActionRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -747,7 +753,7 @@ router.post("/calls/:callId/answer", auth, async (req, res) => {
 // ============================================
 // REFUSER UN APPEL
 // ============================================
-router.post("/calls/:callId/decline", auth, async (req, res) => {
+router.post("/calls/:callId/decline", auth, agoraCallActionRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -801,7 +807,7 @@ router.post("/calls/:callId/decline", auth, async (req, res) => {
 // ============================================
 // TERMINER UN APPEL
 // ============================================
-router.post("/calls/:callId/end", auth, async (req, res) => {
+router.post("/calls/:callId/end", auth, agoraCallActionRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const { reason } = req.body;
@@ -856,7 +862,7 @@ router.post("/calls/:callId/end", auth, async (req, res) => {
 // ============================================
 // QUITTER UN APPEL (pour les appels de groupe)
 // ============================================
-router.post("/calls/:callId/leave", auth, async (req, res) => {
+router.post("/calls/:callId/leave", auth, agoraCallActionRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
@@ -916,7 +922,7 @@ router.post("/calls/:callId/leave", auth, async (req, res) => {
 // ============================================
 // PING POUR MAINTENIR L'APPEL ACTIF
 // ============================================
-router.post("/calls/:callId/ping", auth, async (req, res) => {
+router.post("/calls/:callId/ping", auth, agoraCallPingRateLimit, async (req, res) => {
   try {
     const { callId } = req.params;
     const userId = req.user._id || req.user.id || req.user.userId;
